@@ -86,6 +86,11 @@ class Task {
     // Calculer l'intersection avec chaque ressource suivante
     for (let i = 1; i < this.resources.length; i++) {
       result = result.intersect(this.resources[i].availability);
+      
+      // Si l'intersection est vide, inutile de continuer
+      if (result.isEmpty()) {
+        break;
+      }
     }
 
     return result;
