@@ -8,6 +8,8 @@ import type { AvailableSlot } from './bookable';
 class Resource {
   public readonly id: string;
   private availabilityManager: AvailabilityManager;
+  // Durée totale et prévisionnelle d'utilisation (en minutes)
+  private _workload: number = 0;
 
   constructor(id: string) {
     this.id = id;
@@ -19,6 +21,39 @@ class Resource {
    */
   get availability(): AvailabilityManager {
     return this.availabilityManager;
+  }
+
+  /**
+   * Durée totale et prévisionnelle d'utilisation (en minutes)
+   */
+  get workload(): number {
+    return this._workload;
+  }
+
+  /**
+   * Met à jour la durée totale et prévisionnelle d'utilisation
+   */
+  set workload(value: number) {
+    this._workload = Math.max(0, value);
+  }
+
+  /**
+   * Ajoute une durée à la charge de travail de la ressource
+   */
+  addWorkload(duration: number): void {
+    this._workload += Math.max(0, duration);
+  }
+
+  /**
+   * Calcule la pression de la ressource (ratio workload / disponibilités totales)
+   * Retourne 0 si aucune disponibilité, sinon le ratio entre 0 et +∞
+   */
+  pressure(): number {
+    const totalAvailableTime = this.getTotalAvailableTime();
+    if (totalAvailableTime === 0) {
+      return 0;
+    }
+    return this._workload / totalAvailableTime;
   }
 
   /**
