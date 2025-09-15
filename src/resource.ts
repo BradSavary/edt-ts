@@ -2,17 +2,30 @@ import { AvailabilityManager } from './bookable';
 import type { AvailableSlot } from './bookable';
 
 /**
+ * Types de ressources disponibles
+ */
+const ResourceType = {
+  TEACHER: 'teacher',
+  ROOM: 'room',
+  GROUP: 'group'
+} as const;
+
+type ResourceType = typeof ResourceType[keyof typeof ResourceType];
+
+/**
  * Classe représentant une ressource abstraite avec des plages de disponibilité
  * Une ressource peut être une salle, un équipement, une personne, etc.
  */
 class Resource {
   public readonly id: string;
+  public readonly type: ResourceType;
   private availabilityManager: AvailabilityManager;
   // Durée totale et prévisionnelle d'utilisation (en minutes)
   private _workload: number = 0;
 
-  constructor(id: string) {
+  constructor(id: string, type: ResourceType) {
     this.id = id;
+    this.type = type;
     this.availabilityManager = new AvailabilityManager();
   }
 
@@ -21,6 +34,13 @@ class Resource {
    */
   get availability(): AvailabilityManager {
     return this.availabilityManager;
+  }
+
+  /**
+   * Retourne le type de cette ressource
+   */
+  get resourceType(): ResourceType {
+    return this.type;
   }
 
   /**
@@ -125,7 +145,7 @@ class Resource {
    * Retourne une nouvelle ressource contenant les créneaux communs
    */
   intersectWith(other: Resource): Resource {
-    const result = new Resource(`${this.id}_intersect_${other.id}`);
+    const result = new Resource(`${this.id}_intersect_${other.id}`, this.type);
     result.availabilityManager = this.availabilityManager.intersect(other.availabilityManager);
     return result;
   }
@@ -152,4 +172,5 @@ class Resource {
   }
 }
 
-export { Resource };
+export { Resource, ResourceType };
+export type { ResourceType as ResourceTypeType };
