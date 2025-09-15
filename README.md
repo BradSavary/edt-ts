@@ -1,22 +1,49 @@
-# EDT-TS - Système de planification de tâches
+# EDT-TS - Système de Gestion d'Emploi du Temps
 
-Un système de gestion de planification de tâches avec contraintes de ressources et dépendances, écrit en TypeScript.
+Un système de planification et de gestion des ressources pour emplois du temps, développé en TypeScript pour Node.js.
 
-## 🚀 Fonctionnalités
+## � Fonctionnalités
 
-### Gestion des disponibilités
-- **AvailabilityManager** : Gestion optimisée des plages de disponibilité avec recherche binaire
-- **TimeInterval** : Représentation d'intervalles de temps avec opérations de fusion et intersection
+### 🎯 Gestion des Ressources
+- **Types de ressources** : Enseignants, Salles, Groupes
+- **Gestion des disponibilités** : Créneaux optimisés avec intervalles triés
+- **Tracking de charge** : Workload et pressure pour analyser l'utilisation
+- **Indexation optimisée** : Accès O(1) par identifiant
 
-### Gestion des ressources
-- **Resource** : Ressources abstraites (salles, équipements, personnes) avec disponibilités
-- Intersection automatique des disponibilités de plusieurs ressources
+### ⏰ Planification de Tâches
+- **Réservation de ressources** : Gestion automatique des conflits
+- **Dépendances entre tâches** : Chaînage et validation des cycles
+- **Recherche de créneaux** : Algorithmes optimisés pour trouver les disponibilités
+- **Gestion d'état** : Statuts pending/scheduled/completed/cancelled
 
-### Planification de tâches
-- **Task** : Tâches avec durée, ressources requises et dépendances
-- Planification automatique avec contraintes de ressources
-- Gestion des dépendances entre tâches (ordre d'exécution)
-- Détection des dépendances circulaires
+### 📊 Données
+- **Chargement automatique** : Depuis fichiers JSON (teachers, rooms, groups)
+- **Gestion centralisée** : ResourcesManager pour l'ensemble des ressources
+
+## 🚀 Installation et Usage
+
+### Prérequis
+- Node.js 18+
+- npm
+
+### Installation
+```bash
+git clone https://github.com/edt-ts-maintainer/edt-ts.git
+cd edt-ts
+npm install
+```
+
+### Exécution
+```bash
+# Exécuter l'exemple de démonstration
+npm start
+
+# Ou utiliser directement
+npm run example
+
+# Vérification TypeScript
+npm run build
+```
 
 ## 📋 Exemple d'utilisation
 

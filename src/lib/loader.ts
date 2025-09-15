@@ -1,22 +1,20 @@
+import { ResourcesManager } from '../resourcesManager';
+import { Resource, ResourceType } from '../resource';
+import * as fs from 'fs';
+
 /**
- * Classe utilitaire pour charger des fichiers JSON
+ * Classe utilitaire pour charger des fichiers JSON dans un environnement Node.js
  */
 export class Loader {
   /**
-   * Lit un fichier JSON et retourne son contenu en tant qu'objet JavaScript
+   * Lit un fichier JSON de manière synchrone
    * @param filePath - Le chemin vers le fichier JSON
-   * @returns Une promesse qui résout avec le contenu du fichier JSON
+   * @returns Le contenu du fichier JSON
    */
-  static async loadJson<T = any>(filePath: string): Promise<T> {
+  static loadJson<T = any>(filePath: string): T {
     try {
-      const response = await fetch(filePath);
-      
-      if (!response.ok) {
-        throw new Error(`Erreur lors du chargement du fichier ${filePath}: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      return data;
+      const fileContent = fs.readFileSync(filePath, 'utf8');
+      return JSON.parse(fileContent);
     } catch (error) {
       if (error instanceof Error) {
         throw new Error(`Impossible de charger le fichier JSON ${filePath}: ${error.message}`);
@@ -26,25 +24,40 @@ export class Loader {
   }
 
   /**
-   * Lit un fichier JSON de manière synchrone (pour Node.js uniquement)
-   * Note: Cette méthode ne fonctionne que dans un environnement Node.js
-   * @param filePath - Le chemin vers le fichier JSON
-   * @returns Le contenu du fichier JSON
+   * Charge toutes les ressources depuis les fichiers JSON et retourne un ResourcesManager
+   * @returns Un ResourcesManager contenant toutes les ressources
    */
-  static loadJsonSync<T = any>(filePath: string): T {
-    if (typeof require === 'undefined') {
-      throw new Error('loadJsonSync n\'est disponible que dans un environnement Node.js');
-    }
-    
+  static loadResources(): ResourcesManager {
+    const manager = new ResourcesManager();
+
     try {
-      const fs = require('fs');
-      const fileContent = fs.readFileSync(filePath, 'utf8');
-      return JSON.parse(fileContent);
+      // Charger les salles depuis rooms.json
+      const rooms: string[] = Loader.loadJson<string[]>('./src/json/rooms.json');
+      rooms.forEach(roomId => {
+        const room = new Resource(roomId, ResourceType.ROOM);
+        manager.addResource(room);
+      });
+
+      // Charger les groupes depuis groups.json
+      const groups: string[] = Loader.loadJson<string[]>('./src/json/groups.json');
+      groups.forEach(groupId => {
+        const group = new Resource(groupId, ResourceType.GROUP);
+        manager.addResource(group);
+      });
+
+      // Charger les enseignants depuis teachers.json
+      const teachers: string[] = Loader.loadJson<string[]>('./src/json/teachers.json');
+      teachers.forEach(teacherId => {
+        const teacher = new Resource(teacherId, ResourceType.TEACHER);
+        manager.addResource(teacher);
+      });
+
+      return manager;
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`Impossible de charger le fichier JSON ${filePath}: ${error.message}`);
+        throw new Error(`Erreur lors du chargement des ressources: ${error.message}`);
       }
-      throw new Error(`Erreur inconnue lors du chargement du fichier ${filePath}`);
+      throw new Error(`Erreur inconnue lors du chargement des ressources`);
     }
   }
 }

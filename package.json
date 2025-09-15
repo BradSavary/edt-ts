@@ -4,15 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "example": "tsx src/example.ts"
+    "start": "tsx src/example.ts",
+    "example": "tsx src/example.ts",
+    "build": "tsc --noEmit",
+    "test": "tsx src/example.ts"
   },
   "devDependencies": {
+    "@types/node": "^22.18.3",
     "ts-node": "^10.9.2",
     "tsx": "^4.20.5",
-    "typescript": "~5.8.3",
-    "vite": "^7.1.2"
+    "typescript": "~5.8.3"
   }
 }
