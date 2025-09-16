@@ -142,12 +142,10 @@ class Resource {
 
   /**
    * Calcule l'intersection des disponibilités avec une autre ressource
-   * Retourne une nouvelle ressource contenant les créneaux communs
+   * Retourne un AvailabilityManager contenant les créneaux communs
    */
-  intersectWith(other: Resource): Resource {
-    const result = new Resource(`${this.id}_intersect_${other.id}`, this.type);
-    result.availabilityManager = this.availabilityManager.intersect(other.availabilityManager);
-    return result;
+  intersectWith(other: Resource): AvailabilityManager {
+    return this.availabilityManager.intersect(other.availabilityManager);
   }
 
   /**
