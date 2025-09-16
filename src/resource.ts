@@ -37,6 +37,13 @@ class Resource {
   }
 
   /**
+   * Définit le gestionnaire de disponibilités de cette ressource
+   */
+  set availability(manager: AvailabilityManager) {
+    this.availabilityManager = manager;
+  }
+
+  /**
    * Retourne le type de cette ressource
    */
   get resourceType(): ResourceType {

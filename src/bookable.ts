@@ -403,6 +403,50 @@ class AvailabilityManager {
     this.intervals = [];
   }
 
+  /**
+   * Affiche les créneaux de disponibilité de manière lisible dans la console
+   * Convertit les timestamps en jours et heures pour une meilleure lisibilité
+   */
+  displaySchedule(): void {
+    if (this.intervals.length === 0) {
+      console.log('Aucun créneau de disponibilité');
+      return;
+    }
+
+    console.log('📅 Créneaux de disponibilité:');
+    
+    const dayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+    
+    for (const interval of this.intervals) {
+      const startDay = Math.floor(interval.start / (24 * 60));
+      const startHour = Math.floor((interval.start % (24 * 60)) / 60);
+      const startMinute = interval.start % 60;
+      
+      const endDay = Math.floor(interval.end / (24 * 60));
+      const endHour = Math.floor((interval.end % (24 * 60)) / 60);
+      const endMinute = interval.end % 60;
+      
+      const startTime = `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`;
+      const endTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+      
+      if (startDay === endDay) {
+        // Même jour
+        const dayName = dayNames[startDay] || `Jour ${startDay}`;
+        console.log(`   ${dayName}: ${startTime} - ${endTime}`);
+      } else {
+        // Créneau sur plusieurs jours
+        const startDayName = dayNames[startDay] || `Jour ${startDay}`;
+        const endDayName = dayNames[endDay] || `Jour ${endDay}`;
+        console.log(`   ${startDayName} ${startTime} - ${endDayName} ${endTime}`);
+      }
+    }
+    
+    const totalMinutes = this.getTotalAvailableTime();
+    const totalHours = Math.floor(totalMinutes / 60);
+    const remainingMinutes = totalMinutes % 60;
+    console.log(`   📊 Total: ${totalHours}h${remainingMinutes.toString().padStart(2, '0')} (${totalMinutes} minutes)`);
+  }
+
   toString(): string {
     return this.intervals.map(interval => interval.toString()).join(', ');
   }
