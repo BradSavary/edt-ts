@@ -38,8 +38,65 @@ interface CoursesData {
 
 /**
  * Classe utilitaire pour charger des fichiers JSON dans un environnement Node.js
+ * Centralise l'accès aux données chargées via des propriétés statiques
  */
 export class Loader {
+  // Propriétés statiques pour centraliser les données
+  private static _resourcesManager: ResourcesManager | null = null;
+  private static _tasks: Task[] | null = null;
+  private static _currentWeek: number | null = null;
+
+  /**
+   * Getter pour le ResourcesManager
+   * Charge automatiquement les ressources si nécessaire
+   */
+  static get resourcesManager(): ResourcesManager {
+    if (this._resourcesManager === null) {
+      this._resourcesManager = this.loadResources();
+    }
+    return this._resourcesManager;
+  }
+
+  /**
+   * Getter pour les tâches
+   * Charge automatiquement les tâches si nécessaire
+   */
+  static get tasks(): Task[] {
+    if (this._tasks === null) {
+      this._tasks = this.loadTasks();
+    }
+    return this._tasks;
+  }
+
+  /**
+   * Getter pour la semaine courante des tâches chargées
+   */
+  static get currentWeek(): number | null {
+    // Déclenche le chargement des tâches si nécessaire pour obtenir la semaine
+    if (this._currentWeek === null && this._tasks === null) {
+      this.tasks; // Force le chargement
+    }
+    return this._currentWeek;
+  }
+
+  /**
+   * Recharge toutes les données (utile pour le développement ou les tests)
+   */
+  static reload(): void {
+    this._resourcesManager = null;
+    this._tasks = null;
+    this._currentWeek = null;
+    console.log('🔄 Rechargement de toutes les données...');
+  }
+
+  /**
+   * Charge les tâches pour une semaine spécifique et met à jour les propriétés statiques
+   */
+  static loadTasksForWeek(weekNumber: number): Task[] {
+    this._tasks = this.loadTasks(weekNumber);
+    this._currentWeek = weekNumber;
+    return this._tasks;
+  }
   /**
    * Lit un fichier JSON de manière synchrone
    * @param filePath - Le chemin vers le fichier JSON
@@ -129,8 +186,8 @@ export class Loader {
 
       console.log(`📚 Chargement des tâches pour la semaine ${targetWeek}`);
 
-      // Charger toutes les ressources
-      const resourcesManager = Loader.loadResources();
+      // Utiliser le ResourcesManager centralisé ou en créer un nouveau
+      const resourcesManager = weekNumber ? this.loadResources() : this.resourcesManager;
 
       // Appliquer les contraintes pour la semaine spécifiée
       resourcesManager.applyConstraintsForWeek(targetWeek);
@@ -172,6 +229,13 @@ export class Loader {
       }
 
       console.log(`✅ ${tasks.length} tâches chargées pour la semaine ${targetWeek}`);
+      
+      // Mettre à jour les propriétés statiques si c'est le chargement principal
+      if (!weekNumber) {
+        this._tasks = tasks;
+        this._currentWeek = targetWeek;
+      }
+      
       return tasks;
 
     } catch (error) {
