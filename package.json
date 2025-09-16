@@ -9,6 +9,7 @@
     "test-constraints": "tsx src/testConstraints.ts",
     "test-integration": "tsx src/testIntegration.ts",
     "test-display": "tsx src/testDisplay.ts",
+    "test-load-tasks": "tsx src/testLoadTasks.ts",
     "build": "tsc --noEmit",
     "test": "tsx src/example.ts"
   },

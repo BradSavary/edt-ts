@@ -113,12 +113,8 @@ class ResourcesManager {
     for (const resource of this.resources.values()) {
       const availabilityManager = ConstraintsManager.getAvailabilityManager(resource.id);
       if (availabilityManager) {
-        // Remplacer la disponibilité de la ressource par celle des contraintes
-        resource.clearAvailability();
-        const intervals = availabilityManager.getAvailableIntervals();
-        for (const interval of intervals) {
-          resource.addAvailability(interval.start, interval.end);
-        }
+        // Assigner directement l'AvailabilityManager (plus efficace que la copie)
+        resource.availability = availabilityManager;
       }
     }
   }
@@ -130,12 +126,8 @@ class ResourcesManager {
     for (const resource of this.resources.values()) {
       const availabilityManager = ConstraintsManager.getAvailabilityManager(resource.id, weekNumber);
       if (availabilityManager) {
-        // Remplacer la disponibilité de la ressource par celle de la semaine
-        resource.clearAvailability();
-        const intervals = availabilityManager.getAvailableIntervals();
-        for (const interval of intervals) {
-          resource.addAvailability(interval.start, interval.end);
-        }
+        // Assigner directement l'AvailabilityManager (plus efficace que la copie)
+        resource.availability = availabilityManager;
       }
     }
   }

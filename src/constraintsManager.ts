@@ -1,24 +1,6 @@
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 import { AvailabilityManager } from './bookable.js';
-
-// Types pour les contraintes JSON
-interface TimeSlot {
-  days: string;
-  from: string;
-  to: string;
-}
-
-interface ResourceConstraints {
-  default?: TimeSlot[] | null;
-  [weekKey: string]: TimeSlot[] | null | undefined; // S36, S38, etc.
-}
-
-interface ConstraintsData {
-  Default?: TimeSlot[];
-  [resourceId: string]: TimeSlot[] | ResourceConstraints | null | undefined;
-}
+import { Loader } from './lib/loader.js';
+import type { TimeSlot, ConstraintsData } from './lib/loader.js';
 
 /**
  * Gestionnaire statique des contraintes de disponibilité
@@ -38,17 +20,12 @@ export class ConstraintsManager {
     }
 
     try {
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = dirname(__filename);
-      const constraintsPath = join(__dirname, 'json', 'contraintes.json');
-      
-      const data = readFileSync(constraintsPath, 'utf-8');
-      this.constraintsData = JSON.parse(data);
+      this.constraintsData = Loader.loadConstraints();
       
       // Initialiser les gestionnaires de disponibilité
       this.initializeAvailabilityManagers();
       
-      return this.constraintsData!; // Non-null assertion car on vient de l'assigner
+      return this.constraintsData;
     } catch (error) {
       console.error('Erreur lors du chargement des contraintes:', error);
       throw new Error('Impossible de charger le fichier contraintes.json');
