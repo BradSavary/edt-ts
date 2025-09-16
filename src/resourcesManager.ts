@@ -1,4 +1,5 @@
 import { Resource } from './resource';
+import { ConstraintsManager } from './constraintsManager.js';
 
 /**
  * Gestionnaire d'un ensemble de ressources avec indexation optimisée
@@ -102,6 +103,72 @@ class ResourcesManager {
    */
   toString(): string {
     return `ResourcesManager(${this.getResourceCount()} ressources)`;
+  }
+
+  /**
+   * Applique les contraintes de disponibilité aux ressources
+   * en utilisant le ConstraintsManager pour la semaine par défaut
+   */
+  applyConstraints(): void {
+    for (const resource of this.resources.values()) {
+      const availabilityManager = ConstraintsManager.getAvailabilityManager(resource.id);
+      if (availabilityManager) {
+        // Remplacer la disponibilité de la ressource par celle des contraintes
+        resource.clearAvailability();
+        const intervals = availabilityManager.getAvailableIntervals();
+        for (const interval of intervals) {
+          resource.addAvailability(interval.start, interval.end);
+        }
+      }
+    }
+  }
+
+  /**
+   * Applique les contraintes pour une semaine spécifique
+   */
+  applyConstraintsForWeek(weekNumber: number): void {
+    for (const resource of this.resources.values()) {
+      const availabilityManager = ConstraintsManager.getAvailabilityManager(resource.id, weekNumber);
+      if (availabilityManager) {
+        // Remplacer la disponibilité de la ressource par celle de la semaine
+        resource.clearAvailability();
+        const intervals = availabilityManager.getAvailableIntervals();
+        for (const interval of intervals) {
+          resource.addAvailability(interval.start, interval.end);
+        }
+      }
+    }
+  }
+
+  /**
+   * Obtient les statistiques des contraintes pour les ressources gérées
+   */
+  getConstraintsStats(): {
+    resourcesWithConstraints: number;
+    resourcesWithOverrides: number;
+    averageAvailability: number;
+  } {
+    let resourcesWithConstraints = 0;
+    let resourcesWithOverrides = 0;
+    let totalAvailability = 0;
+
+    for (const resource of this.resources.values()) {
+      const hasConstraints = ConstraintsManager.hasResource(resource.id);
+      if (hasConstraints) {
+        resourcesWithConstraints++;
+        const overrides = ConstraintsManager.getOverrideWeeks(resource.id);
+        if (overrides.length > 0) {
+          resourcesWithOverrides++;
+        }
+        totalAvailability += resource.getTotalAvailableTime();
+      }
+    }
+
+    return {
+      resourcesWithConstraints,
+      resourcesWithOverrides,
+      averageAvailability: this.resources.size > 0 ? totalAvailability / this.resources.size : 0
+    };
   }
 }
 

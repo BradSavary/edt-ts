@@ -33,17 +33,17 @@
       }
     ]
   },
-  "MEUNIER Sandrine": {
+  "MEUNIER Sandrine": { 
     "default": [
       {
-        "days": "lundi, mardi, mercredi, jeudi, vendredi",
-        "from": "8:00",
-        "to": "18:30"
+        "days": "lundi, mardi, mercredi, jeudi, vendredi", 
+        "from": "8:00", 
+        "to": "18:30" 
       }
     ],
-    "S38": [
+    "S38": [ 
       {
-        "days": "lundi",
+        "days": "lundi", 
         "from": "9:00",
         "to": "11:30"
       },

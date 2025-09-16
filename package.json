@@ -6,6 +6,8 @@
   "scripts": {
     "start": "tsx src/example.ts",
     "example": "tsx src/example.ts",
+    "test-constraints": "tsx src/testConstraints.ts",
+    "test-integration": "tsx src/testIntegration.ts",
     "build": "tsc --noEmit",
     "test": "tsx src/example.ts"
   },
