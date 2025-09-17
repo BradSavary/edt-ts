@@ -1,1080 +1,1166 @@
 {
   "week": 36,
-  "tasks":[
-  {
-    "code": "Accueil",
-    "teacher": "ROUSSEAU Camille",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2",
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Réunion de rentrée",
-    "rooms": [
-      "103"
-    ]
-  },
-  {
-    "code": "Accueil",
-    "teacher": "ROUSSEAU Camille",
-    "groups": [
-      "BUT2-G1",
-      "BUT2-G21",
-      "BUT2-G22",
-      "BUT2-G3"
-    ],
-    "name": "Réunion de rentrée",
-    "rooms": [
-      "103"
-    ]
-  },
-  {
-    "code": "Accueil",
-    "teacher": "ROUSSEAU Camille",
-    "groups": [
-      "BUT3-G1",
-      "BUT3-G3"
-    ],
-    "name": "Réunion de rentrée",
-    "rooms": [
-      "103"
-    ]
-  },
-  {
-    "code": "R1.01",
-    "teacher": "ROUSSEAU Camille",
-    "groups": [
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Anglais",
-    "rooms": [
-      "101"
-    ]
-  },
-  {
-    "code": "R1.01",
-    "teacher": "ROUSSEAU Camille",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2"
-    ],
-    "name": "Anglais",
-    "rooms": [
-      "101"
-    ]
-  },
-  {
-    "code": "R1.03",
-    "teacher": "AUBRY Bastien",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2",
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Ergonomie et Accessibilité",
-    "rooms": [
-      "101"
-    ]
-  },
-  {
-    "code": "R1.03",
-    "teacher": "AUBRY Bastien",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2"
-    ],
-    "name": "Ergonomie et Accessibilité",
-    "rooms": [
-      "101"
-    ]
-  },
-  {
-    "code": "R1.03",
-    "teacher": "AUBRY Bastien",
-    "groups": [
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Ergonomie et Accessibilité",
-    "rooms": [
-      "101"
-    ]
-  },
-  {
-    "code": "R1.04",
-    "teacher": "MEUNIER Sandrine",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2",
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Culture numérique",
-    "rooms": [
-      "101"
-    ]
-  },
-  {
-    "code": "R1.04",
-    "teacher": "MEUNIER Sandrine",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2"
-    ],
-    "name": "Culture numérique",
-    "rooms": [
-      "101",
-      "103",
-      "R03"
-    ]
-  },
-  {
-    "code": "R1.04",
-    "teacher": "MEUNIER Sandrine",
-    "groups": [
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Culture numérique",
-    "rooms": [
-      "101",
-      "103",
-      "R03"
-    ]
-  },
-  {
-    "code": "R1.05",
-    "teacher": "AUBRY Bastien",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2",
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Stratégies de communication et marketing",
-    "rooms": [
-      "101",
-      "103"
-    ]
-  },
-  {
-    "code": "R1.07",
-    "teacher": "GARNIER Mathieu",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2",
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Écriture multimédia et narration",
-    "rooms": [
-      "101"
-    ]
-  },
-  {
-    "code": "R1.08",
-    "teacher": "BERGER Julien",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2"
-    ],
-    "name": "Production graphique",
-    "rooms": [
-      "102"
-    ]
-  },
-  {
-    "code": "R1.08",
-    "teacher": "BERGER Julien",
-    "groups": [
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Production graphique",
-    "rooms": [
-      "102"
-    ]
-  },
-  {
-    "code": "R1.09",
-    "teacher": "CHEVALIER Charlotte",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2"
-    ],
-    "name": "Culture artistique",
-    "rooms": [
-      "115"
-    ]
-  },
-  {
-    "code": "R1.09",
-    "teacher": "CHEVALIER Charlotte",
-    "groups": [
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Culture artistique",
-    "rooms": [
-      "115"
-    ]
-  },
-  {
-    "code": "R1.09",
-    "teacher": "HUBERT Quentin",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2",
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Culture artistique",
-    "rooms": [
-      "102",
-      "115"
-    ]
-  },
-  {
-    "code": "R1.09",
-    "teacher": "HUBERT Quentin",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2"
-    ],
-    "name": "Culture artistique",
-    "rooms": [
-      "102",
-      "115"
-    ]
-  },
-  {
-    "code": "R1.09",
-    "teacher": "HUBERT Quentin",
-    "groups": [
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Culture artistique",
-    "rooms": [
-      "102",
-      "115"
-    ]
-  },
-  {
-    "code": "R1.11",
-    "teacher": "HUBERT Quentin",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2",
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Intégration",
-    "rooms": [
-      "101"
-    ]
-  },
-  {
-    "code": "R1.11",
-    "teacher": "HUBERT Quentin",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2"
-    ],
-    "name": "Intégration",
-    "rooms": [
-      "102",
-      "115"
-    ]
-  },
-  {
-    "code": "R1.11",
-    "teacher": "HUBERT Quentin",
-    "groups": [
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Intégration",
-    "rooms": [
-      "102",
-      "115"
-    ]
-  },
-  {
-    "code": "R1.14",
-    "teacher": "RENAUD Kevin",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2",
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Représentation et traitement de l'information",
-    "rooms": [
-      "101"
-    ]
-  },
-  {
-    "code": "R1.16",
-    "teacher": "LEROUX Elodie",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2",
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Économie, gestion et droit du numérique",
-    "rooms": [
-      "101"
-    ]
-  },
-  {
-    "code": "R1.16",
-    "teacher": "LEROUX Elodie",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2"
-    ],
-    "name": "Économie, gestion et droit du numérique",
-    "rooms": [
-      "101"
-    ]
-  },
-  {
-    "code": "R1.16",
-    "teacher": "LEROUX Elodie",
-    "groups": [
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Économie, gestion et droit du numérique",
-    "rooms": [
-      "101"
-    ]
-  },
-  {
-    "code": "R1.17",
-    "teacher": "RENAUD Kevin",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2"
-    ],
-    "name": "Projet Personnel et Professionnel",
-    "rooms": [
-      "102",
-      "115"
-    ]
-  },
-  {
-    "code": "R1.17",
-    "teacher": "RENAUD Kevin",
-    "groups": [
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Projet Personnel et Professionnel",
-    "rooms": [
-      "102",
-      "115"
-    ]
-  },
-  {
-    "code": "R1.17",
-    "teacher": "RENAUD Kevin",
-    "groups": [
-      "BUT1-G1",
-      "BUT1-G2"
-    ],
-    "name": "Projet Personnel et Professionnel",
-    "rooms": [
-      "102",
-      "115"
-    ]
-  },
-  {
-    "code": "R1.17",
-    "teacher": "RENAUD Kevin",
-    "groups": [
-      "BUT1-G3",
-      "BUT1-G4"
-    ],
-    "name": "Projet Personnel et Professionnel",
-    "rooms": [
-      "102",
-      "115"
-    ]
-  },
-  {
-    "code": "R3.Crea.09",
-    "teacher": "MARCHAND Emilie",
-    "groups": [
-      "BUT2-G1",
-      "BUT2-G21",
-      "BUT2-G22"
-    ],
-    "name": "Création et design interactif (UI)",
-    "rooms": [
-      "R04"
-    ]
-  },
-  {
-    "code": "R3.Crea.09",
-    "teacher": "MARCHAND Emilie",
-    "groups": [
-      "BUT2-G1",
-      "BUT2-G21",
-      "BUT2-G22"
-    ],
-    "name": "Création et design interactif (UI)",
-    "rooms": [
-      "R04"
-    ]
-  },
-  {
-    "code": "R3.Crea.13",
-    "teacher": "MERCIER Laurie",
-    "groups": [
-      "BUT2-G1",
-      "BUT2-G21",
-      "BUT2-G22"
-    ],
-    "name": "Gestion de contenus avancée",
-    "rooms": [
-      "R04"
-    ]
-  },
-  {
-    "code": "R3.Crea.13",
-    "teacher": "MERCIER Laurie",
-    "groups": [
-      "BUT2-G1",
-      "BUT2-G21",
-      "BUT2-G22"
-    ],
-    "name": "Gestion de contenus avancée",
-    "rooms": [
-      "R04"
-    ]
-  },
-  {
-    "code": "R3.DWeb-DI.09",
-    "teacher": "MARCHAND Emilie",
-    "groups": [
-      "BUT2-G3"
-    ],
-    "name": "Création et design interactif (UI)",
-    "rooms": [
-      "115",
-      "102",
-      "R04"
-    ]
-  },
-  {
-    "code": "R3.DWeb-DI.09",
-    "teacher": "MARCHAND Emilie",
-    "groups": [
-      "BUT2-G3"
-    ],
-    "name": "Création et design interactif (UI)",
-    "rooms": [
-      "115",
-      "102",
-      "R04"
-    ]
-  },
-  {
-    "code": "R3.DWeb-DI.13",
-    "teacher": "NOEL Melanie",
-    "groups": [
-      "BUT2-G3"
-    ],
-    "name": "Développement Back",
-    "rooms": [
-      "103"
-    ]
-  },
-  {
-    "code": "R3.DWeb-DI.13",
-    "teacher": "NOEL Melanie",
-    "groups": [
-      "BUT2-G3"
-    ],
-    "name": "Développement Back",
-    "rooms": [
-      "R02",
-      "R04",
-      "115",
-      "102"
-    ]
-  },
-  {
-    "code": "R3.01",
-    "teacher": "ROUSSEAU Camille",
-    "groups": [
-      "BUT2-G1",
-      "BUT2-G21"
-    ],
-    "name": "Anglais",
-    "rooms": [
-      "R03"
-    ]
-  },
-  {
-    "code": "R3.01",
-    "teacher": "ROUSSEAU Camille",
-    "groups": [
-      "BUT2-G22",
-      "BUT2-G3"
-    ],
-    "name": "Anglais",
-    "rooms": [
-      "R03"
-    ]
-  },
-  {
-    "code": "R3.04",
-    "teacher": "MEUNIER Sandrine",
-    "groups": [
-      "BUT2-G1",
-      "BUT2-G21",
-      "BUT2-G22",
-      "BUT2-G3"
-    ],
-    "name": "Culture numérique",
-    "rooms": [
-      "103"
-    ]
-  },
-  {
-    "code": "R3.04",
-    "teacher": "BARBIER Romain",
-    "groups": [
-      "BUT2-G22",
-      "BUT2-G3"
-    ],
-    "name": "Culture numérique",
-    "rooms": [
-      "103",
-      "101"
-    ]
-  },
-  {
-    "code": "R3.04",
-    "teacher": "BARBIER Romain",
-    "groups": [
-      "BUT2-G1",
-      "BUT2-G21"
-    ],
-    "name": "Culture numérique",
-    "rooms": [
-      "103",
-      "101"
-    ]
-  },
-  {
-    "code": "R3.12",
-    "teacher": "GAUTHIER Yannick",
-    "groups": [
-      "BUT2-G1",
-      "BUT2-G21"
-    ],
-    "name": "Intégration et développement front",
-    "rooms": [
-      "R04"
-    ]
-  },
-  {
-    "code": "R3.12",
-    "teacher": "GAUTHIER Yannick",
-    "groups": [
-      "BUT2-G22",
-      "BUT2-G3"
-    ],
-    "name": "Intégration et développement front",
-    "rooms": [
-      "R04"
-    ]
-  },
-  {
-    "code": "R3.12",
-    "teacher": "ROBIN Loic",
-    "groups": [
-      "BUT2-G21",
-      "BUT2-G22"
-    ],
-    "name": "Intégration et développement front",
-    "rooms": [
-      "R04"
-    ]
-  },
-  {
-    "code": "R3.12",
-    "teacher": "ROBIN Loic",
-    "groups": [
-      "BUT2-G1"
-    ],
-    "name": "Intégration et développement front",
-    "rooms": [
-      "R04"
-    ]
-  },
-  {
-    "code": "R3.12",
-    "teacher": "NOEL Melanie",
-    "groups": [
-      "BUT2-G1",
-      "BUT2-G21",
-      "BUT2-G22",
-      "BUT2-G3"
-    ],
-    "name": "Intégration et développement front",
-    "rooms": [
-      "103"
-    ]
-  },
-  {
-    "code": "R3.12",
-    "teacher": "NOEL Melanie",
-    "groups": [
-      "BUT2-G1",
-      "BUT2-G21"
-    ],
-    "name": "Intégration et développement front",
-    "rooms": [
-      "115",
-      "102",
-      "R04"
-    ]
-  },
-  {
-    "code": "R3.12",
-    "teacher": "NOEL Melanie",
-    "groups": [
-      "BUT2-G22",
-      "BUT2-G3"
-    ],
-    "name": "Intégration et développement front",
-    "rooms": [
-      "115",
-      "102",
-      "R04"
-    ]
-  },
-  {
-    "code": "R3.12",
-    "teacher": "NOEL Melanie",
-    "groups": [
-      "BUT2-G3"
-    ],
-    "name": "Intégration et développement front",
-    "rooms": [
-      "R02"
-    ]
-  },
-  {
-    "code": "R3.12",
-    "teacher": "HUBERT Quentin",
-    "groups": [
-      "BUT2-G1",
-      "BUT2-G21",
-      "BUT2-G22",
-      "BUT2-G3"
-    ],
-    "name": "Intégration et développement front",
-    "rooms": [
-      "101"
-    ]
-  },
-  {
-    "code": "R3.12",
-    "teacher": "HUBERT Quentin",
-    "groups": [
-      "BUT2-G1",
-      "BUT2-G21"
-    ],
-    "name": "Intégration et développement front",
-    "rooms": [
-      "115",
-      "102",
-      "R04"
-    ]
-  },
-  {
-    "code": "R3.12",
-    "teacher": "HUBERT Quentin",
-    "groups": [
-      "BUT2-G22",
-      "BUT2-G3"
-    ],
-    "name": "Intégration et développement front",
-    "rooms": [
-      "115",
-      "102",
-      "R04"
-    ]
-  },
-  {
-    "code": "R3.14",
-    "teacher": "RENAUD Kevin",
-    "groups": [
-      "BUT2-G1",
-      "BUT2-G21"
-    ],
-    "name": "Déploiement de services",
-    "rooms": [
-      "103",
-      "101"
-    ]
-  },
-  {
-    "code": "R3.14",
-    "teacher": "RENAUD Kevin",
-    "groups": [
-      "BUT2-G22",
-      "BUT2-G3"
-    ],
-    "name": "Déploiement de services",
-    "rooms": [
-      "103",
-      "101"
-    ]
-  },
-  {
-    "code": "R3.14",
-    "teacher": "TESSIER Pauline",
-    "groups": [
-      "BUT2-G1"
-    ],
-    "name": "Déploiement de services",
-    "rooms": [
-      "R02"
-    ]
-  },
-  {
-    "code": "R3.14",
-    "teacher": "RENAUD Kevin",
-    "groups": [
-      "BUT2-G21",
-      "BUT2-G22"
-    ],
-    "name": "Déploiement de services",
-    "rooms": [
-      "R01"
-    ]
-  },
-  {
-    "code": "R3.14",
-    "teacher": "RENAUD Kevin",
-    "groups": [
-      "BUT2-G3"
-    ],
-    "name": "Déploiement de services",
-    "rooms": [
-      "R01"
-    ]
-  },
-  {
-    "code": "R3.16",
-    "teacher": "GILLET Anthony",
-    "groups": [
-      "BUT2-G1",
-      "BUT2-G21",
-      "BUT2-G22",
-      "BUT2-G3"
-    ],
-    "name": "Gestion de projet",
-    "rooms": [
-      "103"
-    ]
-  },
-  {
-    "code": "R3.18",
-    "teacher": "GIRARD Damien",
-    "groups": [
-      "BUT2-G1",
-      "BUT2-G21"
-    ],
-    "name": "Projet Personnel et Professionnel",
-    "rooms": [
-      "103",
-      "101"
-    ]
-  },
-  {
-    "code": "R3.18",
-    "teacher": "GIRARD Damien",
-    "groups": [
-      "BUT2-G22",
-      "BUT2-G3"
-    ],
-    "name": "Projet Personnel et Professionnel",
-    "rooms": [
-      "103",
-      "101"
-    ]
-  },
-  {
-    "code": "R5.01",
-    "teacher": "ROUSSEAU Camille",
-    "groups": [
-      "BUT3-G1",
-      "BUT3-G3"
-    ],
-    "name": "Anglais",
-    "rooms": [
-      "101",
-      "103",
-      "R03"
-    ]
-  },
-  {
-    "code": "R5.02",
-    "teacher": "GARNIER Mathieu",
-    "groups": [
-      "BUT3-G1"
-    ],
-    "name": "Management et Assurance qualité",
-    "rooms": [
-      "101"
-    ]
-  },
-  {
-    "code": "R5.02",
-    "teacher": "GAUDIN Jerome",
-    "groups": [
-      "BUT3-G3"
-    ],
-    "name": "Management et Assurance qualité",
-    "rooms": [
-      "R01"
-    ]
-  },
-  {
-    "code": "R5.04",
-    "teacher": "MEUNIER Sandrine",
-    "groups": [
-      "BUT3-G1",
-      "BUT3-G3"
-    ],
-    "name": "Projet Personnel et Professionnel",
-    "rooms": [
-      "R04",
-      "115",
-      "102"
-    ]
-  },
-  {
-    "code": "R5.DWeb-DI.05",
-    "teacher": "NOEL Melanie",
-    "groups": [
-      "BUT3-G3"
-    ],
-    "name": "Développement front avancé",
-    "rooms": [
-      "R01"
-    ]
-  },
-  {
-    "code": "R5.DWeb-DI.05",
-    "teacher": "HUBERT Quentin",
-    "groups": [
-      "BUT3-G3"
-    ],
-    "name": "Développement front avancé",
-    "rooms": [
-      "R01"
-    ]
-  },
-  {
-    "code": "R5.DWeb-DI.06",
-    "teacher": "GIRARD Damien",
-    "groups": [
-      "BUT3-G3"
-    ],
-    "name": "Développement back avancé",
-    "rooms": [
-      "R01"
-    ]
-  },
-  {
-    "code": "R5.DWeb-DI.06",
-    "teacher": "GIRARD Damien",
-    "groups": [
-      "BUT3-G3"
-    ],
-    "name": "Développement back avancé",
-    "rooms": [
-      "R01"
-    ]
-  },
-  {
-    "code": "R5.DWeb-DI.07",
-    "teacher": "GIRARD Damien",
-    "groups": [
-      "BUT3-G3"
-    ],
-    "name": "Dispositifs interactifs",
-    "rooms": [
-      "R01",
-      "R02",
-      "R04",
-      "115",
-      "102"
-    ]
-  },
-  {
-    "code": "R5.DWeb-DI.08",
-    "teacher": "CHARRIER Marion",
-    "groups": [
-      "BUT3-G3"
-    ],
-    "name": "Hébergement et cybersécurité",
-    "rooms": [
-      "R01"
-    ]
-  },
-  {
-    "code": "SAÉ 5.DWeb-DI.01",
-    "teacher": "",
-    "groups": [
-      "BUT3-G3"
-    ],
-    "name": "Développer pour le web ou concevoir un dispositif interactif",
-    "rooms": []
-  },
-  {
-    "code": "SAÉ 5.DWeb-DI.01",
-    "teacher": "CARON Coralie",
-    "groups": [
-      "BUT3-G3"
-    ],
-    "name": "Développer pour le web ou concevoir un dispositif interactif",
-    "rooms": [
-      "R01"
-    ]
-  },
-  {
-    "code": "R5.Crea.05",
-    "teacher": "PASQUIER Aurore",
-    "groups": [
-      "BUT3-G1"
-    ],
-    "name": "Définir une direction artistique",
-    "rooms": [
-      "115"
-    ]
-  },
-  {
-    "code": "R5.Crea.05",
-    "teacher": "PASQUIER Aurore",
-    "groups": [
-      "BUT3-G1"
-    ],
-    "name": "Définir une direction artistique",
-    "rooms": [
-      "115"
-    ]
-  },
-  {
-    "code": "R5.Crea.06",
-    "teacher": "HUBERT Quentin",
-    "groups": [
-      "BUT3-G1"
-    ],
-    "name": "Création numérique",
-    "rooms": [
-      "R04"
-    ]
-  },
-  {
-    "code": "R5.Crea.06",
-    "teacher": "HUBERT Quentin",
-    "groups": [
-      "BUT3-G1"
-    ],
-    "name": "Création numérique",
-    "rooms": [
-      "R04"
-    ]
-  },
-  {
-    "code": "R5.Crea.07",
-    "teacher": "FAURE Celine",
-    "groups": [
-      "BUT3-G1"
-    ],
-    "name": "Ecriture Multimédia et narration",
-    "rooms": [
-      "115"
-    ]
-  },
-  {
-    "code": "R5.Crea.07",
-    "teacher": "GARNIER Mathieu",
-    "groups": [
-      "BUT3-G1"
-    ],
-    "name": "Ecriture Multimédia et narration",
-    "rooms": [
-      "115"
-    ]
-  },
-  {
-    "code": "R5.Crea.07",
-    "teacher": "FAURE Celine",
-    "groups": [
-      "BUT3-G1"
-    ],
-    "name": "Ecriture Multimédia et narration",
-    "rooms": [
-      "115"
-    ]
-  },
-  {
-    "code": "R5.Crea.08",
-    "teacher": "HUBERT Quentin",
-    "groups": [
-      "BUT3-G1"
-    ],
-    "name": "Intégration et développement front",
-    "rooms": [
-      "R04",
-      "115",
-      "102"
-    ]
-  },
-  {
-    "code": "SAÉ 5.Crea.01",
-    "teacher": "",
-    "groups": [
-      "BUT3-G1"
-    ],
-    "name": "Créer par/pour le numérique",
-    "rooms": []
-  },
-  {
-    "code": "SAÉ 5.Crea.01",
-    "teacher": "",
-    "groups": [
-      "BUT3-G21",
-      "BUT3-G22"
-    ],
-    "name": "Créer par/pour le numérique",
-    "rooms": []
-  },
-  {
-    "code": "SAÉ 5.Crea.01",
-    "teacher": "PASQUIER Aurore",
-    "groups": [
-      "BUT3-G1"
-    ],
-    "name": "Créer par/pour le numérique",
-    "rooms": [
-      "115"
-    ]
-  }
-]
+  "tasks": [
+    {
+      "code": "Accueil",
+      "teacher": "ROUSSEAU Camille",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2",
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Réunion de rentrée",
+      "rooms": [
+        "103"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "Accueil",
+      "teacher": "ROUSSEAU Camille",
+      "groups": [
+        "BUT2-G1",
+        "BUT2-G21",
+        "BUT2-G22",
+        "BUT2-G3"
+      ],
+      "name": "Réunion de rentrée",
+      "rooms": [
+        "103"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "Accueil",
+      "teacher": "ROUSSEAU Camille",
+      "groups": [
+        "BUT3-G1",
+        "BUT3-G3"
+      ],
+      "name": "Réunion de rentrée",
+      "rooms": [
+        "103"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.01",
+      "teacher": "ROUSSEAU Camille",
+      "groups": [
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Anglais",
+      "rooms": [
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.01",
+      "teacher": "ROUSSEAU Camille",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2"
+      ],
+      "name": "Anglais",
+      "rooms": [
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.03",
+      "teacher": "AUBRY Bastien",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2",
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Ergonomie et Accessibilité",
+      "rooms": [
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.03",
+      "teacher": "AUBRY Bastien",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2"
+      ],
+      "name": "Ergonomie et Accessibilité",
+      "rooms": [
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.03",
+      "teacher": "AUBRY Bastien",
+      "groups": [
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Ergonomie et Accessibilité",
+      "rooms": [
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.04",
+      "teacher": "MEUNIER Sandrine",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2",
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Culture numérique",
+      "rooms": [
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.04",
+      "teacher": "MEUNIER Sandrine",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2"
+      ],
+      "name": "Culture numérique",
+      "rooms": [
+        "101",
+        "103",
+        "R03"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.04",
+      "teacher": "MEUNIER Sandrine",
+      "groups": [
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Culture numérique",
+      "rooms": [
+        "101",
+        "103",
+        "R03"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.05",
+      "teacher": "AUBRY Bastien",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2",
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Stratégies de communication et marketing",
+      "rooms": [
+        "101",
+        "103"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.07",
+      "teacher": "GARNIER Mathieu",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2",
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Écriture multimédia et narration",
+      "rooms": [
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.08",
+      "teacher": "BERGER Julien",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2"
+      ],
+      "name": "Production graphique",
+      "rooms": [
+        "102"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.08",
+      "teacher": "BERGER Julien",
+      "groups": [
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Production graphique",
+      "rooms": [
+        "102"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.09",
+      "teacher": "CHEVALIER Charlotte",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2"
+      ],
+      "name": "Culture artistique",
+      "rooms": [
+        "115"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.09",
+      "teacher": "CHEVALIER Charlotte",
+      "groups": [
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Culture artistique",
+      "rooms": [
+        "115"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.09",
+      "teacher": "HUBERT Quentin",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2",
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Culture artistique",
+      "rooms": [
+        "102",
+        "115"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.09",
+      "teacher": "HUBERT Quentin",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2"
+      ],
+      "name": "Culture artistique",
+      "rooms": [
+        "102",
+        "115"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.09",
+      "teacher": "HUBERT Quentin",
+      "groups": [
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Culture artistique",
+      "rooms": [
+        "102",
+        "115"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.11",
+      "teacher": "HUBERT Quentin",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2",
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Intégration",
+      "rooms": [
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.11",
+      "teacher": "HUBERT Quentin",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2"
+      ],
+      "name": "Intégration",
+      "rooms": [
+        "102",
+        "115"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.11",
+      "teacher": "HUBERT Quentin",
+      "groups": [
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Intégration",
+      "rooms": [
+        "102",
+        "115"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.14",
+      "teacher": "RENAUD Kevin",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2",
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Représentation et traitement de l'information",
+      "rooms": [
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.16",
+      "teacher": "LEROUX Elodie",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2",
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Économie, gestion et droit du numérique",
+      "rooms": [
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.16",
+      "teacher": "LEROUX Elodie",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2"
+      ],
+      "name": "Économie, gestion et droit du numérique",
+      "rooms": [
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.16",
+      "teacher": "LEROUX Elodie",
+      "groups": [
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Économie, gestion et droit du numérique",
+      "rooms": [
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.17",
+      "teacher": "RENAUD Kevin",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2"
+      ],
+      "name": "Projet Personnel et Professionnel",
+      "rooms": [
+        "102",
+        "115"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.17",
+      "teacher": "RENAUD Kevin",
+      "groups": [
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Projet Personnel et Professionnel",
+      "rooms": [
+        "102",
+        "115"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.17",
+      "teacher": "RENAUD Kevin",
+      "groups": [
+        "BUT1-G1",
+        "BUT1-G2"
+      ],
+      "name": "Projet Personnel et Professionnel",
+      "rooms": [
+        "102",
+        "115"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R1.17",
+      "teacher": "RENAUD Kevin",
+      "groups": [
+        "BUT1-G3",
+        "BUT1-G4"
+      ],
+      "name": "Projet Personnel et Professionnel",
+      "rooms": [
+        "102",
+        "115"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.Crea.09",
+      "teacher": "MARCHAND Emilie",
+      "groups": [
+        "BUT2-G1",
+        "BUT2-G21",
+        "BUT2-G22"
+      ],
+      "name": "Création et design interactif (UI)",
+      "rooms": [
+        "R04"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.Crea.09",
+      "teacher": "MARCHAND Emilie",
+      "groups": [
+        "BUT2-G1",
+        "BUT2-G21",
+        "BUT2-G22"
+      ],
+      "name": "Création et design interactif (UI)",
+      "rooms": [
+        "R04"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.Crea.13",
+      "teacher": "MERCIER Laurie",
+      "groups": [
+        "BUT2-G1",
+        "BUT2-G21",
+        "BUT2-G22"
+      ],
+      "name": "Gestion de contenus avancée",
+      "rooms": [
+        "R04"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.Crea.13",
+      "teacher": "MERCIER Laurie",
+      "groups": [
+        "BUT2-G1",
+        "BUT2-G21",
+        "BUT2-G22"
+      ],
+      "name": "Gestion de contenus avancée",
+      "rooms": [
+        "R04"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.DWeb-DI.09",
+      "teacher": "MARCHAND Emilie",
+      "groups": [
+        "BUT2-G3"
+      ],
+      "name": "Création et design interactif (UI)",
+      "rooms": [
+        "115",
+        "102",
+        "R04"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.DWeb-DI.09",
+      "teacher": "MARCHAND Emilie",
+      "groups": [
+        "BUT2-G3"
+      ],
+      "name": "Création et design interactif (UI)",
+      "rooms": [
+        "115",
+        "102",
+        "R04"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.DWeb-DI.13",
+      "teacher": "NOEL Melanie",
+      "groups": [
+        "BUT2-G3"
+      ],
+      "name": "Développement Back",
+      "rooms": [
+        "103"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.DWeb-DI.13",
+      "teacher": "NOEL Melanie",
+      "groups": [
+        "BUT2-G3"
+      ],
+      "name": "Développement Back",
+      "rooms": [
+        "R02",
+        "R04",
+        "115",
+        "102"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.01",
+      "teacher": "ROUSSEAU Camille",
+      "groups": [
+        "BUT2-G1",
+        "BUT2-G21"
+      ],
+      "name": "Anglais",
+      "rooms": [
+        "R03"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.01",
+      "teacher": "ROUSSEAU Camille",
+      "groups": [
+        "BUT2-G22",
+        "BUT2-G3"
+      ],
+      "name": "Anglais",
+      "rooms": [
+        "R03"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.04",
+      "teacher": "MEUNIER Sandrine",
+      "groups": [
+        "BUT2-G1",
+        "BUT2-G21",
+        "BUT2-G22",
+        "BUT2-G3"
+      ],
+      "name": "Culture numérique",
+      "rooms": [
+        "103"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.04",
+      "teacher": "BARBIER Romain",
+      "groups": [
+        "BUT2-G22",
+        "BUT2-G3"
+      ],
+      "name": "Culture numérique",
+      "rooms": [
+        "103",
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.04",
+      "teacher": "BARBIER Romain",
+      "groups": [
+        "BUT2-G1",
+        "BUT2-G21"
+      ],
+      "name": "Culture numérique",
+      "rooms": [
+        "103",
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.12",
+      "teacher": "GAUTHIER Yannick",
+      "groups": [
+        "BUT2-G1",
+        "BUT2-G21"
+      ],
+      "name": "Intégration et développement front",
+      "rooms": [
+        "R04"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.12",
+      "teacher": "GAUTHIER Yannick",
+      "groups": [
+        "BUT2-G22",
+        "BUT2-G3"
+      ],
+      "name": "Intégration et développement front",
+      "rooms": [
+        "R04"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.12",
+      "teacher": "ROBIN Loic",
+      "groups": [
+        "BUT2-G21",
+        "BUT2-G22"
+      ],
+      "name": "Intégration et développement front",
+      "rooms": [
+        "R04"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.12",
+      "teacher": "ROBIN Loic",
+      "groups": [
+        "BUT2-G1"
+      ],
+      "name": "Intégration et développement front",
+      "rooms": [
+        "R04"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.12",
+      "teacher": "NOEL Melanie",
+      "groups": [
+        "BUT2-G1",
+        "BUT2-G21",
+        "BUT2-G22",
+        "BUT2-G3"
+      ],
+      "name": "Intégration et développement front",
+      "rooms": [
+        "103"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.12",
+      "teacher": "NOEL Melanie",
+      "groups": [
+        "BUT2-G1",
+        "BUT2-G21"
+      ],
+      "name": "Intégration et développement front",
+      "rooms": [
+        "115",
+        "102",
+        "R04"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.12",
+      "teacher": "NOEL Melanie",
+      "groups": [
+        "BUT2-G22",
+        "BUT2-G3"
+      ],
+      "name": "Intégration et développement front",
+      "rooms": [
+        "115",
+        "102",
+        "R04"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.12",
+      "teacher": "NOEL Melanie",
+      "groups": [
+        "BUT2-G3"
+      ],
+      "name": "Intégration et développement front",
+      "rooms": [
+        "R02"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.12",
+      "teacher": "HUBERT Quentin",
+      "groups": [
+        "BUT2-G1",
+        "BUT2-G21",
+        "BUT2-G22",
+        "BUT2-G3"
+      ],
+      "name": "Intégration et développement front",
+      "rooms": [
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.12",
+      "teacher": "HUBERT Quentin",
+      "groups": [
+        "BUT2-G1",
+        "BUT2-G21"
+      ],
+      "name": "Intégration et développement front",
+      "rooms": [
+        "115",
+        "102",
+        "R04"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.12",
+      "teacher": "HUBERT Quentin",
+      "groups": [
+        "BUT2-G22",
+        "BUT2-G3"
+      ],
+      "name": "Intégration et développement front",
+      "rooms": [
+        "115",
+        "102",
+        "R04"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.14",
+      "teacher": "RENAUD Kevin",
+      "groups": [
+        "BUT2-G1",
+        "BUT2-G21"
+      ],
+      "name": "Déploiement de services",
+      "rooms": [
+        "103",
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.14",
+      "teacher": "RENAUD Kevin",
+      "groups": [
+        "BUT2-G22",
+        "BUT2-G3"
+      ],
+      "name": "Déploiement de services",
+      "rooms": [
+        "103",
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.14",
+      "teacher": "TESSIER Pauline",
+      "groups": [
+        "BUT2-G1"
+      ],
+      "name": "Déploiement de services",
+      "rooms": [
+        "R02"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.14",
+      "teacher": "RENAUD Kevin",
+      "groups": [
+        "BUT2-G21",
+        "BUT2-G22"
+      ],
+      "name": "Déploiement de services",
+      "rooms": [
+        "R01"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.14",
+      "teacher": "RENAUD Kevin",
+      "groups": [
+        "BUT2-G3"
+      ],
+      "name": "Déploiement de services",
+      "rooms": [
+        "R01"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.16",
+      "teacher": "GILLET Anthony",
+      "groups": [
+        "BUT2-G1",
+        "BUT2-G21",
+        "BUT2-G22",
+        "BUT2-G3"
+      ],
+      "name": "Gestion de projet",
+      "rooms": [
+        "103"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.18",
+      "teacher": "GIRARD Damien",
+      "groups": [
+        "BUT2-G1",
+        "BUT2-G21"
+      ],
+      "name": "Projet Personnel et Professionnel",
+      "rooms": [
+        "103",
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R3.18",
+      "teacher": "GIRARD Damien",
+      "groups": [
+        "BUT2-G22",
+        "BUT2-G3"
+      ],
+      "name": "Projet Personnel et Professionnel",
+      "rooms": [
+        "103",
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.01",
+      "teacher": "ROUSSEAU Camille",
+      "groups": [
+        "BUT3-G1",
+        "BUT3-G3"
+      ],
+      "name": "Anglais",
+      "rooms": [
+        "101",
+        "103",
+        "R03"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.02",
+      "teacher": "GARNIER Mathieu",
+      "groups": [
+        "BUT3-G1"
+      ],
+      "name": "Management et Assurance qualité",
+      "rooms": [
+        "101"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.02",
+      "teacher": "GAUDIN Jerome",
+      "groups": [
+        "BUT3-G3"
+      ],
+      "name": "Management et Assurance qualité",
+      "rooms": [
+        "R01"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.04",
+      "teacher": "MEUNIER Sandrine",
+      "groups": [
+        "BUT3-G1",
+        "BUT3-G3"
+      ],
+      "name": "Projet Personnel et Professionnel",
+      "rooms": [
+        "R04",
+        "115",
+        "102"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.DWeb-DI.05",
+      "teacher": "NOEL Melanie",
+      "groups": [
+        "BUT3-G3"
+      ],
+      "name": "Développement front avancé",
+      "rooms": [
+        "R01"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.DWeb-DI.05",
+      "teacher": "HUBERT Quentin",
+      "groups": [
+        "BUT3-G3"
+      ],
+      "name": "Développement front avancé",
+      "rooms": [
+        "R01"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.DWeb-DI.06",
+      "teacher": "GIRARD Damien",
+      "groups": [
+        "BUT3-G3"
+      ],
+      "name": "Développement back avancé",
+      "rooms": [
+        "R01"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.DWeb-DI.06",
+      "teacher": "GIRARD Damien",
+      "groups": [
+        "BUT3-G3"
+      ],
+      "name": "Développement back avancé",
+      "rooms": [
+        "R01"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.DWeb-DI.07",
+      "teacher": "GIRARD Damien",
+      "groups": [
+        "BUT3-G3"
+      ],
+      "name": "Dispositifs interactifs",
+      "rooms": [
+        "R01",
+        "R02",
+        "R04",
+        "115",
+        "102"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.DWeb-DI.08",
+      "teacher": "CHARRIER Marion",
+      "groups": [
+        "BUT3-G3"
+      ],
+      "name": "Hébergement et cybersécurité",
+      "rooms": [
+        "R01"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "SAÉ 5.DWeb-DI.01",
+      "teacher": "",
+      "groups": [
+        "BUT3-G3"
+      ],
+      "name": "Développer pour le web ou concevoir un dispositif interactif",
+      "rooms": [],
+      "duration": 90
+    },
+    {
+      "code": "SAÉ 5.DWeb-DI.01",
+      "teacher": "CARON Coralie",
+      "groups": [
+        "BUT3-G3"
+      ],
+      "name": "Développer pour le web ou concevoir un dispositif interactif",
+      "rooms": [
+        "R01"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.Crea.05",
+      "teacher": "PASQUIER Aurore",
+      "groups": [
+        "BUT3-G1"
+      ],
+      "name": "Définir une direction artistique",
+      "rooms": [
+        "115"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.Crea.05",
+      "teacher": "PASQUIER Aurore",
+      "groups": [
+        "BUT3-G1"
+      ],
+      "name": "Définir une direction artistique",
+      "rooms": [
+        "115"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.Crea.06",
+      "teacher": "HUBERT Quentin",
+      "groups": [
+        "BUT3-G1"
+      ],
+      "name": "Création numérique",
+      "rooms": [
+        "R04"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.Crea.06",
+      "teacher": "HUBERT Quentin",
+      "groups": [
+        "BUT3-G1"
+      ],
+      "name": "Création numérique",
+      "rooms": [
+        "R04"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.Crea.07",
+      "teacher": "FAURE Celine",
+      "groups": [
+        "BUT3-G1"
+      ],
+      "name": "Ecriture Multimédia et narration",
+      "rooms": [
+        "115"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.Crea.07",
+      "teacher": "GARNIER Mathieu",
+      "groups": [
+        "BUT3-G1"
+      ],
+      "name": "Ecriture Multimédia et narration",
+      "rooms": [
+        "115"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.Crea.07",
+      "teacher": "FAURE Celine",
+      "groups": [
+        "BUT3-G1"
+      ],
+      "name": "Ecriture Multimédia et narration",
+      "rooms": [
+        "115"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "R5.Crea.08",
+      "teacher": "HUBERT Quentin",
+      "groups": [
+        "BUT3-G1"
+      ],
+      "name": "Intégration et développement front",
+      "rooms": [
+        "R04",
+        "115",
+        "102"
+      ],
+      "duration": 90
+    },
+    {
+      "code": "SAÉ 5.Crea.01",
+      "teacher": "",
+      "groups": [
+        "BUT3-G1"
+      ],
+      "name": "Créer par/pour le numérique",
+      "rooms": [],
+      "duration": 90
+    },
+    {
+      "code": "SAÉ 5.Crea.01",
+      "teacher": "",
+      "groups": [
+        "BUT3-G21",
+        "BUT3-G22"
+      ],
+      "name": "Créer par/pour le numérique",
+      "rooms": [],
+      "duration": 90
+    },
+    {
+      "code": "SAÉ 5.Crea.01",
+      "teacher": "PASQUIER Aurore",
+      "groups": [
+        "BUT3-G1"
+      ],
+      "name": "Créer par/pour le numérique",
+      "rooms": [
+        "115"
+      ],
+      "duration": 90
+    }
+  ]
 }

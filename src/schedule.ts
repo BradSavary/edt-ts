@@ -214,22 +214,30 @@ export class Schedule {
     private findAvailableResources(task: Task, startTime: number): Resource[] {
         const availableResources: Resource[] = [];
         
-        for (const resource of this.resources) {
-            // Pour cette version simplifiée, on prend toutes les ressources de la tâche
-            // qui sont disponibles sur la période
-            if (task.resources.includes(resource)) {
-                // Convertir le créneau en minutes depuis le début de la semaine
-                const startMinutes = this.slotToMinutes(startTime);
-                const endMinutes = startMinutes + task.duration; // task.duration est déjà en minutes
-                
+        // Convertir le créneau en minutes depuis le début de la semaine
+        const startMinutes = this.slotToMinutes(startTime);
+        const endMinutes = startMinutes + task.duration; // task.duration est déjà en minutes
+        
+        // Vérifier chaque ressource requise par la tâche
+        for (const requiredResource of task.resources) {
+            // Trouver la ressource correspondante dans notre liste de ressources
+            const resource = this.resources.find(r => r.id === requiredResource.id);
+            
+            if (resource) {
                 // Vérification de la disponibilité sur la durée de la tâche
+                // en utilisant l'état COURANT de la ressource (après réservations)
                 if (resource.availability.isAvailable(startMinutes, endMinutes)) {
                     availableResources.push(resource);
                 }
             }
         }
         
-        return availableResources;
+        // Ne retourner que si TOUTES les ressources requises sont disponibles
+        if (availableResources.length === task.resources.length) {
+            return availableResources;
+        } else {
+            return []; // Si une ressource manque, on ne peut pas faire cette affectation
+        }
     }
 
     /**
@@ -256,12 +264,32 @@ export class Schedule {
         if (slot.startTime + slotsNeeded > 40) return false; // 40 créneaux par semaine
         if (slot.resources.length === 0) return false;
         
-        // Vérification des conflits avec les tâches déjà planifiées
+        // Convertir en minutes pour vérifier la disponibilité
+        const startMinutes = this.slotToMinutes(slot.startTime);
+        const endMinutes = startMinutes + task.duration;
+        
+        // Vérifier que TOUTES les ressources requises par la tâche sont disponibles
+        for (const requiredResource of task.resources) {
+            // Trouver la ressource correspondante dans les ressources disponibles
+            const availableResource = slot.resources.find(r => r.id === requiredResource.id);
+            
+            if (!availableResource) {
+                // La ressource requise n'est pas dans les ressources disponibles
+                return false;
+            }
+            
+            // Vérifier que la ressource est réellement disponible sur cette période
+            if (!availableResource.availability.isAvailable(startMinutes, endMinutes)) {
+                return false;
+            }
+        }
+        
+        // Vérifier qu'aucune ressource n'est déjà occupée par une tâche planifiée
         for (const existingSolution of this.solution) {
             if (this.hasTimeConflict(existingSolution, slot.startTime, slotsNeeded)) {
                 // Vérification des ressources partagées
                 const sharedResources = slot.resources.filter(r => 
-                    existingSolution.assignedResources.includes(r)
+                    existingSolution.assignedResources.some(er => er.id === r.id)
                 );
                 if (sharedResources.length > 0) {
                     return false;
@@ -295,7 +323,13 @@ export class Schedule {
         
         // Marquer les ressources comme occupées en utilisant la méthode book
         for (const resource of assignedResources) {
-            resource.availability.book(startMinutes, endMinutes);
+            try {
+                resource.availability.book(startMinutes, endMinutes);
+            } catch (error) {
+                // Si la réservation échoue, annuler les réservations déjà faites
+                console.warn(`Échec de la réservation pour la ressource ${resource.id}: ${error}`);
+                // On pourrait implémenter un rollback ici si nécessaire
+            }
         }
     }
 
@@ -309,9 +343,7 @@ export class Schedule {
         const startMinutes = this.slotToMinutes(startTime);
         const endMinutes = startMinutes + task.duration;
         
-        // Remarquer les ressources comme disponibles
-        // Note: AvailabilityManager n'a pas de méthode unbook, 
-        // donc on recrée la disponibilité
+        // Rendre les ressources disponibles en ajoutant la disponibilité
         for (const resource of assignedResources) {
             resource.availability.addAvailability(startMinutes, endMinutes);
         }
