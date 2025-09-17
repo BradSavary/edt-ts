@@ -186,30 +186,43 @@ export class Loader {
 
       console.log(`📚 Chargement des tâches pour la semaine ${targetWeek}`);
 
-      // Utiliser le ResourcesManager centralisé ou en créer un nouveau
-      const resourcesManager = weekNumber ? this.loadResources() : this.resourcesManager;
+      // Utiliser le ResourcesManager centralisé
+      const resourcesManager = this.resourcesManager;
 
       // Appliquer les contraintes pour la semaine spécifiée
       resourcesManager.applyConstraintsForWeek(targetWeek);
 
       // Créer les tâches
       const tasks: Task[] = [];
+      const missingResources = {
+        teachers: new Set<string>(),
+        rooms: new Set<string>(),
+        groups: new Set<string>()
+      };
 
       for (const courseData of coursesData.tasks) {
         // Collecter toutes les ressources nécessaires
         const taskResources: Resource[] = [];
 
         // Ajouter l'enseignant
-        if (courseData.teacher && resourcesManager.hasResource(courseData.teacher)) {
-          const teacher = resourcesManager.getResource(courseData.teacher);
-          if (teacher) taskResources.push(teacher);
+        if (courseData.teacher) {
+          if (resourcesManager.hasResource(courseData.teacher)) {
+            const teacher = resourcesManager.getResource(courseData.teacher);
+            taskResources.push(teacher!); // ! car hasResource garantit que getResource ne retourne pas null
+          } else {
+            console.warn(`⚠️  Enseignant '${courseData.teacher}' introuvable dans les ressources pour le cours ${courseData.code}`);
+            missingResources.teachers.add(courseData.teacher);
+          }
         }
 
         // Ajouter les salles
         for (const roomId of courseData.rooms) {
           if (resourcesManager.hasResource(roomId)) {
             const room = resourcesManager.getResource(roomId);
-            if (room) taskResources.push(room);
+            taskResources.push(room!); // ! car hasResource garantit que getResource ne retourne pas null
+          } else {
+            console.warn(`⚠️  Salle '${roomId}' introuvable dans les ressources pour le cours ${courseData.code}`);
+            missingResources.rooms.add(roomId);
           }
         }
 
@@ -217,7 +230,10 @@ export class Loader {
         for (const groupId of courseData.groups) {
           if (resourcesManager.hasResource(groupId)) {
             const group = resourcesManager.getResource(groupId);
-            if (group) taskResources.push(group);
+            taskResources.push(group!); // ! car hasResource garantit que getResource ne retourne pas null
+          } else {
+            console.warn(`⚠️  Groupe '${groupId}' introuvable dans les ressources pour le cours ${courseData.code}`);
+            missingResources.groups.add(groupId);
           }
         }
 
@@ -229,6 +245,21 @@ export class Loader {
       }
 
       console.log(`✅ ${tasks.length} tâches chargées pour la semaine ${targetWeek}`);
+      
+      // Afficher un résumé des ressources manquantes
+      const totalMissing = missingResources.teachers.size + missingResources.rooms.size + missingResources.groups.size;
+      if (totalMissing > 0) {
+        console.warn(`\n⚠️  Résumé des ressources manquantes (${totalMissing} au total):`);
+        if (missingResources.teachers.size > 0) {
+          console.warn(`   👨‍🏫 Enseignants manquants (${missingResources.teachers.size}): ${Array.from(missingResources.teachers).join(', ')}`);
+        }
+        if (missingResources.rooms.size > 0) {
+          console.warn(`   🏫 Salles manquantes (${missingResources.rooms.size}): ${Array.from(missingResources.rooms).join(', ')}`);
+        }
+        if (missingResources.groups.size > 0) {
+          console.warn(`   👥 Groupes manquants (${missingResources.groups.size}): ${Array.from(missingResources.groups).join(', ')}`);
+        }
+      }
       
       // Mettre à jour les propriétés statiques si c'est le chargement principal
       if (!weekNumber) {

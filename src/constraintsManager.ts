@@ -173,8 +173,18 @@ export class ConstraintsManager {
       }
     }
 
-    // Retourner l'AvailabilityManager par défaut
-    return this.availabilityManagers.get(resourceId) || null;
+    // Vérifier si la ressource a des contraintes spécifiques
+    const specificAvailability = this.availabilityManagers.get(resourceId);
+    if (specificAvailability) {
+      return specificAvailability;
+    }
+
+    // Ressource non trouvée : émettre un warning et retourner une copie des contraintes Default
+    console.warn(`⚠️  Ressource '${resourceId}' non trouvée dans contraintes.json - utilisation des contraintes Default`);
+    
+    // Créer une copie des contraintes Default pour cette ressource
+    const defaultSlots = this.constraintsData?.Default || [];
+    return this.createAvailabilityManagerFromSlots(defaultSlots);
   }
 
   /**
