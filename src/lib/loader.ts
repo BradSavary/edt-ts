@@ -29,6 +29,7 @@ interface CourseTaskData {
   groups: string[];
   name: string;
   rooms: string[];
+  duration: number;
 }
 
 interface CoursesData {
@@ -45,6 +46,7 @@ export class Loader {
   private static _resourcesManager: ResourcesManager | null = null;
   private static _tasks: Task[] | null = null;
   private static _currentWeek: number | null = null;
+  private static _taskCounter: number = 0; // Compteur pour IDs uniques
 
   /**
    * Getter pour le ResourcesManager
@@ -180,6 +182,9 @@ export class Loader {
    */
   static loadTasks(weekNumber?: number): Task[] {
     try {
+      // Réinitialiser le compteur de tâches pour un chargement cohérent
+      this._taskCounter = 0;
+      
       // Charger les données de cours
       const coursesData: CoursesData = Loader.loadJson('./src/json/cours.json');
       const targetWeek = weekNumber || coursesData.week;
@@ -215,14 +220,25 @@ export class Loader {
           }
         }
 
-        // Ajouter les salles
-        for (const roomId of courseData.rooms) {
-          if (resourcesManager.hasResource(roomId)) {
-            const room = resourcesManager.getResource(roomId);
-            taskResources.push(room!); // ! car hasResource garantit que getResource ne retourne pas null
+        // Ajouter une seule salle au hasard parmi celles proposées
+        if (courseData.rooms.length > 0) {
+          // Filtrer les salles disponibles
+          const availableRooms = courseData.rooms.filter(roomId => 
+            resourcesManager.hasResource(roomId)
+          );
+          
+          if (availableRooms.length > 0) {
+            // Choisir une salle au hasard
+            const randomIndex = Math.floor(Math.random() * availableRooms.length);
+            const selectedRoomId = availableRooms[randomIndex];
+            const room = resourcesManager.getResource(selectedRoomId);
+            taskResources.push(room!);
           } else {
-            console.warn(`⚠️  Salle '${roomId}' introuvable dans les ressources pour le cours ${courseData.code}`);
-            missingResources.rooms.add(roomId);
+            // Aucune salle disponible - ajouter toutes les salles manquantes aux warnings
+            courseData.rooms.forEach(roomId => {
+              console.warn(`⚠️  Salle '${roomId}' introuvable dans les ressources pour le cours ${courseData.code}`);
+              missingResources.rooms.add(roomId);
+            });
           }
         }
 
@@ -237,9 +253,10 @@ export class Loader {
           }
         }
 
-        // Créer la tâche
-        const taskId = `${courseData.code}_${courseData.teacher}_${courseData.groups.join('_')}`;
-        const task = new Task(taskId, courseData.name, 90, taskResources); // 90 minutes par défaut
+        // Créer la tâche avec un ID unique
+        this._taskCounter++; // Incrémenter le compteur
+        const taskId = `${courseData.code}_${courseData.teacher}_${courseData.groups.join('_')}_${this._taskCounter}`;
+        const task = new Task(taskId, courseData.code, courseData.name, courseData.duration, taskResources);
 
         tasks.push(task);
       }

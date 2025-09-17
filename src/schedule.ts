@@ -57,7 +57,8 @@ export class Schedule {
         this.startTime = Date.now();
         
         // Tri des tâches par contraintes (les plus contraintes en premier)
-        this.tasks.sort((a, b) => this.getTaskConstraintScore(b) - this.getTaskConstraintScore(a));
+        // Plus le temps disponible est faible, plus la tâche est contrainte
+        this.tasks.sort((a, b) => this.getTaskConstraintScore(a) - this.getTaskConstraintScore(b));
         
         console.log(`📋 ${this.tasks.length} tâches à planifier`);
         console.log(`🏢 ${this.resources.length} ressources disponibles`);
@@ -352,19 +353,12 @@ export class Schedule {
 
     /**
      * Calcule un score de contrainte pour une tâche (pour l'heuristique de tri)
+     * Le score est égal à la durée totale des créneaux où elle peut être encore planifiée
      */
     private getTaskConstraintScore(task: Task): number {
-        let score = 0;
-        
-        // Plus la durée est longue, plus c'est contraignant
-        score += task.duration * 10;
-        
-        // Plus le nombre de ressources requises est élevé, plus c'est contraignant
-        score += task.resources.length * 5;
-        
-        // Ajouter d'autres heuristiques selon les besoins
-        
-        return score;
+        // Le score est basé sur la disponibilité totale des ressources de la tâche
+        // Plus la disponibilité est faible, plus la tâche est contrainte
+        return task.schedulable.getTotalAvailableTime();
     }
 
     /**

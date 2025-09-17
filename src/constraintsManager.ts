@@ -1,6 +1,6 @@
 import { AvailabilityManager } from './bookable.js';
 import { Loader } from './lib/loader.js';
-import type { TimeSlot, ConstraintsData } from './lib/loader.js';
+import type { TimeSlot, ConstraintsData } from './lib/types.js';
 
 /**
  * Gestionnaire statique des contraintes de disponibilité
@@ -99,7 +99,10 @@ export class ConstraintsManager {
         const startTime = this.parseTime(slot.from);
         const endTime = this.parseTime(slot.to);
         
-        // Convertir en timestamp pour une semaine type (jour 0 = lundi)
+        // Convertir en timestamp pour une semaine type
+        // Formule : dayIndex * 1440 + minutes_depuis_minuit
+        // où dayIndex : 0=Lundi, 1=Mardi, 2=Mercredi, 3=Jeudi, 4=Vendredi, 5=Samedi, 6=Dimanche
+        // Exemple : Vendredi 13:30 = 4 * 1440 + 810 = 6570 minutes depuis lundi minuit
         const startTimestamp = dayIndex * 24 * 60 + startTime;
         const endTimestamp = dayIndex * 24 * 60 + endTime;
         
@@ -134,17 +137,30 @@ export class ConstraintsManager {
   }
 
   /**
-   * Convertit un nom de jour en index (lundi = 0, mardi = 1, etc.)
+   * Convertit un nom de jour en index numérique pour le système de timestamps
+   * 
+   * SYSTÈME DE TIMESTAMPS :
+   * Les timestamps représentent des minutes écoulées depuis LUNDI MINUIT d'une semaine type
+   * 
+   * @param dayName Nom du jour (monday, tuesday, etc.)
+   * @returns Index du jour dans la semaine type :
+   *   - 0 = Lundi (0 à 1439 minutes)
+   *   - 1 = Mardi (1440 à 2879 minutes)
+   *   - 2 = Mercredi (2880 à 4319 minutes)
+   *   - 3 = Jeudi (4320 à 5759 minutes)
+   *   - 4 = Vendredi (5760 à 7199 minutes)
+   *   - 5 = Samedi (7200 à 8639 minutes)
+   *   - 6 = Dimanche (8640 à 10079 minutes)
    */
   private static getDayIndex(dayName: string): number {
     const dayIndices: { [key: string]: number } = {
-      'monday': 0,
-      'tuesday': 1,
-      'wednesday': 2,
-      'thursday': 3,
-      'friday': 4,
-      'saturday': 5,
-      'sunday': 6
+      'monday': 0,    // Lundi = base de la semaine type
+      'tuesday': 1,   
+      'wednesday': 2, 
+      'thursday': 3,  
+      'friday': 4,    
+      'saturday': 5,  
+      'sunday': 6     
     };
     
     return dayIndices[dayName] || 0;

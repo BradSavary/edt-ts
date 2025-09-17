@@ -1011,16 +1011,6 @@
     },
     {
       "code": "SAÉ 5.DWeb-DI.01",
-      "teacher": "",
-      "groups": [
-        "BUT3-G3"
-      ],
-      "name": "Développer pour le web ou concevoir un dispositif interactif",
-      "rooms": [],
-      "duration": 90
-    },
-    {
-      "code": "SAÉ 5.DWeb-DI.01",
       "teacher": "CARON Coralie",
       "groups": [
         "BUT3-G3"
@@ -1127,27 +1117,6 @@
         "115",
         "102"
       ],
-      "duration": 90
-    },
-    {
-      "code": "SAÉ 5.Crea.01",
-      "teacher": "",
-      "groups": [
-        "BUT3-G1"
-      ],
-      "name": "Créer par/pour le numérique",
-      "rooms": [],
-      "duration": 90
-    },
-    {
-      "code": "SAÉ 5.Crea.01",
-      "teacher": "",
-      "groups": [
-        "BUT3-G21",
-        "BUT3-G22"
-      ],
-      "name": "Créer par/pour le numérique",
-      "rooms": [],
       "duration": 90
     },
     {

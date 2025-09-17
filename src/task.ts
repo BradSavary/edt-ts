@@ -31,6 +31,7 @@ interface TaskScheduleResult {
  */
 class Task {
   public readonly id: string;
+  public readonly code: string;
   public readonly name: string;
   public readonly duration: number;
   public readonly resources: Resource[];
@@ -40,12 +41,13 @@ class Task {
   private dependsOn: Task | null = null;
   private dependentTasks: Task[] = [];
 
-  constructor(id: string, name: string, duration: number, resources: Resource[] = []) {
+  constructor(id: string, code: string, name: string, duration: number, resources: Resource[] = []) {
     if (duration <= 0) {
       throw new Error('La durée de la tâche doit être positive');
     }
     
     this.id = id;
+    this.code = code;
     this.name = name;
     this.duration = duration;
     this.resources = [...resources]; // Copie défensive

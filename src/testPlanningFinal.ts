@@ -115,7 +115,7 @@ const unscheduledTasks = Loader.tasks.filter(task => !scheduledTaskIds.has(task.
 if (unscheduledTasks.length > 0) {
     console.log(`\n⚠️ Tâches non planifiées (${unscheduledTasks.length}):`)
     for (const task of unscheduledTasks) {
-        console.log(`📋 ${task.name}`);
+        console.log(`📋 ${task.name} (ID: ${task.id})`);
     }
 }
 
