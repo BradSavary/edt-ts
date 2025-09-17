@@ -1,7 +1,6 @@
 import { Loader } from './lib/loader.js';
 import { Task } from './task.js';
 import { Resource } from './resource.js';
-import type { AvailableSlot } from './bookable.js';
 
 /**
  * Représente une solution de planification pour une tâche
@@ -180,11 +179,20 @@ export class Schedule {
         // Calculer le nombre de créneaux nécessaires pour cette tâche
         const slotsNeeded = Math.ceil(task.duration / 90); // 90 minutes par créneau
         
-        // Pour chaque créneau possible (40 créneaux par semaine = 5 jours * 8 créneaux)
+        // Créer une liste des créneaux possibles et les mélanger pour éviter
+        // de toujours prendre les premiers créneaux
+        const timeSlots: number[] = [];
         for (let startTime = 0; startTime < 40; startTime++) {
-            // Vérification que la tâche peut tenir dans ce créneau
-            if (startTime + slotsNeeded > 40) continue;
-            
+            if (startTime + slotsNeeded <= 40) {
+                timeSlots.push(startTime);
+            }
+        }
+        
+        // Mélanger les créneaux pour une meilleure distribution
+        this.shuffleArray(timeSlots);
+        
+        // Pour chaque créneau possible
+        for (const startTime of timeSlots) {
             // Recherche des ressources disponibles pour ce créneau
             const availableResources = this.findAvailableResources(task, startTime);
             
@@ -196,7 +204,8 @@ export class Schedule {
             }
         }
         
-        return slots;
+        // Trier les créneaux pour favoriser une distribution équilibrée
+        return this.sortSlotsByPreference(slots);
     }
 
     /**
@@ -411,5 +420,44 @@ export class Schedule {
                     console.log(`📍 ${sol.task.name} - Jour ${day}, ${hourStart}h-${hourEnd}h (${resources})`);
                 });
         }
+    }
+
+    /**
+     * Mélange un tableau en place (algorithme Fisher-Yates)
+     */
+    private shuffleArray<T>(array: T[]): void {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+
+    /**
+     * Trie les créneaux par préférence pour favoriser une distribution équilibrée
+     */
+    private sortSlotsByPreference(slots: Array<{startTime: number, resources: Resource[]}>): Array<{startTime: number, resources: Resource[]}> {
+        // Compter les tâches déjà planifiées par jour
+        const dayCount = new Array(5).fill(0); // 5 jours
+        for (const sol of this.solution) {
+            const day = Math.floor(sol.startTime / 8);
+            if (day >= 0 && day < 5) {
+                dayCount[day]++;
+            }
+        }
+
+        // Trier en privilégiant les jours moins chargés
+        return slots.sort((a, b) => {
+            const dayA = Math.floor(a.startTime / 8);
+            const dayB = Math.floor(b.startTime / 8);
+            
+            // Privilégier les jours moins chargés
+            const loadDiff = dayCount[dayA] - dayCount[dayB];
+            if (loadDiff !== 0) return loadDiff;
+            
+            // En cas d'égalité, privilégier les heures de début de journée
+            const hourA = a.startTime % 8;
+            const hourB = b.startTime % 8;
+            return hourA - hourB;
+        });
     }
 }
