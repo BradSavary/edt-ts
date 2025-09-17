@@ -30,9 +30,9 @@ export class Schedule {
     private solution: TaskSolution[] = [];
     private bestSolution: TaskSolution[] = [];
     private bestScore: number = -Infinity;
-    private maxIterations: number = 10000; // Limite de sécurité
+    private maxIterations: number = 1000000; // Limite de sécurité augmentée
     private currentIterations: number = 0;
-    private timeoutMs: number = 30000; // 30 secondes max
+    private timeoutMs: number = 0; // Pas de limite de temps
     private startTime: number = 0;
 
     constructor() {
@@ -61,7 +61,7 @@ export class Schedule {
         
         console.log(`📋 ${this.tasks.length} tâches à planifier`);
         console.log(`🏢 ${this.resources.length} ressources disponibles`);
-        console.log(`⏱️ Limite: ${this.maxIterations} itérations, ${this.timeoutMs/1000}s`);
+        console.log(`⏱️ Limite: ${this.maxIterations} itérations, pas de limite de temps`);
         
         // Lancement de l'algorithme de backtracking
         const startTime = Date.now();
@@ -106,10 +106,11 @@ export class Schedule {
             return false;
         }
         
-        if (Date.now() - this.startTime > this.timeoutMs) {
-            console.log('⚠️ Timeout atteint');
-            return false;
-        }
+        // Pas de limite de temps - commenté
+        // if (Date.now() - this.startTime > this.timeoutMs) {
+        //     console.log('⚠️ Timeout atteint');
+        //     return false;
+        // }
         
         // Condition d'arrêt : toutes les tâches sont planifiées
         if (taskIndex >= this.tasks.length) {
