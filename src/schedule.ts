@@ -1,6 +1,7 @@
 import { Loader } from './lib/loader.js';
 import { Task } from './task.js';
 import { Resource } from './resource.js';
+import { sortTasksByDifficulty, analyzeTaskScoring } from './taskPriority.js';
 
 /**
  * Représente une solution de planification pour une tâche
@@ -93,6 +94,12 @@ export class Schedule {
         if (this.resources.length === 0) {
             throw new Error('Aucune ressource disponible. Vérifiez que les ressources sont chargées.');
         }
+        
+        // NOUVELLE STRATÉGIE: Trier les tâches par difficulté décroissante
+        console.log('🎯 Application de la priorisation par difficulté...');
+        analyzeTaskScoring(this.tasks);
+        this.tasks = sortTasksByDifficulty(this.tasks);
+        console.log('✅ Tâches triées par ordre de difficulté décroissante\n');
     }
 
     /**
@@ -174,40 +181,30 @@ export class Schedule {
 
     /**
      * Génère tous les créneaux possibles pour une tâche donnée
+     * CORRIGÉ: Utilise maintenant les vrais créneaux disponibles de task.schedulable
      */
     private generatePossibleSlots(task: Task): Array<{startTime: number, resources: Resource[]}> {
         const slots: Array<{startTime: number, resources: Resource[]}> = [];
         
-        // Calculer le nombre de créneaux nécessaires pour cette tâche
-        const slotsNeeded = Math.ceil(task.duration / 90); // 90 minutes par créneau
+        // CORRECTION: Utiliser les vrais créneaux disponibles de la tâche
+        const availableIntervals = task.schedulable.getAvailableIntervals();
         
-        // Créer une liste des créneaux possibles et les mélanger pour éviter
-        // de toujours prendre les premiers créneaux
-        const timeSlots: number[] = [];
-        for (let startTime = 0; startTime < 40; startTime++) {
-            if (startTime + slotsNeeded <= 40) {
-                timeSlots.push(startTime);
-            }
-        }
-        
-        // Mélanger les créneaux pour une meilleure distribution
-        this.shuffleArray(timeSlots);
-        
-        // Pour chaque créneau possible
-        for (const startTime of timeSlots) {
-            // Recherche des ressources disponibles pour ce créneau
-            const availableResources = this.findAvailableResources(task, startTime);
+        for (const interval of availableIntervals) {
+            const intervalDuration = interval.end - interval.start;
             
-            if (availableResources.length > 0) {
-                slots.push({
-                    startTime,
-                    resources: availableResources
-                });
+            // Vérifier si l'intervalle est assez grand pour la tâche
+            if (intervalDuration >= task.duration) {
+                // Créer un créneau pour cet intervalle
+                const slot = {
+                    startTime: interval.start, // Utiliser directement le timestamp en minutes
+                    resources: task.resources   // Toutes les ressources sont déjà validées dans schedulable
+                };
+                
+                slots.push(slot);
             }
         }
         
-        // Trier les créneaux pour favoriser une distribution équilibrée
-        return this.sortSlotsByPreference(slots);
+        return slots;
     }
 
     /**
@@ -257,47 +254,32 @@ export class Schedule {
 
     /**
      * Vérifie si un créneau est valide pour une tâche
+     * SIMPLIFIÉ: task.schedulable a déjà validé les contraintes, on vérifie juste les conflits
      */
     private isSlotValid(task: Task, slot: {startTime: number, resources: Resource[]}): boolean {
-        // Calculer le nombre de créneaux nécessaires
-        const slotsNeeded = Math.ceil(task.duration / 90);
-        
-        // Vérification des contraintes de base
-        if (slot.startTime + slotsNeeded > 40) return false; // 40 créneaux par semaine
-        if (slot.resources.length === 0) return false;
-        
-        // Convertir en minutes pour vérifier la disponibilité
-        const startMinutes = this.slotToMinutes(slot.startTime);
-        const endMinutes = startMinutes + task.duration;
-        
-        // Vérifier que TOUTES les ressources requises par la tâche sont disponibles
-        for (const requiredResource of task.resources) {
-            // Trouver la ressource correspondante dans les ressources disponibles
-            const availableResource = slot.resources.find(r => r.id === requiredResource.id);
-            
-            if (!availableResource) {
-                // La ressource requise n'est pas dans les ressources disponibles
-                return false;
-            }
-            
-            // Vérifier que la ressource est réellement disponible sur cette période
-            if (!availableResource.availability.isAvailable(startMinutes, endMinutes)) {
-                return false;
-            }
-        }
+        // Calculer la fin du créneau
+        const endTime = slot.startTime + task.duration;
         
         // Vérifier qu'aucune ressource n'est déjà occupée par une tâche planifiée
         for (const existingSolution of this.solution) {
-            if (this.hasTimeConflict(existingSolution, slot.startTime, slotsNeeded)) {
-                // Vérification des ressources partagées
+            const existingEnd = existingSolution.startTime + existingSolution.task.duration;
+            
+            // Vérifier s'il y a chevauchement temporel
+            const hasTimeOverlap = (slot.startTime < existingEnd && endTime > existingSolution.startTime);
+            
+            if (hasTimeOverlap) {
+                // Vérifier s'il y a des ressources partagées
                 const sharedResources = slot.resources.filter(r => 
                     existingSolution.assignedResources.some(er => er.id === r.id)
                 );
+                
                 if (sharedResources.length > 0) {
                     return false;
                 }
             }
         }
+        
+        return true;
         
         return true;
     }
