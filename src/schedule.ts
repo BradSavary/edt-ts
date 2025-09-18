@@ -155,31 +155,29 @@ export class Schedule {
         }
         
         for (const slot of possibleSlots) {
-            // Vérification de la faisabilité
-            if (this.isSlotValid(task, slot)) {
-                // Assignation de la tâche au créneau
-                const taskSolution: TaskSolution = {
-                    task,
-                    startTime: slot.startTime,
-                    assignedResources: task.resources // Utiliser directement les ressources de la tâche
-                };
-                
-                this.solution.push(taskSolution);
-                
-                // Application des contraintes (propagation)
-                this.applyConstraints(taskSolution);
-                
-                // Récursion sur la tâche suivante
-                const result = this.backtrack(taskIndex + 1);
-                
-                // Backtrack : annulation des modifications
-                this.undoConstraints(taskSolution);
-                this.solution.pop();
-                
-                // Si on a trouvé une solution complète, on peut arrêter
-                if (result && this.bestSolution.length === this.tasks.length) {
-                    return true;
-                }
+            // Assignation de la tâche au créneau
+            // Les slots sont déjà valides grâce à task.schedulable (intersection des ressources)
+            const taskSolution: TaskSolution = {
+                task,
+                startTime: slot.startTime,
+                assignedResources: task.resources // Utiliser directement les ressources de la tâche
+            };
+            
+            this.solution.push(taskSolution);
+            
+            // Application des contraintes (propagation)
+            this.applyConstraints(taskSolution);
+            
+            // Récursion sur la tâche suivante
+            const result = this.backtrack(taskIndex + 1);
+            
+            // Backtrack : annulation des modifications
+            this.undoConstraints(taskSolution);
+            this.solution.pop();
+            
+            // Si on a trouvé une solution complète, on peut arrêter
+            if (result && this.bestSolution.length === this.tasks.length) {
+                return true;
             }
         }
         
@@ -223,45 +221,11 @@ export class Schedule {
     }
 
     /**
-     * Vérifie si un créneau est valide pour une tâche
-     * OPTIMISÉ: Utilise l'index bidirectionnel pour éviter les comparaisons coûteuses
-     */
-    private isSlotValid(task: Task, slot: {startTime: number}): boolean {
-        // Calculer la fin du créneau
-        const endTime = slot.startTime + task.duration;
-        
-        // Vérifier qu'aucune ressource de la tâche n'est déjà occupée par une tâche planifiée
-        for (const resource of task.resources) {
-            // Utiliser l'index bidirectionnel pour obtenir toutes les tâches utilisant cette ressource
-            const resourceTasks = resource.getTasks();
-            
-            for (const otherTask of resourceTasks) {
-                // Trouver si cette tâche est déjà planifiée dans la solution actuelle
-                const existingSolution = this.solution.find(sol => sol.task === otherTask);
-                
-                if (existingSolution) {
-                    const existingEnd = existingSolution.startTime + existingSolution.task.duration;
-                    
-                    // Vérifier s'il y a chevauchement temporel
-                    const hasTimeOverlap = (slot.startTime < existingEnd && endTime > existingSolution.startTime);
-                    
-                    if (hasTimeOverlap) {
-                        return false; // Conflit détecté sur cette ressource
-                    }
-                }
-            }
-        }
-        
-        return true;
-    }
-
-    /**
      * Applique les contraintes après l'assignation d'une tâche
      */
     private applyConstraints(taskSolution: TaskSolution): void {
         const { startTime, assignedResources, task } = taskSolution;
         
-        // startTime est déjà en minutes depuis le changement dans generatePossibleSlots
         const startMinutes = startTime;
         const endMinutes = startMinutes + task.duration;
         
@@ -270,9 +234,7 @@ export class Schedule {
             try {
                 resource.availability.book(startMinutes, endMinutes);
             } catch (error) {
-                // Si la réservation échoue, annuler les réservations déjà faites
                 console.warn(`Échec de la réservation pour la ressource ${resource.id}: ${error}`);
-                // On pourrait implémenter un rollback ici si nécessaire
             }
         }
         
@@ -286,7 +248,6 @@ export class Schedule {
     private undoConstraints(taskSolution: TaskSolution): void {
         const { startTime, assignedResources, task } = taskSolution;
         
-        // startTime est déjà en minutes depuis le changement dans generatePossibleSlots
         const startMinutes = startTime;
         const endMinutes = startMinutes + task.duration;
         
