@@ -181,9 +181,11 @@ export class Schedule {
     /**
      * Génère tous les créneaux possibles pour une tâche donnée
      * CORRIGÉ: Utilise maintenant les vrais créneaux disponibles de task.schedulable
+     * et génère tous les slots possibles dans chaque intervalle
      */
     private generatePossibleSlots(task: Task): Array<{startTime: number}> {
         const slots: Array<{startTime: number}> = [];
+        const SLOT_STEP = 30; // Pas de 30 minutes entre les slots
         
         // CORRECTION: Utiliser les vrais créneaux disponibles de la tâche
         const availableIntervals = task.schedulable.getAvailableIntervals();
@@ -193,12 +195,18 @@ export class Schedule {
             
             // Vérifier si l'intervalle est assez grand pour la tâche
             if (intervalDuration >= task.duration) {
-                // Créer un créneau pour cet intervalle
-                const slot = {
-                    startTime: interval.start // Utiliser directement le timestamp en minutes
-                };
-                
-                slots.push(slot);
+                // Générer tous les slots possibles dans cet intervalle
+                // avec un pas de SLOT_STEP minutes
+                for (let startTime = interval.start; 
+                     startTime + task.duration <= interval.end; 
+                     startTime += SLOT_STEP) {
+                    
+                    const slot = {
+                        startTime: startTime
+                    };
+                    
+                    slots.push(slot);
+                }
             }
         }
         
