@@ -11,7 +11,7 @@ import * as path from 'path';
 export interface TaskSolution {
     task: Task;
     startTime: number; // Créneau de début (0-119 pour 5 jours * 24 créneaux)
-    assignedResources: Resource[];
+    // assignedResources supprimé : utiliser directement task.resources
 }
 
 /**
@@ -159,8 +159,8 @@ export class Schedule {
             // Les slots sont déjà valides grâce à task.schedulable (intersection des ressources)
             const taskSolution: TaskSolution = {
                 task,
-                startTime: slot.startTime,
-                assignedResources: task.resources // Utiliser directement les ressources de la tâche
+                startTime: slot.startTime
+                // Les ressources sont directement dans task.resources
             };
             
             this.solution.push(taskSolution);
@@ -224,13 +224,13 @@ export class Schedule {
      * Applique les contraintes après l'assignation d'une tâche
      */
     private applyConstraints(taskSolution: TaskSolution): void {
-        const { startTime, assignedResources, task } = taskSolution;
+        const { startTime, task } = taskSolution;
         
         const startMinutes = startTime;
         const endMinutes = startMinutes + task.duration;
         
         // Marquer les ressources comme occupées en utilisant la méthode book
-        for (const resource of assignedResources) {
+        for (const resource of task.resources) {
             try {
                 resource.availability.book(startMinutes, endMinutes);
             } catch (error) {
@@ -239,25 +239,113 @@ export class Schedule {
         }
         
         // Invalider le schedulable de toutes les tâches qui utilisent ces ressources
-        this.invalidateSchedulableForResources(assignedResources);
+        this.invalidateSchedulableForResources(task.resources);
+    }
+
+    /**
+     * EXPÉRIMENTAL: Applique les contraintes de manière chirurgicale
+     * Retire directement le créneau des schedulables sans invalidation/recalcul complet
+     */
+    private applyConstraintsExp(taskSolution: TaskSolution): void {
+        const { startTime, task } = taskSolution;
+        
+        const startMinutes = startTime;
+        const endMinutes = startMinutes + task.duration;
+        
+        // 1. Retirer le créneau du schedulable de la tâche actuelle
+        try {
+            task.schedulable.book(startMinutes, endMinutes);
+        } catch (error) {
+            console.warn(`Échec de la réservation du schedulable pour la tâche ${task.name}: ${error}`);
+        }
+        
+        // 2. Retirer le créneau des disponibilités de toutes les ressources de la tâche
+        for (const resource of task.resources) {
+            try {
+                resource.availability.book(startMinutes, endMinutes);
+            } catch (error) {
+                console.warn(`Échec de la réservation pour la ressource ${resource.id}: ${error}`);
+            }
+            
+            // 3. Pour chaque ressource, parcourir toutes les tâches qui en dépendent
+            // et leur retirer le créneau de leur schedulable
+            const dependentTasks = resource.getTasks();
+            for (const dependentTask of dependentTasks) {
+                // Ne pas traiter la tâche actuelle (elle est déjà traitée)
+                if (dependentTask !== task) {
+                    try {
+                        // Retirer le créneau du schedulable de la tâche dépendante
+                        // seulement si le créneau est disponible
+                        if (dependentTask.schedulable.isAvailable(startMinutes, endMinutes)) {
+                            dependentTask.schedulable.book(startMinutes, endMinutes);
+                        }
+                    } catch (error) {
+                        // Ignorer les erreurs - le créneau n'était peut-être pas disponible
+                        // dans le schedulable de cette tâche
+                    }
+                }
+            }
+        }
     }
 
     /**
      * Annule les contraintes lors du backtrack
      */
     private undoConstraints(taskSolution: TaskSolution): void {
-        const { startTime, assignedResources, task } = taskSolution;
+        const { startTime, task } = taskSolution;
         
         const startMinutes = startTime;
         const endMinutes = startMinutes + task.duration;
         
         // Rendre les ressources disponibles en ajoutant la disponibilité
-        for (const resource of assignedResources) {
+        for (const resource of task.resources) {
             resource.availability.addAvailability(startMinutes, endMinutes);
         }
         
         // Invalider le schedulable de toutes les tâches qui utilisent ces ressources
-        this.invalidateSchedulableForResources(assignedResources);
+        this.invalidateSchedulableForResources(task.resources);
+    }
+
+    /**
+     * EXPÉRIMENTAL: Annule les contraintes de manière chirurgicale
+     * Remet directement le créneau dans les schedulables sans invalidation/recalcul complet
+     */
+    private undoConstraintsExp(taskSolution: TaskSolution): void {
+        const { startTime, task } = taskSolution;
+        
+        const startMinutes = startTime;
+        const endMinutes = startMinutes + task.duration;
+        
+        // 1. Remettre le créneau dans le schedulable de la tâche actuelle
+        task.schedulable.addAvailability(startMinutes, endMinutes);
+        
+        // 2. Remettre le créneau dans les disponibilités de toutes les ressources de la tâche
+        for (const resource of task.resources) {
+            resource.availability.addAvailability(startMinutes, endMinutes);
+            
+            // 3. Pour chaque ressource, parcourir toutes les tâches qui en dépendent
+            // et vérifier si on peut remettre le créneau dans leur schedulable
+            const dependentTasks = resource.getTasks();
+            for (const dependentTask of dependentTasks) {
+                // Ne pas traiter la tâche actuelle (elle est déjà traitée)
+                if (dependentTask !== task) {
+                    // Vérifier si TOUTES les ressources de la tâche dépendante 
+                    // sont maintenant disponibles sur ce créneau
+                    let allResourcesAvailable = true;
+                    for (const depTaskResource of dependentTask.resources) {
+                        if (!depTaskResource.availability.isAvailable(startMinutes, endMinutes)) {
+                            allResourcesAvailable = false;
+                            break;
+                        }
+                    }
+                    
+                    // Si toutes les ressources sont disponibles, remettre le créneau
+                    if (allResourcesAvailable) {
+                        dependentTask.schedulable.addAvailability(startMinutes, endMinutes);
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -324,8 +412,8 @@ export class Schedule {
                 
                 if (hasTimeOverlap) {
                     // OPTIMISÉ: Utiliser des Sets pour des comparaisons plus rapides
-                    const resources1 = new Set(task1.assignedResources.map(r => r.id));
-                    const sharedResources = task2.assignedResources.filter(r2 => resources1.has(r2.id));
+                    const resources1 = new Set(task1.task.resources.map(r => r.id));
+                    const sharedResources = task2.task.resources.filter(r2 => resources1.has(r2.id));
                     
                     if (sharedResources.length > 0) {
                         const conflict = `CONFLIT détecté entre "${task1.task.name}" (${this.formatTime(task1.startTime)}-${this.formatTime(end1)}) et "${task2.task.name}" (${this.formatTime(task2.startTime)}-${this.formatTime(end2)}) sur les ressources: ${sharedResources.map(r => r.id).join(', ')}`;
@@ -372,7 +460,7 @@ export class Schedule {
 
         // Calculer la date du lundi de la semaine 36 de 2025
         const year = 2025;
-        const weekNumber = 38;
+        const weekNumber = 39;
         
         // Le 1er janvier 2025 est un mercredi
         // Calcul du premier lundi de l'année 2025 : 6 janvier 2025
@@ -442,9 +530,9 @@ export class Schedule {
                 endDate.setMinutes(endDate.getMinutes() + task.duration);
 
                 // Extraire les ressources
-                const teachers = solution.assignedResources.filter(r => r.type === 'teacher').map(r => r.id);
-                const rooms = solution.assignedResources.filter(r => r.type === 'room').map(r => r.id);
-                const groups = solution.assignedResources.filter(r => r.type === 'group').map(r => r.id);
+                const teachers = solution.task.resources.filter(r => r.type === 'teacher').map(r => r.id);
+                const rooms = solution.task.resources.filter(r => r.type === 'room').map(r => r.id);
+                const groups = solution.task.resources.filter(r => r.type === 'group').map(r => r.id);
 
                 // Créer une description détaillée
                 const description = [

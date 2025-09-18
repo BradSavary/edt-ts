@@ -121,7 +121,7 @@ async function testScheduling() {
     // Compter l'utilisation des enseignants
     const teacherUsage = new Map<string, number>();
     solution.solutions.forEach(sol => {
-      sol.assignedResources.forEach(res => {
+      sol.task.resources.forEach(res => {
         if (res.type === 'teacher') {
           teacherUsage.set(res.id, (teacherUsage.get(res.id) || 0) + 1);
         }
