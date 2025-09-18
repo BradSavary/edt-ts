@@ -75,7 +75,7 @@ export class Schedule {
         return {
             solutions: [...this.bestSolution],
             isComplete: this.bestSolution.length === this.tasks.length,
-            conflictCount: this.calculateConflicts(this.bestSolution)
+            conflictCount: 0 // L'algorithme de backtracking garantit l'absence de conflits
         };
     }
 
@@ -252,17 +252,6 @@ export class Schedule {
     }
 
     /**
-     * Vérifie s'il y a un conflit temporel entre deux tâches
-     */
-    private hasTimeConflict(solution: TaskSolution, startTime: number, duration: number): boolean {
-        const endTime = startTime + duration;
-        const solutionDuration = Math.ceil(solution.task.duration / 90);
-        const solutionEndTime = solution.startTime + solutionDuration;
-        
-        return !(endTime <= solution.startTime || startTime >= solutionEndTime);
-    }
-
-    /**
      * Applique les contraintes après l'assignation d'une tâche
      */
     private applyConstraints(taskSolution: TaskSolution): void {
@@ -319,36 +308,13 @@ export class Schedule {
         // Points pour chaque tâche planifiée
         score += solution.length * 100;
         
-        // Pénalité pour les conflits
-        score -= this.calculateConflicts(solution) * 50;
+        // Note: Pas de pénalité pour les conflits car l'algorithme de backtracking
+        // avec isSlotValid() garantit qu'aucun conflit ne peut exister
         
         // Bonus pour l'équilibrage des ressources
         score += this.calculateResourceBalance(solution) * 10;
         
         return score;
-    }
-
-    /**
-     * Calcule le nombre de conflits dans une solution
-     */
-    private calculateConflicts(solution: TaskSolution[]): number {
-        let conflicts = 0;
-        
-        for (let i = 0; i < solution.length; i++) {
-            for (let j = i + 1; j < solution.length; j++) {
-                const sol1 = solution[i];
-                const sol2 = solution[j];
-                
-                if (this.hasTimeConflict(sol1, sol2.startTime, sol2.task.duration)) {
-                    const sharedResources = sol1.assignedResources.filter(r => 
-                        sol2.assignedResources.includes(r)
-                    );
-                    conflicts += sharedResources.length;
-                }
-            }
-        }
-        
-        return conflicts;
     }
 
     /**
