@@ -28,13 +28,13 @@ export interface ScheduleSolution {
  * Utilise un algorithme de programmation par contraintes avec backtracking
  */
 export class Schedule {
-    private tasks: Task[] = [];
-    private resources: Resource[] = [];
-    private solution: TaskSolution[] = [];
-    private bestSolution: TaskSolution[] = [];
-    private bestScore: number = -Infinity;
-    private maxIterations: number = 1000000; // Limite de sécurité augmentée
-    private currentIterations: number = 0;
+    protected tasks: Task[] = [];
+    protected resources: Resource[] = [];
+    protected solution: TaskSolution[] = [];
+    protected bestSolution: TaskSolution[] = [];
+    protected bestScore: number = -Infinity;
+    protected maxIterations: number = 1000000; // Limite de sécurité augmentée
+    protected currentIterations: number = 0;
 
     constructor() {
         // Les données seront chargées via Loader lors de la résolution
@@ -89,58 +89,9 @@ export class Schedule {
     }
 
     /**
-     * EXPÉRIMENTAL: Résout le problème de planification avec l'approche chirurgicale
-     * Utilise applyConstraintsExp() et undoConstraintsExp() pour manipulation directe des schedulables
-     */
-    solveExp(): ScheduleSolution {
-        console.log('🧪 EXPÉRIMENTAL: Début de la résolution avec approche chirurgicale...');
-        
-        // Chargement des données via Loader
-        this.loadData();
-        
-        // Initialisation
-        this.solution = [];
-        this.bestSolution = [];
-        this.bestScore = -Infinity;
-        this.currentIterations = 0;
-        
-        // Tri des tâches par contraintes (les plus contraintes en premier)
-        // Plus le temps disponible est faible, plus la tâche est contrainte
-        this.tasks.sort((a, b) => this.getTaskConstraintScore(a) - this.getTaskConstraintScore(b));
-        
-        console.log(`📋 ${this.tasks.length} tâches à planifier`);
-        console.log(`🏢 ${this.resources.length} ressources disponibles`);
-        console.log(`⏱️ Limite: ${this.maxIterations} itérations, pas de limite de temps`);
-        console.log(`🔬 Mode expérimental: manipulation chirurgicale des schedulables`);
-        
-        // Lancement de l'algorithme de backtracking expérimental
-        const startTime = Date.now();
-        this.backtrackExp(0);
-        const endTime = Date.now();
-        
-        console.log(`⏱️ Résolution expérimentale terminée en ${endTime - startTime}ms`);
-        console.log(`🔄 Itérations effectuées: ${this.currentIterations}`);
-        
-        // Vérification finale de la solution
-        if (this.bestSolution.length > 0) {
-            const verification = this.verifySolution(this.bestSolution);
-            if (!verification.isValid) {
-                console.warn(`⚠️ ATTENTION: La solution contient ${verification.conflicts.length} conflit(s)`);
-                verification.conflicts.forEach(conflict => console.warn(`   ${conflict}`));
-            }
-        }
-        
-        return {
-            solutions: [...this.bestSolution],
-            isComplete: this.bestSolution.length === this.tasks.length,
-            conflictCount: 0 // L'algorithme de backtracking garantit l'absence de conflits
-        };
-    }
-
-    /**
      * Charge les données depuis le Loader
      */
-    private loadData(): void {
+    protected loadData(): void {
         this.tasks = Loader.tasks;
         this.resources = Array.from(Loader.resourcesManager.getAllResources());
         
@@ -162,7 +113,7 @@ export class Schedule {
     /**
      * Algorithme de backtracking principal
      */
-    private backtrack(taskIndex: number): boolean {
+    protected backtrack(taskIndex: number): boolean {
         // Vérifications de sécurité
         this.currentIterations++;
         
@@ -235,81 +186,11 @@ export class Schedule {
     }
 
     /**
-     * EXPÉRIMENTAL: Algorithme de backtracking avec approche chirurgicale
-     * Utilise les méthodes expérimentales pour manipulation directe des schedulables
-     */
-    private backtrackExp(taskIndex: number): boolean {
-        // Vérifications de sécurité
-        this.currentIterations++;
-        
-        if (this.currentIterations > this.maxIterations) {
-            console.log('⚠️ Limite d\'itérations atteinte (mode expérimental)');
-            return false;
-        }
-        
-        // Condition d'arrêt : toutes les tâches sont planifiées
-        if (taskIndex >= this.tasks.length) {
-            const score = this.evaluateSolution(this.solution);
-            if (score > this.bestScore) {
-                this.bestScore = score;
-                this.bestSolution = [...this.solution];
-                console.log(`✅ Nouvelle meilleure solution trouvée (EXP - score: ${score}, tâches: ${this.solution.length})`);
-            }
-            return true;
-        }
-
-        const task = this.tasks[taskIndex];
-        
-        // Affichage de progression occasionnel
-        if (this.currentIterations % 1000 === 0) {
-            console.log(`🔬 Itération EXP ${this.currentIterations}, tâche ${taskIndex}/${this.tasks.length}: ${task.name}`);
-        }
-
-        // Génération des créneaux possibles pour cette tâche (limité pour éviter l'explosion)
-        const possibleSlots = this.generatePossibleSlots(task).slice(0, 10); // Limiter à 10 créneaux max
-        
-        if (possibleSlots.length === 0) {
-            // Aucun créneau possible, passer à la tâche suivante (planification partielle)
-            return this.backtrackExp(taskIndex + 1);
-        }
-        
-        for (const slot of possibleSlots) {
-            // Assignation de la tâche au créneau
-            // Les slots sont déjà valides grâce à task.schedulable (intersection des ressources)
-            const taskSolution: TaskSolution = {
-                task,
-                startTime: slot.startTime
-                // Les ressources sont directement dans task.resources
-            };
-            
-            this.solution.push(taskSolution);
-            
-            // EXPÉRIMENTAL: Application chirurgicale des contraintes
-            this.applyConstraintsExp(taskSolution);
-            
-            // Récursion sur la tâche suivante
-            const result = this.backtrackExp(taskIndex + 1);
-            
-            // EXPÉRIMENTAL: Annulation chirurgicale des modifications
-            this.undoConstraintsExp(taskSolution);
-            this.solution.pop();
-            
-            // Si on a trouvé une solution complète, on peut arrêter
-            if (result && this.bestSolution.length === this.tasks.length) {
-                return true;
-            }
-        }
-        
-        // Si aucun créneau n'a fonctionné, essayer sans cette tâche (planification partielle)
-        return this.backtrackExp(taskIndex + 1);
-    }
-
-    /**
      * Génère tous les créneaux possibles pour une tâche donnée
      * CORRIGÉ: Utilise maintenant les vrais créneaux disponibles de task.schedulable
      * et génère tous les slots possibles dans chaque intervalle
      */
-    private generatePossibleSlots(task: Task): Array<{startTime: number}> {
+    protected generatePossibleSlots(task: Task): Array<{startTime: number}> {
         const slots: Array<{startTime: number}> = [];
         const SLOT_STEP = 30; // Pas de 30 minutes entre les slots
         
@@ -342,7 +223,7 @@ export class Schedule {
     /**
      * Applique les contraintes après l'assignation d'une tâche
      */
-    private applyConstraints(taskSolution: TaskSolution): void {
+    protected applyConstraints(taskSolution: TaskSolution): void {
         const { startTime, task } = taskSolution;
         
         const startMinutes = startTime;
@@ -359,39 +240,12 @@ export class Schedule {
         
         // Invalider le schedulable de toutes les tâches qui utilisent ces ressources
         this.invalidateSchedulableForResources(task.resources);
-    }
-
-    /**
-     * EXPÉRIMENTAL: Applique les contraintes de manière chirurgicale
-     * Retire directement le créneau des schedulables sans invalidation/recalcul complet
-     * 
-     * Approche directe : manipulation chirurgicale des intervalles dans chaque schedulable
-     * plutôt que invalidation/recalcul complet pour optimiser les performances
-     */
-    private applyConstraintsExp(taskSolution: TaskSolution): void {
-        const { startTime, task } = taskSolution;
-        
-        const startMinutes = startTime;
-        const endMinutes = startMinutes + task.duration;
-        
-        // Marquer les ressources comme occupées en utilisant la méthode book
-        for (const resource of task.resources) {
-            try {
-                resource.availability.book(startMinutes, endMinutes);
-            } catch (error) {
-                console.warn(`Échec de la réservation pour la ressource ${resource.id}: ${error}`);
-            }
-        }
-        
-        // APPROCHE CHIRURGICALE: Manipulation directe des schedulables
-        // au lieu d'invalidation complète, on retire précisément l'intervalle occupé
-        this.removeIntervalFromSchedulables(task.resources, startMinutes, endMinutes, task);
     }
 
     /**
      * Annule les contraintes lors du backtrack
      */
-    private undoConstraints(taskSolution: TaskSolution): void {
+    protected undoConstraints(taskSolution: TaskSolution): void {
         const { startTime, task } = taskSolution;
         
         const startMinutes = startTime;
@@ -404,29 +258,6 @@ export class Schedule {
         
         // Invalider le schedulable de toutes les tâches qui utilisent ces ressources
         this.invalidateSchedulableForResources(task.resources);
-    }
-
-    /**
-     * EXPÉRIMENTAL: Annule les contraintes de manière chirurgicale
-     * Remet directement le créneau dans les schedulables sans invalidation/recalcul complet
-     * 
-     * Approche directe : manipulation chirurgicale des intervalles dans chaque schedulable
-     * plutôt que invalidation/recalcul complet pour optimiser les performances
-     */
-    private undoConstraintsExp(taskSolution: TaskSolution): void {
-        const { startTime, task } = taskSolution;
-        
-        const startMinutes = startTime;
-        const endMinutes = startMinutes + task.duration;
-        
-        // Rendre les ressources disponibles en ajoutant la disponibilité
-        for (const resource of task.resources) {
-            resource.availability.addAvailability(startMinutes, endMinutes);
-        }
-        
-        // APPROCHE CHIRURGICALE: Manipulation directe des schedulables
-        // au lieu d'invalidation complète, on remet précisément l'intervalle libéré
-        this.addIntervalToSchedulables(task.resources, startMinutes, endMinutes, task);
     }
 
     /**
@@ -451,62 +282,10 @@ export class Schedule {
     }
 
     /**
-     * EXPÉRIMENTAL: Retire un intervalle spécifique des schedulables des tâches concernées
-     * Manipulation chirurgicale directe sans invalidation/recalcul complet
-     */
-    private removeIntervalFromSchedulables(resources: Resource[], startMinutes: number, endMinutes: number, currentTask?: Task): void {
-        const tasksToUpdate = new Set<Task>();
-        
-        // CORRECTION: Ajouter la tâche courante elle-même dans les mises à jour
-        if (currentTask) {
-            tasksToUpdate.add(currentTask);
-        }
-        
-        // Collecter toutes les tâches qui utilisent au moins une de ces ressources
-        for (const resource of resources) {
-            const resourceTasks = resource.getTasks();
-            for (const task of resourceTasks) {
-                tasksToUpdate.add(task);
-            }
-        }
-        
-        // Retirer l'intervalle directement de chaque schedulable concerné
-        for (const task of tasksToUpdate) {
-            task.schedulable.removeAvailability(startMinutes, endMinutes);
-        }
-    }
-
-    /**
-     * EXPÉRIMENTAL: Ajoute un intervalle spécifique aux schedulables des tâches concernées
-     * Manipulation chirurgicale directe sans invalidation/recalcul complet
-     */
-    private addIntervalToSchedulables(resources: Resource[], startMinutes: number, endMinutes: number, currentTask?: Task): void {
-        const tasksToUpdate = new Set<Task>();
-        
-        // CORRECTION: Ajouter la tâche courante elle-même dans les mises à jour
-        if (currentTask) {
-            tasksToUpdate.add(currentTask);
-        }
-        
-        // Collecter toutes les tâches qui utilisent au moins une de ces ressources
-        for (const resource of resources) {
-            const resourceTasks = resource.getTasks();
-            for (const task of resourceTasks) {
-                tasksToUpdate.add(task);
-            }
-        }
-        
-        // Ajouter l'intervalle directement à chaque schedulable concerné
-        for (const task of tasksToUpdate) {
-            task.schedulable.addAvailability(startMinutes, endMinutes);
-        }
-    }
-
-    /**
      * Calcule un score de contrainte pour une tâche (pour l'heuristique de tri)
      * Le score est égal à la durée totale des créneaux où elle peut être encore planifiée
      */
-    private getTaskConstraintScore(task: Task): number {
+    protected getTaskConstraintScore(task: Task): number {
         // Le score est basé sur la disponibilité totale des ressources de la tâche
         // Plus la disponibilité est faible, plus la tâche est contrainte
         return task.schedulable.getTotalAvailableTime();
@@ -515,7 +294,7 @@ export class Schedule {
     /**
      * Évalue la qualité d'une solution
      */
-    private evaluateSolution(solution: TaskSolution[]): number {
+    protected evaluateSolution(solution: TaskSolution[]): number {
         // Score simple : nombre de tâches planifiées
         // C'est le seul critère pertinent car l'algorithme de backtracking
         // garantit déjà qu'aucun conflit ne peut exister
