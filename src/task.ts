@@ -35,13 +35,14 @@ class Task {
   public readonly name: string;
   public readonly duration: number;
   public readonly resources: Resource[];
+  public readonly availableRooms: Resource[]; // Toutes les salles possibles pour cette tâche
   private status: TaskStatus;
   private scheduledSlot?: AvailableSlot;
   private _schedulable: AvailabilityManager | null = null;
   private dependsOn: Task | null = null;
   private dependentTasks: Task[] = [];
 
-  constructor(id: string, code: string, name: string, duration: number, resources: Resource[] = []) {
+  constructor(id: string, code: string, name: string, duration: number, resources: Resource[] = [], availableRooms: Resource[] = []) {
     if (duration <= 0) {
       throw new Error('La durée de la tâche doit être positive');
     }
@@ -51,6 +52,7 @@ class Task {
     this.name = name;
     this.duration = duration;
     this.resources = [...resources]; // Copie défensive
+    this.availableRooms = [...availableRooms]; // Copie défensive de toutes les salles possibles
     this.status = TaskStatus.PENDING;
     
     // Maintenir la synchronisation bidirectionnelle pour les ressources initiales
@@ -516,6 +518,61 @@ class Task {
       return [];
     }
     return this.getAllDependentTasks().filter(task => task.status === TaskStatus.PENDING);
+  }
+
+  /**
+   * Retourne toutes les salles disponibles pour cette tâche
+   */
+  getAvailableRooms(): Resource[] {
+    return [...this.availableRooms]; // Copie défensive
+  }
+
+  /**
+   * Retourne la salle actuellement assignée à cette tâche (depuis resources)
+   */
+  getCurrentRoom(): Resource | null {
+    const rooms = this.resources.filter(resource => resource.type === 'room');
+    return rooms.length > 0 ? rooms[0] : null;
+  }
+
+  /**
+   * Change la salle assignée à cette tâche
+   * Possible uniquement si la tâche n'est pas encore planifiée et que la nouvelle salle est dans les salles disponibles
+   */
+  changeRoom(newRoom: Resource): boolean {
+    if (this.status !== TaskStatus.PENDING) {
+      console.warn('Impossible de changer la salle d\'une tâche déjà planifiée');
+      return false;
+    }
+
+    // Vérifier que la nouvelle salle est dans les salles disponibles
+    if (!this.availableRooms.some(room => room.id === newRoom.id)) {
+      console.warn(`La salle '${newRoom.id}' n'est pas dans les salles disponibles pour cette tâche`);
+      return false;
+    }
+
+    // Supprimer l'ancienne salle des ressources
+    const currentRoom = this.getCurrentRoom();
+    if (currentRoom) {
+      this.removeResource(currentRoom);
+    }
+
+    // Ajouter la nouvelle salle
+    this.addResource(newRoom);
+    
+    console.log(`✅ Salle changée de '${currentRoom?.id || 'aucune'}' vers '${newRoom.id}' pour la tâche ${this.id}`);
+    return true;
+  }
+
+  /**
+   * Retourne les salles alternatives (toutes sauf celle actuellement assignée)
+   */
+  getAlternativeRooms(): Resource[] {
+    const currentRoom = this.getCurrentRoom();
+    if (!currentRoom) {
+      return this.getAvailableRooms();
+    }
+    return this.availableRooms.filter(room => room.id !== currentRoom.id);
   }
 
 

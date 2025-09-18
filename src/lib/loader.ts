@@ -232,26 +232,29 @@ export class Loader {
           }
         }
 
-        // Ajouter une seule salle au hasard parmi celles proposées
+        // Ajouter TOUTES les salles possibles à la tâche
+        const taskRooms: Resource[] = [];
         if (courseData.rooms.length > 0) {
-          // Filtrer les salles disponibles
-          const availableRooms = courseData.rooms.filter(roomId => 
-            resourcesManager.hasResource(roomId)
-          );
-          
-          if (availableRooms.length > 0) {
-            // Choisir une salle au hasard
-            const randomIndex = Math.floor(Math.random() * availableRooms.length);
-            const selectedRoomId = availableRooms[randomIndex];
-            const room = resourcesManager.getResource(selectedRoomId);
-            taskResources.push(room!);
-          } else {
-            // Aucune salle disponible - ajouter toutes les salles manquantes aux warnings
-            courseData.rooms.forEach(roomId => {
+          // Filtrer et collecter toutes les salles disponibles
+          for (const roomId of courseData.rooms) {
+            if (resourcesManager.hasResource(roomId)) {
+              const room = resourcesManager.getResource(roomId);
+              taskRooms.push(room!);
+            } else {
               console.warn(`⚠️  Salle '${roomId}' introuvable dans les ressources pour le cours ${courseData.code}`);
               missingResources.rooms.add(roomId);
-            });
+            }
           }
+        }
+
+        // COMPATIBILITÉ: Pour le moment, sélectionner une seule salle au hasard pour la planification
+        if (taskRooms.length > 0) {
+          const randomIndex = Math.floor(Math.random() * taskRooms.length);
+          const selectedRoom = taskRooms[randomIndex];
+          taskResources.push(selectedRoom);
+          
+          // TODO: Plus tard, on utilisera toutes les salles possibles (taskRooms)
+          // Pour l'instant, on garde une seule salle pour compatibilité avec les algorithmes existants
         }
 
         // Ajouter les groupes
@@ -268,7 +271,7 @@ export class Loader {
         // Créer la tâche avec un ID unique
         this._taskCounter++; // Incrémenter le compteur
         const taskId = `${courseData.code}_${courseData.teacher}_${courseData.groups.join('_')}_${this._taskCounter}`;
-        const task = new Task(taskId, courseData.code, courseData.name, courseData.duration, taskResources);
+        const task = new Task(taskId, courseData.code, courseData.name, courseData.duration, taskResources, taskRooms);
 
         tasks.push(task);
       }

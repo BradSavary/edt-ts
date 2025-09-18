@@ -372,7 +372,7 @@ export class Schedule {
 
         // Calculer la date du lundi de la semaine 36 de 2025
         const year = 2025;
-        const weekNumber = 40;
+        const weekNumber = 44;
         
         // Le 1er janvier 2025 est un mercredi
         // Calcul du premier lundi de l'année 2025 : 6 janvier 2025
