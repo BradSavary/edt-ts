@@ -52,6 +52,11 @@ class Task {
     this.duration = duration;
     this.resources = [...resources]; // Copie défensive
     this.status = TaskStatus.PENDING;
+    
+    // Maintenir la synchronisation bidirectionnelle pour les ressources initiales
+    this.resources.forEach(resource => {
+      resource.addTask(this);
+    });
   }
 
   /**
@@ -434,6 +439,10 @@ class Task {
 
     if (!this.resources.includes(resource)) {
       this.resources.push(resource);
+      // Maintenir la synchronisation bidirectionnelle
+      resource.addTask(this);
+      // Invalider le cache des disponibilités
+      this.invalidateSchedulable();
     }
   }
 
@@ -449,6 +458,10 @@ class Task {
     const index = this.resources.indexOf(resource);
     if (index !== -1) {
       this.resources.splice(index, 1);
+      // Maintenir la synchronisation bidirectionnelle
+      resource.removeTask(this);
+      // Invalider le cache des disponibilités
+      this.invalidateSchedulable();
     }
   }
 

@@ -1,5 +1,6 @@
 import { AvailabilityManager } from './bookable';
 import type { AvailableSlot } from './bookable';
+import type { Task } from './task';
 
 /**
  * Types de ressources disponibles
@@ -22,6 +23,8 @@ class Resource {
   private availabilityManager: AvailabilityManager;
   // Durée totale et prévisionnelle d'utilisation (en minutes)
   private _workload: number = 0;
+  // Index des tâches qui utilisent cette ressource
+  private _tasks: Set<Task> = new Set();
 
   constructor(id: string, type: ResourceType) {
     this.id = id;
@@ -69,6 +72,48 @@ class Resource {
    */
   addWorkload(duration: number): void {
     this._workload += Math.max(0, duration);
+  }
+
+  /**
+   * Ajoute une tâche à l'index de cette ressource
+   */
+  addTask(task: Task): void {
+    this._tasks.add(task);
+  }
+
+  /**
+   * Supprime une tâche de l'index de cette ressource
+   */
+  removeTask(task: Task): void {
+    this._tasks.delete(task);
+  }
+
+  /**
+   * Retourne toutes les tâches qui utilisent cette ressource
+   */
+  getTasks(): Task[] {
+    return Array.from(this._tasks);
+  }
+
+  /**
+   * Vérifie si une tâche utilise cette ressource
+   */
+  hasTask(task: Task): boolean {
+    return this._tasks.has(task);
+  }
+
+  /**
+   * Retourne le nombre de tâches qui utilisent cette ressource
+   */
+  getTaskCount(): number {
+    return this._tasks.size;
+  }
+
+  /**
+   * Vide l'index des tâches
+   */
+  clearTasks(): void {
+    this._tasks.clear();
   }
 
   /**

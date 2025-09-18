@@ -72,6 +72,15 @@ export class Schedule {
         console.log(`⏱️ Résolution terminée en ${endTime - startTime}ms`);
         console.log(`🔄 Itérations effectuées: ${this.currentIterations}`);
         
+        // Vérification finale de la solution
+        if (this.bestSolution.length > 0) {
+            const verification = this.verifySolution(this.bestSolution);
+            if (!verification.isValid) {
+                console.warn(`⚠️ ATTENTION: La solution contient ${verification.conflicts.length} conflit(s)`);
+                verification.conflicts.forEach(conflict => console.warn(`   ${conflict}`));
+            }
+        }
+        
         return {
             solutions: [...this.bestSolution],
             isComplete: this.bestSolution.length === this.tasks.length,
@@ -215,27 +224,30 @@ export class Schedule {
 
     /**
      * Vérifie si un créneau est valide pour une tâche
-     * SIMPLIFIÉ: task.schedulable a déjà validé les contraintes, on vérifie juste les conflits
+     * OPTIMISÉ: Utilise l'index bidirectionnel pour éviter les comparaisons coûteuses
      */
     private isSlotValid(task: Task, slot: {startTime: number}): boolean {
         // Calculer la fin du créneau
         const endTime = slot.startTime + task.duration;
         
-        // Vérifier qu'aucune ressource n'est déjà occupée par une tâche planifiée
-        for (const existingSolution of this.solution) {
-            const existingEnd = existingSolution.startTime + existingSolution.task.duration;
+        // Vérifier qu'aucune ressource de la tâche n'est déjà occupée par une tâche planifiée
+        for (const resource of task.resources) {
+            // Utiliser l'index bidirectionnel pour obtenir toutes les tâches utilisant cette ressource
+            const resourceTasks = resource.getTasks();
             
-            // Vérifier s'il y a chevauchement temporel
-            const hasTimeOverlap = (slot.startTime < existingEnd && endTime > existingSolution.startTime);
-            
-            if (hasTimeOverlap) {
-                // Vérifier s'il y a des ressources partagées
-                const sharedResources = task.resources.filter(r => 
-                    existingSolution.assignedResources.some(er => er.id === r.id)
-                );
+            for (const otherTask of resourceTasks) {
+                // Trouver si cette tâche est déjà planifiée dans la solution actuelle
+                const existingSolution = this.solution.find(sol => sol.task === otherTask);
                 
-                if (sharedResources.length > 0) {
-                    return false;
+                if (existingSolution) {
+                    const existingEnd = existingSolution.startTime + existingSolution.task.duration;
+                    
+                    // Vérifier s'il y a chevauchement temporel
+                    const hasTimeOverlap = (slot.startTime < existingEnd && endTime > existingSolution.startTime);
+                    
+                    if (hasTimeOverlap) {
+                        return false; // Conflit détecté sur cette ressource
+                    }
                 }
             }
         }
@@ -289,17 +301,22 @@ export class Schedule {
 
     /**
      * Invalide le schedulable de toutes les tâches qui utilisent au moins une des ressources données
+     * OPTIMISÉ: Utilise l'index bidirectionnel des ressources pour un accès direct
      */
     private invalidateSchedulableForResources(resources: Resource[]): void {
-        for (const task of this.tasks) {
-            // Vérifier si la tâche utilise au moins une des ressources modifiées
-            const hasSharedResource = task.resources.some(taskResource => 
-                resources.some(modifiedResource => modifiedResource.id === taskResource.id)
-            );
-            
-            if (hasSharedResource) {
-                task.invalidateSchedulable();
+        const tasksToInvalidate = new Set<Task>();
+        
+        // Utiliser l'index bidirectionnel pour collecter directement les tâches concernées
+        for (const resource of resources) {
+            const resourceTasks = resource.getTasks();
+            for (const task of resourceTasks) {
+                tasksToInvalidate.add(task);
             }
+        }
+        
+        // Invalider le schedulable de toutes les tâches concernées
+        for (const task of tasksToInvalidate) {
+            task.invalidateSchedulable();
         }
     }
 
@@ -323,6 +340,62 @@ export class Schedule {
         return solution.length * 100;
     }
 
+    /**
+     * Vérifie l'absence de conflits dans une solution complète
+     * Contrôle de validation final pour s'assurer qu'aucune ressource n'est double-réservée
+     */
+    public verifySolution(solution: TaskSolution[]): { isValid: boolean, conflicts: string[] } {
+        const conflicts: string[] = [];
+        
+        console.log(`🔍 Vérification de la solution (${solution.length} tâches)...`);
+        
+        // Vérifier chaque paire de tâches pour détecter les conflits
+        for (let i = 0; i < solution.length; i++) {
+            const task1 = solution[i];
+            const end1 = task1.startTime + task1.task.duration;
+            
+            for (let j = i + 1; j < solution.length; j++) {
+                const task2 = solution[j];
+                const end2 = task2.startTime + task2.task.duration;
+                
+                // Vérifier s'il y a chevauchement temporel
+                const hasTimeOverlap = (task1.startTime < end2 && end1 > task2.startTime);
+                
+                if (hasTimeOverlap) {
+                    // OPTIMISÉ: Utiliser des Sets pour des comparaisons plus rapides
+                    const resources1 = new Set(task1.assignedResources.map(r => r.id));
+                    const sharedResources = task2.assignedResources.filter(r2 => resources1.has(r2.id));
+                    
+                    if (sharedResources.length > 0) {
+                        const conflict = `CONFLIT détecté entre "${task1.task.name}" (${this.formatTime(task1.startTime)}-${this.formatTime(end1)}) et "${task2.task.name}" (${this.formatTime(task2.startTime)}-${this.formatTime(end2)}) sur les ressources: ${sharedResources.map(r => r.id).join(', ')}`;
+                        conflicts.push(conflict);
+                        console.error(`❌ ${conflict}`);
+                    }
+                }
+            }
+        }
+        
+        const isValid = conflicts.length === 0;
+        
+        if (isValid) {
+            console.log(`✅ Solution valide - Aucun conflit détecté`);
+        } else {
+            console.error(`❌ Solution invalide - ${conflicts.length} conflit(s) détecté(s)`);
+        }
+        
+        return { isValid, conflicts };
+    }
+    
+    /**
+     * Formate un timestamp en heure lisible (ex: 480 -> "08:00")
+     */
+    private formatTime(timestamp: number): string {
+        const { dayIndex, hour, minute } = this.fromTimestamp(timestamp);
+        const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven'];
+        const dayName = days[dayIndex] || `J${dayIndex}`;
+        return `${dayName} ${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+    }
+
 
 
     /**
@@ -338,7 +411,7 @@ export class Schedule {
 
         // Calculer la date du lundi de la semaine 36 de 2025
         const year = 2025;
-        const weekNumber = 36;
+        const weekNumber = 38;
         
         // Le 1er janvier 2025 est un mercredi
         // Calcul du premier lundi de l'année 2025 : 6 janvier 2025
