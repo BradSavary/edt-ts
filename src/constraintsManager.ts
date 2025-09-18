@@ -1,6 +1,6 @@
 import { AvailabilityManager } from './bookable.js';
 import { Loader } from './lib/loader.js';
-import type { TimeSlot, ConstraintsData } from './lib/types.js';
+import type { TimeSlot, ConstraintsData } from './lib/loader.js';
 
 /**
  * Gestionnaire statique des contraintes de disponibilité

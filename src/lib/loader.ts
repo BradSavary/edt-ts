@@ -22,6 +22,18 @@ interface ConstraintsData {
   [resourceId: string]: TimeSlot[] | ResourceConstraints | null | undefined;
 }
 
+// Types pour l'extraction des enseignants
+interface Course {
+  teacher?: string;
+  enseignant?: string;
+  professeur?: string;
+  prof?: string;
+}
+
+interface TeacherConstraints {
+  [key: string]: any;
+}
+
 // Types pour les données de cours JSON
 interface CourseTaskData {
   code: string;
@@ -293,7 +305,172 @@ export class Loader {
       throw new Error(`Erreur inconnue lors du chargement des tâches`);
     }
   }
+
+  /**
+   * Alias pour loadJson pour compatibilité avec l'ancien code Utils
+   * @param filePath - Le chemin vers le fichier JSON
+   * @returns Le contenu du fichier JSON
+   */
+  static loadJsonSync<T = any>(filePath: string): T {
+    return this.loadJson<T>(filePath);
+  }
+
+  /**
+   * Version asynchrone de loadJson
+   * @param filePath - Le chemin vers le fichier JSON
+   * @returns Une promesse qui résout avec le contenu du fichier JSON
+   */
+  static async loadJsonAsync<T = any>(filePath: string): Promise<T> {
+    try {
+      const fileContent = fs.readFileSync(filePath, 'utf8');
+      return JSON.parse(fileContent);
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`Impossible de charger le fichier JSON ${filePath}: ${error.message}`);
+      }
+      throw new Error(`Erreur inconnue lors du chargement du fichier ${filePath}`);
+    }
+  }
+
+  /**
+   * Extrait la liste unique des enseignants depuis un objet de contraintes
+   * @param constraints - L'objet contenant les contraintes des enseignants
+   * @returns Un tableau trié des noms d'enseignants uniques
+   */
+  static extractTeachersFromConstraints(constraints: TeacherConstraints): string[] {
+    const teachers = new Set<string>();
+    
+    Object.keys(constraints).forEach(key => {
+      // Ignorer les clés qui ne sont pas des enseignants (comme "Default")
+      if (key === 'Default') return;
+      
+      // Nettoyer le nom de l'enseignant
+      const cleanName = key
+        .trim()
+        .replace(/[^\w\s\-\.]/g, '') // Enlever les caractères spéciaux sauf tirets et points
+        .replace(/\s+/g, ' '); // Normaliser les espaces
+      
+      if (cleanName && cleanName.length > 1) {
+        teachers.add(cleanName);
+      }
+    });
+    
+    return Array.from(teachers).sort();
+  }
+
+  /**
+   * Charge le fichier contraintes.json et extrait les enseignants
+   * @param constraintsFilePath - Le chemin vers le fichier contraintes.json
+   * @returns Une promesse qui résout avec le tableau des enseignants uniques
+   */
+  static async extractTeachersFromFile(constraintsFilePath: string = './src/json/contraintes.json'): Promise<string[]> {
+    try {
+      const constraints = await this.loadJsonAsync<TeacherConstraints>(constraintsFilePath);
+      return this.extractTeachersFromConstraints(constraints);
+    } catch (error) {
+      throw new Error(`Impossible d'extraire les enseignants du fichier ${constraintsFilePath}: ${error}`);
+    }
+  }
+
+  /**
+   * Régénère le fichier teachers.json à partir du fichier contraintes.json
+   * @param constraintsFilePath - Le chemin vers le fichier contraintes.json (par défaut: './src/json/contraintes.json')
+   * @param outputPath - Le chemin de sortie pour teachers.json (par défaut: './src/json/teachers.json')
+   * @returns Une promesse qui résout quand le fichier a été créé
+   */
+  static async regenerateTeachersFile(
+    constraintsFilePath: string = './src/json/contraintes.json',
+    outputPath: string = './src/json/teachers.json'
+  ): Promise<void> {
+    try {
+      console.log(`📚 Chargement des contraintes depuis ${constraintsFilePath}...`);
+      const teachers = await this.extractTeachersFromFile(constraintsFilePath);
+      
+      console.log(`👨‍🏫 ${teachers.length} enseignants trouvés`);
+      
+      // Créer le contenu JSON formaté
+      const jsonContent = JSON.stringify(teachers, null, 2);
+      
+      // Créer le répertoire si nécessaire
+      const dir = dirname(outputPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      fs.writeFileSync(outputPath, jsonContent, 'utf8');
+      console.log(`✅ Fichier ${outputPath} régénéré avec succès !`);
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la régénération du fichier teachers.json:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Version synchrone pour Node.js uniquement
+   * Régénère le fichier teachers.json de manière synchrone
+   * @param constraintsFilePath - Le chemin vers le fichier contraintes.json
+   * @param outputPath - Le chemin de sortie pour teachers.json
+   */
+  static regenerateTeachersFileSync(
+    constraintsFilePath: string = './src/json/contraintes.json',
+    outputPath: string = './src/json/teachers.json'
+  ): void {
+    try {
+      console.log(`📚 Chargement des contraintes depuis ${constraintsFilePath}...`);
+      const constraints = this.loadJsonSync<TeacherConstraints>(constraintsFilePath);
+      const teachers = this.extractTeachersFromConstraints(constraints);
+      
+      console.log(`👨‍🏫 ${teachers.length} enseignants trouvés`);
+      
+      // Créer le répertoire si nécessaire
+      const dir = dirname(outputPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      const jsonContent = JSON.stringify(teachers, null, 2);
+      fs.writeFileSync(outputPath, jsonContent, 'utf8');
+      
+      console.log(`✅ Fichier ${outputPath} régénéré avec succès !`);
+    } catch (error) {
+      console.error('❌ Erreur lors de la régénération du fichier teachers.json:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Statistiques sur les enseignants et leurs contraintes
+   * @param constraintsFilePath - Le chemin vers le fichier contraintes.json
+   * @returns Statistiques détaillées
+   */
+  static async getTeachingStats(constraintsFilePath: string = './src/json/contraintes.json'): Promise<{
+    totalTeachers: number;
+    teachers: string[];
+    teachersWithConstraints: { [teacher: string]: number };
+  }> {
+    const constraints = await this.loadJsonAsync<TeacherConstraints>(constraintsFilePath);
+    const teachers = this.extractTeachersFromConstraints(constraints);
+    
+    const teachersWithConstraints: { [teacher: string]: number } = {};
+    
+    teachers.forEach(teacher => {
+      const teacherData = constraints[teacher];
+      if (teacherData && typeof teacherData === 'object' && !Array.isArray(teacherData)) {
+        // Compter le nombre de périodes de contraintes définies
+        teachersWithConstraints[teacher] = Object.keys(teacherData).length;
+      } else {
+        teachersWithConstraints[teacher] = 0;
+      }
+    });
+    
+    return {
+      totalTeachers: teachers.length,
+      teachers,
+      teachersWithConstraints
+    };
+  }
 }
 
 // Export des types pour utilisation dans d'autres modules
-export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData };
+export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, Course, TeacherConstraints };

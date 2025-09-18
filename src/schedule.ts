@@ -2,6 +2,8 @@ import { Loader } from './lib/loader.js';
 import { Task } from './task.js';
 import { Resource } from './resource.js';
 import { sortTasksByDifficulty, analyzeTaskScoring } from './taskPriority.js';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * Représente une solution de planification pour une tâche
@@ -468,5 +470,178 @@ export class Schedule {
             const hourB = b.startTime % 8;
             return hourA - hourB;
         });
+    }
+
+    /**
+     * Exporte la meilleure solution au format iCal
+     * Crée trois fichiers séparés selon les codes de cours (R1, R3, R5)
+     * Décale les timestamps pour correspondre à la semaine 36 de 2025
+     */
+    export2ICal(): string {
+        if (this.bestSolution.length === 0) {
+            console.warn('⚠️ Aucune solution à exporter');
+            return '';
+        }
+
+        // Calculer la date du lundi de la semaine 36 de 2025
+        const year = 2025;
+        const weekNumber = 36;
+        
+        // Le 1er janvier 2025 est un mercredi
+        // Calcul du premier lundi de l'année 2025 : 6 janvier 2025
+        const firstMondayOfYear = new Date(year, 0, 6); // 6 janvier 2025
+        
+        // Calculer le lundi de la semaine 36
+        const mondayWeek36 = new Date(firstMondayOfYear);
+        mondayWeek36.setDate(firstMondayOfYear.getDate() + (weekNumber - 1) * 7);
+        
+        console.log(`📅 Export iCal pour la semaine ${weekNumber} de ${year}`);
+        console.log(`📅 Lundi de la semaine 36: ${mondayWeek36.toLocaleDateString('fr-FR')}`);
+
+        // Séparer les solutions par code de cours
+        const r1Solutions = this.bestSolution.filter(s => s.task.code.startsWith('R1'));
+        const r3Solutions = this.bestSolution.filter(s => s.task.code.startsWith('R3'));
+        const r5Solutions = this.bestSolution.filter(s => s.task.code.startsWith('R5'));
+
+        const exportedFiles: string[] = [];
+
+        // Créer un fichier pour chaque catégorie
+        const categories = [
+            { prefix: 'R1', solutions: r1Solutions, name: 'R1-BUT1' },
+            { prefix: 'R3', solutions: r3Solutions, name: 'R3-BUT2' },
+            { prefix: 'R5', solutions: r5Solutions, name: 'R5-BUT3' }
+        ];
+
+        // Formater les dates au format iCal (YYYYMMDDTHHMMSS)
+        const formatICalDate = (date: Date): string => {
+            return date.getFullYear().toString() +
+                   (date.getMonth() + 1).toString().padStart(2, '0') +
+                   date.getDate().toString().padStart(2, '0') + 'T' +
+                   date.getHours().toString().padStart(2, '0') +
+                   date.getMinutes().toString().padStart(2, '0') +
+                   date.getSeconds().toString().padStart(2, '0');
+        };
+
+        for (const category of categories) {
+            if (category.solutions.length === 0) {
+                console.log(`⚠️ Aucun cours ${category.prefix} à exporter`);
+                continue;
+            }
+
+            // Générer le contenu iCal pour cette catégorie
+            let icalContent = [
+                'BEGIN:VCALENDAR',
+                'VERSION:2.0',
+                `PRODID:-//EDT-TS//Planificateur de cours ${category.name}//FR`,
+                'CALSCALE:GREGORIAN',
+                'METHOD:PUBLISH',
+                ''
+            ].join('\r\n');
+
+            // Ajouter chaque événement de cette catégorie
+            for (const solution of category.solutions) {
+                const task = solution.task;
+                
+                // Convertir le timestamp en composants jour/heure
+                const { dayIndex, hour, minute } = this.fromTimestamp(solution.startTime);
+                
+                // Calculer la date réelle de l'événement
+                const eventDate = new Date(mondayWeek36);
+                eventDate.setDate(mondayWeek36.getDate() + dayIndex);
+                eventDate.setHours(hour, minute, 0, 0);
+                
+                // Date de fin (ajouter la durée en minutes)
+                const endDate = new Date(eventDate);
+                endDate.setMinutes(endDate.getMinutes() + task.duration);
+
+                // Extraire les ressources
+                const teachers = solution.assignedResources.filter(r => r.type === 'teacher').map(r => r.id);
+                const rooms = solution.assignedResources.filter(r => r.type === 'room').map(r => r.id);
+                const groups = solution.assignedResources.filter(r => r.type === 'group').map(r => r.id);
+
+                // Créer une description détaillée
+                const description = [
+                    `Code: ${task.code}`,
+                    `Durée: ${task.duration} minutes`,
+                    teachers.length > 0 ? `Enseignant(s): ${teachers.join(', ')}` : '',
+                    rooms.length > 0 ? `Salle(s): ${rooms.join(', ')}` : '',
+                    groups.length > 0 ? `Groupe(s): ${groups.join(', ')}` : ''
+                ].filter(line => line).join('\\n');
+
+                // Créer le summary au format spécifié : "R3.16 GILLET Anthony, BUT2-G1.BUT2-G21.BUT2-G22.BUT2-G3"
+                const summaryParts = [task.code];
+                if (teachers.length > 0) {
+                    summaryParts.push(teachers[0] + ','); // Premier enseignant avec virgule
+                }
+                if (groups.length > 0) {
+                    summaryParts.push(groups.join('.')); // Groupes séparés par des points
+                }
+                const summary = summaryParts.join(' ');
+
+                // Générer un UID unique
+                const uid = `${task.code}_${teachers.join('_')}_${groups.join('_')}_${solution.startTime}@edt-ts.local`;
+                
+                // Timestamp de création (format UTC obligatoire pour DTSTAMP)
+                const now = new Date();
+                const dtstamp = now.getUTCFullYear().toString() +
+                               (now.getUTCMonth() + 1).toString().padStart(2, '0') +
+                               now.getUTCDate().toString().padStart(2, '0') + 'T' +
+                               now.getUTCHours().toString().padStart(2, '0') +
+                               now.getUTCMinutes().toString().padStart(2, '0') +
+                               now.getUTCSeconds().toString().padStart(2, '0') + 'Z';
+
+                // Ajouter l'événement iCal
+                icalContent += [
+                    'BEGIN:VEVENT',
+                    `UID:${uid}`,
+                    `DTSTAMP:${dtstamp}`,
+                    `DTSTART:${formatICalDate(eventDate)}`,
+                    `DTEND:${formatICalDate(endDate)}`,
+                    `SUMMARY:${summary}`,
+                    `DESCRIPTION:${description}`,
+                    rooms.length > 0 ? `LOCATION:${rooms[0]}` : '',
+                    teachers.length > 0 ? `ORGANIZER:CN=${teachers[0]}` : '',
+                    groups.length > 0 ? `CATEGORIES:${groups.join(',')}` : '',
+                    `STATUS:CONFIRMED`,
+                    `TRANSP:OPAQUE`,
+                    'END:VEVENT'
+                ].filter(line => line).join('\r\n') + '\r\n';
+            }
+
+            // Fermer le calendrier
+            icalContent += 'END:VCALENDAR\r\n';
+
+            // Sauvegarder le fichier
+            const filename = `planning-${category.name}-semaine${weekNumber}-${year}.ics`;
+            const filepath = path.join('./src/ical', filename);
+            
+            try {
+                fs.writeFileSync(filepath, icalContent, 'utf8');
+                console.log(`✅ Fichier iCal exporté: ${filepath}`);
+                console.log(`📊 ${category.solutions.length} événements ${category.prefix} exportés`);
+                exportedFiles.push(filepath);
+            } catch (error) {
+                console.error(`❌ Erreur lors de l'export iCal ${category.prefix}:`, error);
+            }
+        }
+
+        // Retourner le premier fichier créé ou un message de résumé
+        const totalExported = exportedFiles.length;
+        console.log(`🎯 ${totalExported} fichier(s) iCal créé(s) au total`);
+        return exportedFiles.length > 0 ? exportedFiles[0] : '';
+    }
+
+    /**
+     * Convertit un timestamp en composants jour/heure/minute
+     * @param timestamp Minutes depuis lundi minuit
+     */
+    private fromTimestamp(timestamp: number): { dayIndex: number, hour: number, minute: number } {
+        const MINUTES_PER_DAY = 24 * 60; // 1440 minutes
+        const dayIndex = Math.floor(timestamp / MINUTES_PER_DAY);
+        const timeInDay = timestamp % MINUTES_PER_DAY;
+        const hour = Math.floor(timeInDay / 60);
+        const minute = timeInDay % 60;
+        
+        return { dayIndex, hour, minute };
     }
 }
