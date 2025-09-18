@@ -35,8 +35,6 @@ export class Schedule {
     private bestScore: number = -Infinity;
     private maxIterations: number = 1000000; // Limite de sécurité augmentée
     private currentIterations: number = 0;
-    private timeoutMs: number = 0; // Pas de limite de temps
-    private startTime: number = 0;
 
     constructor() {
         // Les données seront chargées via Loader lors de la résolution
@@ -57,7 +55,6 @@ export class Schedule {
         this.bestSolution = [];
         this.bestScore = -Infinity;
         this.currentIterations = 0;
-        this.startTime = Date.now();
         
         // Tri des tâches par contraintes (les plus contraintes en premier)
         // Plus le temps disponible est faible, plus la tâche est contrainte
@@ -207,38 +204,6 @@ export class Schedule {
         }
         
         return slots;
-    }
-
-    /**
-     * Trouve les ressources disponibles pour une tâche à un créneau donné
-     */
-    private findAvailableResources(task: Task, startTime: number): Resource[] {
-        const availableResources: Resource[] = [];
-        
-        // Convertir le créneau en minutes depuis le début de la semaine
-        const startMinutes = this.slotToMinutes(startTime);
-        const endMinutes = startMinutes + task.duration; // task.duration est déjà en minutes
-        
-        // Vérifier chaque ressource requise par la tâche
-        for (const requiredResource of task.resources) {
-            // Trouver la ressource correspondante dans notre liste de ressources
-            const resource = this.resources.find(r => r.id === requiredResource.id);
-            
-            if (resource) {
-                // Vérification de la disponibilité sur la durée de la tâche
-                // en utilisant l'état COURANT de la ressource (après réservations)
-                if (resource.availability.isAvailable(startMinutes, endMinutes)) {
-                    availableResources.push(resource);
-                }
-            }
-        }
-        
-        // Ne retourner que si TOUTES les ressources requises sont disponibles
-        if (availableResources.length === task.resources.length) {
-            return availableResources;
-        } else {
-            return []; // Si une ressource manque, on ne peut pas faire cette affectation
-        }
     }
 
     /**
@@ -408,69 +373,7 @@ export class Schedule {
         return Math.max(0, 100 - Math.sqrt(variance));
     }
 
-    /**
-     * Affiche les statistiques de la solution
-     */
-    displaySolutionStats(solution: ScheduleSolution): void {
-        console.log('\n📊 === STATISTIQUES DE LA SOLUTION ===');
-        console.log(`✅ Tâches planifiées: ${solution.solutions.length}/${this.tasks.length}`);
-        console.log(`⚠️ Conflits détectés: ${solution.conflictCount}`);
-        console.log(`🎯 Solution complète: ${solution.isComplete ? 'OUI' : 'NON'}`);
-        console.log(`📈 Score final: ${this.bestScore}`);
-        
-        if (solution.solutions.length > 0) {
-            console.log('\n📅 === PLANNING DÉTAILLÉ ===');
-            solution.solutions
-                .sort((a, b) => a.startTime - b.startTime)
-                .forEach(sol => {
-                    const day = Math.floor(sol.startTime / 8) + 1; // 8 créneaux par jour
-                    const slotInDay = sol.startTime % 8;
-                    const hourStart = 8 + slotInDay * 1.5; // Début à 8h, créneaux de 1.5h
-                    const hourEnd = hourStart + (sol.task.duration / 60); // Conversion minutes -> heures
-                    const resources = sol.assignedResources.map(r => r.id).join(', ');
-                    console.log(`📍 ${sol.task.name} - Jour ${day}, ${hourStart}h-${hourEnd}h (${resources})`);
-                });
-        }
-    }
 
-    /**
-     * Mélange un tableau en place (algorithme Fisher-Yates)
-     */
-    private shuffleArray<T>(array: T[]): void {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
-    }
-
-    /**
-     * Trie les créneaux par préférence pour favoriser une distribution équilibrée
-     */
-    private sortSlotsByPreference(slots: Array<{startTime: number, resources: Resource[]}>): Array<{startTime: number, resources: Resource[]}> {
-        // Compter les tâches déjà planifiées par jour
-        const dayCount = new Array(5).fill(0); // 5 jours
-        for (const sol of this.solution) {
-            const day = Math.floor(sol.startTime / 8);
-            if (day >= 0 && day < 5) {
-                dayCount[day]++;
-            }
-        }
-
-        // Trier en privilégiant les jours moins chargés
-        return slots.sort((a, b) => {
-            const dayA = Math.floor(a.startTime / 8);
-            const dayB = Math.floor(b.startTime / 8);
-            
-            // Privilégier les jours moins chargés
-            const loadDiff = dayCount[dayA] - dayCount[dayB];
-            if (loadDiff !== 0) return loadDiff;
-            
-            // En cas d'égalité, privilégier les heures de début de journée
-            const hourA = a.startTime % 8;
-            const hourB = b.startTime % 8;
-            return hourA - hourB;
-        });
-    }
 
     /**
      * Exporte la meilleure solution au format iCal
