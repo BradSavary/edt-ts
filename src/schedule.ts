@@ -152,7 +152,7 @@ export class Schedule {
                 const taskSolution: TaskSolution = {
                     task,
                     startTime: slot.startTime,
-                    assignedResources: slot.resources
+                    assignedResources: task.resources // Utiliser directement les ressources de la tâche
                 };
                 
                 this.solution.push(taskSolution);
@@ -182,8 +182,8 @@ export class Schedule {
      * Génère tous les créneaux possibles pour une tâche donnée
      * CORRIGÉ: Utilise maintenant les vrais créneaux disponibles de task.schedulable
      */
-    private generatePossibleSlots(task: Task): Array<{startTime: number, resources: Resource[]}> {
-        const slots: Array<{startTime: number, resources: Resource[]}> = [];
+    private generatePossibleSlots(task: Task): Array<{startTime: number}> {
+        const slots: Array<{startTime: number}> = [];
         
         // CORRECTION: Utiliser les vrais créneaux disponibles de la tâche
         const availableIntervals = task.schedulable.getAvailableIntervals();
@@ -195,8 +195,7 @@ export class Schedule {
             if (intervalDuration >= task.duration) {
                 // Créer un créneau pour cet intervalle
                 const slot = {
-                    startTime: interval.start, // Utiliser directement le timestamp en minutes
-                    resources: task.resources   // Toutes les ressources sont déjà validées dans schedulable
+                    startTime: interval.start // Utiliser directement le timestamp en minutes
                 };
                 
                 slots.push(slot);
@@ -207,23 +206,10 @@ export class Schedule {
     }
 
     /**
-     * Convertit un numéro de créneau en minutes depuis le début de la semaine
-     * Créneau 0 = Lundi 8h00, Créneau 1 = Lundi 9h30, etc.
-     * 8 créneaux par jour (8h-19h30)
-     */
-    private slotToMinutes(slot: number): number {
-        const dayIndex = Math.floor(slot / 8); // 8 créneaux par jour
-        const slotInDay = slot % 8;
-        const hourStart = 8 + slotInDay * 1.5; // Début à 8h, créneaux de 1.5h
-        
-        return dayIndex * 24 * 60 + hourStart * 60;
-    }
-
-    /**
      * Vérifie si un créneau est valide pour une tâche
      * SIMPLIFIÉ: task.schedulable a déjà validé les contraintes, on vérifie juste les conflits
      */
-    private isSlotValid(task: Task, slot: {startTime: number, resources: Resource[]}): boolean {
+    private isSlotValid(task: Task, slot: {startTime: number}): boolean {
         // Calculer la fin du créneau
         const endTime = slot.startTime + task.duration;
         
@@ -236,7 +222,7 @@ export class Schedule {
             
             if (hasTimeOverlap) {
                 // Vérifier s'il y a des ressources partagées
-                const sharedResources = slot.resources.filter(r => 
+                const sharedResources = task.resources.filter(r => 
                     existingSolution.assignedResources.some(er => er.id === r.id)
                 );
                 
@@ -247,8 +233,6 @@ export class Schedule {
         }
         
         return true;
-        
-        return true;
     }
 
     /**
@@ -257,8 +241,8 @@ export class Schedule {
     private applyConstraints(taskSolution: TaskSolution): void {
         const { startTime, assignedResources, task } = taskSolution;
         
-        // Convertir en minutes
-        const startMinutes = this.slotToMinutes(startTime);
+        // startTime est déjà en minutes depuis le changement dans generatePossibleSlots
+        const startMinutes = startTime;
         const endMinutes = startMinutes + task.duration;
         
         // Marquer les ressources comme occupées en utilisant la méthode book
@@ -271,6 +255,9 @@ export class Schedule {
                 // On pourrait implémenter un rollback ici si nécessaire
             }
         }
+        
+        // Invalider le schedulable de toutes les tâches qui utilisent ces ressources
+        this.invalidateSchedulableForResources(assignedResources);
     }
 
     /**
@@ -279,13 +266,32 @@ export class Schedule {
     private undoConstraints(taskSolution: TaskSolution): void {
         const { startTime, assignedResources, task } = taskSolution;
         
-        // Convertir en minutes
-        const startMinutes = this.slotToMinutes(startTime);
+        // startTime est déjà en minutes depuis le changement dans generatePossibleSlots
+        const startMinutes = startTime;
         const endMinutes = startMinutes + task.duration;
         
         // Rendre les ressources disponibles en ajoutant la disponibilité
         for (const resource of assignedResources) {
             resource.availability.addAvailability(startMinutes, endMinutes);
+        }
+        
+        // Invalider le schedulable de toutes les tâches qui utilisent ces ressources
+        this.invalidateSchedulableForResources(assignedResources);
+    }
+
+    /**
+     * Invalide le schedulable de toutes les tâches qui utilisent au moins une des ressources données
+     */
+    private invalidateSchedulableForResources(resources: Resource[]): void {
+        for (const task of this.tasks) {
+            // Vérifier si la tâche utilise au moins une des ressources modifiées
+            const hasSharedResource = task.resources.some(taskResource => 
+                resources.some(modifiedResource => modifiedResource.id === taskResource.id)
+            );
+            
+            if (hasSharedResource) {
+                task.invalidateSchedulable();
+            }
         }
     }
 
@@ -303,40 +309,10 @@ export class Schedule {
      * Évalue la qualité d'une solution
      */
     private evaluateSolution(solution: TaskSolution[]): number {
-        let score = 0;
-        
-        // Points pour chaque tâche planifiée
-        score += solution.length * 100;
-        
-        // Note: Pas de pénalité pour les conflits car l'algorithme de backtracking
-        // avec isSlotValid() garantit qu'aucun conflit ne peut exister
-        
-        // Bonus pour l'équilibrage des ressources
-        score += this.calculateResourceBalance(solution) * 10;
-        
-        return score;
-    }
-
-    /**
-     * Calcule l'équilibrage des ressources
-     */
-    private calculateResourceBalance(solution: TaskSolution[]): number {
-        const resourceUsage = new Map<Resource, number>();
-        
-        for (const sol of solution) {
-            for (const resource of sol.assignedResources) {
-                resourceUsage.set(resource, (resourceUsage.get(resource) || 0) + sol.task.duration);
-            }
-        }
-        
-        const usages = Array.from(resourceUsage.values());
-        if (usages.length === 0) return 0;
-        
-        const mean = usages.reduce((a, b) => a + b, 0) / usages.length;
-        const variance = usages.reduce((acc, usage) => acc + Math.pow(usage - mean, 2), 0) / usages.length;
-        
-        // Plus la variance est faible, meilleur est l'équilibrage
-        return Math.max(0, 100 - Math.sqrt(variance));
+        // Score simple : nombre de tâches planifiées
+        // C'est le seul critère pertinent car l'algorithme de backtracking
+        // garantit déjà qu'aucun conflit ne peut exister
+        return solution.length * 100;
     }
 
 
