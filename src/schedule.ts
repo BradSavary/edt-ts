@@ -102,14 +102,12 @@ export class Schedule {
             throw new Error('Aucune ressource disponible. Vérifiez que les ressources sont chargées.');
         }
         
-        // NOUVELLE STRATÉGIE: Trier les tâches par contraintes croissantes
+        // STRATÉGIE SIMPLIFIÉE: Trier les tâches par contraintes croissantes uniquement
+        // Le tri topologique est redondant car canTaskBeScheduledNow() et getCurrentConstraintScore() 
+        // gèrent déjà les dépendances de manière dynamique
         console.log('🎯 Application de la priorisation par contraintes...');
         this.tasks.sort((a, b) => this.getTaskConstraintScore(a) - this.getTaskConstraintScore(b));
-        
-        // SUPPORT DES DÉPENDANCES: Réorganiser pour respecter l'ordre topologique
-        console.log('🔗 Application du tri topologique pour les dépendances...');
-        this.tasks = this.sortTasksByDependencies(this.tasks);
-        console.log('✅ Tâches triées par ordre de difficulté et dépendances\n');
+        console.log('✅ Tâches triées par ordre de difficulté (tri topologique supprimé car redondant)\n');
     }
 
     /**
@@ -610,62 +608,6 @@ export class Schedule {
         const totalExported = exportedFiles.length;
         console.log(`🎯 ${totalExported} fichier(s) iCal créé(s) au total`);
         return exportedFiles.length > 0 ? exportedFiles[0] : '';
-    }
-
-    /**
-     * SUPPORT DES DÉPENDANCES: Trie les tâches en respectant l'ordre topologique des dépendances
-     * tout en préservant autant que possible l'ordre de difficulté
-     */
-    protected sortTasksByDependencies(tasks: Task[]): Task[] {
-        const result: Task[] = [];
-        const visited = new Set<Task>();
-        const visiting = new Set<Task>();
-        
-        // Analyse des dépendances
-        const tasksWithDeps = tasks.filter(task => task.getDependsOn() !== null);
-        if (tasksWithDeps.length > 0) {
-            console.log(`📊 Dépendances détectées: ${tasksWithDeps.length} tâches avec dépendances`);
-            tasksWithDeps.forEach(task => {
-                const dependency = task.getDependsOn();
-                console.log(`   🔗 "${task.name}" dépend de "${dependency?.name}"`);
-            });
-        } else {
-            console.log(`📊 Aucune dépendance détectée`);
-            return tasks; // Retourner l'ordre original si pas de dépendances
-        }
-        
-        // Fonction récursive de tri topologique (DFS)
-        const visit = (task: Task): void => {
-            if (visiting.has(task)) {
-                throw new Error(`Dépendance circulaire détectée impliquant la tâche "${task.name}"`);
-            }
-            
-            if (visited.has(task)) {
-                return; // Déjà visité
-            }
-            
-            visiting.add(task);
-            
-            // Visiter d'abord la tâche dont celle-ci dépend
-            const dependency = task.getDependsOn();
-            if (dependency) {
-                visit(dependency);
-            }
-            
-            visiting.delete(task);
-            visited.add(task);
-            result.push(task);
-        };
-        
-        // Visiter toutes les tâches
-        for (const task of tasks) {
-            if (!visited.has(task)) {
-                visit(task);
-            }
-        }
-        
-        console.log(`✅ Tri topologique terminé: ${result.length} tâches ordonnées`);
-        return result;
     }
 
     /**
