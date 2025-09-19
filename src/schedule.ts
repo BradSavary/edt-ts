@@ -1,7 +1,6 @@
 import { Loader } from './lib/loader.js';
 import { Task } from './task.js';
 import { Resource } from './resource.js';
-import { sortTasksByDifficulty, analyzeTaskScoring } from './taskPriority.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -103,10 +102,9 @@ export class Schedule {
             throw new Error('Aucune ressource disponible. Vérifiez que les ressources sont chargées.');
         }
         
-        // NOUVELLE STRATÉGIE: Trier les tâches par difficulté décroissante
-        console.log('🎯 Application de la priorisation par difficulté...');
-        analyzeTaskScoring(this.tasks);
-        this.tasks = sortTasksByDifficulty(this.tasks);
+        // NOUVELLE STRATÉGIE: Trier les tâches par contraintes croissantes
+        console.log('🎯 Application de la priorisation par contraintes...');
+        this.tasks.sort((a, b) => this.getTaskConstraintScore(a) - this.getTaskConstraintScore(b));
         
         // SUPPORT DES DÉPENDANCES: Réorganiser pour respecter l'ordre topologique
         console.log('🔗 Application du tri topologique pour les dépendances...');
