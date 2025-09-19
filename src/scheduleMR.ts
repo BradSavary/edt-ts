@@ -25,7 +25,8 @@ export class ScheduleMR extends Schedule {
         this.bestScore = -Infinity;
         this.currentIterations = 0;
         
-        // Tri des tâches par contraintes (méthode héritée)
+        // Tri initial par disponibilité des ressources (état de base)
+        // Traite d'abord les tâches avec le moins de créneaux disponibles
         this.tasks.sort((a, b) => this.getTaskConstraintScore(a) - this.getTaskConstraintScore(b));
         
         console.log(`📋 ${this.tasks.length} tâches à planifier`);
@@ -98,6 +99,21 @@ export class ScheduleMR extends Schedule {
         }
 
         const task = this.tasks[taskIndex];
+        
+        // TRI DYNAMIQUE MR: Réorganiser les tâches restantes selon l'état actuel
+        // Applique l'heuristique Most Constrained Variable de manière optimisée
+        // (seulement tous les 5 niveaux pour éviter le surcoût)
+        if (taskIndex < this.tasks.length - 1 && taskIndex % 5 === 0) {
+            this.dynamicTaskSort(taskIndex);
+            console.log(`🏫 Tri dynamique MR appliqué à partir de l'index ${taskIndex}`);
+        }
+        
+        // SUPPORT DES DÉPENDANCES MR: Vérifier si la tâche peut être planifiée maintenant
+        if (!this.canTaskBeScheduledNow(task)) {
+            // La tâche ne peut pas être planifiée maintenant à cause des dépendances
+            // Passer à la tâche suivante
+            return this.backtrack(taskIndex + 1);
+        }
         
         // Affichage de progression occasionnel
         if (this.currentIterations % 1000 === 0) {

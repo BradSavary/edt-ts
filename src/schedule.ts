@@ -56,8 +56,8 @@ export class Schedule {
         this.bestScore = -Infinity;
         this.currentIterations = 0;
         
-        // Tri des tâches par contraintes (les plus contraintes en premier)
-        // Plus le temps disponible est faible, plus la tâche est contrainte
+        // Tri initial par disponibilité des ressources (état de base)
+        // Traite d'abord les tâches avec le moins de créneaux disponibles
         this.tasks.sort((a, b) => this.getTaskConstraintScore(a) - this.getTaskConstraintScore(b));
         
         console.log(`📋 ${this.tasks.length} tâches à planifier`);
@@ -107,7 +107,11 @@ export class Schedule {
         console.log('🎯 Application de la priorisation par difficulté...');
         analyzeTaskScoring(this.tasks);
         this.tasks = sortTasksByDifficulty(this.tasks);
-        console.log('✅ Tâches triées par ordre de difficulté décroissante\n');
+        
+        // SUPPORT DES DÉPENDANCES: Réorganiser pour respecter l'ordre topologique
+        console.log('🔗 Application du tri topologique pour les dépendances...');
+        this.tasks = this.sortTasksByDependencies(this.tasks);
+        console.log('✅ Tâches triées par ordre de difficulté et dépendances\n');
     }
 
     /**
@@ -140,6 +144,21 @@ export class Schedule {
         }
 
         const task = this.tasks[taskIndex];
+        
+        // TRI DYNAMIQUE: Réorganiser les tâches restantes selon l'état actuel
+        // Applique l'heuristique Most Constrained Variable de manière optimisée
+        // (seulement tous les 5 niveaux pour éviter le surcoût)
+        if (taskIndex < this.tasks.length - 1 && taskIndex % 5 === 0) {
+            this.dynamicTaskSort(taskIndex);
+            console.log(`🔄 Tri dynamique appliqué à partir de l'index ${taskIndex}`);
+        }
+        
+        // SUPPORT DES DÉPENDANCES: Vérifier si la tâche peut être planifiée maintenant
+        if (!this.canTaskBeScheduledNow(task)) {
+            // La tâche ne peut pas être planifiée maintenant à cause des dépendances
+            // Passer à la tâche suivante
+            return this.backtrack(taskIndex + 1);
+        }
         
         // Affichage de progression occasionnel
         if (this.currentIterations % 1000 === 0) {
@@ -186,25 +205,52 @@ export class Schedule {
     }
 
     /**
-     * Génère tous les créneaux possibles pour une tâche donnée
-     * CORRIGÉ: Utilise maintenant les vrais créneaux disponibles de task.schedulable
-     * et génère tous les slots possibles dans chaque intervalle
+     * SUPPORT DES DÉPENDANCES: Génère tous les créneaux possibles pour une tâche donnée
+     * MODIFIÉ: Utilise maintenant les vrais créneaux disponibles de task.schedulable
+     * et intègre les contraintes de dépendances temporelles
      */
     protected generatePossibleSlots(task: Task): Array<{startTime: number}> {
         const slots: Array<{startTime: number}> = [];
         const SLOT_STEP = 30; // Pas de 30 minutes entre les slots
         
+        // SUPPORT DES DÉPENDANCES: Calculer le moment le plus tôt possible
+        let earliestStartTime = 0;
+        const dependency = task.getDependsOn();
+        
+        if (dependency) {
+            // Trouver quand la dépendance se termine dans la solution actuelle
+            const dependencyScheduled = this.solution.find(sol => sol.task === dependency);
+            
+            if (!dependencyScheduled) {
+                // La dépendance n'est pas planifiée, aucun créneau possible
+                console.log(`⚠️ Tâche "${task.name}" ne peut pas être planifiée: dépendance "${dependency.name}" non planifiée`);
+                return [];
+            }
+            
+            // La tâche ne peut commencer qu'après la fin de sa dépendance
+            earliestStartTime = dependencyScheduled.startTime + dependency.duration;
+            
+            console.log(`🔗 Tâche "${task.name}" ne peut commencer qu'après ${this.formatTime(earliestStartTime)} (dépendance de "${dependency.name}")`);
+        }
+        
         // CORRECTION: Utiliser les vrais créneaux disponibles de la tâche
         const availableIntervals = task.schedulable.getAvailableIntervals();
         
         for (const interval of availableIntervals) {
-            const intervalDuration = interval.end - interval.start;
+            // Ajuster l'intervalle pour respecter la contrainte de dépendance
+            const adjustedStart = Math.max(interval.start, earliestStartTime);
             
-            // Vérifier si l'intervalle est assez grand pour la tâche
+            if (adjustedStart >= interval.end) {
+                continue; // L'intervalle est entièrement avant le moment autorisé
+            }
+            
+            const intervalDuration = interval.end - adjustedStart;
+            
+            // Vérifier si l'intervalle ajusté est assez grand pour la tâche
             if (intervalDuration >= task.duration) {
-                // Générer tous les slots possibles dans cet intervalle
+                // Générer tous les slots possibles dans cet intervalle ajusté
                 // avec un pas de SLOT_STEP minutes
-                for (let startTime = interval.start; 
+                for (let startTime = adjustedStart; 
                      startTime + task.duration <= interval.end; 
                      startTime += SLOT_STEP) {
                     
@@ -215,6 +261,10 @@ export class Schedule {
                     slots.push(slot);
                 }
             }
+        }
+        
+        if (dependency && slots.length > 0) {
+            console.log(`📅 ${slots.length} créneaux possibles pour "${task.name}" après dépendance`);
         }
         
         return slots;
@@ -282,13 +332,57 @@ export class Schedule {
     }
 
     /**
-     * Calcule un score de contrainte pour une tâche (pour l'heuristique de tri)
-     * Le score est égal à la durée totale des créneaux où elle peut être encore planifiée
+     * Calcule un score de contrainte pour une tâche (état initial des ressources)
+     * Le score est égal à la durée totale des créneaux où elle peut être planifiée
      */
     protected getTaskConstraintScore(task: Task): number {
-        // Le score est basé sur la disponibilité totale des ressources de la tâche
+        // Le score est basé sur la disponibilité totale initiale des ressources de la tâche
         // Plus la disponibilité est faible, plus la tâche est contrainte
         return task.schedulable.getTotalAvailableTime();
+    }
+
+    /**
+     * Calcule un score de contrainte dynamique pour une tâche (état ACTUEL des ressources)
+     * Prend en compte les réservations déjà effectuées pendant le backtracking
+     */
+    protected getCurrentConstraintScore(task: Task): number {
+        // Recalculer la disponibilité avec l'état actuel des ressources
+        // (après les réservations effectuées par les tâches déjà planifiées)
+        const currentAvailableTime = task.schedulable.getTotalAvailableTime();
+        
+        // Facteur de pénalité basé sur les dépendances
+        let dependencyPenalty = 0;
+        const dependency = task.getDependsOn();
+        if (dependency) {
+            const dependencyScheduled = this.solution.find(sol => sol.task === dependency);
+            if (!dependencyScheduled) {
+                // La dépendance n'est pas encore planifiée, forte pénalité
+                dependencyPenalty = 10000;
+            }
+        }
+        
+        return currentAvailableTime + dependencyPenalty;
+    }
+
+    /**
+     * Trie dynamiquement les tâches restantes selon l'état actuel des ressources
+     * Applique une heuristique Most Constrained Variable (MCV)
+     */
+    protected dynamicTaskSort(startIndex: number): void {
+        // Ne trier que les tâches non encore traitées
+        const remainingTasks = this.tasks.slice(startIndex);
+        
+        // Trier par score de contrainte actuel (plus contraint = plus prioritaire)
+        remainingTasks.sort((a, b) => {
+            const scoreA = this.getCurrentConstraintScore(a);
+            const scoreB = this.getCurrentConstraintScore(b);
+            return scoreA - scoreB;
+        });
+        
+        // Remettre les tâches triées dans le tableau principal
+        for (let i = 0; i < remainingTasks.length; i++) {
+            this.tasks[startIndex + i] = remainingTasks[i];
+        }
     }
 
     /**
@@ -516,6 +610,85 @@ export class Schedule {
         const totalExported = exportedFiles.length;
         console.log(`🎯 ${totalExported} fichier(s) iCal créé(s) au total`);
         return exportedFiles.length > 0 ? exportedFiles[0] : '';
+    }
+
+    /**
+     * SUPPORT DES DÉPENDANCES: Trie les tâches en respectant l'ordre topologique des dépendances
+     * tout en préservant autant que possible l'ordre de difficulté
+     */
+    protected sortTasksByDependencies(tasks: Task[]): Task[] {
+        const result: Task[] = [];
+        const visited = new Set<Task>();
+        const visiting = new Set<Task>();
+        
+        // Analyse des dépendances
+        const tasksWithDeps = tasks.filter(task => task.getDependsOn() !== null);
+        if (tasksWithDeps.length > 0) {
+            console.log(`📊 Dépendances détectées: ${tasksWithDeps.length} tâches avec dépendances`);
+            tasksWithDeps.forEach(task => {
+                const dependency = task.getDependsOn();
+                console.log(`   🔗 "${task.name}" dépend de "${dependency?.name}"`);
+            });
+        } else {
+            console.log(`📊 Aucune dépendance détectée`);
+            return tasks; // Retourner l'ordre original si pas de dépendances
+        }
+        
+        // Fonction récursive de tri topologique (DFS)
+        const visit = (task: Task): void => {
+            if (visiting.has(task)) {
+                throw new Error(`Dépendance circulaire détectée impliquant la tâche "${task.name}"`);
+            }
+            
+            if (visited.has(task)) {
+                return; // Déjà visité
+            }
+            
+            visiting.add(task);
+            
+            // Visiter d'abord la tâche dont celle-ci dépend
+            const dependency = task.getDependsOn();
+            if (dependency) {
+                visit(dependency);
+            }
+            
+            visiting.delete(task);
+            visited.add(task);
+            result.push(task);
+        };
+        
+        // Visiter toutes les tâches
+        for (const task of tasks) {
+            if (!visited.has(task)) {
+                visit(task);
+            }
+        }
+        
+        console.log(`✅ Tri topologique terminé: ${result.length} tâches ordonnées`);
+        return result;
+    }
+
+    /**
+     * SUPPORT DES DÉPENDANCES: Vérifie si une tâche peut être planifiée maintenant
+     * en tenant compte de ses dépendances
+     */
+    protected canTaskBeScheduledNow(task: Task): boolean {
+        const dependency = task.getDependsOn();
+        
+        if (!dependency) {
+            return true; // Aucune dépendance, peut être planifiée
+        }
+        
+        // Vérifier si la tâche dont elle dépend est déjà planifiée dans la solution actuelle
+        const dependencyScheduled = this.solution.find(sol => sol.task === dependency);
+        
+        if (!dependencyScheduled) {
+            // La dépendance n'est pas encore planifiée
+            return false;
+        }
+        
+        // La dépendance est planifiée, la tâche peut être tentée
+        return true;
     }
 
     /**
