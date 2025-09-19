@@ -348,18 +348,20 @@ export class Schedule {
         // (après les réservations effectuées par les tâches déjà planifiées)
         const currentAvailableTime = task.schedulable.getTotalAvailableTime();
         
-        // Facteur de pénalité basé sur les dépendances
-        let dependencyPenalty = 0;
+        // Support des dépendances : si une tâche dépend d'une autre,
+        // son score est la somme de sa disponibilité et de celle de sa dépendance
         const dependency = task.getDependsOn();
         if (dependency) {
             const dependencyScheduled = this.solution.find(sol => sol.task === dependency);
             if (!dependencyScheduled) {
-                // La dépendance n'est pas encore planifiée, forte pénalité
-                dependencyPenalty = 10000;
+                // La dépendance n'est pas encore planifiée
+                // Score = disponibilité de la tâche + disponibilité de sa dépendance
+                const dependencyAvailableTime = dependency.schedulable.getTotalAvailableTime();
+                return currentAvailableTime + dependencyAvailableTime;
             }
         }
         
-        return currentAvailableTime + dependencyPenalty;
+        return currentAvailableTime;
     }
 
     /**
