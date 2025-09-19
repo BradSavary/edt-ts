@@ -36,7 +36,11 @@ interface TeacherConstraints {
 
 // Types pour les données de cours JSON
 interface CourseTaskData {
+  week: number;
+  semester: number;
+  level: number;
   code: string;
+  type: string;
   teacher: string;
   groups: string[];
   name: string;
@@ -271,7 +275,7 @@ export class Loader {
         // Créer la tâche avec un ID unique
         this._taskCounter++; // Incrémenter le compteur
         const taskId = `${courseData.code}_${courseData.teacher}_${courseData.groups.join('_')}_${this._taskCounter}`;
-        const task = new Task(taskId, courseData.code, courseData.name, courseData.duration, taskResources, taskRooms);
+        const task = new Task(taskId, courseData, taskResources, taskRooms);
 
         tasks.push(task);
       }

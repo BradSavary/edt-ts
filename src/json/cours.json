@@ -1,77 +1,46 @@
 {
-  "week": 36,
-  "tasks": [
+  "weeks": 36,
+  "courses": [
     {
-      "code": "Accueil",
-      "teacher": "ROUSSEAU Camille",
-      "groups": [
-        "BUT1-G1",
-        "BUT1-G2",
-        "BUT1-G3",
-        "BUT1-G4"
-      ],
-      "name": "Réunion de rentrée",
-      "rooms": [
-        "103"
-      ],
-      "duration": 90
-    },
-    {
-      "code": "Accueil",
-      "teacher": "ROUSSEAU Camille",
-      "groups": [
-        "BUT2-G1",
-        "BUT2-G21",
-        "BUT2-G22",
-        "BUT2-G3"
-      ],
-      "name": "Réunion de rentrée",
-      "rooms": [
-        "103"
-      ],
-      "duration": 90
-    },
-    {
-      "code": "Accueil",
-      "teacher": "ROUSSEAU Camille",
-      "groups": [
-        "BUT3-G1",
-        "BUT3-G3"
-      ],
-      "name": "Réunion de rentrée",
-      "rooms": [
-        "103"
-      ],
-      "duration": 90
-    },
-    {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.01",
+      "type": "TD",
       "teacher": "ROUSSEAU Camille",
       "groups": [
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 90,
       "name": "Anglais",
       "rooms": [
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.01",
+      "type": "TD",
       "teacher": "ROUSSEAU Camille",
       "groups": [
         "BUT1-G1",
         "BUT1-G2"
       ],
+      "duration": 90,
       "name": "Anglais",
       "rooms": [
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.03",
+      "type": "CM",
       "teacher": "AUBRY Bastien",
       "groups": [
         "BUT1-G1",
@@ -79,40 +48,52 @@
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 90,
       "name": "Ergonomie et Accessibilité",
       "rooms": [
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.03",
+      "type": "TD",
       "teacher": "AUBRY Bastien",
       "groups": [
         "BUT1-G1",
         "BUT1-G2"
       ],
+      "duration": 90,
       "name": "Ergonomie et Accessibilité",
       "rooms": [
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.03",
+      "type": "TD",
       "teacher": "AUBRY Bastien",
       "groups": [
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 90,
       "name": "Ergonomie et Accessibilité",
       "rooms": [
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.04",
+      "type": "CM",
       "teacher": "MEUNIER Sandrine",
       "groups": [
         "BUT1-G1",
@@ -120,44 +101,56 @@
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 90,
       "name": "Culture numérique",
       "rooms": [
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.04",
+      "type": "TD",
       "teacher": "MEUNIER Sandrine",
       "groups": [
         "BUT1-G1",
         "BUT1-G2"
       ],
+      "duration": 90,
       "name": "Culture numérique",
       "rooms": [
         "101",
         "103",
         "R03"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.04",
+      "type": "TD",
       "teacher": "MEUNIER Sandrine",
       "groups": [
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 90,
       "name": "Culture numérique",
       "rooms": [
         "101",
         "103",
         "R03"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.05",
+      "type": "CM",
       "teacher": "AUBRY Bastien",
       "groups": [
         "BUT1-G1",
@@ -165,15 +158,19 @@
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 90,
       "name": "Stratégies de communication et marketing",
       "rooms": [
         "101",
         "103"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.07",
+      "type": "CM",
       "teacher": "GARNIER Mathieu",
       "groups": [
         "BUT1-G1",
@@ -181,66 +178,86 @@
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 90,
       "name": "Écriture multimédia et narration",
       "rooms": [
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.08",
+      "type": "TD",
       "teacher": "BERGER Julien",
       "groups": [
         "BUT1-G1",
         "BUT1-G2"
       ],
+      "duration": 120,
       "name": "Production graphique",
       "rooms": [
         "102"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.08",
+      "type": "TD",
       "teacher": "BERGER Julien",
       "groups": [
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 120,
       "name": "Production graphique",
       "rooms": [
         "102"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.09",
+      "type": "TD",
       "teacher": "CHEVALIER Charlotte",
       "groups": [
         "BUT1-G1",
         "BUT1-G2"
       ],
+      "duration": 120,
       "name": "Culture artistique",
       "rooms": [
         "115"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.09",
+      "type": "TD",
       "teacher": "CHEVALIER Charlotte",
       "groups": [
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 120,
       "name": "Culture artistique",
       "rooms": [
         "115"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.09",
+      "type": "CM",
       "teacher": "HUBERT Quentin",
       "groups": [
         "BUT1-G1",
@@ -248,43 +265,55 @@
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 90,
       "name": "Culture artistique",
       "rooms": [
         "102",
         "115"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.09",
+      "type": "TD",
       "teacher": "HUBERT Quentin",
       "groups": [
         "BUT1-G1",
         "BUT1-G2"
       ],
+      "duration": 90,
       "name": "Culture artistique",
       "rooms": [
         "102",
         "115"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.09",
+      "type": "TD",
       "teacher": "HUBERT Quentin",
       "groups": [
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 90,
       "name": "Culture artistique",
       "rooms": [
         "102",
         "115"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.11",
+      "type": "CM",
       "teacher": "HUBERT Quentin",
       "groups": [
         "BUT1-G1",
@@ -292,42 +321,54 @@
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 90,
       "name": "Intégration",
       "rooms": [
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.11",
+      "type": "TD",
       "teacher": "HUBERT Quentin",
       "groups": [
         "BUT1-G1",
         "BUT1-G2"
       ],
+      "duration": 90,
       "name": "Intégration",
       "rooms": [
         "102",
         "115"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.11",
+      "type": "TD",
       "teacher": "HUBERT Quentin",
       "groups": [
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 90,
       "name": "Intégration",
       "rooms": [
         "102",
         "115"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.14",
+      "type": "CM",
       "teacher": "RENAUD Kevin",
       "groups": [
         "BUT1-G1",
@@ -335,14 +376,18 @@
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 90,
       "name": "Représentation et traitement de l'information",
       "rooms": [
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.16",
+      "type": "CM",
       "teacher": "LEROUX Elodie",
       "groups": [
         "BUT1-G1",
@@ -350,233 +395,301 @@
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 90,
       "name": "Économie, gestion et droit du numérique",
       "rooms": [
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.16",
+      "type": "TD",
       "teacher": "LEROUX Elodie",
       "groups": [
         "BUT1-G1",
         "BUT1-G2"
       ],
+      "duration": 90,
       "name": "Économie, gestion et droit du numérique",
       "rooms": [
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.16",
+      "type": "TD",
       "teacher": "LEROUX Elodie",
       "groups": [
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 90,
       "name": "Économie, gestion et droit du numérique",
       "rooms": [
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.17",
+      "type": "TD",
       "teacher": "RENAUD Kevin",
       "groups": [
         "BUT1-G1",
         "BUT1-G2"
       ],
+      "duration": 90,
       "name": "Projet Personnel et Professionnel",
       "rooms": [
         "102",
         "115"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.17",
+      "type": "TD",
       "teacher": "RENAUD Kevin",
       "groups": [
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 90,
       "name": "Projet Personnel et Professionnel",
       "rooms": [
         "102",
         "115"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.17",
+      "type": "TD",
       "teacher": "RENAUD Kevin",
       "groups": [
         "BUT1-G1",
         "BUT1-G2"
       ],
+      "duration": 90,
       "name": "Projet Personnel et Professionnel",
       "rooms": [
         "102",
         "115"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 1,
+      "level": 0,
       "code": "R1.17",
+      "type": "TD",
       "teacher": "RENAUD Kevin",
       "groups": [
         "BUT1-G3",
         "BUT1-G4"
       ],
+      "duration": 90,
       "name": "Projet Personnel et Professionnel",
       "rooms": [
         "102",
         "115"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.Crea.09",
+      "type": "TD",
       "teacher": "MARCHAND Emilie",
       "groups": [
         "BUT2-G1",
         "BUT2-G21",
         "BUT2-G22"
       ],
+      "duration": 90,
       "name": "Création et design interactif (UI)",
       "rooms": [
         "R04"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.Crea.09",
+      "type": "TD",
       "teacher": "MARCHAND Emilie",
       "groups": [
         "BUT2-G1",
         "BUT2-G21",
         "BUT2-G22"
       ],
+      "duration": 90,
       "name": "Création et design interactif (UI)",
       "rooms": [
         "R04"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.Crea.13",
+      "type": "TD",
       "teacher": "MERCIER Laurie",
       "groups": [
         "BUT2-G1",
         "BUT2-G21",
         "BUT2-G22"
       ],
+      "duration": 120,
       "name": "Gestion de contenus avancée",
       "rooms": [
         "R04"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.Crea.13",
+      "type": "TD",
       "teacher": "MERCIER Laurie",
       "groups": [
         "BUT2-G1",
         "BUT2-G21",
         "BUT2-G22"
       ],
+      "duration": 120,
       "name": "Gestion de contenus avancée",
       "rooms": [
         "R04"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.DWeb-DI.09",
+      "type": "TD",
       "teacher": "MARCHAND Emilie",
       "groups": [
         "BUT2-G3"
       ],
+      "duration": 90,
       "name": "Création et design interactif (UI)",
       "rooms": [
         "115",
         "102",
         "R04"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.DWeb-DI.09",
+      "type": "TD",
       "teacher": "MARCHAND Emilie",
       "groups": [
         "BUT2-G3"
       ],
+      "duration": 90,
       "name": "Création et design interactif (UI)",
       "rooms": [
         "115",
         "102",
         "R04"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.DWeb-DI.13",
+      "type": "CM",
       "teacher": "NOEL Melanie",
       "groups": [
         "BUT2-G3"
       ],
+      "duration": 90,
       "name": "Développement Back",
       "rooms": [
         "103"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.DWeb-DI.13",
+      "type": "TD",
       "teacher": "NOEL Melanie",
       "groups": [
         "BUT2-G3"
       ],
+      "duration": 90,
       "name": "Développement Back",
       "rooms": [
         "R02",
         "R04",
         "115",
         "102"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.01",
+      "type": "TD",
       "teacher": "ROUSSEAU Camille",
       "groups": [
         "BUT2-G1",
         "BUT2-G21"
       ],
+      "duration": 90,
       "name": "Anglais",
       "rooms": [
         "R03"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.01",
+      "type": "TD",
       "teacher": "ROUSSEAU Camille",
       "groups": [
         "BUT2-G22",
         "BUT2-G3"
       ],
+      "duration": 90,
       "name": "Anglais",
       "rooms": [
         "R03"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.04",
+      "type": "CM",
       "teacher": "MEUNIER Sandrine",
       "groups": [
         "BUT2-G1",
@@ -584,93 +697,121 @@
         "BUT2-G22",
         "BUT2-G3"
       ],
+      "duration": 90,
       "name": "Culture numérique",
       "rooms": [
         "103"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.04",
+      "type": "TD",
       "teacher": "BARBIER Romain",
       "groups": [
         "BUT2-G22",
         "BUT2-G3"
       ],
+      "duration": 90,
       "name": "Culture numérique",
       "rooms": [
         "103",
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.04",
+      "type": "TD",
       "teacher": "BARBIER Romain",
       "groups": [
         "BUT2-G1",
         "BUT2-G21"
       ],
+      "duration": 90,
       "name": "Culture numérique",
       "rooms": [
         "103",
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.12",
+      "type": "TD",
       "teacher": "GAUTHIER Yannick",
       "groups": [
         "BUT2-G1",
         "BUT2-G21"
       ],
+      "duration": 90,
       "name": "Intégration et développement front",
       "rooms": [
         "R04"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.12",
+      "type": "TD",
       "teacher": "GAUTHIER Yannick",
       "groups": [
         "BUT2-G22",
         "BUT2-G3"
       ],
+      "duration": 90,
       "name": "Intégration et développement front",
       "rooms": [
         "R04"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.12",
+      "type": "TP",
       "teacher": "ROBIN Loic",
       "groups": [
         "BUT2-G21",
         "BUT2-G22"
       ],
+      "duration": 120,
       "name": "Intégration et développement front",
       "rooms": [
         "R04"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.12",
+      "type": "TP",
       "teacher": "ROBIN Loic",
       "groups": [
         "BUT2-G1"
       ],
+      "duration": 120,
       "name": "Intégration et développement front",
       "rooms": [
         "R04"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.12",
+      "type": "CM",
       "teacher": "NOEL Melanie",
       "groups": [
         "BUT2-G1",
@@ -678,56 +819,72 @@
         "BUT2-G22",
         "BUT2-G3"
       ],
+      "duration": 90,
       "name": "Intégration et développement front",
       "rooms": [
         "103"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.12",
+      "type": "TD",
       "teacher": "NOEL Melanie",
       "groups": [
         "BUT2-G1",
         "BUT2-G21"
       ],
+      "duration": 90,
       "name": "Intégration et développement front",
       "rooms": [
         "115",
         "102",
         "R04"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.12",
+      "type": "TD",
       "teacher": "NOEL Melanie",
       "groups": [
         "BUT2-G22",
         "BUT2-G3"
       ],
+      "duration": 90,
       "name": "Intégration et développement front",
       "rooms": [
         "115",
         "102",
         "R04"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.12",
+      "type": "TP",
       "teacher": "NOEL Melanie",
       "groups": [
         "BUT2-G3"
       ],
+      "duration": 120,
       "name": "Intégration et développement front",
       "rooms": [
         "R02"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.12",
+      "type": "CM",
       "teacher": "HUBERT Quentin",
       "groups": [
         "BUT2-G1",
@@ -735,109 +892,141 @@
         "BUT2-G22",
         "BUT2-G3"
       ],
+      "duration": 90,
       "name": "Intégration et développement front",
       "rooms": [
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.12",
+      "type": "TD",
       "teacher": "HUBERT Quentin",
       "groups": [
         "BUT2-G1",
         "BUT2-G21"
       ],
+      "duration": 90,
       "name": "Intégration et développement front",
       "rooms": [
         "115",
         "102",
         "R04"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.12",
+      "type": "TD",
       "teacher": "HUBERT Quentin",
       "groups": [
         "BUT2-G22",
         "BUT2-G3"
       ],
+      "duration": 90,
       "name": "Intégration et développement front",
       "rooms": [
         "115",
         "102",
         "R04"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.14",
+      "type": "TD",
       "teacher": "RENAUD Kevin",
       "groups": [
         "BUT2-G1",
         "BUT2-G21"
       ],
+      "duration": 90,
       "name": "Déploiement de services",
       "rooms": [
         "103",
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.14",
+      "type": "TD",
       "teacher": "RENAUD Kevin",
       "groups": [
         "BUT2-G22",
         "BUT2-G3"
       ],
+      "duration": 90,
       "name": "Déploiement de services",
       "rooms": [
         "103",
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.14",
+      "type": "TP",
       "teacher": "TESSIER Pauline",
       "groups": [
         "BUT2-G1"
       ],
+      "duration": 120,
       "name": "Déploiement de services",
       "rooms": [
         "R02"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.14",
+      "type": "TP",
       "teacher": "RENAUD Kevin",
       "groups": [
         "BUT2-G21",
         "BUT2-G22"
       ],
+      "duration": 120,
       "name": "Déploiement de services",
       "rooms": [
         "R01"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.14",
+      "type": "TP",
       "teacher": "RENAUD Kevin",
       "groups": [
         "BUT2-G3"
       ],
+      "duration": 120,
       "name": "Déploiement de services",
       "rooms": [
         "R01"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.16",
+      "type": "CM",
       "teacher": "GILLET Anthony",
       "groups": [
         "BUT2-G1",
@@ -845,148 +1034,193 @@
         "BUT2-G22",
         "BUT2-G3"
       ],
+      "duration": 90,
       "name": "Gestion de projet",
       "rooms": [
         "103"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.18",
+      "type": "TD",
       "teacher": "GIRARD Damien",
       "groups": [
         "BUT2-G1",
         "BUT2-G21"
       ],
+      "duration": 60,
       "name": "Projet Personnel et Professionnel",
       "rooms": [
         "103",
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 3,
+      "level": 1,
       "code": "R3.18",
+      "type": "TD",
       "teacher": "GIRARD Damien",
       "groups": [
         "BUT2-G22",
         "BUT2-G3"
       ],
+      "duration": 60,
       "name": "Projet Personnel et Professionnel",
       "rooms": [
         "103",
         "101"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.01",
+      "type": "TD",
       "teacher": "ROUSSEAU Camille",
       "groups": [
         "BUT3-G1",
         "BUT3-G3"
       ],
+      "duration": 90,
       "name": "Anglais",
       "rooms": [
         "101",
         "103",
         "R03"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.02",
+      "type": "TD",
       "teacher": "GARNIER Mathieu",
       "groups": [
         "BUT3-G1"
       ],
+      "duration": 120,
       "name": "Management et Assurance qualité",
       "rooms": [
         "101"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.02",
+      "type": "TD",
       "teacher": "GAUDIN Jerome",
       "groups": [
         "BUT3-G3"
       ],
+      "duration": 120,
       "name": "Management et Assurance qualité",
       "rooms": [
         "R01"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.04",
+      "type": "TD",
       "teacher": "MEUNIER Sandrine",
       "groups": [
         "BUT3-G1",
         "BUT3-G3"
       ],
+      "duration": 90,
       "name": "Projet Personnel et Professionnel",
       "rooms": [
         "R04",
         "115",
         "102"
-      ],
-      "duration": 90
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.DWeb-DI.05",
+      "type": "TD",
       "teacher": "NOEL Melanie",
       "groups": [
         "BUT3-G3"
       ],
+      "duration": 120,
       "name": "Développement front avancé",
       "rooms": [
         "R01"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.DWeb-DI.05",
+      "type": "TD",
       "teacher": "HUBERT Quentin",
       "groups": [
         "BUT3-G3"
       ],
+      "duration": 120,
       "name": "Développement front avancé",
       "rooms": [
         "R01"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.DWeb-DI.06",
+      "type": "TD",
       "teacher": "GIRARD Damien",
       "groups": [
         "BUT3-G3"
       ],
+      "duration": 180,
       "name": "Développement back avancé",
       "rooms": [
         "R01"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.DWeb-DI.06",
+      "type": "TP",
       "teacher": "GIRARD Damien",
       "groups": [
         "BUT3-G3"
       ],
+      "duration": 120,
       "name": "Développement back avancé",
       "rooms": [
         "R01"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.DWeb-DI.07",
+      "type": "TD",
       "teacher": "GIRARD Damien",
       "groups": [
         "BUT3-G3"
       ],
+      "duration": 240,
       "name": "Dispositifs interactifs",
       "rooms": [
         "R01",
@@ -994,142 +1228,185 @@
         "R04",
         "115",
         "102"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.DWeb-DI.08",
+      "type": "TD",
       "teacher": "CHARRIER Marion",
       "groups": [
         "BUT3-G3"
       ],
+      "duration": 120,
       "name": "Hébergement et cybersécurité",
       "rooms": [
         "R01"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "SAÉ 5.DWeb-DI.01",
+      "type": "TD",
       "teacher": "CARON Coralie",
       "groups": [
         "BUT3-G3"
       ],
+      "duration": 120,
       "name": "Développer pour le web ou concevoir un dispositif interactif",
       "rooms": [
         "R01"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.Crea.05",
+      "type": "TD",
       "teacher": "PASQUIER Aurore",
       "groups": [
         "BUT3-G1"
       ],
+      "duration": 120,
       "name": "Définir une direction artistique",
       "rooms": [
         "115"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.Crea.05",
+      "type": "TP",
       "teacher": "PASQUIER Aurore",
       "groups": [
         "BUT3-G1"
       ],
+      "duration": 120,
       "name": "Définir une direction artistique",
       "rooms": [
         "115"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.Crea.06",
+      "type": "TD",
       "teacher": "HUBERT Quentin",
       "groups": [
         "BUT3-G1"
       ],
+      "duration": 120,
       "name": "Création numérique",
       "rooms": [
         "R04"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.Crea.06",
+      "type": "TD",
       "teacher": "HUBERT Quentin",
       "groups": [
         "BUT3-G1"
       ],
+      "duration": 120,
       "name": "Création numérique",
       "rooms": [
         "R04"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.Crea.07",
+      "type": "TD",
       "teacher": "FAURE Celine",
       "groups": [
         "BUT3-G1"
       ],
+      "duration": 120,
       "name": "Ecriture Multimédia et narration",
       "rooms": [
         "115"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.Crea.07",
+      "type": "TD",
       "teacher": "GARNIER Mathieu",
       "groups": [
         "BUT3-G1"
       ],
+      "duration": 120,
       "name": "Ecriture Multimédia et narration",
       "rooms": [
         "115"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.Crea.07",
+      "type": "TP",
       "teacher": "FAURE Celine",
       "groups": [
         "BUT3-G1"
       ],
+      "duration": 120,
       "name": "Ecriture Multimédia et narration",
       "rooms": [
         "115"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "R5.Crea.08",
+      "type": "TD",
       "teacher": "HUBERT Quentin",
       "groups": [
         "BUT3-G1"
       ],
+      "duration": 120,
       "name": "Intégration et développement front",
       "rooms": [
         "R04",
         "115",
         "102"
-      ],
-      "duration": 120
+      ]
     },
     {
+      "week": 36,
+      "semester": 5,
+      "level": 2,
       "code": "SAÉ 5.Crea.01",
+      "type": "TD",
       "teacher": "PASQUIER Aurore",
       "groups": [
         "BUT3-G1"
       ],
+      "duration": 300,
       "name": "Créer par/pour le numérique",
       "rooms": [
         "115"
-      ],
-      "duration": 120
+      ]
     }
   ]
 }
