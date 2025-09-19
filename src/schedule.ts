@@ -146,7 +146,6 @@ export class Schedule {
         // (seulement tous les 5 niveaux pour éviter le surcoût)
         if (taskIndex < this.tasks.length - 1 && taskIndex % 5 === 0) {
             this.dynamicTaskSort(taskIndex);
-            console.log(`🔄 Tri dynamique appliqué à partir de l'index ${taskIndex}`);
         }
         
         // SUPPORT DES DÉPENDANCES: Vérifier si la tâche peut être planifiée maintenant
@@ -219,14 +218,11 @@ export class Schedule {
             
             if (!dependencyScheduled) {
                 // La dépendance n'est pas planifiée, aucun créneau possible
-                console.log(`⚠️ Tâche "${task.name}" ne peut pas être planifiée: dépendance "${dependency.name}" non planifiée`);
                 return [];
             }
             
             // La tâche ne peut commencer qu'après la fin de sa dépendance
             earliestStartTime = dependencyScheduled.startTime + dependency.duration;
-            
-            console.log(`🔗 Tâche "${task.name}" ne peut commencer qu'après ${this.formatTime(earliestStartTime)} (dépendance de "${dependency.name}")`);
         }
         
         // CORRECTION: Utiliser les vrais créneaux disponibles de la tâche
@@ -257,10 +253,6 @@ export class Schedule {
                     slots.push(slot);
                 }
             }
-        }
-        
-        if (dependency && slots.length > 0) {
-            console.log(`📅 ${slots.length} créneaux possibles pour "${task.name}" après dépendance`);
         }
         
         return slots;

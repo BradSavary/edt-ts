@@ -49,8 +49,8 @@ interface CourseTaskData {
 }
 
 interface CoursesData {
-  week: number;
-  tasks: CourseTaskData[];
+  weeks: number;
+  courses: CourseTaskData[];
 }
 
 /**
@@ -203,7 +203,7 @@ export class Loader {
       
       // Charger les données de cours
       const coursesData: CoursesData = Loader.loadJson('./src/json/cours.json');
-      const targetWeek = weekNumber || coursesData.week;
+      const targetWeek = weekNumber || coursesData.weeks;
 
       console.log(`📚 Chargement des tâches pour la semaine ${targetWeek}`);
 
@@ -221,7 +221,7 @@ export class Loader {
         groups: new Set<string>()
       };
 
-      for (const courseData of coursesData.tasks) {
+      for (const courseData of coursesData.courses) {
         // Collecter toutes les ressources nécessaires
         const taskResources: Resource[] = [];
 
@@ -282,6 +282,10 @@ export class Loader {
 
       console.log(`✅ ${tasks.length} tâches chargées pour la semaine ${targetWeek}`);
       
+      // Déterminer les dépendances entre les tâches
+      this.determineDependencies(tasks);
+      console.log(`🔗 Dépendances déterminées pour ${tasks.length} tâches`);
+      
       // Afficher un résumé des ressources manquantes
       const totalMissing = missingResources.teachers.size + missingResources.rooms.size + missingResources.groups.size;
       if (totalMissing > 0) {
@@ -311,6 +315,80 @@ export class Loader {
       }
       throw new Error(`Erreur inconnue lors du chargement des tâches`);
     }
+  }
+
+  /**
+   * Détermine les dépendances entre les tâches selon les règles métier
+   * @param tasks - Le tableau de tâches pour lesquelles déterminer les dépendances
+   * @returns Le tableau de tâches avec les dépendances configurées
+   */
+  static determineDependencies(tasks: Task[]): Task[] {
+    // Grouper les tâches par code
+    const tasksByCode = new Map<string, Task[]>();
+    
+    tasks.forEach(task => {
+      const code = task.code;
+      if (!tasksByCode.has(code)) {
+        tasksByCode.set(code, []);
+      }
+      tasksByCode.get(code)!.push(task);
+    });
+
+    // Pour chaque groupe de tâches avec le même code
+    tasksByCode.forEach((codeTasks) => {
+      // Séparer les tâches par type
+      const cmTasks = codeTasks.filter(task => task.type === 'CM');
+      const tdTasks = codeTasks.filter(task => task.type === 'TD');
+      const tpTasks = codeTasks.filter(task => task.type === 'TP');
+
+      // Règle: TP dépend de TD qui dépend de CM
+      // D'abord, faire dépendre les TD des CM appropriés
+      tdTasks.forEach(tdTask => {
+        const dependentCM = this.findDependentTask(tdTask, cmTasks);
+        if (dependentCM) {
+          tdTask.setDependsOn(dependentCM);
+        }
+      });
+
+      // Ensuite, faire dépendre les TP des TD appropriés
+      tpTasks.forEach(tpTask => {
+        const dependentTD = this.findDependentTask(tpTask, tdTasks);
+        if (dependentTD) {
+          tpTask.setDependsOn(dependentTD);
+        }
+      });
+    });
+
+    return tasks;
+  }
+
+  /**
+   * Trouve la tâche dont dépend une tâche donnée selon les règles de groupes
+   * @param task - La tâche pour laquelle chercher une dépendance
+   * @param candidateTasks - Les tâches candidates comme dépendances
+   * @returns La tâche dont dépend la tâche donnée, ou null si aucune
+   */
+  private static findDependentTask(task: Task, candidateTasks: Task[]): Task | null {
+    // Récupérer les groupes de la tâche
+    const taskGroups = task.getGroups();
+    
+    // Chercher une tâche candidate qui satisfait TOUTES les conditions :
+    // 1. Même code (déjà filtré par l'appelant)
+    // 2. Type approprié (déjà filtré par l'appelant) 
+    // 3. Tous les groupes de la tâche courante sont inclus dans les groupes du candidat
+    for (const candidate of candidateTasks) {
+      const candidateGroups = candidate.getGroups();
+      
+      // Vérifier si tous les groupes de la tâche sont inclus dans les groupes du candidat
+      // ET que le candidat a au moins les mêmes groupes (peut en avoir plus)
+      const allGroupsIncluded = taskGroups.every(group => candidateGroups.includes(group));
+      
+      if (allGroupsIncluded && taskGroups.length > 0) {
+        return candidate;
+      }
+    }
+    
+    return null;
   }
 
   /**

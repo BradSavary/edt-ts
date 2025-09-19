@@ -39,6 +39,7 @@ class Task {
   public readonly week: number;
   public readonly semester: number;
   public readonly level: number;
+  public readonly groups: string[];
   public readonly resources: Resource[];
   public readonly availableRooms: Resource[]; // Toutes les salles possibles pour cette tâche
   private status: TaskStatus;
@@ -126,6 +127,15 @@ class Task {
    */
   getScheduledSlot(): AvailableSlot | undefined {
     return this.scheduledSlot;
+  }
+
+  /**
+   * Retourne les groupes d'étudiants pour cette tâche
+   */
+  getGroups(): string[] {
+    return this.resources
+      .filter(resource => resource.type === 'group')
+      .map(resource => resource.id);
   }
 
   /**
