@@ -25,9 +25,11 @@ export class ScheduleMR extends Schedule {
         this.bestScore = -Infinity;
         this.currentIterations = 0;
         
+
         // Tri initial par disponibilité des ressources (état de base)
         // Traite d'abord les tâches avec le moins de créneaux disponibles
         this.tasks.sort((a, b) => this.getTaskConstraintScore(a) - this.getTaskConstraintScore(b));
+
         
         console.log(`📋 ${this.tasks.length} tâches à planifier`);
         console.log(`🏢 ${this.resources.length} ressources disponibles`);
@@ -106,13 +108,16 @@ export class ScheduleMR extends Schedule {
         // TRI DYNAMIQUE MR: Réorganiser les tâches restantes selon l'état actuel
         // Applique l'heuristique Most Constrained Variable de manière optimisée
         // (seulement tous les 5 niveaux pour éviter le surcoût)
+        /*
         if (taskIndex < this.tasks.length - 1 && taskIndex % 5 === 0) {
             this.dynamicTaskSort(taskIndex);
             // Log de tri dynamique supprimé pour réduire la verbosité
         }
-        
+        */
+
         // SUPPORT DES DÉPENDANCES MR: Vérifier si la tâche peut être planifiée maintenant
         if (!this.canTaskBeScheduledNow(task)) {
+            
             // La tâche ne peut pas être planifiée maintenant à cause des dépendances
             // Passer à la tâche suivante
             return this.backtrack(taskIndex + 1);
@@ -193,7 +198,7 @@ export class ScheduleMR extends Schedule {
      */
     private tryTaskWithCurrentRoom(task: Task, taskIndex: number): boolean {
         // Génération des créneaux possibles (méthode héritée)
-        const possibleSlots = this.generatePossibleSlots(task).slice(0, 10);
+        const possibleSlots = this.generatePossibleSlots(task);//.slice(0, 10);
         
         if (possibleSlots.length === 0) {
             return false;
@@ -256,15 +261,15 @@ export class ScheduleMR extends Schedule {
      */
     protected undoConstraints(taskSolution: TaskSolution): void {
         const { startTime, task } = taskSolution;
-        
+
         const startMinutes = startTime;
         const endMinutes = startMinutes + task.duration;
-        
+
         // Rendre les ressources disponibles (logique héritée)
         for (const resource of task.resources) {
             resource.availability.addAvailability(startMinutes, endMinutes);
         }
-        
+
         // APPROCHE CHIRURGICALE: Manipulation directe des schedulables
         this.addIntervalToSchedulables(task.resources, startMinutes, endMinutes, task);
     }
