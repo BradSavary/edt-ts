@@ -98,8 +98,8 @@ function displaySolutionStats(result: { solutions: any[]; isComplete: boolean; c
 function displayRoomChangesSummary(): void {
     console.log(`\n🔄 CHANGEMENTS DE SALLES EFFECTUÉS`);
     console.log(`==================================`);
-    console.log(`Les changements de salles sont affichés en temps réel durant la résolution.`);
-    console.log(`Recherchez les lignes "✅ Salle changée de..." dans les logs ci-dessus.`);
+    console.log(`Les changements de salles sont appliqués silencieusement pour réduire la verbosité.`);
+    console.log(`Pour voir les détails, décommentez le log dans task.ts ligne ~583.`);
 }
 
 /**

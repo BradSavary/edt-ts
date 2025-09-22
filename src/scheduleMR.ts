@@ -83,7 +83,10 @@ export class ScheduleMR extends Schedule {
         this.currentIterations++;
         
         if (this.currentIterations > this.maxIterations) {
-            console.log('⚠️ Limite d\'itérations atteinte (mode Multi-Rooms)');
+            // Log réduit pour éviter la verbosité excessive
+            if (this.currentIterations === this.maxIterations + 1) {
+                console.log('⚠️ Limite d\'itérations atteinte (mode Multi-Rooms)');
+            }
             return false;
         }
         
@@ -105,7 +108,7 @@ export class ScheduleMR extends Schedule {
         // (seulement tous les 5 niveaux pour éviter le surcoût)
         if (taskIndex < this.tasks.length - 1 && taskIndex % 5 === 0) {
             this.dynamicTaskSort(taskIndex);
-            console.log(`🏫 Tri dynamique MR appliqué à partir de l'index ${taskIndex}`);
+            // Log de tri dynamique supprimé pour réduire la verbosité
         }
         
         // SUPPORT DES DÉPENDANCES MR: Vérifier si la tâche peut être planifiée maintenant
@@ -115,8 +118,8 @@ export class ScheduleMR extends Schedule {
             return this.backtrack(taskIndex + 1);
         }
         
-        // Affichage de progression occasionnel
-        if (this.currentIterations % 1000 === 0) {
+        // Affichage de progression occasionnel (réduit pour moins de verbosité)
+        if (this.currentIterations % 10000 === 0) {
             console.log(`🏫 Itération MR ${this.currentIterations}, tâche ${taskIndex}/${this.tasks.length}: ${task.name}`);
         }
 

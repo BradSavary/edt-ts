@@ -579,7 +579,8 @@ class Task {
     // Ajouter la nouvelle salle
     this.addResource(newRoom);
     
-    console.log(`✅ Salle changée de '${currentRoom?.id || 'aucune'}' vers '${newRoom.id}' pour la tâche ${this.id}`);
+    // Log commenté pour réduire la verbosité - décommentez si nécessaire pour debug
+    // console.log(`✅ Salle changée de '${currentRoom?.id || 'aucune'}' vers '${newRoom.id}' pour la tâche ${this.id}`);
     return true;
   }
 

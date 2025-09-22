@@ -136,8 +136,9 @@ async function testTaskDependencies(): Promise<void> {
             const sortedSolutions = [...result.solutions].sort((a, b) => a.startTime - b.startTime);
             sortedSolutions.forEach((sol, index) => {
                 const dependency = sol.task.getDependsOn();
-                const depInfo = dependency ? ` (après ${dependency.name})` : ' (indépendante)';
-                console.log(`${index + 1}. ${formatTime(sol.startTime)}: ${sol.task.name}${depInfo}`);
+                const depInfo = dependency ? ` (après ${dependency.name} [${dependency.type}])` : ' (indépendante)';
+                const typeInfo = sol.task.type ? ` [${sol.task.type}]` : '';
+                console.log(`${index + 1}. ${formatTime(sol.startTime)}: ${sol.task.name}${typeInfo}${depInfo}`);
             });
             
         } else {

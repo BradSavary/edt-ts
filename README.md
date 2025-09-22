@@ -35,74 +35,142 @@ npm install
 
 ### Exécution
 ```bash
-# Exécuter l'exemple de démonstration
-npm start
+# Planificateur standard (recommandé)
+npx tsx src/Claude/test-standard-schedule.ts
 
-# Ou utiliser directement
-npm run example
+# Version expérimentale "chirurgicale"
+npx tsx src/Claude/test-exp-scheduling.ts
 
-# Vérification TypeScript
+# Version Multi-Rooms avec export iCal
+npx tsx src/Claude/test-mr-ical.ts
+
+# Vérification TypeScript (avec erreurs connues non-bloquantes)
 npm run build
 ```
 
 ## 📋 Exemple d'utilisation
 
 ```typescript
-import { Resource } from './src/resource';
-import { Task } from './src/task';
+import { Schedule } from './src/schedule';
+import { Loader } from './src/lib/loader';
 
-// Créer des ressources
-const salle = new Resource('salle-A01');
-const projecteur = new Resource('projecteur-1');
+// Chargement automatique des données JSON
+// Les tâches et ressources sont chargées depuis src/json/
+const scheduler = new Schedule();
 
-// Définir les disponibilités (en minutes depuis minuit)
-salle.addAvailability(9 * 60, 17 * 60); // 9h à 17h
-projecteur.addAvailability(8 * 60, 18 * 60); // 8h à 18h
+// 🔗 Les dépendances CM → TD → TP sont automatiquement déterminées
+// Exemple : R3.16 CM doit être planifié avant R3.16 TD et TP
 
-// Créer une tâche nécessitant les deux ressources
-const reunion = new Task('reunion-001', 'Réunion équipe', 120, [salle, projecteur]);
+// Résolution du planning avec backtracking + propagation de contraintes
+const solution = scheduler.solve();
 
-// Planifier automatiquement
-const resultat = reunion.scheduleNext();
-console.log(resultat.success ? 'Planifiée !' : 'Impossible à planifier');
+// Vérification des résultats
+console.log(`Tâches planifiées: ${solution.solutions.length}`);
+console.log(`Planning complet: ${solution.isComplete}`);
+console.log(`Conflits: ${solution.conflictCount}`);
+
+// Export iCal des plannings par niveau (R1, R3, R5)
+scheduler.export2ICal();
 ```
 
-## 🔧 Installation et utilisation
+### Données et Configuration
+
+Le système charge automatiquement :
+- **src/json/cours.json** : Liste des cours (R1.01, R3.16, R5.08, etc.)
+- **src/json/contraintes.json** : Contraintes horaires des ressources
+- **Dépendances automatiques** : CM → TD → TP selon les codes cours
+
+## 🔧 Scripts et Tests Disponibles
 
 ```bash
-# Installer les dépendances
-npm install
+# Algorithmes de planification
+npx tsx src/Claude/test-standard-schedule.ts  # Planificateur principal
+npx tsx src/Claude/test-exp-scheduling.ts     # Version expérimentale
+npx tsx src/Claude/test-mr-ical.ts           # Multi-Rooms + iCal export
 
-# Exécuter l'exemple
-npm run example
+# Autres tests et scripts (optionnels)
+npx tsx src/Claude/test-dependencies.ts      # Test des dépendances
+npx tsx src/Claude/test-task-compatibility.ts # Compatibilité des tâches
 
-# Développement avec Vite
-npm run dev
+# Vérification TypeScript
+npm run build                                # Validation du code
 ```
 
 ## 🏗️ Architecture
 
-- **bookable.ts** : Classes de base pour la gestion des disponibilités
-- **resource.ts** : Gestion des ressources avec disponibilités
-- **task.ts** : Planification de tâches avec contraintes et dépendances
-- **example.ts** : Exemple d'utilisation complète
+- **schedule.ts** : Planificateur principal avec backtracking et propagation de contraintes
+- **scheduleExp.ts** : Version expérimentale "chirurgicale" avec optimisations avancées
+- **scheduleMR.ts** : Version Multi-Rooms exploitant la flexibilité des salles
+- **task.ts** : Classe Task enrichie avec propriétés cours complètes (type, week, semester, level)
+- **resource.ts** : Gestion des ressources (enseignants, salles, groupes) avec disponibilités
+- **bookable.ts** : Système de réservation et gestion des créneaux optimisés
+- **lib/loader.ts** : Chargement JSON + détermination automatique des dépendances
+- **resourcesManager.ts** : Gestionnaire centralisé avec indexation O(1)
+- **constraintsManager.ts** : Application des contraintes temporelles par ressource
 
-## 🔗 Dépendances entre tâches
+## 🔗 Système de Dépendances Automatique
 
-Le système supporte les dépendances entre tâches :
+Le système détermine automatiquement les dépendances entre cours selon les règles métier éducatives :
+
+### 📋 **Règles de Dépendances**
+
+1. **Hiérarchie pédagogique** : CM → TD → TP (même code de cours)
+2. **Contraintes de groupes** : Les groupes de la tâche dépendante doivent être inclus dans ceux de la tâche prérequise
+3. **Validation simultanée** : Toutes les conditions doivent être respectées
+
+### 🔧 **Implémentation**
 
 ```typescript
-const tache1 = new Task('prep', 'Préparation', 60, [salle]);
-const tache2 = new Task('exec', 'Exécution', 120, [salle, projecteur]);
+// Algorithme dans Loader.determineDependencies() :
+// 1. Regrouper les tâches par code de cours (ex: R3.16)
+// 2. Filtrer par ordre de type : CM, puis TD, puis TP
+// 3. Appliquer les contraintes de groupes
+// 4. Créer les liens de dépendance
 
-// Tâche 2 dépend de tâche 1
-tache2.setDependsOn(tache1);
+// Exemple de résolution automatique :
+// R3.16 CM (BUT2-G1,G2,G3) → R3.16 TD (BUT2-G1) 
+// R3.16 CM (BUT2-G1,G2,G3) → R3.16 TD (BUT2-G2)
+// R3.16 TD (BUT2-G1) → R3.16 TP (BUT2-G11,G12)
 
-// Planifier dans l'ordre
-tache1.scheduleNext();
-tache1.complete();
-tache2.scheduleNext(); // Ne peut être planifiée qu'après tache1
+// Résultat : Les CM doivent être planifiés avant les TD,
+//            qui doivent être planifiés avant les TP
 ```
+
+### ⚡ **Avantages**
+
+- **Automatique** : Aucune configuration manuelle requise
+- **Cohérent** : Respect des règles pédagogiques universitaires
+- **Flexible** : Support des groupes multiples et sous-groupes
+- **Performant** : Algorithme O(n²) avec optimisations
+
+## ⚡ Algorithmes de Planification
+
+**Tous les algorithmes supportent nativement :**
+- ✅ Dépendances automatiques CM → TD → TP par code de cours
+- ✅ Contraintes de groupes (inclusion obligatoire)
+- ✅ Propagation de contraintes bidirectionnelle
+- ✅ Détection de conflits en temps réel
+
+### 1. **Schedule** (Standard)
+- **Algorithme** : Backtracking avec propagation de contraintes
+- **Heuristique** : Most Constrained Variable (MCV)
+- **Optimisations** : Tri dynamique tous les 5 niveaux
+- **Dépendances** : Support complet CM → TD → TP + contraintes groupes
+- **Limite** : 1M itérations
+- **Usage** : Planification robuste pour emplois du temps complexes
+
+### 2. **ScheduleExp** (Expérimental)  
+- **Algorithme** : Approche "chirurgicale" avec manipulation directe des schedulables
+- **Optimisations** : Contraintes fines, exploration aggressive
+- **Dépendances** : Même support que Schedule avec optimisations expérimentales
+- **Usage** : Tests d'optimisations avancées
+
+### 3. **ScheduleMR** (Multi-Rooms)
+- **Algorithme** : Extension de Schedule avec flexibilité des salles alternatives
+- **Spécialité** : Exploitation dynamique des salles multiples (36% des tâches)
+- **Dépendances** : Support complet + optimisation des changements de salles
+- **Export** : Génération automatique iCal par niveaux (R1, R3, R5)
+- **Usage** : Planification avec contraintes de salles flexibles
 
 ## 📊 Performances
 
@@ -113,8 +181,9 @@ tache2.scheduleNext(); // Ne peut être planifiée qu'après tache1
 ## 🛠️ Technologies
 
 - **TypeScript** : Type safety et développement moderne
-- **Vite** : Build tool rapide
-- **tsx** : Exécution directe des fichiers TypeScript
+- **Node.js** : Runtime JavaScript/TypeScript 
+- **tsx** : Exécution directe des fichiers TypeScript (remplace ts-node)
+- **Algorithmes** : Backtracking, propagation de contraintes, heuristiques MCV
 
 ## 📝 License
 

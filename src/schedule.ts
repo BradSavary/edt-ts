@@ -34,6 +34,7 @@ export class Schedule {
     protected bestScore: number = -Infinity;
     protected maxIterations: number = 1000000; // Limite de sécurité augmentée
     protected currentIterations: number = 0;
+    protected limitWarningShown: boolean = false;
 
     constructor() {
         // Les données seront chargées via Loader lors de la résolution
@@ -118,7 +119,10 @@ export class Schedule {
         this.currentIterations++;
         
         if (this.currentIterations > this.maxIterations) {
-            console.log('⚠️ Limite d\'itérations atteinte');
+            if (!this.limitWarningShown) {
+                console.log('⚠️ Limite d\'itérations atteinte');
+                this.limitWarningShown = true;
+            }
             return false;
         }
         
@@ -155,8 +159,8 @@ export class Schedule {
             return this.backtrack(taskIndex + 1);
         }
         
-        // Affichage de progression occasionnel
-        if (this.currentIterations % 1000 === 0) {
+        // Affichage de progression réduit (moins verbeux)
+        if (this.currentIterations % 10000 === 0) {
             console.log(`🔍 Itération ${this.currentIterations}, tâche ${taskIndex}/${this.tasks.length}: ${task.name}`);
         }
 
