@@ -284,8 +284,8 @@ export class Loader {
       
       // Déterminer les dépendances entre les tâches
       this.determineDependencies(tasks);
-      console.log(`🔗 Dépendances déterminées pour ${tasks.length} tâches`);
-      
+     // console.log(`🔗 Dépendances déterminées pour ${tasks.length} tâches`);
+          
       // Afficher un résumé des ressources manquantes
       const totalMissing = missingResources.teachers.size + missingResources.rooms.size + missingResources.groups.size;
       if (totalMissing > 0) {
@@ -323,9 +323,10 @@ export class Loader {
    * @returns Le tableau de tâches avec les dépendances configurées
    */
   static determineDependencies(tasks: Task[]): Task[] {
+   
     // Grouper les tâches par code
     const tasksByCode = new Map<string, Task[]>();
-    
+
     tasks.forEach(task => {
       const code = task.code;
       if (!tasksByCode.has(code)) {

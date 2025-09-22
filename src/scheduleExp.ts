@@ -87,11 +87,12 @@ export class ScheduleExp extends Schedule {
         // TRI DYNAMIQUE EXP: Réorganiser les tâches restantes selon l'état actuel
         // Applique l'heuristique Most Constrained Variable de manière optimisée
         // (seulement tous les 5 niveaux pour éviter le surcoût)
+        /*
         if (taskIndex < this.tasks.length - 1 && taskIndex % 5 === 0) {
             this.dynamicTaskSort(taskIndex);
             console.log(`🔬 Tri dynamique EXP appliqué à partir de l'index ${taskIndex}`);
         }
-        
+        */
         // SUPPORT DES DÉPENDANCES EXP: Vérifier si la tâche peut être planifiée maintenant
         if (!this.canTaskBeScheduledNow(task)) {
             // La tâche ne peut pas être planifiée maintenant à cause des dépendances

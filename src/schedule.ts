@@ -148,12 +148,15 @@ export class Schedule {
         // TRI DYNAMIQUE: Réorganiser les tâches restantes selon l'état actuel
         // Applique l'heuristique Most Constrained Variable de manière optimisée
         // (seulement tous les 5 niveaux pour éviter le surcoût)
+        /*
         if (taskIndex < this.tasks.length - 1 && taskIndex % 5 === 0) {
             this.dynamicTaskSort(taskIndex);
         }
+            */
         
         // SUPPORT DES DÉPENDANCES: Vérifier si la tâche peut être planifiée maintenant
         if (!this.canTaskBeScheduledNow(task)) {
+
             // La tâche ne peut pas être planifiée maintenant à cause des dépendances
             // Passer à la tâche suivante
             return this.backtrack(taskIndex + 1);
@@ -165,7 +168,7 @@ export class Schedule {
         }
 
         // Génération des créneaux possibles pour cette tâche (limité pour éviter l'explosion)
-        const possibleSlots = this.generatePossibleSlots(task).slice(0, 10); // Limiter à 10 créneaux max
+        const possibleSlots = this.generatePossibleSlots(task);//.slice(0, 10); // Limiter à 10 créneaux max
         
         if (possibleSlots.length === 0) {
             // Aucun créneau possible, passer à la tâche suivante (planification partielle)
@@ -180,19 +183,26 @@ export class Schedule {
                 startTime: slot.startTime
                 // Les ressources sont directement dans task.resources
             };
-            
+
             this.solution.push(taskSolution);
-            
+
             // Application des contraintes (propagation)
             this.applyConstraints(taskSolution);
-            
+
             // Récursion sur la tâche suivante
             const result = this.backtrack(taskIndex + 1);
-            
+
             // Backtrack : annulation des modifications
             this.undoConstraints(taskSolution);
             this.solution.pop();
-            
+
+            // TRI DYNAMIQUE: Réorganiser les tâches restantes selon l'état actuel
+            // Applique l'heuristique Most Constrained Variable après le pop
+            // (seulement tous les 5 niveaux pour éviter le surcoût)
+            // if (taskIndex < this.tasks.length - 1 && taskIndex % 5 === 0) {
+            //    this.dynamicTaskSort(taskIndex);
+            //}
+
             // Si on a trouvé une solution complète, on peut arrêter
             if (result && this.bestSolution.length === this.tasks.length) {
                 return true;
@@ -200,6 +210,7 @@ export class Schedule {
         }
         
         // Si aucun créneau n'a fonctionné, essayer sans cette tâche (planification partielle)
+    
         return this.backtrack(taskIndex + 1);
     }
 
@@ -329,8 +340,14 @@ export class Schedule {
      */
     protected getTaskConstraintScore(task: Task): number {
         // Le score est basé sur la disponibilité totale initiale des ressources de la tâche
-        // Plus la disponibilité est faible, plus la tâche est contrainte
-        return task.schedulable.getTotalAvailableTime();
+        // Si la tâche a une dépendance, ajouter le score de la dépendance
+        const baseScore = task.schedulable.getTotalAvailableTime();
+        const dependency = task.getDependsOn();
+        if (dependency) {
+            // Appel récursif pour la dépendance
+            return baseScore + this.getTaskConstraintScore(dependency);
+        }
+        return baseScore;
     }
 
     /**
@@ -398,6 +415,18 @@ export class Schedule {
         
         console.log(`🔍 Vérification de la solution (${solution.length} tâches)...`);
         
+        // Vérification de doublons d'instances de Task
+        const seenTasks = new Set<Task>();
+        const duplicateTasks: string[] = [];
+        for (const sol of solution) {
+            if (seenTasks.has(sol.task)) {
+                duplicateTasks.push(sol.task.code);
+            }
+            seenTasks.add(sol.task);
+        }
+        if (duplicateTasks.length > 0) {
+            console.error(`❌ Doublons d'instances de Task détectés dans la solution: ${duplicateTasks.join(', ')}`);
+        }
         // Vérifier chaque paire de tâches pour détecter les conflits
         for (let i = 0; i < solution.length; i++) {
             const task1 = solution[i];
@@ -458,20 +487,20 @@ export class Schedule {
             return '';
         }
 
-        // Calculer la date du lundi de la semaine 36 de 2025
+        // Calculer la date du lundi de la semaine 3 de 2026
         const year = 2025;
-        const weekNumber = 46;
-        
-        // Le 1er janvier 2025 est un mercredi
-        // Calcul du premier lundi de l'année 2025 : 6 janvier 2025
-        const firstMondayOfYear = new Date(year, 0, 6); // 6 janvier 2025
-        
-        // Calculer le lundi de la semaine 36
-        const mondayWeek36 = new Date(firstMondayOfYear);
-        mondayWeek36.setDate(firstMondayOfYear.getDate() + (weekNumber - 1) * 7);
-        
+        const weekNumber = 38; // Semaine 3 (à modifier si nécessaire)
+
+        // Le 1er janvier 2026 est un jeudi
+        // Calcul du premier lundi de l'année 2026 : 5 janvier 2026
+        const firstMondayOfYear = new Date(year, 0, 6); // 5 janvier 2025
+
+        // Calculer le lundi de la semaine 3
+        const mondayWeek3 = new Date(firstMondayOfYear);
+        mondayWeek3.setDate(firstMondayOfYear.getDate() + (weekNumber - 1) * 7);
+
         console.log(`📅 Export iCal pour la semaine ${weekNumber} de ${year}`);
-        console.log(`📅 Lundi de la semaine 36: ${mondayWeek36.toLocaleDateString('fr-FR')}`);
+        console.log(`📅 Lundi de la semaine 3: ${mondayWeek3.toLocaleDateString('fr-FR')}`);
 
         // Séparer les solutions par code de cours
         const r1Solutions = this.bestSolution.filter(s => s.task.code.startsWith('R1'));
@@ -498,7 +527,17 @@ export class Schedule {
         };
 
         for (const category of categories) {
-            if (category.solutions.length === 0) {
+            // Trouver les tâches non planifiées pour cette catégorie
+            // Correction : ne placer le dimanche que les tâches réellement non planifiées (absentes de la solution globale)
+            const allTasksInCategory = this.tasks.filter(task => task.code.startsWith(category.prefix));
+            const plannedTasksGlobal = this.bestSolution.map(sol => sol.task);
+            const unplannedTasksInCategory = allTasksInCategory.filter(task => !plannedTasksGlobal.includes(task));
+            if (unplannedTasksInCategory.length > 0) {
+                console.log(`📋 Codes des tâches non planifiées pour ${category.prefix}:`);
+                unplannedTasksInCategory.forEach(task => console.log(`   - ${task.code}`));
+            }
+
+            if (category.solutions.length === 0 && unplannedTasksInCategory.length === 0) {
                 console.log(`⚠️ Aucun cours ${category.prefix} à exporter`);
                 continue;
             }
@@ -513,7 +552,7 @@ export class Schedule {
                 ''
             ].join('\r\n');
 
-            // Ajouter chaque événement de cette catégorie
+            // Ajouter chaque événement planifié de cette catégorie
             for (const solution of category.solutions) {
                 const task = solution.task;
                 
@@ -521,8 +560,8 @@ export class Schedule {
                 const { dayIndex, hour, minute } = this.fromTimestamp(solution.startTime);
                 
                 // Calculer la date réelle de l'événement
-                const eventDate = new Date(mondayWeek36);
-                eventDate.setDate(mondayWeek36.getDate() + dayIndex);
+                const eventDate = new Date(mondayWeek3);
+                eventDate.setDate(mondayWeek3.getDate() + dayIndex);
                 eventDate.setHours(hour, minute, 0, 0);
                 
                 // Date de fin (ajouter la durée en minutes)
@@ -541,7 +580,7 @@ export class Schedule {
                     teachers.length > 0 ? `Enseignant(s): ${teachers.join(', ')}` : '',
                     rooms.length > 0 ? `Salle(s): ${rooms.join(', ')}` : '',
                     groups.length > 0 ? `Groupe(s): ${groups.join(', ')}` : ''
-                ].filter(line => line).join('\\n');
+                ].filter(line => line).join('\r\n');
 
                 // Créer le summary au format spécifié : "R3.16 GILLET Anthony, BUT2-G1.BUT2-G21.BUT2-G22.BUT2-G3"
                 const summaryParts = [task.code];
@@ -553,9 +592,10 @@ export class Schedule {
                 }
                 const summary = summaryParts.join(' ');
 
-                // Générer un UID unique
-                const uid = `${task.code}_${teachers.join('_')}_${groups.join('_')}_${solution.startTime}@edt-ts.local`;
-                
+                // Générer un UID unique avec identifiant d'export
+                const exportId = Date.now();
+                const uid = `${task.code}_${teachers.join('_')}_${groups.join('_')}_${solution.startTime}_${exportId}@edt-ts.local`;
+
                 // Timestamp de création (format UTC obligatoire pour DTSTAMP)
                 const now = new Date();
                 const dtstamp = now.getUTCFullYear().toString() +
@@ -565,6 +605,9 @@ export class Schedule {
                                now.getUTCMinutes().toString().padStart(2, '0') +
                                now.getUTCSeconds().toString().padStart(2, '0') + 'Z';
 
+                // Définir la couleur Google Calendar
+                // ...existing code...
+
                 // Ajouter l'événement iCal
                 icalContent += [
                     'BEGIN:VEVENT',
@@ -573,7 +616,7 @@ export class Schedule {
                     `DTSTART:${formatICalDate(eventDate)}`,
                     `DTEND:${formatICalDate(endDate)}`,
                     `SUMMARY:${summary}`,
-                    `DESCRIPTION:${description}`,
+                    `DESCRIPTION;CHARSET=UTF-8:${description}`,
                     rooms.length > 0 ? `LOCATION:${rooms[0]}` : '',
                     teachers.length > 0 ? `ORGANIZER:CN=${teachers[0]}` : '',
                     groups.length > 0 ? `CATEGORIES:${groups.join(',')}` : '',
@@ -581,6 +624,81 @@ export class Schedule {
                     `TRANSP:OPAQUE`,
                     'END:VEVENT'
                 ].filter(line => line).join('\r\n') + '\r\n';
+            }
+
+            // Ajouter les tâches non planifiées le dimanche matin à 8:00
+            if (unplannedTasksInCategory.length > 0) {
+                console.log(`📋 Ajout de ${unplannedTasksInCategory.length} tâches non planifiées ${category.prefix} le dimanche matin`);
+                
+                let sundayTime = 8 * 60; // 8:00 du matin en minutes
+                
+                for (const unplannedTask of unplannedTasksInCategory) {
+                    // Calculer la date du dimanche (jour 6, car lundi = 0)
+                    const sundayDate = new Date(mondayWeek3);
+                    sundayDate.setDate(mondayWeek3.getDate() + 6); // Dimanche = lundi + 6 jours
+                    sundayDate.setHours(Math.floor(sundayTime / 60), sundayTime % 60, 0, 0);
+                    
+                    // Date de fin
+                    const endDate = new Date(sundayDate);
+                    endDate.setMinutes(endDate.getMinutes() + unplannedTask.duration);
+
+                    // Extraire les ressources
+                    const teachers = unplannedTask.resources.filter(r => r.type === 'teacher').map(r => r.id);
+                    const rooms = unplannedTask.resources.filter(r => r.type === 'room').map(r => r.id);
+                    const groups = unplannedTask.resources.filter(r => r.type === 'group').map(r => r.id);
+
+                    // Créer une description avec mention "NON PLANIFIÉE"
+                    const description = [
+                        `⚠️ TÂCHE NON PLANIFIÉE - Placée automatiquement le dimanche`,
+                        `Code: ${unplannedTask.code}`,
+                        `Durée: ${unplannedTask.duration} minutes`,
+                        teachers.length > 0 ? `Enseignant(s): ${teachers.join(', ')}` : '',
+                        rooms.length > 0 ? `Salle(s): ${rooms.join(', ')}` : '',
+                        groups.length > 0 ? `Groupe(s): ${groups.join(', ')}` : ''
+                    ].filter(line => line).join('\\n');
+
+                    // Créer le summary avec indication "NON PLANIFIÉE"
+                    const summaryParts = [`[NON PLANIFIÉE] ${unplannedTask.code}`];
+                    if (teachers.length > 0) {
+                        summaryParts.push(teachers[0] + ',');
+                    }
+                    if (groups.length > 0) {
+                        summaryParts.push(groups.join('.'));
+                    }
+                    const summary = summaryParts.join(' ');
+
+                    // Générer un UID unique
+                    const uid = `UNPLANNED_${unplannedTask.code}_${teachers.join('_')}_${groups.join('_')}_${sundayTime}@edt-ts.local`;
+                    
+                    // Timestamp de création
+                    const now = new Date();
+                    const dtstamp = now.getUTCFullYear().toString() +
+                                   (now.getUTCMonth() + 1).toString().padStart(2, '0') +
+                                   now.getUTCDate().toString().padStart(2, '0') + 'T' +
+                                   now.getUTCHours().toString().padStart(2, '0') +
+                                   now.getUTCMinutes().toString().padStart(2, '0') +
+                                   now.getUTCSeconds().toString().padStart(2, '0') + 'Z';
+
+                    // Ajouter l'événement iCal avec statut spécial
+                    icalContent += [
+                        'BEGIN:VEVENT',
+                        `UID:${uid}`,
+                        `DTSTAMP:${dtstamp}`,
+                        `DTSTART:${formatICalDate(sundayDate)}`,
+                        `DTEND:${formatICalDate(endDate)}`,
+                        `SUMMARY:${summary}`,
+                        `DESCRIPTION:${description}`,
+                        rooms.length > 0 ? `LOCATION:${rooms[0]}` : '',
+                        teachers.length > 0 ? `ORGANIZER:CN=${teachers[0]}` : '',
+                        groups.length > 0 ? `CATEGORIES:${groups.join(',')},NON-PLANIFIEE` : 'CATEGORIES:NON-PLANIFIEE',
+                        `STATUS:TENTATIVE`, // Statut TENTATIVE pour indiquer que c'est non planifié
+                        `TRANSP:TRANSPARENT`, // Transparent pour indiquer que ce n'est pas un vrai créneau
+                        'END:VEVENT'
+                    ].filter(line => line).join('\r\n') + '\r\n';
+                    
+                    // Décaler l'heure pour la prochaine tâche non planifiée (espacer de 30 minutes)
+                    sundayTime += 30;
+                }
             }
 
             // Fermer le calendrier
@@ -593,7 +711,8 @@ export class Schedule {
             try {
                 fs.writeFileSync(filepath, icalContent, 'utf8');
                 console.log(`✅ Fichier iCal exporté: ${filepath}`);
-                console.log(`📊 ${category.solutions.length} événements ${category.prefix} exportés`);
+                const totalEventsInCategory = category.solutions.length + unplannedTasksInCategory.length;
+                console.log(`📊 ${totalEventsInCategory} événements ${category.prefix} exportés (${category.solutions.length} planifiées + ${unplannedTasksInCategory.length} non planifiées)`);
                 exportedFiles.push(filepath);
             } catch (error) {
                 console.error(`❌ Erreur lors de l'export iCal ${category.prefix}:`, error);

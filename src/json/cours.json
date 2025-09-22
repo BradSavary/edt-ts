@@ -1250,7 +1250,7 @@
       "week": 36,
       "semester": 5,
       "level": 2,
-      "code": "SAÉ 5.DWeb-DI.01",
+  "code": "R5.SAÉ 5.DWeb-DI.01",
       "type": "TD",
       "teacher": "CARON Coralie",
       "groups": [
@@ -1396,13 +1396,13 @@
       "week": 36,
       "semester": 5,
       "level": 2,
-      "code": "SAÉ 5.Crea.01",
+  "code": "R5.SAÉ 5.Crea.01",
       "type": "TD",
       "teacher": "PASQUIER Aurore",
       "groups": [
         "BUT3-G1"
       ],
-      "duration": 300,
+      "duration": 120,
       "name": "Créer par/pour le numérique",
       "rooms": [
         "115"

@@ -73,6 +73,18 @@ console.log(`Conflits: ${solution.conflictCount}`);
 scheduler.export2ICal();
 ```
 
+### 📅 Export iCal Avancé
+
+L'export iCal génère des calendriers complets avec gestion intelligente des tâches non planifiées :
+
+- **Tâches planifiées** : Exportées avec leur créneau, salle et niveau
+- **Tâches non planifiées** : Automatiquement placées le dimanche matin à 8h00 (status TENTATIVE)
+- **Espacement automatique** : 30 minutes entre chaque tâche non planifiée
+- **Organisation par niveau** : Fichiers séparés pour R1, R3, R5
+- **Statistiques** : Affichage du taux de réussite de planification
+
+**Fichiers générés :** `schedule_R1.ics`, `schedule_R3.ics`, `schedule_R5.ics`
+
 ### Données et Configuration
 
 Le système charge automatiquement :
@@ -151,13 +163,26 @@ Le système détermine automatiquement les dépendances entre cours selon les r�
 - ✅ Propagation de contraintes bidirectionnelle
 - ✅ Détection de conflits en temps réel
 
+### 🏫 **Gestion des Salles**
+
+Le système propose trois approches différentes pour la gestion des salles :
+
+1. **Standard** : Une salle fixe sélectionnée aléatoirement au chargement des données
+2. **Expérimental** : Même approche que Standard avec optimisations algorithmiques
+3. **Multi-Rooms** : Changement dynamique entre toutes les salles disponibles
+
+Cette différence explique les variations de performance entre les algorithmes.
+
 ### 1. **Schedule** (Standard)
 - **Algorithme** : Backtracking avec propagation de contraintes
 - **Heuristique** : Most Constrained Variable (MCV)
 - **Optimisations** : Tri dynamique tous les 5 niveaux
+- **Gestion des salles** : Sélection aléatoire d'UNE salle parmi celles disponibles au chargement
 - **Dépendances** : Support complet CM → TD → TP + contraintes groupes
 - **Limite** : 1M itérations
-- **Usage** : Planification robuste pour emplois du temps complexes
+- **Performance** : ~75/80 tâches planifiées (93,75% de réussite)
+- **Variabilité** : ⚠️ **Résultats différents à chaque exécution** due au choix aléatoire de salle
+- **Usage** : Planification robuste pour emplois du temps avec contraintes fixes
 
 ### 2. **ScheduleExp** (Expérimental)  
 - **Algorithme** : Approche "chirurgicale" avec manipulation directe des schedulables
@@ -167,10 +192,30 @@ Le système détermine automatiquement les dépendances entre cours selon les r�
 
 ### 3. **ScheduleMR** (Multi-Rooms)
 - **Algorithme** : Extension de Schedule avec flexibilité des salles alternatives
-- **Spécialité** : Exploitation dynamique des salles multiples (36% des tâches)
+- **Gestion des salles** : Changement dynamique entre TOUTES les salles disponibles pendant la planification
+- **Spécialité** : Exploitation dynamique des salles multiples (36% des tâches avec salles alternatives)
 - **Dépendances** : Support complet + optimisation des changements de salles
 - **Export** : Génération automatique iCal par niveaux (R1, R3, R5)
-- **Usage** : Planification avec contraintes de salles flexibles
+- **Performance** : Taux de réussite supérieur grâce à la flexibilité des salles
+- **Usage** : Planification optimale avec contraintes de salles flexibles
+
+## 🎲 Variabilité des Résultats
+
+### Algorithmes Standard et Expérimental
+Le choix **aléatoire d'une salle unique** au chargement des données explique pourquoi :
+- **Résultats différents** à chaque exécution (nombre de tâches planifiées variable)
+- **Performance fluctuante** : de 70 à 80 tâches selon la salle choisie
+- **Contraintes variables** : certaines salles offrent plus de créneaux compatibles
+
+**Exemple pratique :**
+- Salle A disponible 9h-12h → permet 6 créneaux
+- Salle B disponible 8h-18h → permet 20 créneaux
+- Le choix aléatoire entre A et B impacte directement le nombre de tâches planifiables
+
+### Algorithme Multi-Rooms
+- **Résultats stables** grâce à l'utilisation dynamique de toutes les salles
+- **Performance optimale** : exploitation maximale des disponibilités
+- **Reproductibilité** : même nombre de tâches planifiées à chaque exécution
 
 ## 📊 Performances
 
