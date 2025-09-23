@@ -20,15 +20,15 @@ type ResourceType = typeof ResourceType[keyof typeof ResourceType];
 class Resource {
   public readonly id: string;
   public readonly type: ResourceType;
+  public readonly status: string | undefined;
   private availabilityManager: AvailabilityManager;
-  // Durée totale et prévisionnelle d'utilisation (en minutes)
   private _workload: number = 0;
-  // Index des tâches qui utilisent cette ressource
   private _tasks: Set<Task> = new Set();
 
-  constructor(id: string, type: ResourceType) {
+  constructor(id: string, type: ResourceType, status?: string) {
     this.id = id;
     this.type = type;
+    this.status = type === ResourceType.TEACHER ? status : undefined;
     this.availabilityManager = new AvailabilityManager();
   }
 

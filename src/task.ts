@@ -1,4 +1,4 @@
-import { Resource } from './resource';
+import { Resource, ResourceType } from './resource';
 import { AvailabilityManager } from './bookable';
 import type { AvailableSlot } from './bookable';
 import type { CourseTaskData } from './lib/loader';
@@ -31,6 +31,7 @@ interface TaskScheduleResult {
  * Elle peut aussi dépendre d'autres tâches (ordre de planification)
  */
 class Task {
+ 
   public readonly id: string;
   public readonly code: string;
   public readonly name: string;
@@ -39,7 +40,7 @@ class Task {
   public readonly week: number;
   public readonly semester: number;
   public readonly level: number;
-  public readonly groups: string[];
+  public readonly groups: string[] = [];
   public readonly resources: Resource[];
   public readonly availableRooms: Resource[]; // Toutes les salles possibles pour cette tâche
   private status: TaskStatus;
@@ -597,6 +598,14 @@ class Task {
       return this.getAvailableRooms();
     }
     return this.availableRooms.filter(room => room.id !== currentRoom.id);
+  }
+
+   /**
+   * Retourne la première ressource de type TEACHER présente dans resources, ou null si aucune
+   */
+  getTeacherResource(): Resource | null {
+    // Utilise l'énum ResourceType importée
+    return this.resources.find(r => r.type === ResourceType.TEACHER) ?? null;
   }
 
 

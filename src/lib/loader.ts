@@ -154,10 +154,10 @@ export class Loader {
         manager.addResource(group);
       });
 
-      // Charger les enseignants depuis teachers.json
-      const teachers: string[] = Loader.loadJson<string[]>('./src/json/teachers.json');
-      teachers.forEach(teacherId => {
-        const teacher = new Resource(teacherId, ResourceType.TEACHER);
+      // Charger les enseignants depuis teachers.json (nouveau format)
+      const teachers: { teacher: string; status: string }[] = Loader.loadJson<{ teacher: string; status: string }[]>('./src/json/teachers.json');
+      teachers.forEach(t => {
+        const teacher = new Resource(t.teacher, ResourceType.TEACHER, t.status);
         manager.addResource(teacher);
       });
 

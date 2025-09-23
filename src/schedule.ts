@@ -157,7 +157,8 @@ export class Schedule {
        
         // SUPPORT DES DÉPENDANCES: Vérifier si la tâche peut être planifiée maintenant
         if (!this.canTaskBeScheduledNow(task)) {
-
+            // l'algorithme ne permet pas (normalement) le traitement d'une tâche avant celle dont elle dépend
+            throw new Error(`Erreur logique: La tâche ${task.name} (index ${taskIndex}) ne peut pas être planifiée maintenant car elle dépend d'une tâche non encore planifiée.`);
             // La tâche ne peut pas être planifiée maintenant à cause des dépendances
             // Passer à la tâche suivante
             return this.backtrack(taskIndex + 1);
@@ -456,6 +457,8 @@ export class Schedule {
                         const conflict = `CONFLIT détecté entre "${task1.task.name}" (${this.formatTime(task1.startTime)}-${this.formatTime(end1)}) et "${task2.task.name}" (${this.formatTime(task2.startTime)}-${this.formatTime(end2)}) sur les ressources: ${sharedResources.map(r => r.id).join(', ')}`;
                         conflicts.push(conflict);
                         console.error(`❌ ${conflict}`);
+                        // Un conflit n'est pas possible. S'il est détecté, c'est une erreur critique
+                        throw new Error('Erreur critique: Conflit détecté dans une solution supposée valide');
                     }
                 }
             }
