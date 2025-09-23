@@ -143,17 +143,18 @@ export class Schedule {
             return true;
         }
 
-        const task = this.tasks[taskIndex];
         
         // TRI DYNAMIQUE: Réorganiser les tâches restantes selon l'état actuel
         // Applique l'heuristique Most Constrained Variable de manière optimisée
         // (seulement tous les 5 niveaux pour éviter le surcoût)
-        /*
+        
         if (taskIndex < this.tasks.length - 1 && taskIndex % 5 === 0) {
             this.dynamicTaskSort(taskIndex);
         }
-            */
+          
+        const task = this.tasks[taskIndex];
         
+       
         // SUPPORT DES DÉPENDANCES: Vérifier si la tâche peut être planifiée maintenant
         if (!this.canTaskBeScheduledNow(task)) {
 
@@ -357,8 +358,14 @@ export class Schedule {
     protected getCurrentConstraintScore(task: Task): number {
         // Recalculer la disponibilité avec l'état actuel des ressources
         // (après les réservations effectuées par les tâches déjà planifiées)
-        const currentAvailableTime = task.schedulable.getTotalAvailableTime();
-        
+
+        let currentAvailableTime = task.schedulable.getTotalAvailableTime();
+
+        // division du score si la tache possede des dépendances
+        if (task.hasDependentTasks() ) {
+            currentAvailableTime = 1;
+        }
+
         // Support des dépendances : si une tâche dépend d'une autre,
         // son score est la somme de sa disponibilité et de celle de sa dépendance
         const dependency = task.getDependsOn();
@@ -368,7 +375,8 @@ export class Schedule {
                 // La dépendance n'est pas encore planifiée
                 // Score = disponibilité de la tâche + disponibilité de sa dépendance
                 const dependencyAvailableTime = dependency.schedulable.getTotalAvailableTime();
-                return currentAvailableTime + dependencyAvailableTime;
+                return currentAvailableTime +  this.getCurrentConstraintScore(dependency);
+                //;dependencyAvailableTime;
             }
         }
         
@@ -453,12 +461,12 @@ export class Schedule {
             }
         }
         
-        const isValid = conflicts.length === 0;
+        const isValid = conflicts.length === 0 && duplicateTasks.length === 0;
         
         if (isValid) {
             console.log(`✅ Solution valide - Aucun conflit détecté`);
         } else {
-            console.error(`❌ Solution invalide - ${conflicts.length} conflit(s) détecté(s)`);
+            console.error(`❌ Solution invalide - ${conflicts.length} conflit(s) détecté(s) et ${duplicateTasks.length} doublon(s) détecté(s)`);
         }
         
         return { isValid, conflicts };

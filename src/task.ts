@@ -185,6 +185,10 @@ class Task {
     return [...this.dependentTasks]; // Copie défensive
   }
 
+  hasDependentTasks(): boolean {
+    return this.dependentTasks.length > 0;
+  }
+
   /**
    * Ajoute une tâche dépendante (méthode interne)
    */
