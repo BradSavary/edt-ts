@@ -26,9 +26,9 @@ export class ScheduleMR extends Schedule {
         this.currentIterations = 0;
         
 
-        // Tri initial par disponibilité des ressources (état de base)
-        // Traite d'abord les tâches avec le moins de créneaux disponibles
-        this.tasks.sort((a, b) => this.getTaskConstraintScore(a) - this.getTaskConstraintScore(b));
+    // Tri initial par disponibilité des ressources (état de base)
+    // Traite d'abord les tâches avec le score le plus élevé (plus contraint)
+    this.tasks.sort((a, b) => this.getCurrentConstraintScore(b) - this.getCurrentConstraintScore(a));
 
         
         console.log(`📋 ${this.tasks.length} tâches à planifier`);
@@ -103,24 +103,26 @@ export class ScheduleMR extends Schedule {
             return true;
         }
 
-        const task = this.tasks[taskIndex];
+      
         
         // TRI DYNAMIQUE MR: Réorganiser les tâches restantes selon l'état actuel
         // Applique l'heuristique Most Constrained Variable de manière optimisée
         // (seulement tous les 5 niveaux pour éviter le surcoût)
-        /*
+        
         if (taskIndex < this.tasks.length - 1 && taskIndex % 5 === 0) {
             this.dynamicTaskSort(taskIndex);
             // Log de tri dynamique supprimé pour réduire la verbosité
         }
-        */
+        
+
+          const task = this.tasks[taskIndex];
 
         // SUPPORT DES DÉPENDANCES MR: Vérifier si la tâche peut être planifiée maintenant
         if (!this.canTaskBeScheduledNow(task)) {
             
             // La tâche ne peut pas être planifiée maintenant à cause des dépendances
             // Passer à la tâche suivante
-            return this.backtrack(taskIndex + 1);
+            throw new Error(`Erreur critique: La tâche '${task.name}' (${task.code}) ne peut pas être planifiée maintenant en raison de dépendances non satisfaites.`);
         }
         
         // Affichage de progression occasionnel (réduit pour moins de verbosité)

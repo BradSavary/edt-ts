@@ -470,13 +470,14 @@ export class Schedule {
         }
         
         const isValid = conflicts.length === 0 && duplicateTasks.length === 0;
-        
+
         if (isValid) {
             console.log(`✅ Solution valide - Aucun conflit détecté`);
         } else {
             console.error(`❌ Solution invalide - ${conflicts.length} conflit(s) détecté(s) et ${duplicateTasks.length} doublon(s) détecté(s)`);
         }
-        
+
+
         return { isValid, conflicts };
     }
     
@@ -505,7 +506,7 @@ export class Schedule {
 
         // Calculer la date du lundi de la semaine 3 de 2026
         const year = 2025;
-        const weekNumber = 38; // Semaine 3 (à modifier si nécessaire)
+        const weekNumber = 42; // Semaine 3 (à modifier si nécessaire)
 
         // Le 1er janvier 2026 est un jeudi
         // Calcul du premier lundi de l'année 2026 : 5 janvier 2026
@@ -599,7 +600,7 @@ export class Schedule {
                 ].filter(line => line).join('\r\n');
 
                 // Créer le summary au format spécifié : "R3.16 GILLET Anthony, BUT2-G1.BUT2-G21.BUT2-G22.BUT2-G3"
-                const summaryParts = [task.code];
+                const summaryParts = [task.code, task.type];
                 if (teachers.length > 0) {
                     summaryParts.push(teachers[0] + ','); // Premier enseignant avec virgule
                 }

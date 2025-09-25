@@ -25,9 +25,9 @@ export class ScheduleExp extends Schedule {
         this.bestScore = -Infinity;
         this.currentIterations = 0;
         
-        // Tri initial par disponibilité des ressources (état de base)
-        // Traite d'abord les tâches avec le moins de créneaux disponibles
-        this.tasks.sort((a, b) => this.getTaskConstraintScore(a) - this.getTaskConstraintScore(b));
+    // Tri initial par disponibilité des ressources (état de base)
+    // Traite d'abord les tâches avec le score le plus élevé (plus contraint)
+    this.tasks.sort((a, b) => this.getCurrentConstraintScore(b) - this.getCurrentConstraintScore(a));
         
         console.log(`📋 ${this.tasks.length} tâches à planifier`);
         console.log(`🏢 ${this.resources.length} ressources disponibles`);
@@ -82,22 +82,21 @@ export class ScheduleExp extends Schedule {
             return true;
         }
 
-        const task = this.tasks[taskIndex];
+        
         
         // TRI DYNAMIQUE EXP: Réorganiser les tâches restantes selon l'état actuel
         // Applique l'heuristique Most Constrained Variable de manière optimisée
         // (seulement tous les 5 niveaux pour éviter le surcoût)
-        /*
         if (taskIndex < this.tasks.length - 1 && taskIndex % 5 === 0) {
             this.dynamicTaskSort(taskIndex);
             console.log(`🔬 Tri dynamique EXP appliqué à partir de l'index ${taskIndex}`);
         }
-        */
+
+        const task = this.tasks[taskIndex];
+        
         // SUPPORT DES DÉPENDANCES EXP: Vérifier si la tâche peut être planifiée maintenant
         if (!this.canTaskBeScheduledNow(task)) {
-            // La tâche ne peut pas être planifiée maintenant à cause des dépendances
-            // Passer à la tâche suivante
-            return this.backtrack(taskIndex + 1);
+            throw new Error(`Erreur critique: La tâche '${task.name}' (${task.code}) ne peut pas être planifiée maintenant en raison de dépendances non satisfaites.`);
         }
         
         // Affichage de progression occasionnel
@@ -108,11 +107,7 @@ export class ScheduleExp extends Schedule {
         // Génération des créneaux possibles (méthode héritée)
         const possibleSlots = this.generatePossibleSlots(task).slice(0, 10);
         
-        if (possibleSlots.length === 0) {
-            // Aucun créneau possible, passer à la tâche suivante
-            return this.backtrack(taskIndex + 1);
-        }
-        
+       
         for (const slot of possibleSlots) {
             // Assignation de la tâche au créneau
             const taskSolution: TaskSolution = {

@@ -403,6 +403,19 @@ class AvailabilityManager {
     this.intervals = [];
   }
 
+
+
+  /**
+   * Retourne une copie profonde de l'AvailabilityManager
+   */
+  copy(): AvailabilityManager {
+    const clone = new AvailabilityManager();
+    for (const interval of this.intervals) {
+      clone.addAvailability(interval.start, interval.end);
+    }
+    return clone;
+  }
+
   /**
    * Affiche les créneaux de disponibilité de manière lisible dans la console
    * Convertit les timestamps en jours et heures pour une meilleure lisibilité

@@ -1,7 +1,10 @@
+
 import { Resource, ResourceType } from './resource';
 import { AvailabilityManager } from './bookable';
 import type { AvailableSlot } from './bookable';
 import type { CourseTaskData } from './lib/loader';
+
+// ...définitions TaskStatus, TaskScheduleResult, etc...
 
 /**
  * Statut d'une tâche dans le processus de planification
@@ -606,6 +609,29 @@ class Task {
   getTeacherResource(): Resource | null {
     // Utilise l'énum ResourceType importée
     return this.resources.find(r => r.type === ResourceType.TEACHER) ?? null;
+  }
+
+   /**
+   * Identifie les ressources qui limitent la planification de la tâche.
+   * Construit un AvailabilityManager temporaire en intersectant successivement
+   * les disponibilités de chaque ressource. Si l'intersection devient vide,
+   * log un message pour indiquer la ressource en question.
+   * Retourne la liste des ressources limitantes (peut être vide).
+   */
+  findLimitingResources(): Resource[] {
+    if (this.resources.length === 0) return [];
+    let tempAvailability = this.resources[0].availability.copy();
+    const limiting: Resource[] = [];
+    for (let i = 1; i < this.resources.length; i++) {
+      const res: Resource = this.resources[i];
+      tempAvailability = tempAvailability.intersect(res.availability);
+      if (tempAvailability.isEmpty()) {
+        limiting.push(res);
+        console.warn(`[Task:${this.id}] Disponibilité vide après intersection avec la ressource '${res.id}' (${res.type})`);
+        break;
+      }
+    }
+    return limiting;
   }
 
 
