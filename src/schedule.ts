@@ -27,6 +27,7 @@ export interface ScheduleSolution {
  * Utilise un algorithme de programmation par contraintes avec backtracking
  */
 export class Schedule {
+    
     protected tasks: Task[] = [];
     protected resources: Resource[] = [];
     protected solution: TaskSolution[] = [];
@@ -56,10 +57,10 @@ export class Schedule {
         this.bestScore = -Infinity;
         this.currentIterations = 0;
         
-        // Tri initial par disponibilité des ressources (état de base)
-        // Traite d'abord les tâches avec le moins de créneaux disponibles
-        this.tasks.sort((a, b) => this.getTaskConstraintScore(a) - this.getTaskConstraintScore(b));
-        
+    // Tri initial par disponibilité des ressources (état de base)
+    // Traite d'abord les tâches avec le score le plus élevé (plus contraint)
+    this.tasks.sort((a, b) => this.getCurrentConstraintScore(b) - this.getCurrentConstraintScore(a));
+     
         console.log(`📋 ${this.tasks.length} tâches à planifier`);
         console.log(`🏢 ${this.resources.length} ressources disponibles`);
         console.log(`⏱️ Limite: ${this.maxIterations} itérations, pas de limite de temps`);
@@ -147,11 +148,11 @@ export class Schedule {
         // TRI DYNAMIQUE: Réorganiser les tâches restantes selon l'état actuel
         // Applique l'heuristique Most Constrained Variable de manière optimisée
         // (seulement tous les 5 niveaux pour éviter le surcoût)
-        
+      
         if (taskIndex < this.tasks.length - 1 && taskIndex % 5 === 0) {
             this.dynamicTaskSort(taskIndex);
         }
-          
+        
         const task = this.tasks[taskIndex];
         
        
@@ -359,29 +360,33 @@ export class Schedule {
     protected getCurrentConstraintScore(task: Task): number {
         // Recalculer la disponibilité avec l'état actuel des ressources
         // (après les réservations effectuées par les tâches déjà planifiées)
-
-        let currentAvailableTime = task.schedulable.getTotalAvailableTime();
-
-        // division du score si la tache possede des dépendances
-        if (task.hasDependentTasks() ) {
-            currentAvailableTime = 1;
-        }
-
-        // Support des dépendances : si une tâche dépend d'une autre,
-        // son score est la somme de sa disponibilité et de celle de sa dépendance
-        const dependency = task.getDependsOn();
-        if (dependency) {
-            const dependencyScheduled = this.solution.find(sol => sol.task === dependency);
-            if (!dependencyScheduled) {
-                // La dépendance n'est pas encore planifiée
-                // Score = disponibilité de la tâche + disponibilité de sa dépendance
-                const dependencyAvailableTime = dependency.schedulable.getTotalAvailableTime();
-                return currentAvailableTime +  this.getCurrentConstraintScore(dependency);
-                //;dependencyAvailableTime;
-            }
+        let baseScore = 0;
+        // Test : la tâche a-t-elle un enseignant vacataire ?
+        const teacher = task.getTeacherResource?.();
+        
+        if (teacher && teacher.status === 'VACATAIRE') {
+            // les vacataires sont ultra prioritaires
+            baseScore += 5*24*60; // Bonus élevé pour les vacataires (5 jours en minutes)
         }
         
-        return currentAvailableTime;
+        // durée maximale planifiable pour une semaine (en minutes)
+        let max = (10*4 + 4.5)*60; // 10 heures par jour, 4 jours + 4.5 heures le jeudi matin
+
+        let currentAvailableTime = task.schedulable.getTotalAvailableTime();
+        // moins il y a de créneau pour placer la tache, plus on augmente le score
+        baseScore += (max - currentAvailableTime);
+
+        // si la tache possède des dépendances, on lui ajoute le score de ses dépendances
+        if (task.hasDependentTasks() ) {
+         
+            let deps = task.getDependentTasks();
+            for (let dep of deps) {
+                baseScore += this.getCurrentConstraintScore(dep);
+            }
+
+        }
+
+        return baseScore;
     }
 
     /**
@@ -396,7 +401,7 @@ export class Schedule {
         remainingTasks.sort((a, b) => {
             const scoreA = this.getCurrentConstraintScore(a);
             const scoreB = this.getCurrentConstraintScore(b);
-            return scoreA - scoreB;
+            return scoreB - scoreA;
         });
         
         // Remettre les tâches triées dans le tableau principal
