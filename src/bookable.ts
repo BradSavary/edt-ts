@@ -1,3 +1,4 @@
+  
 /**
  * Module de gestion des plages de disponibilités
  * Gère une liste triée d'intervalles de temps disponibles
@@ -415,6 +416,27 @@ class AvailabilityManager {
     }
     return clone;
   }
+
+  /**
+   * Vérifie que tous les créneaux de this sont également disponibles dans un autre AvailabilityManager
+   * Retourne true si chaque intervalle de this est inclus dans au moins un intervalle de other
+   */
+  isFullyContainedIn(other: AvailabilityManager): boolean {
+    for (const interval of this.intervals) {
+      let contained = false;
+      for (const otherInterval of other.intervals) {
+        if (otherInterval.start <= interval.start && otherInterval.end >= interval.end) {
+          contained = true;
+          break;
+        }
+      }
+      if (!contained) {
+        return false;
+      }
+    }
+    return true;
+  }
+ 
 
   /**
    * Affiche les créneaux de disponibilité de manière lisible dans la console

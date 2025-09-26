@@ -95,6 +95,24 @@ class Task {
   }
 
   /**
+ * Vérifie que le schedulable de la tâche est inclus dans les disponibilités de chacune de ses ressources
+ * Retourne true si le schedulable est inclus dans chaque ressource
+ */
+  isSchedulableConsistentWithResources(): boolean {
+    const schedulable = this.schedulable;
+    for (const resource of this.resources) {
+      if (!schedulable.isFullyContainedIn(resource.availability)) {
+        schedulable.displaySchedule();
+        resource.availability.displaySchedule();
+        console.log(`⚠️ Incohérence détectée pour la tâche '${this.name}' (${this.code}) avec la ressource '${resource.id}' (${resource.type})`);
+        return false;
+      }
+    }
+    return true;
+  }
+
+
+  /**
    * Calcule l'intersection des disponibilités de toutes les ressources
    */
   private _computeSchedulable(): AvailabilityManager {
@@ -103,8 +121,8 @@ class Task {
       return new AvailabilityManager();
     }
 
-    // Commencer par les disponibilités de la première ressource
-    let result = this.resources[0].availability;
+    // Commencer par une copie des disponibilités de la première ressource
+    let result = this.resources[0].availability.copy();
     
     // Calculer l'intersection avec chaque ressource suivante
     for (let i = 1; i < this.resources.length; i++) {

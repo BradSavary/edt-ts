@@ -82,32 +82,32 @@ export class ScheduleExp extends Schedule {
             return true;
         }
 
-        
-        
         // TRI DYNAMIQUE EXP: Réorganiser les tâches restantes selon l'état actuel
         // Applique l'heuristique Most Constrained Variable de manière optimisée
         // (seulement tous les 5 niveaux pour éviter le surcoût)
+        
         if (taskIndex < this.tasks.length - 1 && taskIndex % 5 === 0) {
             this.dynamicTaskSort(taskIndex);
-            console.log(`🔬 Tri dynamique EXP appliqué à partir de l'index ${taskIndex}`);
         }
 
         const task = this.tasks[taskIndex];
+
+        // check de la cohérence des disponibilités
+        /*
+        if (task.isSchedulableConsistentWithResources() === false) {
+            throw new Error(`⚠️ UNDO Incohérence détectée pour la tâche '${task.name}' (${task.code}) avec ses ressources`);
+           
+        }
+        */
         
         // SUPPORT DES DÉPENDANCES EXP: Vérifier si la tâche peut être planifiée maintenant
         if (!this.canTaskBeScheduledNow(task)) {
             throw new Error(`Erreur critique: La tâche '${task.name}' (${task.code}) ne peut pas être planifiée maintenant en raison de dépendances non satisfaites.`);
         }
         
-        // Affichage de progression occasionnel
-        if (this.currentIterations % 1000 === 0) {
-            console.log(`🔬 Itération EXP ${this.currentIterations}, tâche ${taskIndex}/${this.tasks.length}: ${task.name}`);
-        }
-
         // Génération des créneaux possibles (méthode héritée)
         const possibleSlots = this.generatePossibleSlots(task).slice(0, 10);
         
-       
         for (const slot of possibleSlots) {
             // Assignation de la tâche au créneau
             const taskSolution: TaskSolution = {
@@ -119,12 +119,14 @@ export class ScheduleExp extends Schedule {
             
             // EXPÉRIMENTAL: Application chirurgicale des contraintes
             this.applyConstraints(taskSolution);
-            
+
+       
             // Récursion sur la tâche suivante
             const result = this.backtrack(taskIndex + 1);
             
             // EXPÉRIMENTAL: Annulation chirurgicale des modifications
             this.undoConstraints(taskSolution);
+     
             this.solution.pop();
             
             // Si on a trouvé une solution complète, on peut arrêter
@@ -158,6 +160,7 @@ export class ScheduleExp extends Schedule {
         
         // APPROCHE CHIRURGICALE: Manipulation directe des schedulables
         this.removeIntervalFromSchedulables(task.resources, startMinutes, endMinutes, task);
+        //this.invalidateSchedulableForResources(task.resources);
     }
 
     /**
@@ -173,10 +176,28 @@ export class ScheduleExp extends Schedule {
         // Rendre les ressources disponibles (logique héritée)
         for (const resource of task.resources) {
             resource.availability.addAvailability(startMinutes, endMinutes);
+             const resourceTasks = resource.getTasks();
+                for (const t of resourceTasks) {
+                    t.invalidateSchedulable();
+                }
         }
         
         // APPROCHE CHIRURGICALE: Manipulation directe des schedulables
-        this.addIntervalToSchedulables(task.resources, startMinutes, endMinutes, task);
+        // Invalider le schedulable de la tâche courante
+        /*
+        task.invalidateSchedulable();
+        // Invalider le schedulable de toutes les tâches partageant au moins une ressource
+        const tasksToUpdate = new Set<Task>();
+        for (const resource of task.resources) {
+            const resourceTasks = resource.getTasks();
+            for (const t of resourceTasks) {
+                tasksToUpdate.add(t);
+            }
+        }
+        for (const t of tasksToUpdate) {
+             t.invalidateSchedulable();
+        }
+             */
     }
 
     /**
@@ -205,29 +226,4 @@ export class ScheduleExp extends Schedule {
         }
     }
 
-    /**
-     * EXPÉRIMENTAL: Ajoute un intervalle spécifique aux schedulables des tâches concernées
-     * Manipulation chirurgicale directe sans invalidation/recalcul complet
-     */
-    private addIntervalToSchedulables(resources: Resource[], startMinutes: number, endMinutes: number, currentTask?: Task): void {
-        const tasksToUpdate = new Set<Task>();
-        
-        // Collecter toutes les tâches qui utilisent au moins une de ces ressources
-        for (const resource of resources) {
-            const resourceTasks = resource.getTasks();
-            for (const task of resourceTasks) {
-                tasksToUpdate.add(task);
-            }
-        }
-        
-        // Ajouter la tâche courante elle-même dans les mises à jour
-        if (currentTask) {
-            tasksToUpdate.add(currentTask);
-        }
-        
-        // Ajouter l'intervalle directement à chaque schedulable concerné
-        for (const task of tasksToUpdate) {
-            task.schedulable.addAvailability(startMinutes, endMinutes);
-        }
-    }
 }

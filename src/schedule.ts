@@ -320,7 +320,7 @@ export class Schedule {
      * Invalide le schedulable de toutes les tâches qui utilisent au moins une des ressources données
      * OPTIMISÉ: Utilise l'index bidirectionnel des ressources pour un accès direct
      */
-    private invalidateSchedulableForResources(resources: Resource[]): void {
+    protected invalidateSchedulableForResources(resources: Resource[]): void {
         const tasksToInvalidate = new Set<Task>();
         
         // Utiliser l'index bidirectionnel pour collecter directement les tâches concernées

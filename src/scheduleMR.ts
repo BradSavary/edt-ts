@@ -263,17 +263,29 @@ export class ScheduleMR extends Schedule {
      */
     protected undoConstraints(taskSolution: TaskSolution): void {
         const { startTime, task } = taskSolution;
-
+        
         const startMinutes = startTime;
         const endMinutes = startMinutes + task.duration;
-
+        
         // Rendre les ressources disponibles (logique héritée)
         for (const resource of task.resources) {
             resource.availability.addAvailability(startMinutes, endMinutes);
         }
-
+        
         // APPROCHE CHIRURGICALE: Manipulation directe des schedulables
-        this.addIntervalToSchedulables(task.resources, startMinutes, endMinutes, task);
+        // Invalider le schedulable de la tâche courante
+        task.invalidateSchedulable();
+        // Invalider le schedulable de toutes les tâches partageant au moins une ressource
+        const tasksToUpdate = new Set<Task>();
+        for (const resource of task.resources) {
+            const resourceTasks = resource.getTasks();
+            for (const t of resourceTasks) {
+                tasksToUpdate.add(t);
+            }
+        }
+        for (const t of tasksToUpdate) {
+             t.invalidateSchedulable();
+        }
     }
 
     /**
@@ -302,29 +314,4 @@ export class ScheduleMR extends Schedule {
         }
     }
 
-    /**
-     * MULTI-ROOMS: Ajoute un intervalle spécifique aux schedulables des tâches concernées
-     * Manipulation chirurgicale directe sans invalidation/recalcul complet
-     */
-    private addIntervalToSchedulables(resources: Resource[], startMinutes: number, endMinutes: number, currentTask?: Task): void {
-        const tasksToUpdate = new Set<Task>();
-        
-        // Collecter toutes les tâches qui utilisent au moins une de ces ressources
-        for (const resource of resources) {
-            const resourceTasks = resource.getTasks();
-            for (const task of resourceTasks) {
-                tasksToUpdate.add(task);
-            }
-        }
-        
-        // Ajouter la tâche courante elle-même dans les mises à jour
-        if (currentTask) {
-            tasksToUpdate.add(currentTask);
-        }
-        
-        // Ajouter l'intervalle directement à chaque schedulable concerné
-        for (const task of tasksToUpdate) {
-            task.schedulable.addAvailability(startMinutes, endMinutes);
-        }
-    }
 }
