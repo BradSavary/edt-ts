@@ -159,8 +159,8 @@ export class ScheduleExp extends Schedule {
         }
         
         // APPROCHE CHIRURGICALE: Manipulation directe des schedulables
-        this.removeIntervalFromSchedulables(task.resources, startMinutes, endMinutes, task);
-        //this.invalidateSchedulableForResources(task.resources);
+        //this.removeIntervalFromSchedulables(task.resources, startMinutes, endMinutes, task);
+        this.invalidateSchedulableForResources(task.resources);
     }
 
     /**

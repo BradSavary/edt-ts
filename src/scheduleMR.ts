@@ -254,7 +254,8 @@ export class ScheduleMR extends Schedule {
         }
         
         // APPROCHE CHIRURGICALE: Manipulation directe des schedulables
-        this.removeIntervalFromSchedulables(task.resources, startMinutes, endMinutes, task);
+        //this.removeIntervalFromSchedulables(task.resources, startMinutes, endMinutes, task);
+        this.invalidateSchedulableForResources(task.resources);
     }
 
     /**
@@ -270,21 +271,10 @@ export class ScheduleMR extends Schedule {
         // Rendre les ressources disponibles (logique héritée)
         for (const resource of task.resources) {
             resource.availability.addAvailability(startMinutes, endMinutes);
-        }
-        
-        // APPROCHE CHIRURGICALE: Manipulation directe des schedulables
-        // Invalider le schedulable de la tâche courante
-        task.invalidateSchedulable();
-        // Invalider le schedulable de toutes les tâches partageant au moins une ressource
-        const tasksToUpdate = new Set<Task>();
-        for (const resource of task.resources) {
             const resourceTasks = resource.getTasks();
             for (const t of resourceTasks) {
-                tasksToUpdate.add(t);
+                t.invalidateSchedulable();
             }
-        }
-        for (const t of tasksToUpdate) {
-             t.invalidateSchedulable();
         }
     }
 
