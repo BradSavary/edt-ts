@@ -4,6 +4,14 @@ import { Task } from './task.js';
 import { Resource } from './resource.js';
 
 /**
+ * Extension de TaskSolution pour ScheduleMR qui sauvegarde les ressources utilisées
+ * Nécessaire pour garantir que undoConstraints libère les bonnes ressources
+ */
+interface TaskSolutionMR extends TaskSolution {
+    appliedResources: Resource[]; // Snapshot des ressources au moment de l'application
+}
+
+/**
  * Version Multi-Rooms du planificateur utilisant la flexibilité des salles multiples
  * Hérite de ScheduleExp et étend l'approche chirurgicale pour exploiter toutes les salles possibles
  */
@@ -49,6 +57,10 @@ export class ScheduleMR extends Schedule {
         
         // Vérification finale de la solution (méthode héritée)
         if (this.bestSolution.length > 0) {
+            // BUGFIX: Avant la vérification, restaurer les ressources correctes dans les tâches
+            // car elles ont pu changer pendant le backtracking après la sauvegarde de bestSolution
+            this.restoreTaskResourcesFromSolution(this.bestSolution);
+            
             const verification = this.verifySolution(this.bestSolution);
             if (!verification.isValid) {
                 console.warn(`⚠️ ATTENTION: La solution contient ${verification.conflicts.length} conflit(s)`);
@@ -61,6 +73,32 @@ export class ScheduleMR extends Schedule {
             isComplete: this.bestSolution.length === this.tasks.length,
             conflictCount: 0 // L'algorithme de backtracking garantit l'absence de conflits
         };
+    }
+
+    /**
+     * MULTI-ROOMS: Restaure les ressources correctes dans les tâches depuis la solution sauvegardée
+     * Nécessaire car les tâches peuvent changer de salle après la sauvegarde de bestSolution
+     */
+    private restoreTaskResourcesFromSolution(solution: TaskSolution[]): void {
+        for (const sol of solution) {
+            const mrSol = sol as TaskSolutionMR;
+            if (mrSol.appliedResources) {
+                // Restaurer les ressources de la tâche pour correspondre à celles qui étaient planifiées
+                const task = mrSol.task;
+                const currentRoom = task.getCurrentRoom();
+                const appliedRoom = mrSol.appliedResources.find(r => r.type === 'room');
+                
+                // Si la salle actuelle est différente de celle appliquée, la restaurer
+                if (appliedRoom && (!currentRoom || currentRoom.id !== appliedRoom.id)) {
+                    // Forcer le changement de salle (même si la tâche n'est plus PENDING)
+                    // On doit contourner la protection de changeRoom
+                    const currentStatus = (task as any).status;
+                    (task as any).status = 'pending'; // Temporairement mettre en pending
+                    task.changeRoom(appliedRoom);
+                    (task as any).status = currentStatus; // Restaurer le statut
+                }
+            }
+        }
     }
 
     /**
@@ -97,7 +135,16 @@ export class ScheduleMR extends Schedule {
             const score = this.evaluateSolution(this.solution);
             if (score > this.bestScore) {
                 this.bestScore = score;
-                this.bestSolution = [...this.solution];
+                // BUGFIX: Faire une copie profonde de la solution avec snapshot des ressources
+                // car les tâches peuvent changer de salle après cette sauvegarde
+                this.bestSolution = this.solution.map(sol => {
+                    const mrSol = sol as TaskSolutionMR;
+                    return {
+                        task: mrSol.task,
+                        startTime: mrSol.startTime,
+                        appliedResources: [...mrSol.appliedResources] // Copie profonde des ressources
+                    } as TaskSolutionMR;
+                });
                 console.log(`✅ Nouvelle meilleure solution trouvée (MR - score: ${score}, tâches: ${this.solution.length})`);
             }
             return true;
@@ -154,17 +201,10 @@ export class ScheduleMR extends Schedule {
         
         // Explorer chaque salle possible
         for (const room of availableRooms) {
-            // Sauvegarder la salle actuelle
-            const originalRoom = task.getCurrentRoom();
-            
             // Tenter de changer vers cette salle
+            // La restauration en cas d'échec est gérée dans tryWithAlternativeRoom
             if (this.tryWithAlternativeRoom(task, room, taskIndex)) {
                 return true;
-            }
-            
-            // Restaurer la salle originale si échec
-            if (originalRoom && originalRoom.id !== room.id) {
-                task.changeRoom(originalRoom);
             }
         }
         
@@ -183,6 +223,10 @@ export class ScheduleMR extends Schedule {
             return this.tryTaskWithCurrentRoom(task, taskIndex);
         }
         
+        // BUGFIX: Avant de changer de salle, s'assurer que l'ancienne salle n'a pas de réservations fantômes
+        // En mode backtracking, les réservations doivent être gérées uniquement dans tryTaskWithCurrentRoom
+        // donc ici on ne fait que changer la configuration de la tâche
+        
         // Tenter le changement de salle
         if (!task.changeRoom(alternativeRoom)) {
             return false; // Échec du changement
@@ -192,7 +236,15 @@ export class ScheduleMR extends Schedule {
         task.invalidateSchedulable();
         
         // Essayer la planification avec cette nouvelle salle
-        return this.tryTaskWithCurrentRoom(task, taskIndex);
+        const success = this.tryTaskWithCurrentRoom(task, taskIndex);
+        
+        // BUGFIX: Si échec, restaurer la salle originale immédiatement pour garantir la cohérence
+        if (!success && currentRoom && currentRoom.id !== alternativeRoom.id) {
+            task.changeRoom(currentRoom);
+            task.invalidateSchedulable();
+        }
+        
+        return success;
     }
 
     /**
@@ -207,10 +259,12 @@ export class ScheduleMR extends Schedule {
         }
         
         for (const slot of possibleSlots) {
-            // Assignation de la tâche au créneau
-            const taskSolution: TaskSolution = {
+            // BUGFIX: Sauvegarder un snapshot des ressources AVANT l'application des contraintes
+            // Ceci garantit que undoConstraints libèrera les bonnes ressources même si task.resources change
+            const taskSolution: TaskSolutionMR = {
                 task,
-                startTime: slot.startTime
+                startTime: slot.startTime,
+                appliedResources: [...task.resources] // Copie des ressources actuelles
             };
             
             this.solution.push(taskSolution);
@@ -236,16 +290,21 @@ export class ScheduleMR extends Schedule {
 
     /**
      * MULTI-ROOMS: Applique les contraintes de manière chirurgicale
-     * Identique à ScheduleExp mais avec logging spécifique
+     * BUGFIX: Utilise appliedResources pour garantir la cohérence avec undoConstraints
      */
     protected applyConstraints(taskSolution: TaskSolution): void {
         const { startTime, task } = taskSolution;
+        const taskSolutionMR = taskSolution as TaskSolutionMR;
         
         const startMinutes = startTime;
         const endMinutes = startMinutes + task.duration;
         
-        // Marquer les ressources comme occupées (logique héritée)
-        for (const resource of task.resources) {
+        // BUGFIX: Utiliser les ressources sauvegardées dans appliedResources
+        // Si appliedResources n'existe pas (solution standard), utiliser task.resources
+        const resourcesToBook = taskSolutionMR.appliedResources || task.resources;
+        
+        // Marquer les ressources comme occupées
+        for (const resource of resourcesToBook) {
             try {
                 resource.availability.book(startMinutes, endMinutes);
             } catch (error) {
@@ -254,22 +313,27 @@ export class ScheduleMR extends Schedule {
         }
         
         // APPROCHE CHIRURGICALE: Manipulation directe des schedulables
-        //this.removeIntervalFromSchedulables(task.resources, startMinutes, endMinutes, task);
-        this.invalidateSchedulableForResources(task.resources);
+        this.invalidateSchedulableForResources(resourcesToBook);
     }
 
     /**
      * MULTI-ROOMS: Annule les contraintes de manière chirurgicale
-     * Identique à ScheduleExp mais avec logging spécifique
+     * BUGFIX: Utilise appliedResources pour garantir qu'on libère les bonnes ressources
      */
     protected undoConstraints(taskSolution: TaskSolution): void {
         const { startTime, task } = taskSolution;
+        const taskSolutionMR = taskSolution as TaskSolutionMR;
         
         const startMinutes = startTime;
         const endMinutes = startMinutes + task.duration;
         
-        // Rendre les ressources disponibles (logique héritée)
-        for (const resource of task.resources) {
+        // BUGFIX: Utiliser les ressources sauvegardées dans appliedResources
+        // Ceci garantit qu'on libère EXACTEMENT les ressources qui ont été réservées
+        // même si task.resources a changé entre temps (changement de salle)
+        const resourcesToFree = taskSolutionMR.appliedResources || task.resources;
+        
+        // Rendre les ressources disponibles
+        for (const resource of resourcesToFree) {
             resource.availability.addAvailability(startMinutes, endMinutes);
             const resourceTasks = resource.getTasks();
             for (const t of resourceTasks) {
