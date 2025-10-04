@@ -27,21 +27,47 @@ interface TaskSolutionAR extends TaskSolution {
 }
 
 export class ScheduleAR extends Schedule {
-    
-      protected loadData(): void {
+    /**
+     * Override loadData pour garantir un comportement déterministe
+     * ScheduleAR explore TOUTES les combinaisons pendant le backtracking,
+     * donc la sélection initiale doit être déterministe (première combinaison)
+     * au lieu d'aléatoire comme dans Schedule
+     */
+    protected loadData(): void {
         this.tasks = Loader.tasks;
-        //  this.resources = Array.from(Loader.resourcesManager.getAllResources());
+        this.resources = Array.from(Loader.resourcesManager.getAllResources());
         
         if (this.tasks.length === 0) {
             throw new Error('Aucune tâche à planifier. Vérifiez que les données sont chargées.');
         }
-    
-        // STRATÉGIE SIMPLIFIÉE: Trier les tâches par contraintes croissantes uniquement
-        // Le tri topologique est redondant car canTaskBeScheduledNow() et getCurrentConstraintScore() 
-        // gèrent déjà les dépendances de manière dynamique
+        
+        if (this.resources.length === 0) {
+            throw new Error('Aucune ressource disponible. Vérifiez que les ressources sont chargées.');
+        }
+        
+        // SÉLECTION DÉTERMINISTE: Appliquer la PREMIÈRE combinaison de ressources à chaque tâche
+        // ScheduleAR explorera ensuite toutes les combinaisons pendant le backtracking
+        console.log('🎯 Sélection déterministe des jeux de ressources (première combinaison)...');
+        let tasksWithoutResources = 0;
+        for (const task of this.tasks) {
+            const allCombinations = task.getApplicableResources();
+            if (allCombinations.length === 0) {
+                console.warn(`⚠️  Aucune combinaison de ressources disponible pour ${task.name}`);
+                tasksWithoutResources++;
+            } else {
+                // Toujours utiliser la première combinaison (comportement déterministe)
+                task.appliedResources = allCombinations[0];
+            }
+        }
+        if (tasksWithoutResources > 0) {
+            console.warn(`⚠️  ${tasksWithoutResources} tâche(s) sans ressources disponibles`);
+        }
+        console.log('✅ Jeux de ressources appliqués (déterministe)\n');
+        
+        // STRATÉGIE SIMPLIFIÉE: Trier les tâches par contraintes croissantes
         console.log('🎯 Application de la priorisation par contraintes...');
         this.tasks.sort((a, b) => this.getTaskConstraintScore(a) - this.getTaskConstraintScore(b));
-        console.log('✅ Tâches triées par ordre de difficulté (tri topologique supprimé car redondant)\n');
+        console.log('✅ Tâches triées par ordre de difficulté\n');
     }
     
     /**
@@ -72,11 +98,19 @@ export class ScheduleAR extends Schedule {
         
         // Lancement du backtracking
         const startTime = Date.now();
-        this.backtrack(0);
+        const foundComplete = this.backtrack(0);
         const endTime = Date.now();
         
         console.log(`\n⏱️ Résolution AR terminée en ${endTime - startTime}ms`);
         console.log(`🔄 Itérations effectuées: ${this.currentIterations}`);
+        
+        if (foundComplete) {
+            console.log(`✅ Solution COMPLÈTE trouvée : ${this.bestSolution.length}/${this.tasks.length} tâches`);
+        } else if (this.bestSolution.length > 0) {
+            console.log(`⚠️ Solution PARTIELLE uniquement : ${this.bestSolution.length}/${this.tasks.length} tâches`);
+        } else {
+            console.log(`❌ Aucune solution trouvée`);
+        }
         
         // Vérification de la solution
         if (this.bestSolution.length > 0) {
@@ -147,21 +181,26 @@ export class ScheduleAR extends Schedule {
         
         // Condition d'arrêt : toutes les tâches planifiées
         if (taskIndex >= this.tasks.length) {
-            const score = this.evaluateSolution(this.solution);
-            if (score > this.bestScore) {
-                this.bestScore = score;
-                // Copie profonde avec snapshot des ressources
-                this.bestSolution = this.solution.map(sol => {
-                    const arSol = sol as TaskSolutionAR;
-                    return {
-                        task: arSol.task,
-                        startTime: arSol.startTime,
-                        appliedResources: [...arSol.appliedResources]
-                    } as TaskSolutionAR;
-                });
-                console.log(`✅ Nouvelle meilleure solution (AR - score: ${score}, tâches: ${this.solution.length})`);
+            // Vérifier si c'est une solution COMPLÈTE
+            if (this.solution.length === this.tasks.length) {
+                const score = this.evaluateSolution(this.solution);
+                if (score > this.bestScore) {
+                    this.bestScore = score;
+                    // Copie profonde avec snapshot des ressources
+                    this.bestSolution = this.solution.map(sol => {
+                        const arSol = sol as TaskSolutionAR;
+                        return {
+                            task: arSol.task,
+                            startTime: arSol.startTime,
+                            appliedResources: [...arSol.appliedResources]
+                        } as TaskSolutionAR;
+                    });
+                    console.log(`✅ Solution COMPLÈTE trouvée (AR - score: ${score}, tâches: ${this.solution.length}/${this.tasks.length})`);
+                    return true; // Solution complète trouvée, on peut arrêter
+                }
             }
-            return true;
+            // Solution partielle, continuer la recherche
+            return false;
         }
         
         // Tri dynamique
@@ -189,8 +228,9 @@ export class ScheduleAR extends Schedule {
             return true;
         }
         
-        // Si aucune combinaison n'a fonctionné, passer à la tâche suivante
-        return this.backtrack(taskIndex + 1);
+        // Si aucune combinaison n'a fonctionné, retourner false pour forcer le backtracking
+        // Cela permettra d'essayer d'autres combinaisons de ressources pour les tâches précédentes
+        return false;
     }
     
     /**
@@ -277,8 +317,8 @@ export class ScheduleAR extends Schedule {
             this.undoConstraints(taskSolution);
             this.solution.pop();
             
-            // Si solution complète trouvée
-            if (result && this.bestSolution.length === this.tasks.length) {
+            // Si la récursion a réussi, propager le succès
+            if (result) {
                 return true;
             }
         }
