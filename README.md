@@ -9,6 +9,7 @@ Un système de planification et de gestion des ressources pour emplois du temps,
 - **Gestion des disponibilités** : Créneaux optimisés avec intervalles triés
 - **Tracking de charge** : Workload et pressure pour analyser l'utilisation
 - **Indexation optimisée** : Accès O(1) par identifiant
+- **Pause méridienne** : Contrainte automatique de 90 minutes pour les groupes (12:00-14:00)
 
 ### ⏰ Planification de Tâches
 - **Réservation de ressources** : Gestion automatique des conflits
@@ -97,10 +98,14 @@ Le système charge automatiquement :
 ```bash
 # Algorithmes de planification
 npx tsx src/Claude/test-standard-schedule.ts  # Planificateur principal
+npx tsx src/Claude/test-scheduleAR.ts        # Alternative Resources
 npx tsx src/Claude/test-exp-scheduling.ts     # Version expérimentale
 npx tsx src/Claude/test-mr-ical.ts           # Multi-Rooms + iCal export
 
-# Autres tests et scripts (optionnels)
+# Tests de validation
+npx tsx src/Claude/test-lunch-break.ts       # Test pause méridienne
+npx tsx src/Claude/analyze-lunch-breaks.ts   # Analyse pauses (Schedule)
+npx tsx src/Claude/analyze-lunch-breaks-AR.ts # Analyse pauses (ScheduleAR)
 npx tsx src/Claude/test-dependencies.ts      # Test des dépendances
 npx tsx src/Claude/test-task-compatibility.ts # Compatibilité des tâches
 
@@ -111,10 +116,11 @@ npm run build                                # Validation du code
 ## 🏗️ Architecture
 
 - **schedule.ts** : Planificateur principal avec backtracking et propagation de contraintes
+- **scheduleAR.ts** : Planificateur avec exploration des ressources alternatives (Alternative Resources)
 - **scheduleExp.ts** : Version expérimentale "chirurgicale" avec optimisations avancées
 - **scheduleMR.ts** : Version Multi-Rooms exploitant la flexibilité des salles
-- **task.ts** : Classe Task enrichie avec propriétés cours complètes (type, week, semester, level)
-- **resource.ts** : Gestion des ressources (enseignants, salles, groupes) avec disponibilités
+- **task.ts** : Classe Task avec gestion des ressources alternatives (ET/OU)
+- **resource.ts** : Gestion des ressources avec disponibilités et contrainte de pause méridienne
 - **bookable.ts** : Système de réservation et gestion des créneaux optimisés
 - **lib/loader.ts** : Chargement JSON + détermination automatique des dépendances
 - **resourcesManager.ts** : Gestionnaire centralisé avec indexation O(1)
@@ -155,6 +161,39 @@ Le système détermine automatiquement les dépendances entre cours selon les r�
 - **Flexible** : Support des groupes multiples et sous-groupes
 - **Performant** : Algorithme O(n²) avec optimisations
 
+## 🍽️ Pause Méridienne (Nouveauté)
+
+Le système applique automatiquement une **contrainte de pause méridienne flottante de 90 minutes** pour tous les groupes d'étudiants entre 12:00 et 14:00.
+
+### 📋 Règles de la Pause Méridienne
+
+La pause de 90 minutes peut être positionnée de deux façons :
+
+1. **Pause 12:00-13:30** : Si un cours débute à **13:30**, le créneau **12:00-12:30** doit être libre
+2. **Pause 12:30-14:00** : Si un cours se termine à **12:30**, le créneau **13:30-14:00** doit être libre
+
+### ⚙️ Implémentation
+
+- **Vérification automatique** : Intégrée dans la méthode `Resource.book()` pour les ressources de type `GROUP`
+- **Détection précoce** : Les créneaux invalides sont rejetés pendant le backtracking
+- **Support complet** : Tous les algorithmes (Schedule, ScheduleAR, ScheduleMR) respectent cette contrainte
+- **Pas d'impact sur les enseignants** : La contrainte ne s'applique qu'aux groupes d'étudiants
+
+### ✅ Validation
+
+Les scripts d'analyse permettent de vérifier le respect des pauses :
+
+```bash
+# Test unitaire de la fonctionnalité
+npx tsx src/Claude/test-lunch-break.ts
+
+# Analyse d'un planning complet (Schedule)
+npx tsx src/Claude/analyze-lunch-breaks.ts
+
+# Analyse d'un planning complet (ScheduleAR)
+npx tsx src/Claude/analyze-lunch-breaks-AR.ts
+```
+
 ## ⚡ Algorithmes de Planification
 
 **Tous les algorithmes supportent nativement :**
@@ -162,6 +201,7 @@ Le système détermine automatiquement les dépendances entre cours selon les r�
 - ✅ Contraintes de groupes (inclusion obligatoire)
 - ✅ Propagation de contraintes bidirectionnelle
 - ✅ Détection de conflits en temps réel
+- ✅ Pause méridienne de 90 minutes pour les groupes
 
 ### 🏫 **Gestion des Salles**
 
@@ -177,25 +217,40 @@ Cette différence explique les variations de performance entre les algorithmes.
 - **Algorithme** : Backtracking avec propagation de contraintes
 - **Heuristique** : Most Constrained Variable (MCV)
 - **Optimisations** : Tri dynamique tous les 5 niveaux
-- **Gestion des salles** : Sélection aléatoire d'UNE salle parmi celles disponibles au chargement
+- **Gestion des ressources** : Sélection aléatoire d'UNE combinaison de ressources au chargement
 - **Dépendances** : Support complet CM → TD → TP + contraintes groupes
+- **Pause méridienne** : ✅ Respectée automatiquement pour les groupes
 - **Limite** : 1M itérations
-- **Performance** : ~75/80 tâches planifiées (93,75% de réussite)
-- **Variabilité** : ⚠️ **Résultats différents à chaque exécution** due au choix aléatoire de salle
+- **Performance** : ~79/80 tâches planifiées (98,75% de réussite)
+- **Variabilité** : ⚠️ **Résultats variables** selon le choix aléatoire de ressources
 - **Usage** : Planification robuste pour emplois du temps avec contraintes fixes
 
-### 2. **ScheduleExp** (Expérimental)  
+### 2. **ScheduleAR** (Alternative Resources) 🆕
+- **Algorithme** : Backtracking avec exploration de TOUTES les combinaisons de ressources alternatives
+- **Heuristique** : MCV + exploration exhaustive des alternatives
+- **Spécialité** : Change dynamiquement les ressources PENDANT le backtracking
+- **Gestion des ressources** : Exploration de toutes les combinaisons possibles (enseignants, salles)
+- **Dépendances** : Support complet + optimisation multi-ressources
+- **Pause méridienne** : ✅ Respectée automatiquement pour les groupes
+- **Limite** : 1M itérations
+- **Performance** : 80/80 tâches planifiées (100% de réussite)
+- **Avantage** : Maximise les chances de succès en explorant toutes les alternatives
+- **Usage** : Planification optimale avec ressources alternatives multiples
+
+### 3. **ScheduleExp** (Expérimental)  
 - **Algorithme** : Approche "chirurgicale" avec manipulation directe des schedulables
 - **Optimisations** : Contraintes fines, exploration aggressive
 - **Dépendances** : Même support que Schedule avec optimisations expérimentales
+- **Pause méridienne** : ✅ Respectée automatiquement pour les groupes
 - **Usage** : Tests d'optimisations avancées
 
-### 3. **ScheduleMR** (Multi-Rooms)
+### 4. **ScheduleMR** (Multi-Rooms)
 - **Algorithme** : Extension de Schedule avec flexibilité des salles alternatives
 - **Gestion des salles** : Changement dynamique entre TOUTES les salles disponibles pendant la planification
 - **Spécialité** : Exploitation dynamique des salles multiples (36% des tâches avec salles alternatives)
 - **Dépendances** : Support complet + optimisation des changements de salles
-- **Export** : Génération automatique iCal par niveaux (R1, R3, R5)
+- **Pause méridienne** : ✅ Respectée automatiquement pour les groupes
+- **Export** : Génération automatique iCal par niveaux (R1, R3, R5) + fichier global
 - **Performance** : Taux de réussite supérieur grâce à la flexibilité des salles
 - **Usage** : Planification optimale avec contraintes de salles flexibles
 
