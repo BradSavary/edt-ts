@@ -94,16 +94,16 @@ export class Schedule {
      */
     protected loadData(): void {
         this.tasks = Loader.tasks;
-        this.resources = Array.from(Loader.resourcesManager.getAllResources());
+      //  this.resources = Array.from(Loader.resourcesManager.getAllResources());
         
         if (this.tasks.length === 0) {
             throw new Error('Aucune tâche à planifier. Vérifiez que les données sont chargées.');
         }
-        
+     /*   
         if (this.resources.length === 0) {
             throw new Error('Aucune ressource disponible. Vérifiez que les ressources sont chargées.');
         }
-        
+       */ 
         // SÉLECTION DES RESSOURCES: Appliquer un jeu de ressources aléatoire à chaque tâche
         // Ceci doit être fait UNE SEULE FOIS avant la planification
         console.log('🎲 Sélection des jeux de ressources pour chaque tâche...');
@@ -522,7 +522,7 @@ export class Schedule {
 
         // Calculer la date du lundi de la semaine 3 de 2026
         const year = 2025;
-        const weekNumber = 42; // Semaine 3 (à modifier si nécessaire)
+        const weekNumber = 43; // Semaine 3 (à modifier si nécessaire)
 
         // Le 1er janvier 2026 est un jeudi
         // Calcul du premier lundi de l'année 2026 : 5 janvier 2026
