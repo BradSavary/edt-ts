@@ -245,7 +245,14 @@ export class ScheduleAR extends Schedule {
             this.solution.push(taskSolution);
             
             // Appliquer les contraintes
-            this.applyConstraints(taskSolution);
+            try {
+                this.applyConstraints(taskSolution);
+            } catch (error) {
+                // Si les contraintes ne peuvent pas être appliquées (ex: pause méridienne),
+                // annuler l'ajout et essayer la combinaison de ressources suivante
+                this.solution.pop();
+                continue;
+            }
             
             // Récursion
             const result = this.backtrack(taskIndex + 1);
@@ -275,11 +282,7 @@ export class ScheduleAR extends Schedule {
         
         // Utiliser le snapshot des ressources pour garantir la cohérence
         for (const resource of arSol.appliedResources) {
-            try {
-                resource.availability.book(startMinutes, endMinutes);
-            } catch (error) {
-                console.warn(`Échec réservation ${resource.id}: ${error}`);
-            }
+            resource.book(startMinutes, endMinutes);
         }
         
         // Invalider le schedulable des tâches affectées

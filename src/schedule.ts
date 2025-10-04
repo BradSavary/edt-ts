@@ -207,7 +207,14 @@ export class Schedule {
             this.solution.push(taskSolution);
 
             // Application des contraintes (propagation)
-            this.applyConstraints(taskSolution);
+            try {
+                this.applyConstraints(taskSolution);
+            } catch (error) {
+                // Si les contraintes ne peuvent pas être appliquées (ex: pause méridienne),
+                // annuler l'ajout et essayer le créneau suivant
+                this.solution.pop();
+                continue;
+            }
 
             // Récursion sur la tâche suivante
             const result = this.backtrack(taskIndex + 1);
@@ -304,11 +311,7 @@ export class Schedule {
         
         // Marquer les ressources comme occupées en utilisant la méthode book
         for (const resource of task.getAllResources()) {
-            try {
-                resource.availability.book(startMinutes, endMinutes);
-            } catch (error) {
-                console.warn(`Échec de la réservation pour la ressource ${resource.id}: ${error}`);
-            }
+            resource.book(startMinutes, endMinutes);
         }
         // Invalider le schedulable de toutes les tâches qui utilisent ces ressources
         this.invalidateSchedulableForResources(task.getAllResources());
@@ -519,7 +522,7 @@ export class Schedule {
 
         // Calculer la date du lundi de la semaine 3 de 2026
         const year = 2025;
-        const weekNumber = 36; // Semaine 3 (à modifier si nécessaire)
+        const weekNumber = 40; // Semaine 3 (à modifier si nécessaire)
 
         // Le 1er janvier 2026 est un jeudi
         // Calcul du premier lundi de l'année 2026 : 5 janvier 2026
