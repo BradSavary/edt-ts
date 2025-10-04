@@ -12,7 +12,7 @@
  * - Gère correctement la propagation et l'annulation des contraintes
  * - Utilise un snapshot des ressources appliquées pour garantir la cohérence
  */
-
+import { Loader } from './lib/loader.js';
 import { Schedule } from './schedule.js';
 import type { ScheduleSolution, TaskSolution } from './schedule.js';
 import type { Task } from './task.js';
@@ -27,6 +27,22 @@ interface TaskSolutionAR extends TaskSolution {
 }
 
 export class ScheduleAR extends Schedule {
+    
+      protected loadData(): void {
+        this.tasks = Loader.tasks;
+        //  this.resources = Array.from(Loader.resourcesManager.getAllResources());
+        
+        if (this.tasks.length === 0) {
+            throw new Error('Aucune tâche à planifier. Vérifiez que les données sont chargées.');
+        }
+    
+        // STRATÉGIE SIMPLIFIÉE: Trier les tâches par contraintes croissantes uniquement
+        // Le tri topologique est redondant car canTaskBeScheduledNow() et getCurrentConstraintScore() 
+        // gèrent déjà les dépendances de manière dynamique
+        console.log('🎯 Application de la priorisation par contraintes...');
+        this.tasks.sort((a, b) => this.getTaskConstraintScore(a) - this.getTaskConstraintScore(b));
+        console.log('✅ Tâches triées par ordre de difficulté (tri topologique supprimé car redondant)\n');
+    }
     
     /**
      * Résout le problème avec exploration des ressources alternatives

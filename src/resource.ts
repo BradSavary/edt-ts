@@ -159,7 +159,7 @@ class Resource {
    */
   book(start: number, end: number): void {
     // Vérification spécifique pour les groupes : pause méridienne de 90 minutes
-    if (this.type === ResourceType.GROUP) {
+    if (false){//this.type === ResourceType.GROUP) {
       const MINUTES_PER_DAY = 24 * 60; // 1440 minutes par jour
       const startTimeInDay = start % MINUTES_PER_DAY; // Position de début dans la journée
       const endTimeInDay = end % MINUTES_PER_DAY; // Position de fin dans la journée
@@ -169,31 +169,40 @@ class Resource {
       // Cas 1 : Si le créneau débute à 13:30
       if (startTimeInDay === LUNCH_START) {
         const dayStart = start - startTimeInDay; // Début du jour (minuit)
+       
         const pauseStart = dayStart + (12 * 60); // 12:00 du même jour
         const pauseEnd = dayStart + LUNCH_BREAK_END; // 12:30 du même jour
-        
-        // Vérifier que le créneau 12:00-12:30 est disponible (non réservé)
+        /*
+         const earlyPauseStart = dayStart + (11 * 60); // 11:00 du même jour
+        // Vérification prioritaire : si la plage 11:00-12:30 est disponible, on refuse
+        // (Pour éviter de créer un créneau vide 11:00 - 12:00 qu'on aura du mal à utiliser car les séances durent 1:30 ou 2h)
+        if (this.availabilityManager.isAvailable(earlyPauseStart, pauseEnd)) {
+          // Et si la plage 10:30-11:00 n'est pas disponible
+          if (!this.availabilityManager.isAvailable(dayStart + (10 * 60 + 30), earlyPauseStart)) {
+            throw new Error(
+              `Pause méridienne insuffisante : pour réserver à 13:30, la plage 11:00-12:30 ne doit pas être entièrement libre. ` +
+              `Actuellement, cette plage est disponible, ce qui permettrait de placer une tâche de 11:00-12:30.`
+            );
+          }
+        } 
+        */
+        // Sinon, vérifier que le créneau 12:00-12:30 est disponible (non réservé)
         if (!this.availabilityManager.isAvailable(pauseStart, pauseEnd)) {
           throw new Error(
             `Pause méridienne insuffisante : pour réserver à 13:30, le créneau 12:00-12:30 doit être libre. ` +
             `Actuellement, ce créneau est occupé.`
           );
         }
-      }
+      } 
       
       // Cas 2 : Si le créneau se termine à 12:30
       if (endTimeInDay === LUNCH_BREAK_END) {
         const dayStart = end - endTimeInDay; // Début du jour (minuit)
-        const morningBreakStart = dayStart + (12 * 60); // 12:00 du même jour
-        const afternoonStart = dayStart + LUNCH_START; // 13:30 du même jour
-        const afternoonEnd = dayStart + (14 * 60); // 14:00 du même jour
-        
+        const treize30 = dayStart + LUNCH_START; // 13:30 du même jour
+        const quatorze = dayStart + (14 * 60); // 14:00 du même jour
+
         // Vérifier que le créneau 13:30-14:00 est disponible (non réservé)
-        // MAIS seulement si le créneau qu'on réserve ne chevauche pas 12:00-12:30
-        // (sinon on aurait une interdiction circulaire)
-        const isReservingOverMorningBreak = start < morningBreakStart;
-        
-        if (isReservingOverMorningBreak && !this.availabilityManager.isAvailable(afternoonStart, afternoonEnd)) {
+        if (!this.availabilityManager.isAvailable(treize30, quatorze)) {
           throw new Error(
             `Pause méridienne insuffisante : pour réserver jusqu'à 12:30, le créneau 13:30-14:00 doit être libre. ` +
             `Actuellement, ce créneau est occupé.`
@@ -201,7 +210,7 @@ class Resource {
         }
       }
     }
-    
+     
     this.availabilityManager.book(start, end);
   }
 
