@@ -41,7 +41,7 @@ interface CourseTaskData {
   level: number;
   code: string;
   type: string;
-  teacher: string;
+  teacher: string[]; // Array of alternative teachers
   groups: string[];
   name: string;
   rooms: string[];
@@ -222,28 +222,50 @@ export class Loader {
       };
 
       for (const courseData of coursesData.courses) {
-        // Collecter toutes les ressources nécessaires
-        const taskResources: Resource[] = [];
+        // Normaliser les ressources: convertir les tableaux simples ou imbriqués en Resource[][]
+        // ["a", "b"] => [["a"], ["b"]] (chaque élément est un groupe ET)
+        // [["a", "b"]] => [["a", "b"]] (groupe d'alternatives OU)
+        // ["a", ["b", "c"], "d"] => [["a"], ["b", "c"], ["d"]] (mixte)
+        
+        const normalizeResourceArray = (arr: any[]): string[][] => {
+          return arr.map(item => Array.isArray(item) ? item : [item]);
+        };
 
-        // Ajouter l'enseignant
-        if (courseData.teacher) {
-          if (resourcesManager.hasResource(courseData.teacher)) {
-            const teacher = resourcesManager.getResource(courseData.teacher);
-            taskResources.push(teacher!); // ! car hasResource garantit que getResource ne retourne pas null
-          } else {
-            console.warn(`⚠️  Enseignant '${courseData.teacher}' introuvable dans les ressources pour le cours ${courseData.code}`);
-            missingResources.teachers.add(courseData.teacher);
+        // Normaliser teachers, groups et rooms
+        const teacherGroups = courseData.teacher && courseData.teacher.length > 0 
+          ? normalizeResourceArray(courseData.teacher) 
+          : [];
+        const groupGroups = courseData.groups && courseData.groups.length > 0 
+          ? normalizeResourceArray(courseData.groups) 
+          : [];
+        const roomGroups = courseData.rooms && courseData.rooms.length > 0 
+          ? normalizeResourceArray(courseData.rooms) 
+          : [];
+
+        // Collecter toutes les ressources pour la compatibilité avec le constructeur Task actuel
+        const taskResources: Resource[] = [];
+        const allRoomResources: Resource[] = []; // Toutes les salles possibles (pour availableRooms)
+
+        // Ajouter les enseignants
+        for (const teacherGroup of teacherGroups) {
+          for (const teacherId of teacherGroup) {
+            if (resourcesManager.hasResource(teacherId)) {
+              const teacher = resourcesManager.getResource(teacherId);
+              taskResources.push(teacher!);
+            } else {
+              console.warn(`⚠️  Enseignant '${teacherId}' introuvable dans les ressources pour le cours ${courseData.code}`);
+              missingResources.teachers.add(teacherId);
+            }
           }
         }
 
-        // Ajouter TOUTES les salles possibles à la tâche
-        const taskRooms: Resource[] = [];
-        if (courseData.rooms.length > 0) {
-          // Filtrer et collecter toutes les salles disponibles
-          for (const roomId of courseData.rooms) {
+        // Collecter toutes les salles (pour le moment, on les ajoute toutes à taskResources)
+        for (const roomGroup of roomGroups) {
+          for (const roomId of roomGroup) {
             if (resourcesManager.hasResource(roomId)) {
               const room = resourcesManager.getResource(roomId);
-              taskRooms.push(room!);
+              allRoomResources.push(room!);
+              taskResources.push(room!); // Pour compatibilité
             } else {
               console.warn(`⚠️  Salle '${roomId}' introuvable dans les ressources pour le cours ${courseData.code}`);
               missingResources.rooms.add(roomId);
@@ -251,31 +273,76 @@ export class Loader {
           }
         }
 
-        // COMPATIBILITÉ: Pour le moment, sélectionner une seule salle au hasard pour la planification
-        if (taskRooms.length > 0) {
-          const randomIndex = Math.floor(Math.random() * taskRooms.length);
-          const selectedRoom = taskRooms[randomIndex];
-          taskResources.push(selectedRoom);
-          
-          // TODO: Plus tard, on utilisera toutes les salles possibles (taskRooms)
-          // Pour l'instant, on garde une seule salle pour compatibilité avec les algorithmes existants
-        }
-
         // Ajouter les groupes
-        for (const groupId of courseData.groups) {
-          if (resourcesManager.hasResource(groupId)) {
-            const group = resourcesManager.getResource(groupId);
-            taskResources.push(group!); // ! car hasResource garantit que getResource ne retourne pas null
-          } else {
-            console.warn(`⚠️  Groupe '${groupId}' introuvable dans les ressources pour le cours ${courseData.code}`);
-            missingResources.groups.add(groupId);
+        for (const groupGroup of groupGroups) {
+          for (const groupId of groupGroup) {
+            if (resourcesManager.hasResource(groupId)) {
+              const group = resourcesManager.getResource(groupId);
+              taskResources.push(group!);
+            } else {
+              console.warn(`⚠️  Groupe '${groupId}' introuvable dans les ressources pour le cours ${courseData.code}`);
+              missingResources.groups.add(groupId);
+            }
           }
         }
 
         // Créer la tâche avec un ID unique
-        this._taskCounter++; // Incrémenter le compteur
-        const taskId = `${courseData.code}_${courseData.teacher}_${courseData.groups.join('_')}_${this._taskCounter}`;
-        const task = new Task(taskId, courseData, taskResources, taskRooms);
+        this._taskCounter++;
+        const teacherIds = courseData.teacher.flat().join('_');
+        const taskId = `${courseData.code}_${teacherIds}_${courseData.groups.flat().join('_')}_${this._taskCounter}`;
+        
+        // Créer la tâche avec un tableau vide (on va organiser les ressources manuellement)
+        const task = new Task(taskId, courseData, [], allRoomResources);
+
+        // Réinitialiser et organiser les ressources selon la structure normalisée
+        task.resources[ResourceType.TEACHER] = [];
+        task.resources[ResourceType.ROOM] = [];
+        task.resources[ResourceType.GROUP] = [];
+
+        // Ajouter les enseignants avec leur structure de groupes
+        for (const teacherGroup of teacherGroups) {
+          const group: Resource[] = [];
+          for (const teacherId of teacherGroup) {
+            if (resourcesManager.hasResource(teacherId)) {
+              const teacher = resourcesManager.getResource(teacherId)!;
+              group.push(teacher);
+              teacher.addTask(task);
+            }
+          }
+          if (group.length > 0) {
+            task.resources[ResourceType.TEACHER].push(group);
+          }
+        }
+
+        // Ajouter les salles avec leur structure de groupes
+        for (const roomGroup of roomGroups) {
+          const group: Resource[] = [];
+          for (const roomId of roomGroup) {
+            if (resourcesManager.hasResource(roomId)) {
+              const room = resourcesManager.getResource(roomId)!;
+              group.push(room);
+              room.addTask(task);
+            }
+          }
+          if (group.length > 0) {
+            task.resources[ResourceType.ROOM].push(group);
+          }
+        }
+
+        // Ajouter les groupes avec leur structure de groupes
+        for (const groupGroup of groupGroups) {
+          const group: Resource[] = [];
+          for (const groupId of groupGroup) {
+            if (resourcesManager.hasResource(groupId)) {
+              const grp = resourcesManager.getResource(groupId)!;
+              group.push(grp);
+              grp.addTask(task);
+            }
+          }
+          if (group.length > 0) {
+            task.resources[ResourceType.GROUP].push(group);
+          }
+        }
 
         tasks.push(task);
       }

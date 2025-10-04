@@ -44,7 +44,10 @@ class Task {
   public readonly semester: number;
   public readonly level: number;
   public readonly groups: string[] = [];
-  public readonly resources: Resource[];
+  // Ressources actuellement appliquées à la tâche (une combinaison spécifique)
+  private _appliedResources: Resource[] | null = null;
+  // Ressources applicables à la tâche (ressources alternatives incluses)
+  public readonly resources: { [K in ResourceType]: Resource[][] };
   public readonly availableRooms: Resource[]; // Toutes les salles possibles pour cette tâche
   private status: TaskStatus;
   private scheduledSlot?: AvailableSlot;
@@ -56,7 +59,6 @@ class Task {
     if (courseData.duration <= 0) {
       throw new Error('La durée de la tâche doit être positive');
     }
-    
     this.id = id;
     this.code = courseData.code;
     this.name = courseData.name;
@@ -65,14 +67,30 @@ class Task {
     this.week = courseData.week;
     this.semester = courseData.semester;
     this.level = courseData.level;
-    this.resources = [...resources]; // Copie défensive
-    this.availableRooms = [...availableRooms]; // Copie défensive de toutes les salles possibles
-    this.status = TaskStatus.PENDING;
-    
-    // Maintenir la synchronisation bidirectionnelle pour les ressources initiales
-    this.resources.forEach(resource => {
+ 
+    // Initialisation de l'objet resources par type
+    // Les resources sont indexées par type.
+    // Chaque type de ressource est un tableau de tableaux de ressources alternatives.
+    // Exemple: { TEACHER: [[ProfA], [ProfB, ProfC]], ROOM: [[R01, R02]], GROUP: [[G1]] }
+    // Ici la task a besoin de ProfA et (ProfB ou ProfC) et (R01 ou R02) et G1
+    // Les ressources applicales à la tâche seraient:
+    //     - ProfA, ProfB, R01, G1
+    //     - ProfA, ProfB, R02, G1
+    //     - ProfA, ProfC, R01, G1
+    //     - ProfA, ProfC, R02, G1
+    this.resources = {
+      [ResourceType.TEACHER]: [],
+      [ResourceType.ROOM]: [],
+      [ResourceType.GROUP]: []
+    };
+    // Répartition des ressources dans l'objet par type
+    resources.forEach(resource => {
+      this.resources[resource.type].push([resource]);
       resource.addTask(this);
     });
+
+    this.availableRooms = [...availableRooms]; // Copie défensive de toutes les salles possibles
+    this.status = TaskStatus.PENDING;
   }
 
   /**
@@ -86,6 +104,24 @@ class Task {
     return this._schedulable;
   }
 
+   /**
+   * Tableau contenant l'union de toutes les ressources actuellement appliquée à la tâche
+   */
+  get appliedResources(): Resource[] {
+    return (this._appliedResources || []) as Resource[];
+  }
+
+
+  /**
+   * Définit les ressources appliquées à la tâche
+   * @param resources - Les ressources à appliquer
+   */
+  set appliedResources(resources: Resource[] | null) {
+    this._appliedResources = resources;
+    this.invalidateSchedulable();
+  }
+
+
   /**
    * Invalide le cache des disponibilités communes
    * À appeler quand les ressources ou leurs disponibilités changent
@@ -95,12 +131,72 @@ class Task {
   }
 
   /**
+   * Retourne toutes les ressources de la tâche sous forme de tableau
+   * Retourne les ressources actuellement appliquées (si définies)
+   */
+  getAllResources(): Resource[] {
+    return this.appliedResources;
+  }
+
+ /**
+   * Retourne toutes les combinaisons applicables de ressources pour la tâche.
+   * Chaque combinaison est un tableau contenant une ressource de chaque groupe alternatif.
+   * Exemple :
+   *   { TEACHER: [[ProfA], [ProfB, ProfC]], ROOM: [[R01, R02]], GROUP: [[G1]] }
+   *   => [ [ProfA, ProfB, R01, G1], [ProfA, ProfB, R02, G1], [ProfA, ProfC, R01, G1], [ProfA, ProfC, R02, G1] ]
+   */
+  getApplicableResources(): Resource[][] {
+    // Récupère tous les groupes alternatifs de tous les types
+    const allGroups: Resource[][] = [
+      ...this.resources[ResourceType.TEACHER],
+      ...this.resources[ResourceType.ROOM],
+      ...this.resources[ResourceType.GROUP]
+    ];
+    
+    // Si aucun groupe, rien à appliquer
+    if (allGroups.length === 0) return [];
+
+    // Produit cartésien : sélectionne une ressource de chaque groupe alternatif
+    function cartesian(arrays: Resource[][]): Resource[][] {
+      return arrays.reduce<Resource[][]>((acc, curr) => {
+        if (acc.length === 0) {
+          // Premier groupe : chaque ressource devient une combinaison
+          return curr.map(resource => [resource]);
+        }
+        const result: Resource[][] = [];
+        for (const combination of acc) {
+          for (const resource of curr) {
+            result.push([...combination, resource]);
+          }
+        }
+        return result;
+      }, []);
+    }
+
+    return cartesian(allGroups);
+  }
+
+  /**
+   * Retourne une combinaison aléatoire de ressources applicables
+   * Utile pour les algorithmes stochastiques
+   */
+  getRandomApplicableResources(): Resource[] | null {
+    const allCombinations = this.getApplicableResources();
+    if (allCombinations.length === 0) {
+      return null;
+    }
+    // Retourne une combinaison aléatoire
+    const randomIndex = Math.floor(Math.random() * allCombinations.length);
+    return allCombinations[randomIndex];
+  }
+
+  /**
  * Vérifie que le schedulable de la tâche est inclus dans les disponibilités de chacune de ses ressources
  * Retourne true si le schedulable est inclus dans chaque ressource
  */
   isSchedulableConsistentWithResources(): boolean {
     const schedulable = this.schedulable;
-    for (const resource of this.resources) {
+    for (const resource of this.getAllResources()) {
       if (!schedulable.isFullyContainedIn(resource.availability)) {
         schedulable.displaySchedule();
         resource.availability.displaySchedule();
@@ -116,24 +212,21 @@ class Task {
    * Calcule l'intersection des disponibilités de toutes les ressources
    */
   private _computeSchedulable(): AvailabilityManager {
-    if (this.resources.length === 0) {
+    const allResources = this.getAllResources();
+    if (allResources.length === 0) {
       // Aucune ressource requise, créer un gestionnaire vide
       return new AvailabilityManager();
     }
 
     // Commencer par une copie des disponibilités de la première ressource
-    let result = this.resources[0].availability.copy();
-    
+    let result = allResources[0].availability.copy();
     // Calculer l'intersection avec chaque ressource suivante
-    for (let i = 1; i < this.resources.length; i++) {
-      result = result.intersect(this.resources[i].availability);
-      
-      // Si l'intersection est vide, inutile de continuer
+    for (let i = 1; i < allResources.length; i++) {
+      result = result.intersect(allResources[i].availability);
       if (result.isEmpty()) {
         break;
       }
     }
-
     return result;
   }
 
@@ -155,9 +248,8 @@ class Task {
    * Retourne les groupes d'étudiants pour cette tâche
    */
   getGroups(): string[] {
-    return this.resources
-      .filter(resource => resource.type === 'group')
-      .map(resource => resource.id);
+    return this.resources[ResourceType.GROUP]
+      .map(arr => arr.join(', '));
   }
 
   /**
@@ -303,7 +395,7 @@ class Task {
   canBeScheduledAt(start: number): boolean {
     const end = start + this.duration;
     
-    return this.resources.every(resource => 
+    return this.appliedResources.every(resource => 
       resource.isAvailable(start, end)
     );
   }
@@ -321,7 +413,7 @@ class Task {
     // Tenir compte du moment le plus tôt possible selon les dépendances
     const earliestStart = Math.max(afterTime, this.getEarliestStartTime());
 
-    if (this.resources.length === 0) {
+    if (this.appliedResources.length === 0) {
       // Aucune ressource requise, la tâche peut être planifiée immédiatement
       return {
         start: earliestStart,
@@ -345,7 +437,7 @@ class Task {
 
     const earliestStart = this.getEarliestStartTime();
 
-    if (this.resources.length === 0) {
+    if (this.appliedResources.length === 0) {
       // Aucune ressource requise, retourner un slot théorique après les dépendances
       return [{
         start: earliestStart,
@@ -393,7 +485,7 @@ class Task {
 
     try {
       // Réserver toutes les ressources
-      this.resources.forEach(resource => {
+      this.appliedResources.forEach(resource => {
         resource.book(start, end);
       });
 
@@ -441,7 +533,7 @@ class Task {
   cancel(): void {
     if (this.status === TaskStatus.SCHEDULED && this.scheduledSlot) {
       // Libérer les ressources (ajouter les créneaux aux disponibilités)
-      this.resources.forEach(resource => {
+      this.appliedResources.forEach(resource => {
         resource.addAvailability(this.scheduledSlot!.start, this.scheduledSlot!.end);
       });
     }
@@ -465,7 +557,7 @@ class Task {
    * Annule les réservations en cas d'erreur lors de la planification
    */
   private rollbackReservations(start: number, end: number): void {
-    this.resources.forEach(resource => {
+    this.appliedResources.forEach(resource => {
       try {
         resource.addAvailability(start, end);
       } catch (error) {
@@ -484,11 +576,13 @@ class Task {
       throw new Error('Impossible de modifier les ressources d\'une tâche déjà planifiée');
     }
 
-    if (!this.resources.includes(resource)) {
-      this.resources.push(resource);
-      // Maintenir la synchronisation bidirectionnelle
+    // Ajoute la ressource comme un nouveau groupe alternatif (tableau contenant la ressource)
+    const arr = this.resources[resource.type];
+    // Vérifie si la ressource existe déjà dans un groupe
+    const exists = arr.some(group => group.includes(resource));
+    if (!exists) {
+      arr.push([resource]);
       resource.addTask(this);
-      // Invalider le cache des disponibilités
       this.invalidateSchedulable();
     }
   }
@@ -502,13 +596,22 @@ class Task {
       throw new Error('Impossible de modifier les ressources d\'une tâche déjà planifiée');
     }
 
-    const index = this.resources.indexOf(resource);
-    if (index !== -1) {
-      this.resources.splice(index, 1);
-      // Maintenir la synchronisation bidirectionnelle
-      resource.removeTask(this);
-      // Invalider le cache des disponibilités
-      this.invalidateSchedulable();
+    const arr = this.resources[resource.type];
+    // Trouve le groupe contenant la ressource et la retire
+    for (let i = 0; i < arr.length; i++) {
+      const group = arr[i];
+      const idx = group.indexOf(resource);
+      if (idx !== -1) {
+        group.splice(idx, 1);
+        // Si le groupe est vide, on le retire complètement
+        if (group.length === 0) {
+          arr.splice(i, 1);
+          i--;
+        }
+        resource.removeTask(this);
+        this.invalidateSchedulable();
+        break;
+      }
     }
   }
 
@@ -576,8 +679,7 @@ class Task {
    * Retourne la salle actuellement assignée à cette tâche (depuis resources)
    */
   getCurrentRoom(): Resource | null {
-    const rooms = this.resources.filter(resource => resource.type === 'room');
-    return rooms.length > 0 ? rooms[0] : null;
+    return this.appliedResources.find(r => r.type === ResourceType.ROOM) || null;
   }
 
   /**
@@ -625,31 +727,7 @@ class Task {
    * Retourne la première ressource de type TEACHER présente dans resources, ou null si aucune
    */
   getTeacherResource(): Resource | null {
-    // Utilise l'énum ResourceType importée
-    return this.resources.find(r => r.type === ResourceType.TEACHER) ?? null;
-  }
-
-   /**
-   * Identifie les ressources qui limitent la planification de la tâche.
-   * Construit un AvailabilityManager temporaire en intersectant successivement
-   * les disponibilités de chaque ressource. Si l'intersection devient vide,
-   * log un message pour indiquer la ressource en question.
-   * Retourne la liste des ressources limitantes (peut être vide).
-   */
-  findLimitingResources(): Resource[] {
-    if (this.resources.length === 0) return [];
-    let tempAvailability = this.resources[0].availability.copy();
-    const limiting: Resource[] = [];
-    for (let i = 1; i < this.resources.length; i++) {
-      const res: Resource = this.resources[i];
-      tempAvailability = tempAvailability.intersect(res.availability);
-      if (tempAvailability.isEmpty()) {
-        limiting.push(res);
-        console.warn(`[Task:${this.id}] Disponibilité vide après intersection avec la ressource '${res.id}' (${res.type})`);
-        break;
-      }
-    }
-    return limiting;
+    return this.appliedResources.find(r => r.type === ResourceType.TEACHER) || null;
   }
 
 
@@ -657,7 +735,7 @@ class Task {
    * Retourne une représentation textuelle de la tâche
    */
   toString(): string {
-    const resourceIds = this.resources.map(r => r.id).join(', ');
+    const resourceIds = this.appliedResources.map(r => r.id).join(', ');
     const scheduledInfo = this.scheduledSlot 
       ? ` [${this.scheduledSlot.start}-${this.scheduledSlot.end}]`
       : '';

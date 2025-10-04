@@ -1,9 +1,9 @@
 /**
- * Test pour la version standard de la planification (classe Schedule de base)
- * Compare les performances avec les versions expérimentales
+ * Test pour ScheduleAR - Algorithme avec ressources alternatives
+ * Explore toutes les combinaisons de ressources en cours de backtracking
  */
 
-import { Schedule } from '../schedule.js';
+import { ScheduleAR } from '../scheduleAR.js';
 import { Loader } from '../lib/loader.js';
 import { exec } from 'child_process';
 
@@ -94,11 +94,11 @@ function displayPerformanceMetrics(executionTime: number, result: any): void {
 }
 
 /**
- * Test principal pour Schedule standard
+ * Test principal pour ScheduleAR
  */
-async function testStandardSchedule(): Promise<any> {
-    console.log('📋 TEST SCHEDULE STANDARD');
-    console.log('=========================\n');
+async function testScheduleAR(): Promise<any> {
+    console.log('📋 TEST SCHEDULE AR (Alternative Resources)');
+    console.log('===========================================\n');
     
     try {
         // Forcer le rechargement des données pour un test propre
@@ -110,14 +110,27 @@ async function testStandardSchedule(): Promise<any> {
         console.log(`   📋 Tâches totales: ${tasks.length}`);
         console.log(`   🏢 Ressources disponibles: ${Loader.resourcesManager.getAllResources().length}`);
         
-        // Analyser les salles multiples
-        const tasksWithMultipleRooms = tasks.filter(task => task.availableRooms.length > 1);
-        console.log(`   🏫 Tâches avec salles multiples: ${tasksWithMultipleRooms.length}/${tasks.length} (${(tasksWithMultipleRooms.length / tasks.length * 100).toFixed(1)}%)`);
+        // Analyser les tâches avec ressources alternatives
+        let tasksWithAlternatives = 0;
+        let totalAlternativeCombinations = 0;
         
-        console.log('\n🚀 Lancement de la planification standard...\n');
+        for (const task of tasks) {
+            const combinations = task.getApplicableResources();
+            if (combinations.length > 1) {
+                tasksWithAlternatives++;
+                totalAlternativeCombinations += combinations.length;
+            }
+        }
         
-        // Créer et configurer le planificateur standard
-        const scheduler = new Schedule();
+        console.log(`   🔄 Tâches avec ressources alternatives: ${tasksWithAlternatives}/${tasks.length}`);
+        if (tasksWithAlternatives > 0) {
+            console.log(`   🎲 Moyenne de combinaisons par tâche alternative: ${(totalAlternativeCombinations / tasksWithAlternatives).toFixed(1)}`);
+        }
+        
+        console.log('\n🚀 Lancement de la planification avec ScheduleAR...\n');
+        
+        // Créer et configurer le planificateur AR
+        const scheduler = new ScheduleAR();
         
         // Mesurer le temps d'exécution
         const startTime = Date.now();
@@ -185,21 +198,21 @@ async function testStandardSchedule(): Promise<any> {
             });
         }
         
-        console.log(`\n🏁 Test Schedule standard terminé !`);
+        console.log(`\n🏁 Test ScheduleAR terminé !`);
         
         return result;
         
     } catch (error) {
-        console.error('❌ Erreur lors du test Schedule standard:', error);
+        console.error('❌ Erreur lors du test ScheduleAR:', error);
         throw error;
     }
 }
 
 // Exécuter le test si ce fichier est lancé directement
-testStandardSchedule().catch(error => {
+testScheduleAR().catch(error => {
     console.error('💥 Échec du test:', error);
     process.exit(1);
 });
 
 // Exporter la fonction pour utilisation dans d'autres tests
-export { testStandardSchedule, analyzeSolution, displayPerformanceMetrics };
+export { testScheduleAR, analyzeSolution, displayPerformanceMetrics };

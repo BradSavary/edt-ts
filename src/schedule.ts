@@ -104,6 +104,24 @@ export class Schedule {
             throw new Error('Aucune ressource disponible. Vérifiez que les ressources sont chargées.');
         }
         
+        // SÉLECTION DES RESSOURCES: Appliquer un jeu de ressources aléatoire à chaque tâche
+        // Ceci doit être fait UNE SEULE FOIS avant la planification
+        console.log('🎲 Sélection des jeux de ressources pour chaque tâche...');
+        let tasksWithoutResources = 0;
+        for (const task of this.tasks) {
+            const selectedResources = task.getRandomApplicableResources();
+            if (!selectedResources) {
+                console.warn(`⚠️  Aucune combinaison de ressources disponible pour ${task.name}`);
+                tasksWithoutResources++;
+            } else {
+                task.appliedResources = selectedResources;
+            }
+        }
+        if (tasksWithoutResources > 0) {
+            console.warn(`⚠️  ${tasksWithoutResources} tâche(s) sans ressources disponibles`);
+        }
+        console.log('✅ Jeux de ressources appliqués\n');
+        
         // STRATÉGIE SIMPLIFIÉE: Trier les tâches par contraintes croissantes uniquement
         // Le tri topologique est redondant car canTaskBeScheduledNow() et getCurrentConstraintScore() 
         // gèrent déjà les dépendances de manière dynamique
@@ -154,7 +172,6 @@ export class Schedule {
         }
         
         const task = this.tasks[taskIndex];
-        
        
         // SUPPORT DES DÉPENDANCES: Vérifier si la tâche peut être planifiée maintenant
         if (!this.canTaskBeScheduledNow(task)) {
@@ -286,16 +303,15 @@ export class Schedule {
         const endMinutes = startMinutes + task.duration;
         
         // Marquer les ressources comme occupées en utilisant la méthode book
-        for (const resource of task.resources) {
+        for (const resource of task.getAllResources()) {
             try {
                 resource.availability.book(startMinutes, endMinutes);
             } catch (error) {
                 console.warn(`Échec de la réservation pour la ressource ${resource.id}: ${error}`);
             }
         }
-        
         // Invalider le schedulable de toutes les tâches qui utilisent ces ressources
-        this.invalidateSchedulableForResources(task.resources);
+        this.invalidateSchedulableForResources(task.getAllResources());
     }
 
     /**
@@ -308,12 +324,11 @@ export class Schedule {
         const endMinutes = startMinutes + task.duration;
         
         // Rendre les ressources disponibles en ajoutant la disponibilité
-        for (const resource of task.resources) {
+        for (const resource of task.getAllResources()) {
             resource.availability.addAvailability(startMinutes, endMinutes);
         }
-        
         // Invalider le schedulable de toutes les tâches qui utilisent ces ressources
-        this.invalidateSchedulableForResources(task.resources);
+        this.invalidateSchedulableForResources(task.getAllResources());
     }
 
     /**
@@ -455,14 +470,12 @@ export class Schedule {
                 
                 if (hasTimeOverlap) {
                     // OPTIMISÉ: Utiliser des Sets pour des comparaisons plus rapides
-                    const resources1 = new Set(task1.task.resources.map(r => r.id));
-                    const sharedResources = task2.task.resources.filter(r2 => resources1.has(r2.id));
-                    
-                    if (sharedResources.length > 0) {
-                        const conflict = `CONFLIT détecté entre "${task1.task.name}" (${this.formatTime(task1.startTime)}-${this.formatTime(end1)}) et "${task2.task.name}" (${this.formatTime(task2.startTime)}-${this.formatTime(end2)}) sur les ressources: ${sharedResources.map(r => r.id).join(', ')}`;
+                    const resSet1 = new Set(task1.task.getAllResources().map(r => r.id));
+                    const sharedRes = task2.task.getAllResources().filter(r2 => resSet1.has(r2.id));
+                    if (sharedRes.length > 0) {
+                        const conflict = `CONFLIT détecté entre "${task1.task.name}" (${this.formatTime(task1.startTime)}-${this.formatTime(end1)}) et "${task2.task.name}" (${this.formatTime(task2.startTime)}-${this.formatTime(end2)}) sur les ressources: ${sharedRes.map(r => r.id).join(', ')}`;
                         conflicts.push(conflict);
                         console.error(`❌ ${conflict}`);
-                        // Un conflit n'est pas possible. S'il est détecté, c'est une erreur critique
                         throw new Error('Erreur critique: Conflit détecté dans une solution supposée valide');
                     }
                 }
@@ -506,7 +519,7 @@ export class Schedule {
 
         // Calculer la date du lundi de la semaine 3 de 2026
         const year = 2025;
-        const weekNumber = 42; // Semaine 3 (à modifier si nécessaire)
+        const weekNumber = 36; // Semaine 3 (à modifier si nécessaire)
 
         // Le 1er janvier 2026 est un jeudi
         // Calcul du premier lundi de l'année 2026 : 5 janvier 2026
@@ -586,32 +599,32 @@ export class Schedule {
                 endDate.setMinutes(endDate.getMinutes() + task.duration);
 
                 // Extraire les ressources
-                const teachers = solution.task.resources.filter(r => r.type === 'teacher').map(r => r.id);
-                const rooms = solution.task.resources.filter(r => r.type === 'room').map(r => r.id);
-                const groups = solution.task.resources.filter(r => r.type === 'group').map(r => r.id);
+                const teachersExport = solution.task.getAllResources().filter(r => r.type === 'teacher').map(r => r.id);
+                const roomsExport = solution.task.getAllResources().filter(r => r.type === 'room').map(r => r.id);
+                const groupsExport = solution.task.getAllResources().filter(r => r.type === 'group').map(r => r.id);
 
                 // Créer une description détaillée
                 const description = [
                     `Code: ${task.code}`,
                     `Durée: ${task.duration} minutes`,
-                    teachers.length > 0 ? `Enseignant(s): ${teachers.join(', ')}` : '',
-                    rooms.length > 0 ? `Salle(s): ${rooms.join(', ')}` : '',
-                    groups.length > 0 ? `Groupe(s): ${groups.join(', ')}` : ''
+                    teachersExport.length > 0 ? `Enseignant(s): ${teachersExport.join(', ')}` : '',
+                    roomsExport.length > 0 ? `Salle(s): ${roomsExport.join(', ')}` : '',
+                    groupsExport.length > 0 ? `Groupe(s): ${groupsExport.join(', ')}` : ''
                 ].filter(line => line).join('\r\n');
 
                 // Créer le summary au format spécifié : "R3.16 GILLET Anthony, BUT2-G1.BUT2-G21.BUT2-G22.BUT2-G3"
                 const summaryParts = [task.code, task.type];
-                if (teachers.length > 0) {
-                    summaryParts.push(teachers[0] + ','); // Premier enseignant avec virgule
+                if (teachersExport.length > 0) {
+                    summaryParts.push(teachersExport[0] + ','); // Premier enseignant avec virgule
                 }
-                if (groups.length > 0) {
-                    summaryParts.push(groups.join('.')); // Groupes séparés par des points
+                if (groupsExport.length > 0) {
+                    summaryParts.push(groupsExport.join('.')); // Groupes séparés par des points
                 }
                 const summary = summaryParts.join(' ');
 
                 // Générer un UID unique avec identifiant d'export
                 const exportId = Date.now();
-                const uid = `${task.code}_${teachers.join('_')}_${groups.join('_')}_${solution.startTime}_${exportId}@edt-ts.local`;
+                const uid = `${task.code}_${teachersExport.join('_')}_${groupsExport.join('_')}_${solution.startTime}_${exportId}@edt-ts.local`;
 
                 // Timestamp de création (format UTC obligatoire pour DTSTAMP)
                 const now = new Date();
@@ -634,9 +647,9 @@ export class Schedule {
                     `DTEND:${formatICalDate(endDate)}`,
                     `SUMMARY:${summary}`,
                     `DESCRIPTION;CHARSET=UTF-8:${description}`,
-                    rooms.length > 0 ? `LOCATION:${rooms[0]}` : '',
-                    teachers.length > 0 ? `ORGANIZER:CN=${teachers[0]}` : '',
-                    groups.length > 0 ? `CATEGORIES:${groups.join(',')}` : '',
+                    roomsExport.length > 0 ? `LOCATION:${roomsExport[0]}` : '',
+                    teachersExport.length > 0 ? `ORGANIZER:CN=${teachersExport[0]}` : '',
+                    groupsExport.length > 0 ? `CATEGORIES:${groupsExport.join(',')}` : '',
                     `STATUS:CONFIRMED`,
                     `TRANSP:OPAQUE`,
                     'END:VEVENT'
@@ -660,9 +673,9 @@ export class Schedule {
                     endDate.setMinutes(endDate.getMinutes() + unplannedTask.duration);
 
                     // Extraire les ressources
-                    const teachers = unplannedTask.resources.filter(r => r.type === 'teacher').map(r => r.id);
-                    const rooms = unplannedTask.resources.filter(r => r.type === 'room').map(r => r.id);
-                    const groups = unplannedTask.resources.filter(r => r.type === 'group').map(r => r.id);
+                    const teachers = unplannedTask.getAllResources().filter(r => r.type === 'teacher').map(r => r.id);
+                    const rooms = unplannedTask.getAllResources().filter(r => r.type === 'room').map(r => r.id);
+                    const groups = unplannedTask.getAllResources().filter(r => r.type === 'group').map(r => r.id);
 
                     // Créer une description avec mention "NON PLANIFIÉE"
                     const description = [
@@ -734,6 +747,186 @@ export class Schedule {
             } catch (error) {
                 console.error(`❌ Erreur lors de l'export iCal ${category.prefix}:`, error);
             }
+        }
+
+        // Créer un fichier iCal global contenant TOUTES les tâches (union des 3 catégories)
+        console.log('\n📦 Création du fichier iCal global (TOUTES les tâches)...');
+        
+        // Trouver toutes les tâches non planifiées (toutes catégories confondues)
+        const plannedTasksGlobal = this.bestSolution.map(sol => sol.task);
+        const allUnplannedTasks = this.tasks.filter(task => !plannedTasksGlobal.includes(task));
+        
+        // Générer le contenu iCal global
+        let globalICalContent = [
+            'BEGIN:VCALENDAR',
+            'VERSION:2.0',
+            `PRODID:-//EDT-TS//Planificateur de cours GLOBAL//FR`,
+            'CALSCALE:GREGORIAN',
+            'METHOD:PUBLISH',
+            ''
+        ].join('\r\n');
+
+        // Ajouter TOUTES les tâches planifiées (toutes catégories)
+        for (const solution of this.bestSolution) {
+            const task = solution.task;
+            
+            // Convertir le timestamp en composants jour/heure
+            const { dayIndex, hour, minute } = this.fromTimestamp(solution.startTime);
+            
+            // Calculer la date réelle de l'événement
+            const eventDate = new Date(mondayWeek3);
+            eventDate.setDate(mondayWeek3.getDate() + dayIndex);
+            eventDate.setHours(hour, minute, 0, 0);
+            
+            // Date de fin (ajouter la durée en minutes)
+            const endDate = new Date(eventDate);
+            endDate.setMinutes(endDate.getMinutes() + task.duration);
+
+            // Extraire les ressources
+            const teachersExport = solution.task.getAllResources().filter(r => r.type === 'teacher').map(r => r.id);
+            const roomsExport = solution.task.getAllResources().filter(r => r.type === 'room').map(r => r.id);
+            const groupsExport = solution.task.getAllResources().filter(r => r.type === 'group').map(r => r.id);
+
+            // Créer une description détaillée
+            const description = [
+                `Code: ${task.code}`,
+                `Durée: ${task.duration} minutes`,
+                teachersExport.length > 0 ? `Enseignant(s): ${teachersExport.join(', ')}` : '',
+                roomsExport.length > 0 ? `Salle(s): ${roomsExport.join(', ')}` : '',
+                groupsExport.length > 0 ? `Groupe(s): ${groupsExport.join(', ')}` : ''
+            ].filter(line => line).join('\r\n');
+
+            // Créer le summary
+            const summaryParts = [task.code, task.type];
+            if (teachersExport.length > 0) {
+                summaryParts.push(teachersExport[0] + ',');
+            }
+            if (groupsExport.length > 0) {
+                summaryParts.push(groupsExport.join('.'));
+            }
+            const summary = summaryParts.join(' ');
+
+            // Générer un UID unique
+            const exportId = Date.now();
+            const uid = `${task.code}_${teachersExport.join('_')}_${groupsExport.join('_')}_${solution.startTime}_${exportId}@edt-ts.local`;
+
+            // Timestamp de création
+            const now = new Date();
+            const dtstamp = now.getUTCFullYear().toString() +
+                           (now.getUTCMonth() + 1).toString().padStart(2, '0') +
+                           now.getUTCDate().toString().padStart(2, '0') + 'T' +
+                           now.getUTCHours().toString().padStart(2, '0') +
+                           now.getUTCMinutes().toString().padStart(2, '0') +
+                           now.getUTCSeconds().toString().padStart(2, '0') + 'Z';
+
+            // Ajouter l'événement iCal
+            globalICalContent += [
+                'BEGIN:VEVENT',
+                `UID:${uid}`,
+                `DTSTAMP:${dtstamp}`,
+                `DTSTART:${formatICalDate(eventDate)}`,
+                `DTEND:${formatICalDate(endDate)}`,
+                `SUMMARY:${summary}`,
+                `DESCRIPTION;CHARSET=UTF-8:${description}`,
+                roomsExport.length > 0 ? `LOCATION:${roomsExport[0]}` : '',
+                teachersExport.length > 0 ? `ORGANIZER:CN=${teachersExport[0]}` : '',
+                groupsExport.length > 0 ? `CATEGORIES:${groupsExport.join(',')}` : '',
+                `STATUS:CONFIRMED`,
+                `TRANSP:OPAQUE`,
+                'END:VEVENT'
+            ].filter(line => line).join('\r\n') + '\r\n';
+        }
+
+        // Ajouter toutes les tâches non planifiées le dimanche matin
+        if (allUnplannedTasks.length > 0) {
+            console.log(`📋 Ajout de ${allUnplannedTasks.length} tâches non planifiées dans le fichier global`);
+            
+            let sundayTime = 8 * 60; // 8:00 du matin en minutes
+            
+            for (const unplannedTask of allUnplannedTasks) {
+                // Calculer la date du dimanche (jour 6, car lundi = 0)
+                const sundayDate = new Date(mondayWeek3);
+                sundayDate.setDate(mondayWeek3.getDate() + 6); // Dimanche = lundi + 6 jours
+                sundayDate.setHours(Math.floor(sundayTime / 60), sundayTime % 60, 0, 0);
+                
+                // Date de fin
+                const endDate = new Date(sundayDate);
+                endDate.setMinutes(endDate.getMinutes() + unplannedTask.duration);
+
+                // Extraire les ressources
+                const teachers = unplannedTask.getAllResources().filter(r => r.type === 'teacher').map(r => r.id);
+                const rooms = unplannedTask.getAllResources().filter(r => r.type === 'room').map(r => r.id);
+                const groups = unplannedTask.getAllResources().filter(r => r.type === 'group').map(r => r.id);
+
+                // Créer une description avec mention "NON PLANIFIÉE"
+                const description = [
+                    `⚠️ TÂCHE NON PLANIFIÉE - Placée automatiquement le dimanche`,
+                    `Code: ${unplannedTask.code}`,
+                    `Durée: ${unplannedTask.duration} minutes`,
+                    teachers.length > 0 ? `Enseignant(s): ${teachers.join(', ')}` : '',
+                    rooms.length > 0 ? `Salle(s): ${rooms.join(', ')}` : '',
+                    groups.length > 0 ? `Groupe(s): ${groups.join(', ')}` : ''
+                ].filter(line => line).join('\\n');
+
+                // Créer le summary avec indication "NON PLANIFIÉE"
+                const summaryParts = [`[NON PLANIFIÉE] ${unplannedTask.code}`];
+                if (teachers.length > 0) {
+                    summaryParts.push(teachers[0] + ',');
+                }
+                if (groups.length > 0) {
+                    summaryParts.push(groups.join('.'));
+                }
+                const summary = summaryParts.join(' ');
+
+                // Générer un UID unique
+                const uid = `UNPLANNED_${unplannedTask.code}_${teachers.join('_')}_${groups.join('_')}_${sundayTime}@edt-ts.local`;
+                
+                // Timestamp de création
+                const now = new Date();
+                const dtstamp = now.getUTCFullYear().toString() +
+                               (now.getUTCMonth() + 1).toString().padStart(2, '0') +
+                               now.getUTCDate().toString().padStart(2, '0') + 'T' +
+                               now.getUTCHours().toString().padStart(2, '0') +
+                               now.getUTCMinutes().toString().padStart(2, '0') +
+                               now.getUTCSeconds().toString().padStart(2, '0') + 'Z';
+
+                // Ajouter l'événement iCal avec statut spécial
+                globalICalContent += [
+                    'BEGIN:VEVENT',
+                    `UID:${uid}`,
+                    `DTSTAMP:${dtstamp}`,
+                    `DTSTART:${formatICalDate(sundayDate)}`,
+                    `DTEND:${formatICalDate(endDate)}`,
+                    `SUMMARY:${summary}`,
+                    `DESCRIPTION:${description}`,
+                    rooms.length > 0 ? `LOCATION:${rooms[0]}` : '',
+                    teachers.length > 0 ? `ORGANIZER:CN=${teachers[0]}` : '',
+                    groups.length > 0 ? `CATEGORIES:${groups.join(',')},NON-PLANIFIEE` : 'CATEGORIES:NON-PLANIFIEE',
+                    `STATUS:TENTATIVE`,
+                    `TRANSP:TRANSPARENT`,
+                    'END:VEVENT'
+                ].filter(line => line).join('\r\n') + '\r\n';
+                
+                // Décaler l'heure pour la prochaine tâche non planifiée (espacer de 30 minutes)
+                sundayTime += 30;
+            }
+        }
+
+        // Fermer le calendrier
+        globalICalContent += 'END:VCALENDAR\r\n';
+
+        // Sauvegarder le fichier global
+        const globalFilename = `planning-ALL-semaine${weekNumber}-${year}.ics`;
+        const globalFilepath = path.join('./src/ical', globalFilename);
+        
+        try {
+            fs.writeFileSync(globalFilepath, globalICalContent, 'utf8');
+            console.log(`✅ Fichier iCal global exporté: ${globalFilepath}`);
+            const totalGlobalEvents = this.bestSolution.length + allUnplannedTasks.length;
+            console.log(`📊 ${totalGlobalEvents} événements GLOBAUX exportés (${this.bestSolution.length} planifiées + ${allUnplannedTasks.length} non planifiées)`);
+            exportedFiles.push(globalFilepath);
+        } catch (error) {
+            console.error(`❌ Erreur lors de l'export iCal global:`, error);
         }
 
         // Retourner le premier fichier créé ou un message de résumé

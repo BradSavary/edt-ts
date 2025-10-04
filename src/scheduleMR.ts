@@ -156,7 +156,8 @@ export class ScheduleMR extends Schedule {
         // Applique l'heuristique Most Constrained Variable de manière optimisée
         // (seulement tous les 5 niveaux pour éviter le surcoût)
         
-        if (taskIndex < this.tasks.length - 1 && taskIndex % 5 === 0) {
+        //if (taskIndex < this.tasks.length - 1 && taskIndex % 5 === 0) 
+         {
             this.dynamicTaskSort(taskIndex);
             // Log de tri dynamique supprimé pour réduire la verbosité
         }
@@ -264,7 +265,7 @@ export class ScheduleMR extends Schedule {
             const taskSolution: TaskSolutionMR = {
                 task,
                 startTime: slot.startTime,
-                appliedResources: [...task.resources] // Copie des ressources actuelles
+                appliedResources: [...task.getAllResources()] // Copie des ressources actuelles
             };
             
             this.solution.push(taskSolution);
@@ -301,7 +302,7 @@ export class ScheduleMR extends Schedule {
         
         // BUGFIX: Utiliser les ressources sauvegardées dans appliedResources
         // Si appliedResources n'existe pas (solution standard), utiliser task.resources
-        const resourcesToBook = taskSolutionMR.appliedResources || task.resources;
+    const resourcesToBook = taskSolutionMR.appliedResources || task.getAllResources();
         
         // Marquer les ressources comme occupées
         for (const resource of resourcesToBook) {
@@ -330,7 +331,7 @@ export class ScheduleMR extends Schedule {
         // BUGFIX: Utiliser les ressources sauvegardées dans appliedResources
         // Ceci garantit qu'on libère EXACTEMENT les ressources qui ont été réservées
         // même si task.resources a changé entre temps (changement de salle)
-        const resourcesToFree = taskSolutionMR.appliedResources || task.resources;
+    const resourcesToFree = taskSolutionMR.appliedResources || task.getAllResources();
         
         // Rendre les ressources disponibles
         for (const resource of resourcesToFree) {
