@@ -149,6 +149,8 @@ class Resource {
     return this.availabilityManager.isAvailable(start, end);
   }
 
+
+
   /**
    * Réserve un créneau sur cette ressource
    * Lève une erreur si le créneau n'est pas disponible
@@ -172,7 +174,7 @@ class Resource {
        
         const pauseStart = dayStart + (12 * 60); // 12:00 du même jour
         const pauseEnd = dayStart + LUNCH_BREAK_END; // 12:30 du même jour
-        
+        /*
          const earlyPauseStart = dayStart + (11 * 60); // 11:00 du même jour
         // Vérification prioritaire : si la plage 11:00-12:30 est disponible, on refuse
         // (Pour éviter de créer un créneau vide 11:00 - 12:00 qu'on aura du mal à utiliser car les séances durent 1:30 ou 2h)
@@ -184,7 +186,7 @@ class Resource {
               `Actuellement, cette plage est disponible, ce qui permettrait de placer une tâche de 11:00-12:30.`
             );
           }
-        } 
+        } */
         
         // Sinon, vérifier que le créneau 12:00-12:30 est disponible (non réservé)
         if (!this.availabilityManager.isAvailable(pauseStart, pauseEnd)) {
@@ -270,6 +272,8 @@ class Resource {
   cleanup(): void {
     this.availabilityManager.cleanup();
   }
+
+
 
   /**
    * Retourne une représentation textuelle de la ressource et ses disponibilités
