@@ -1,219 +1,519 @@
-# ScheduleAnalysis
+# ScheduleAnalysis# ScheduleAnalysis
 
-Classe d'analyse statistique pour les solutions de planification générées par les schedulers (Schedule, ScheduleAR, ScheduleExp, ScheduleMR).
 
-## Vue d'ensemble
 
-`ScheduleAnalysis` fournit des outils complets pour analyser et évaluer la qualité d'une solution de planification. Elle calcule des statistiques détaillées sur l'utilisation des ressources, la distribution temporelle, et la continuité des plannings.
+Classe d'analyse statistique pour les solutions de planification générées par les schedulers (Schedule, ScheduleAR, ScheduleExp, ScheduleMR).Classe d'analyse statistique pour les solutions de planification générées par les schedulers (Schedule, ScheduleAR, ScheduleExp, ScheduleMR).
 
-**Affichage console** : Statistiques complètes avec tableaux formatés via `test-complete-stats.ts`.
 
-## Installation
+
+## Vue d'ensemble## Vue d'ensemble
+
+
+
+`ScheduleAnalysis` fournit des outils complets pour analyser et évaluer la qualité d'une solution de planification. Elle calcule des statistiques détaillées sur l'utilisation des ressources, la distribution temporelle, la continuité des plannings et le regroupement par demi-journées.`ScheduleAnalysis` fournit des outils complets pour analyser et évaluer la qualité d'une solution de planification. Elle calcule des statistiques détaillées sur l'utilisation des ressources, la distribution temporelle, et la continuité des plannings.
+
+
+
+**Affichage console** : Statistiques complètes avec tableaux formatés via `test-complete-stats.ts`.**Affichage console** : Statistiques complètes avec tableaux formatés via `test-complete-stats.ts`.
+
+
+
+## Installation## Installation
+
+
+
+```typescript```typescript
+
+import { ScheduleAnalysis } from './scheduleAnalysis.js';import { ScheduleAnalysis } from './scheduleAnalysis.js';
+
+import { ScheduleAR } from './scheduleAR.js';import { ScheduleAR } from './scheduleAR.js';
+
+
+
+// Générer une solution// Générer une solution
+
+const scheduler = new ScheduleAR();const scheduler = new ScheduleAR();
+
+const result = scheduler.solve();const result = scheduler.solve();
+
+
+
+// Créer l'analyseur// Créer l'analyseur
+
+const analysis = new ScheduleAnalysis(result.solutions);const analysis = new ScheduleAnalysis(result.solutions);
+
+``````
+
+
+
+## Interfaces TypeScript## Interfaces
+
+
+
+### ResourceUsageStats### GlobalStats
+
+```typescriptStatistiques globales de la planification :
+
+interface ResourceUsageStats {```typescript
+
+  resourceId: string;interface GlobalStats {
+
+  resourceType: ResourceType;  totalTasks: number;           // Nombre total de tâches
+
+  taskCount: number;  scheduledTasks: number;       // Nombre de tâches planifiées
+
+  totalMinutes: number;  completionRate: number;       // Taux de complétion (0-1)
+
+  totalHours: number;  totalResources: number;       // Nombre total de ressources utilisées
+
+  tasks: Array<{  teachersCount: number;        // Nombre d'enseignants
+
+    taskName: string;  roomsCount: number;           // Nombre de salles
+
+    startTime: number;  groupsCount: number;          // Nombre de groupes
+
+    duration: number;  totalDays: number;            // Nombre de jours
+
+    day: number;}
+
+    dayOfWeek: string;```
+
+  }>;
+
+}### ResourceUsageStats
+
+```Statistiques d'utilisation par ressource :
 
 ```typescript
-import { ScheduleAnalysis } from './scheduleAnalysis.js';
-import { ScheduleAR } from './scheduleAR.js';
 
-// Générer une solution
-const scheduler = new ScheduleAR();
-const result = scheduler.solve();
+### DailyUsageStatsinterface ResourceUsageStats {
 
-// Créer l'analyseur
-const analysis = new ScheduleAnalysis(result.solutions);
-```
+```typescript  resourceId: string;           // Identifiant de la ressource
 
-## Interfaces
+interface DailyUsageStats {  resourceType: ResourceType;   // Type (TEACHER, ROOM, GROUP)
 
-### GlobalStats
-Statistiques globales de la planification :
-```typescript
-interface GlobalStats {
-  totalTasks: number;           // Nombre total de tâches
-  scheduledTasks: number;       // Nombre de tâches planifiées
-  completionRate: number;       // Taux de complétion (0-1)
-  totalResources: number;       // Nombre total de ressources utilisées
-  teachersCount: number;        // Nombre d'enseignants
-  roomsCount: number;           // Nombre de salles
-  groupsCount: number;          // Nombre de groupes
-  totalDays: number;            // Nombre de jours
+  day: number;  courseCount: number;          // Nombre de cours
+
+  dayOfWeek: string;  totalHours: number;           // Nombre d'heures total
+
+  taskCount: number;  averageCourseDuration: number;// Durée moyenne des cours (heures)
+
+  totalMinutes: number;  courseDurations: number[];    // Liste des durées
+
+  totalHours: number;}
+
+  resourcesUsed: Set<string>;```
+
 }
-```
 
-### ResourceUsageStats
-Statistiques d'utilisation par ressource :
-```typescript
-interface ResourceUsageStats {
-  resourceId: string;           // Identifiant de la ressource
-  resourceType: ResourceType;   // Type (TEACHER, ROOM, GROUP)
-  courseCount: number;          // Nombre de cours
-  totalHours: number;           // Nombre d'heures total
-  averageCourseDuration: number;// Durée moyenne des cours (heures)
-  courseDurations: number[];    // Liste des durées
-}
-```
+```### DailyUsageStats
 
-### DailyUsageStats
 Statistiques par jour :
-```typescript
-interface DailyUsageStats {
-  day: number;                  // Numéro du jour (0-6)
-  dayOfWeek: string;            // Nom du jour
-  courseCount: number;          // Nombre de cours
-  totalHours: number;           // Nombre d'heures
-  resourcesUsed: number;        // Nombre de ressources utilisées
-}
-```
 
-### ResourceDailyLoad
-Charge quotidienne d'une ressource :
-```typescript
-interface ResourceDailyLoad {
-  resourceId: string;           // Identifiant de la ressource
-  resourceType: ResourceType;   // Type de ressource
-  totalHours: number;           // Total d'heures sur la période
-  maxDailyHours: number;        // Maximum d'heures par jour
+### GlobalStats```typescript
+
+```typescriptinterface DailyUsageStats {
+
+interface GlobalStats {  day: number;                  // Numéro du jour (0-6)
+
+  totalTasks: number;  dayOfWeek: string;            // Nom du jour
+
+  plannedTasks: number;  courseCount: number;          // Nombre de cours
+
+  unplannedTasks: number;  totalHours: number;           // Nombre d'heures
+
+  completionRate: number;  resourcesUsed: number;        // Nombre de ressources utilisées
+
+  totalResourcesUsed: number;}
+
+  teachersUsed: number;```
+
+  roomsUsed: number;
+
+  groupsUsed: number;### ResourceDailyLoad
+
+  timeSpan: {Charge quotidienne d'une ressource :
+
+    firstTaskStart: number;```typescript
+
+    lastTaskEnd: number;interface ResourceDailyLoad {
+
+    totalDays: number;  resourceId: string;           // Identifiant de la ressource
+
+  };  resourceType: ResourceType;   // Type de ressource
+
+}  totalHours: number;           // Total d'heures sur la période
+
+```  maxDailyHours: number;        // Maximum d'heures par jour
+
   averageDailyHours: number;    // Moyenne d'heures par jour
-  dailyBreakdown: Map<number, number>; // Heures par jour
-}
+
+### ResourceDailyLoad  dailyBreakdown: Map<number, number>; // Heures par jour
+
+```typescript}
+
+interface ResourceDailyLoad {```
+
+  resourceId: string;
+
+  resourceType: ResourceType;## Méthodes principales
+
+  dailyUsage: Map<number, number>;
+
+  maxDailyUsage: number;### 1. Statistiques globales
+
+  avgDailyUsage: number;
+
+  totalUsage: number;#### `getGlobalStats(totalTasksExpected?: number): GlobalStats`
+
+}Retourne les statistiques globales de la planification.
+
 ```
 
-## Méthodes principales
+```typescript
+
+## Méthodes principales// Sans paramètre : taux de complétion basé sur les tâches planifiées uniquement
+
+const stats = analysis.getGlobalStats();
 
 ### 1. Statistiques globales
 
-#### `getGlobalStats(): GlobalStats`
-Retourne les statistiques globales de la planification.
+// Avec paramètre : calcul du taux de complétion par rapport au total attendu
+
+#### `getGlobalStats(totalTasksExpected?: number): GlobalStats`const statsWithTarget = analysis.getGlobalStats(80);
+
+console.log(`Taux de complétion: ${(statsWithTarget.completionRate * 100).toFixed(1)}%`);
+
+**Exemple :**console.log(`Ressources utilisées: ${statsWithTarget.totalResources}`);
+
+```typescript```
+
+const stats = analysis.getGlobalStats(80);
+
+console.log(`Taux: ${(stats.completionRate * 100).toFixed(1)}%`);### 2. Analyse d'une ressource spécifique
+
+console.log(`Ressources: ${stats.totalResourcesUsed}`);
+
+```#### `analyzeResourceUsage(resourceId: string): ResourceUsageStats | null`
+
+Analyse l'utilisation d'une ressource spécifique par son identifiant.
+
+### 2. Analyse d'une ressource spécifique
 
 ```typescript
-const stats = analysis.getGlobalStats();
-console.log(`Taux de complétion: ${(stats.completionRate * 100).toFixed(1)}%`);
-console.log(`Ressources utilisées: ${stats.totalResources}`);
-```
 
-### 2. Analyse par type de ressource
+#### `analyzeResourceUsage(resourceId: string): ResourceUsageStats | null`// Analyser un enseignant spécifique
 
-#### `analyzeResourceUsage(resourceType?: ResourceType): ResourceUsageStats[]`
-Analyse l'utilisation des ressources. Peut être filtrée par type.
+const teacherStats = analysis.analyzeResourceUsage('HUBERT Quentin');
 
-```typescript
-// Tous les enseignants
-const teachers = analysis.analyzeResourceUsage(ResourceType.TEACHER);
+**Exemple :**if (teacherStats) {
 
-// Toutes les ressources
-const allResources = analysis.analyzeResourceUsage();
-```
+```typescript  console.log(`${teacherStats.resourceId}: ${teacherStats.totalHours}h sur ${teacherStats.taskCount} cours`);
 
-#### `analyzeResourcesByType(): Map<ResourceType, ResourceUsageStats[]>`
-Retourne les statistiques groupées par type de ressource.
+const stats = analysis.analyzeResourceUsage('HUBERT Quentin');}
 
-```typescript
-const byType = analysis.analyzeResourcesByType();
-const teachers = byType.get(ResourceType.TEACHER);
-const rooms = byType.get(ResourceType.ROOM);
-```
+if (stats) {
 
-### 3. Analyse temporelle
+  console.log(`${stats.resourceId}: ${stats.totalHours}h sur ${stats.taskCount} cours`);// Analyser un groupe
 
-#### `analyzeDailyUsage(): DailyUsageStats[]`
-Analyse l'utilisation par jour.
+}const groupStats = analysis.analyzeResourceUsage('BUT1-G1');
 
-```typescript
+``````
+
+
+
+### 3. Analyse par type### 3. Analyse par type de ressource
+
+
+
+#### `analyzeResourcesByType(type: ResourceType): ResourceUsageStats[]`#### `analyzeResourcesByType(type: ResourceType): ResourceUsageStats[]`
+
+Analyse toutes les ressources d'un type donné.
+
+**Exemple :**
+
+```typescript```typescript
+
+const teachers = analysis.analyzeResourcesByType(ResourceType.TEACHER);// Tous les enseignants
+
+teachers.forEach(t => console.log(`${t.resourceId}: ${t.totalHours}h`));const teachers = analysis.analyzeResourcesByType(ResourceType.TEACHER);
+
+```teachers.forEach(t => {
+
+  console.log(`${t.resourceId}: ${t.totalHours}h sur ${t.taskCount} cours`);
+
+### 4. Analyse temporelle});
+
+
+
+#### `analyzeDailyUsage(): DailyUsageStats[]`// Toutes les salles
+
+const rooms = analysis.analyzeResourcesByType(ResourceType.ROOM);
+
+#### `analyzeResourceDailyLoad(resourceType?: ResourceType): ResourceDailyLoad[]````
+
+
+
+#### `getBusiestDays(limit: number = 5): DailyUsageStats[]`### 4. Analyse temporelle
+
+
+
+**Exemple :**#### `analyzeDailyUsage(): DailyUsageStats[]`
+
+```typescriptAnalyse l'utilisation par jour de la semaine.
+
 const daily = analysis.analyzeDailyUsage();
+
+const busiest = analysis.getBusiestDays(3);```typescript
+
+```const daily = analysis.analyzeDailyUsage();
+
 daily.forEach(day => {
-  console.log(`${day.dayOfWeek}: ${day.courseCount} cours, ${day.totalHours}h`);
+
+### 5. Top ressources  console.log(`${day.dayOfWeek}: ${day.courseCount} cours, ${day.totalHours}h, ${day.resourcesUsed} ressources`);
+
 });
-```
 
-#### `getBusiestDays(limit: number = 5): DailyUsageStats[]`
-Retourne les jours les plus chargés.
+#### `getTopResourcesByLoad(type: ResourceType, limit: number = 10): ResourceUsageStats[]````
 
-```typescript
-const busiest = analysis.getBusiestDays(3);
-console.log(`Jour le plus chargé: ${busiest[0].dayOfWeek}`);
-```
 
-### 4. Top ressources
 
-#### `getTopResources(resourceType: ResourceType, limit: number = 10): ResourceUsageStats[]`
-Retourne les ressources les plus sollicitées.
+#### `findQuotaViolations(resourceType: ResourceType, maxMinutesPerDay: number): Array<{...}>`#### `analyzeResourceDailyLoad(resourceType?: ResourceType): ResourceDailyLoad[]`
 
-```typescript
-const top5Teachers = analysis.getTopResources(ResourceType.TEACHER, 5);
-const top10Rooms = analysis.getTopResources(ResourceType.ROOM, 10);
-```
-
-### 5. Charge quotidienne
-
-#### `analyzeResourceDailyLoads(resourceType?: ResourceType): ResourceDailyLoad[]`
 Analyse la charge quotidienne des ressources.
 
-```typescript
-const groupLoads = analysis.analyzeResourceDailyLoads(ResourceType.GROUP);
+**Exemple :**
 
-groupLoads.forEach(load => {
-  console.log(`${load.resourceId}: max ${load.maxDailyHours}h/jour`);
-});
+```typescript```typescript
+
+const top5 = analysis.getTopResourcesByLoad(ResourceType.TEACHER, 5);// Charge de tous les enseignants
+
+const violations = analysis.findQuotaViolations(ResourceType.TEACHER, 360);const teacherLoads = analysis.analyzeResourceDailyLoad(ResourceType.TEACHER);
+
+```teacherLoads.forEach(load => {
+
+  console.log(`${load.resourceId}: max ${load.maxDailyHours}h/jour, moyenne ${load.averageDailyHours.toFixed(1)}h`);
+
+### 6. Analyse des gaps});
+
+
+
+#### `analyzeResourceGaps(resourceType?: ResourceType, lunchBreakMinutes: number = 120): Array<{...}>`// Charge de toutes les ressources
+
+const allLoads = analysis.analyzeResourceDailyLoad();
+
+Analyse les interruptions dans l'emploi du temps. La pause méridienne est automatiquement soustraite si :```
+
+- Premier cours se termine avant/à 13h00 (≤ 780 min)
+
+- **ET** dernier cours commence après 13h00 (> 780 min)#### `getBusiestDays(limit: number = 5): DailyUsageStats[]`
+
+Retourne les jours les plus chargés (triés par nombre de cours).
+
+**Exemple :**
+
+```typescript```typescript
+
+const gaps = analysis.analyzeResourceGaps(ResourceType.TEACHER);const busiest = analysis.getBusiestDays(3);
+
+const sorted = gaps.sort((a, b) => b.totalGaps - a.totalGaps);console.log(`Jour le plus chargé: ${busiest[0].dayOfWeek} avec ${busiest[0].courseCount} cours`);
+
 ```
 
-#### `findDailyQuotaViolations(resourceType: ResourceType, maxHoursPerDay: number): ResourceDailyLoad[]`
-Identifie les ressources qui dépassent un quota quotidien.
+sorted.slice(0, 5).forEach(g => {
+
+  console.log(`${g.resourceId}: ${(g.totalGaps / 60).toFixed(1)}h d'interruptions`);### 5. Top ressources et quotas
+
+});
+
+```#### `getTopResourcesByLoad(type: ResourceType, limit: number = 10): ResourceUsageStats[]`
+
+Retourne les ressources les plus sollicitées d'un type donné.
+
+### 7. Regroupement par demi-journée
 
 ```typescript
-// Trouver les groupes qui ont plus de 7.5h par jour
-const violations = analysis.findDailyQuotaViolations(ResourceType.GROUP, 7.5);
+
+#### `analyzeHalfDayGrouping(resourceType?: ResourceType, maxCoursesPerHalfDay: number = 4): Array<{...}>`const top5Teachers = analysis.getTopResourcesByLoad(ResourceType.TEACHER, 5);
+
+const top10Rooms = analysis.getTopResourcesByLoad(ResourceType.ROOM, 10);
+
+Évalue la qualité du regroupement des cours sur des demi-journées.```
+
+
+
+**Définition des demi-journées :**#### `findQuotaViolations(resourceType: ResourceType, maxMinutesPerDay: number): Array<{...}>`
+
+- **Matin** : Cours se terminant au plus tard à **13h00** (fin ≤ 780 minutes)Détecte les violations de quotas horaires quotidiens.
+
+- **Après-midi** : Cours débutant après **13h00** (début > 780 minutes)
+
+- **13h00** est toujours inclus dans la pause méridienne```typescript
+
+// Trouver les enseignants avec plus de 6h/jour
+
+**Métriques calculées :**const violations = analysis.findQuotaViolations(ResourceType.TEACHER, 360);
 
 violations.forEach(v => {
-  console.log(`${v.resourceId}: ${v.maxDailyHours}h (dépasse 7.5h)`);
+
+1. **Compacité (compactnessScore)** : 0-1, ratio entre minimum théorique et nombre réel de demi-journées  console.log(`${v.resourceId}: ${v.violationDays.length} jour(s) en dépassement`);
+
+2. **Fragmentation (fragmentationIndex)** : Nombre de jours avec cours seulement matin OU après-midi  v.violationDays.forEach(day => {
+
+3. **Densité (averageCoursesPerHalfDay)** : Nombre moyen de cours par demi-journée utilisée    console.log(`  ${day.dayOfWeek}: ${(day.totalMinutes / 60).toFixed(1)}h`);
+
+4. **Distribution** : Histogramme du nombre de demi-journées ayant 1, 2, 3, ... cours  });
+
 });
+
+**Exemple :**```
+
+```typescript
+
+const grouping = analysis.analyzeHalfDayGrouping(ResourceType.TEACHER);### 5. Charge quotidienne
+
+const sorted = grouping.sort((a, b) => b.compactnessScore - a.compactnessScore);
+
+#### `analyzeResourceDailyLoads(resourceType?: ResourceType): ResourceDailyLoad[]`
+
+sorted.forEach(teacher => {Analyse la charge quotidienne des ressources.
+
+  console.log(`${teacher.resourceId}: ${(teacher.compactnessScore * 100).toFixed(0)}% compacité`);
+
+  console.log(`  ${teacher.totalCourses} cours sur ${teacher.halfDaysUsed} demi-journées`);```typescript
+
+  console.log(`  Fragmentation: ${teacher.fragmentationIndex} jour(s)`);const groupLoads = analysis.analyzeResourceDailyLoads(ResourceType.GROUP);
+
+});
+
+```groupLoads.forEach(load => {
+
+  console.log(`${load.resourceId}: max ${load.maxDailyHours}h/jour`);
+
+### 8. Export et rapports});
+
 ```
 
-### 6. Analyse des interruptions
+#### `generateReport(totalTasksExpected?: number): string`
 
-#### `analyzeResourceGaps(resourceType?: ResourceType, lunchBreakMinutes: number = 120): Array<ResourceGaps>`
+#### `findDailyQuotaViolations(resourceType: ResourceType, maxHoursPerDay: number): ResourceDailyLoad[]`
+
+#### `exportToJSON(): string`Identifie les ressources qui dépassent un quota quotidien.
+
+
+
+**Exemple :**```typescript
+
+```typescript// Trouver les groupes qui ont plus de 7.5h par jour
+
+const report = analysis.generateReport(80);const violations = analysis.findDailyQuotaViolations(ResourceType.GROUP, 7.5);
+
+console.log(report);
+
+violations.forEach(v => {
+
+import fs from 'fs';  console.log(`${v.resourceId}: ${v.maxDailyHours}h (dépasse 7.5h)`);
+
+fs.writeFileSync('analysis.json', analysis.exportToJSON());});
+
+``````
+
+
+
+## Affichage console complet### 6. Analyse des interruptions
+
+
+
+### Script test-complete-stats.ts#### `analyzeResourceGaps(resourceType?: ResourceType, lunchBreakMinutes: number = 120): Array<ResourceGaps>`
+
 Calcule les interruptions entre cours pour chaque ressource.
 
-**Points clés :**
-- Mesure les gaps (interruptions) entre cours consécutifs
-- Soustrait automatiquement la pause méridienne si :
-  - Le premier cours commence avant 12h00
-  - Le dernier cours se termine après 14h00
-- Paramètre `lunchBreakMinutes` configurable (défaut : 120 min = 2h)
+Génère un rapport complet formaté avec tableaux UTF-8 et indicateurs visuels.
 
-```typescript
-interface ResourceGaps {
-  resourceId: string;
-  resourceType: ResourceType;
+**Points clés :**
+
+```bash- Mesure les gaps (interruptions) entre cours consécutifs
+
+npx tsx src/Claude/test-complete-stats.ts- Soustrait automatiquement la pause méridienne si :
+
+```  - Le premier cours commence avant 12h00
+
+  - Le dernier cours se termine après 14h00
+
+**Contenu :**- Paramètre `lunchBreakMinutes` configurable (défaut : 120 min = 2h)
+
+- Vue d'ensemble (tâches, ressources)
+
+- Utilisation des ressources (heures, moyennes, cours)```typescript
+
+- Qualité du regroupement (compacité, fragmentation, densité)interface ResourceGaps {
+
+- Détail par type de ressource (Enseignants, Groupes, Salles)  resourceId: string;
+
+- Distribution par qualité  resourceType: ResourceType;
+
   dailyGaps: Map<number, {
-    day: number;
-    dayOfWeek: string;
-    firstCourseStart: number;    // Minutes absolues
-    lastCourseEnd: number;        // Minutes absolues
-    totalGapDuration: number;     // Minutes (pause méridienne soustraite)
+
+**Indicateurs :**    day: number;
+
+- 🟢 **Excellent** (≥75% de compacité)    dayOfWeek: string;
+
+- 🟡 **Bon** (50-74%)    firstCourseStart: number;    // Minutes absolues
+
+- 🟠 **Moyen** (40-49%)    lastCourseEnd: number;        // Minutes absolues
+
+- 🔴 **Faible** (<40%)    totalGapDuration: number;     // Minutes (pause méridienne soustraite)
+
     numberOfGaps: number;
-    averageGap: number;           // Minutes
+
+## Tests    averageGap: number;           // Minutes
+
     courseCount: number;
-  }>;
-  totalGaps: number;              // Total en minutes
-}
+
+```bash  }>;
+
+# Statistiques complètes console  totalGaps: number;              // Total en minutes
+
+npx tsx src/Claude/test-complete-stats.ts}
+
 ```
 
-**Exemples :**
+# Regroupement par demi-journée
+
+npx tsx src/Claude/test-halfday-grouping.ts**Exemples :**
+
+```
 
 ```typescript
-// Analyser les gaps pour tous les enseignants (avec pause méridienne par défaut de 2h)
+
+## Notes// Analyser les gaps pour tous les enseignants (avec pause méridienne par défaut de 2h)
+
 const teacherGaps = analysis.analyzeResourceGaps(ResourceType.TEACHER);
 
-// Analyser les gaps pour les groupes avec pause méridienne de 90 minutes
-const groupGaps = analysis.analyzeResourceGaps(ResourceType.GROUP, 90);
+- Durées en **heures** dans les statistiques
 
-// Trier par total d'interruptions
+- Temps absolus en **minutes** depuis le début de la semaine// Analyser les gaps pour les groupes avec pause méridienne de 90 minutes
+
+- Jours numérotés de 0 (Lundi) à 6 (Dimanche)const groupGaps = analysis.analyzeResourceGaps(ResourceType.GROUP, 90);
+
+- Pause méridienne soustraite automatiquement dans `analyzeResourceGaps()`
+
+- Frontière 13h00 pour distinguer matin/après-midi// Trier par total d'interruptions
+
 const sorted = teacherGaps.sort((a, b) => b.totalGaps - a.totalGaps);
 
+## Voir aussi
+
 // Afficher les 5 plus fragmentés
-sorted.slice(0, 5).forEach(resource => {
-  console.log(`${resource.resourceId}: ${(resource.totalGaps / 60).toFixed(1)}h d'interruptions`);
-  
-  for (const [day, gaps] of resource.dailyGaps) {
+
+- [Schedule.md](./Schedule.md) - Documentation des schedulerssorted.slice(0, 5).forEach(resource => {
+
+- [ConstraintsManager.md](./ConstraintsManager.md) - Gestion des contraintes  console.log(`${resource.resourceId}: ${(resource.totalGaps / 60).toFixed(1)}h d'interruptions`);
+
+- [test-complete-stats.ts](../src/Claude/test-complete-stats.ts) - Affichage complet  
+
+- [test-halfday-grouping.ts](../src/Claude/test-halfday-grouping.ts) - Exemples de regroupement  for (const [day, gaps] of resource.dailyGaps) {
+
     console.log(`  ${gaps.dayOfWeek}: ${gaps.courseCount} cours, ${gaps.numberOfGaps} gaps = ${(gaps.totalGapDuration / 60).toFixed(1)}h`);
   }
 });
@@ -225,28 +525,25 @@ sorted.slice(0, 5).forEach(resource => {
 - Optimiser les plannings pour réduire les temps morts
 - Évaluer la qualité d'une solution de planification
 
-### 7. Détails par ressource
+### 7. Export et rapports
 
-#### `getResourceDetails(resourceId: string): any`
-Retourne les détails complets d'une ressource.
+#### `generateReport(totalTasksExpected?: number): string`
+Génère un rapport textuel complet avec statistiques globales.
 
 ```typescript
-const details = analysis.getResourceDetails('HUBERT Quentin');
-console.log(`Total: ${details.totalHours}h sur ${details.courseCount} cours`);
-
-details.courses.forEach(course => {
-  console.log(`- ${course.name} (${course.day}, ${course.startTime})`);
-});
+const report = analysis.generateReport(80);
+console.log(report);
 ```
 
-### 8. Export et rapports
-
-#### `generateTextReport(): string`
-Génère un rapport textuel complet.
+#### `exportToJSON(): string`
+Exporte toutes les statistiques au format JSON.
 
 ```typescript
-const report = analysis.generateTextReport();
-console.log(report);
+const jsonData = analysis.exportToJSON();
+console.log(jsonData);
+// Ou sauvegarder dans un fichier
+import fs from 'fs';
+fs.writeFileSync('analysis.json', jsonData);
 ```
 
 #### `exportToJSON(): string`
