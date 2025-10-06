@@ -1,4 +1,28 @@
-# EDT-TS - Système de Gestion d'Emploi du Temps
+# ED## ✨ Fonctionnalités
+
+### 🎯 Gestion des Ressources
+- **Types de ressources** : Enseignants, Salles, Groupes
+- **Gestion des disponibilités** : Créneaux optimisés avec intervalles triés
+- **Tracking de charge** : Workload et pressure pour analyser l'utilisation
+- **Indexation optimisée** : Accès O(1) par identifiant
+- **Pause méridienne** : Contrainte automatique de 90 minutes pour les groupes (12:00-14:00)
+
+### ⏰ Planification de Tâches
+- **Réservation de ressources** : Gestion automatique des conflits
+- **Dépendances entre tâches** : Chaînage et validation des cycles
+- **Recherche de créneaux** : Algorithmes optimisés pour trouver les disponibilités
+- **Gestion d'état** : Statuts pending/scheduled/completed/cancelled
+
+### 📊 Analyse et Rapports
+- **Statistiques détaillées** : Compacité, fragmentation, densité des plannings
+- **Analyse des gaps** : Mesure des interruptions entre cours
+- **Regroupement par demi-journée** : Évaluation de la qualité du planning
+- **Affichage statistiques** : Rapports complets formatés dans la console
+- **Export iCal** : Calendriers par niveau avec gestion intelligente
+
+### 📁 Données
+- **Chargement automatique** : Depuis fichiers JSON (teachers, rooms, groups)
+- **Gestion centralisée** : ResourcesManager pour l'ensemble des ressourcesGestion d'Emploi du Temps
 
 Un système de planification et de gestion des ressources pour emplois du temps, développé en TypeScript pour Node.js.
 
@@ -102,6 +126,11 @@ npx tsx src/Claude/test-scheduleAR.ts        # Alternative Resources
 npx tsx src/Claude/test-exp-scheduling.ts     # Version expérimentale
 npx tsx src/Claude/test-mr-ical.ts           # Multi-Rooms + iCal export
 
+# Analyse et statistiques
+npx tsx src/Claude/test-schedule-analysis.ts  # Analyse complète
+npx tsx src/Claude/test-halfday-grouping.ts   # Analyse regroupement
+npx tsx src/Claude/test-complete-stats.ts     # Statistiques complètes console
+
 # Tests de validation
 npx tsx src/Claude/test-lunch-break.ts       # Test pause méridienne
 npx tsx src/Claude/analyze-lunch-breaks.ts   # Analyse pauses (Schedule)
@@ -115,15 +144,24 @@ npm run build                                # Validation du code
 
 ## 🏗️ Architecture
 
+### Planification
 - **schedule.ts** : Planificateur principal avec backtracking et propagation de contraintes
 - **scheduleAR.ts** : Planificateur avec exploration des ressources alternatives (Alternative Resources)
 - **scheduleExp.ts** : Version expérimentale "chirurgicale" avec optimisations avancées
 - **scheduleMR.ts** : Version Multi-Rooms exploitant la flexibilité des salles
+
+### Ressources et Tâches
 - **task.ts** : Classe Task avec gestion des ressources alternatives (ET/OU)
 - **resource.ts** : Gestion des ressources avec disponibilités et contrainte de pause méridienne
 - **bookable.ts** : Système de réservation et gestion des créneaux optimisés
-- **lib/loader.ts** : Chargement JSON + détermination automatique des dépendances
 - **resourcesManager.ts** : Gestionnaire centralisé avec indexation O(1)
+
+### Analyse et Rapports
+- **scheduleAnalysis.ts** : Analyse statistique complète (compacité, fragmentation, gaps)
+
+### Utilitaires
+- **lib/loader.ts** : Chargement JSON + détermination automatique des dépendances
+- **constraintsManager.ts** : Gestion hiérarchisée des contraintes temporelles
 - **constraintsManager.ts** : Application des contraintes temporelles par ressource
 
 ## 🔗 Système de Dépendances Automatique
@@ -278,11 +316,73 @@ Le choix **aléatoire d'une salle unique** au chargement des données explique p
 - Intersection des disponibilités optimisée : **O(n + m)**
 - Détection des dépendances circulaires : **O(V + E)**
 
-## 🛠️ Technologies
+
+## � Génération de Rapports PDF
+
+Le système intègre un générateur de rapports PDF professionnels avec graphiques et tableaux.
+
+### Installation des dépendances PDF
+
+```bash
+npm install pdfkit chart.js canvas chartjs-node-canvas
+npm install --save-dev @types/pdfkit
+```
+
+### Génération d'un rapport
+
+```typescript
+import { ScheduleAnalysisPDF } from './src/scheduleAnalysisPDF.js';
+
+// Après avoir créé une solution
+const analysis = new ScheduleAnalysis(result.solutions);
+const pdfGenerator = new ScheduleAnalysisPDF(analysis);
+
+// Générer le rapport
+await pdfGenerator.generatePDF('src/pdf/planning-analysis.pdf');
+```
+
+### Contenu du rapport
+
+Le PDF généré contient automatiquement :
+
+- **📊 Page de garde** : Statistiques globales, taux de complétion, ressources utilisées
+- **📈 Statistiques globales** : Tableau récapitulatif par type de ressource
+- **👨‍🏫 Section Enseignants** :
+  - Graphique en barres (Top 10 par compacité)
+  - Graphique circulaire (distribution qualité)
+  - Tableau détaillé de tous les enseignants
+- **📚 Section Groupes** : Mêmes analyses
+- **🏫 Section Salles** : Mêmes analyses
+
+**Métriques analysées :**
+- **Compacité** : Ratio entre minimum théorique et nombre réel de demi-journées
+- **Fragmentation** : Nombre de jours avec cours seulement matin OU après-midi
+- **Densité** : Nombre moyen de cours par demi-journée
+
+### Test de génération PDF
+
+```bash
+npx tsx src/Claude/test-pdf-generation.ts
+```
+
+Le rapport est généré dans `src/pdf/planning-analysis.pdf` (~150-300 KB).
+
+## 📚 Documentation
+
+Documentation détaillée disponible dans le dossier `docs/` :
+
+- **[ScheduleAnalysis.md](docs/ScheduleAnalysis.md)** : Analyse statistique complète
+- **[ConstraintsManager.md](docs/ConstraintsManager.md)** : Gestion des contraintes
+- **[Schedule.md](docs/Schedule.md)** : Algorithmes de planification
+- **[Task-Resources.md](docs/Task-Resources.md)** : Gestion des ressources alternatives
+
+## �🛠️ Technologies
 
 - **TypeScript** : Type safety et développement moderne
 - **Node.js** : Runtime JavaScript/TypeScript 
 - **tsx** : Exécution directe des fichiers TypeScript (remplace ts-node)
+- **PDFKit** : Génération de documents PDF
+- **Chart.js** : Création de graphiques
 - **Algorithmes** : Backtracking, propagation de contraintes, heuristiques MCV
 
 ## 📝 License

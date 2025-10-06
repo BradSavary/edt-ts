@@ -576,4 +576,173 @@ export class ScheduleAnalysis {
     
     return results;
   }
+
+  /**
+   * Analyse le regroupement des cours par demi-journée pour chaque ressource
+   * 
+   * Une demi-journée est définie comme :
+   * - Matin : cours se terminant au plus tard à 13h00 (fin <= 780 minutes)
+   * - Après-midi : cours débutant après 13h00 (début > 780 minutes)
+   * - 13h00 est toujours inclus dans la pause méridienne
+   * 
+   * Métrique de regroupement :
+   * - halfDaysUsed : nombre de demi-journées différentes utilisées
+   * - averageCoursesPerHalfDay : densité moyenne (plus élevé = meilleur regroupement)
+   * - compactnessScore : ratio entre minimum théorique et réel (0-1, 1 = parfait)
+   * - fragmentationIndex : nombre de jours avec seulement matin OU après-midi
+   * 
+   * @param resourceType Optionnel : filtrer par type de ressource
+   * @param maxCoursesPerHalfDay Nombre maximum de cours théorique par demi-journée (défaut : 4)
+   * @returns Statistiques de regroupement par ressource
+   */
+  analyzeHalfDayGrouping(resourceType?: ResourceType, maxCoursesPerHalfDay: number = 4): Array<{
+    resourceId: string;
+    resourceType: ResourceType;
+    totalCourses: number;
+    halfDaysUsed: number;
+    minHalfDaysNeeded: number;
+    averageCoursesPerHalfDay: number;
+    compactnessScore: number;
+    fragmentationIndex: number;
+    halfDayBreakdown: Map<string, {
+      day: number;
+      dayOfWeek: string;
+      period: 'morning' | 'afternoon';
+      courseCount: number;
+      totalDuration: number;
+      courses: Array<{ name: string; start: number; duration: number }>;
+    }>;
+    distribution: Map<number, number>;
+  }> {
+    const LUNCH_BREAK = 13 * 60;   // 13h00 = 780 minutes (frontière matin/après-midi)
+
+    // Extraire toutes les ressources uniques
+    const resourcesSet = new Set<string>();
+    const resourceTypeMap = new Map<string, ResourceType>();
+
+    for (const solution of this.solutions) {
+      for (const resource of solution.task.getAllResources()) {
+        if (!resourceType || resource.type === resourceType) {
+          resourcesSet.add(resource.id);
+          resourceTypeMap.set(resource.id, resource.type);
+        }
+      }
+    }
+
+    const results: Array<any> = [];
+
+    // Analyser chaque ressource
+    for (const resourceId of resourcesSet) {
+      const resType = resourceTypeMap.get(resourceId)!;
+
+      // Grouper les cours par demi-journée
+      const halfDayMap = new Map<string, {
+        day: number;
+        dayOfWeek: string;
+        period: 'morning' | 'afternoon';
+        courseCount: number;
+        totalDuration: number;
+        courses: Array<{ name: string; start: number; duration: number }>;
+      }>();
+
+      let totalCourses = 0;
+
+      // Collecter tous les cours de cette ressource
+      for (const solution of this.solutions) {
+        if (solution.task.getAllResources().some(r => r.id === resourceId)) {
+          const day = this.getDayFromMinutes(solution.startTime);
+          const timeOfDay = solution.startTime % (24 * 60);
+          const courseEnd = timeOfDay + solution.task.duration;
+
+          // Déterminer la période (matin ou après-midi)
+          // Matin : cours se termine au plus tard à 13h00 (fin <= 780 minutes)
+          // Après-midi : cours débute après 13h00 (début > 780 minutes)
+          let period: 'morning' | 'afternoon' | null = null;
+
+          if (courseEnd <= LUNCH_BREAK) {
+            period = 'morning';
+          } else if (timeOfDay > LUNCH_BREAK) {
+            period = 'afternoon';
+          }
+
+          // Si le cours est dans une demi-journée valide
+          if (period) {
+            const key = `${day}-${period}`;
+            
+            if (!halfDayMap.has(key)) {
+              halfDayMap.set(key, {
+                day,
+                dayOfWeek: this.getDayOfWeek(day),
+                period,
+                courseCount: 0,
+                totalDuration: 0,
+                courses: []
+              });
+            }
+
+            const halfDay = halfDayMap.get(key)!;
+            halfDay.courseCount++;
+            halfDay.totalDuration += solution.task.duration;
+            halfDay.courses.push({
+              name: solution.task.name,
+              start: solution.startTime,
+              duration: solution.task.duration
+            });
+
+            totalCourses++;
+          }
+        }
+      }
+
+      if (totalCourses === 0) continue;
+
+      // Calculer les métriques
+      const halfDaysUsed = halfDayMap.size;
+      const minHalfDaysNeeded = Math.ceil(totalCourses / maxCoursesPerHalfDay);
+      const averageCoursesPerHalfDay = totalCourses / halfDaysUsed;
+      const compactnessScore = minHalfDaysNeeded / halfDaysUsed;
+
+      // Calculer l'index de fragmentation
+      // Compter les jours où on a seulement le matin OU l'après-midi (pas les deux)
+      const daysUsed = new Map<number, Set<'morning' | 'afternoon'>>();
+      for (const data of halfDayMap.values()) {
+        if (!daysUsed.has(data.day)) {
+          daysUsed.set(data.day, new Set());
+        }
+        daysUsed.get(data.day)!.add(data.period);
+      }
+
+      let fragmentationIndex = 0;
+      for (const periods of daysUsed.values()) {
+        if (periods.size === 1) {
+          fragmentationIndex++;
+        }
+      }
+
+      // Calculer la distribution (combien de demi-journées ont X cours)
+      const distribution = new Map<number, number>();
+      for (const halfDay of halfDayMap.values()) {
+        const count = halfDay.courseCount;
+        distribution.set(count, (distribution.get(count) || 0) + 1);
+      }
+
+      results.push({
+        resourceId,
+        resourceType: resType,
+        totalCourses,
+        halfDaysUsed,
+        minHalfDaysNeeded,
+        averageCoursesPerHalfDay,
+        compactnessScore,
+        fragmentationIndex,
+        halfDayBreakdown: halfDayMap,
+        distribution
+      });
+    }
+
+    // Trier par score de compacité décroissant (meilleurs regroupements en premier)
+    results.sort((a, b) => b.compactnessScore - a.compactnessScore);
+
+    return results;
+  }
 }
