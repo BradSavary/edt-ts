@@ -649,7 +649,7 @@
     "default": [
       {
         "days": "lundi, mercredi, jeudi, vendredi",
-        "from": "13:30",
+        "from": "8:00",
         "to": "19:30"
       }
     ]

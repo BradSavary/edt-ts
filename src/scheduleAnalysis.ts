@@ -69,6 +69,15 @@ interface ResourceDailyLoad {
 }
 
 /**
+ * Scores d'évaluation de la solution
+ */
+export interface SolutionScores {
+  plannedTasks: number;
+  vacataireCompactnessScore: number;
+  permanentCompactnessScore: number;
+}
+
+/**
  * Classe d'analyse de solutions de planification
  * Fournit diverses méthodes d'analyse statistique sur les résultats
  */
@@ -592,10 +601,10 @@ export class ScheduleAnalysis {
    * - fragmentationIndex : nombre de jours avec seulement matin OU après-midi
    * 
    * @param resourceType Optionnel : filtrer par type de ressource
-   * @param maxCoursesPerHalfDay Nombre maximum de cours théorique par demi-journée (défaut : 4)
+   * @param maxCoursesPerHalfDay Nombre maximum de cours théorique par demi-journée (défaut : 2)
    * @returns Statistiques de regroupement par ressource
    */
-  analyzeHalfDayGrouping(resourceType?: ResourceType, maxCoursesPerHalfDay: number = 4): Array<{
+  analyzeHalfDayGrouping(resourceType?: ResourceType, maxCoursesPerHalfDay: number = 2): Array<{
     resourceId: string;
     resourceType: ResourceType;
     totalCourses: number;
@@ -744,5 +753,46 @@ export class ScheduleAnalysis {
     results.sort((a, b) => b.compactnessScore - a.compactnessScore);
 
     return results;
+  }
+
+  /**
+   * Calcule les scores d'évaluation de la solution
+   * 
+   * @returns Objet contenant :
+   *   - plannedTasks : nombre de tâches planifiées
+   *   - vacataireCompactnessScore : somme des scores de compacité des enseignants vacataires
+   *   - permanentCompactnessScore : somme des scores de compacité des enseignants permanents
+   */
+  getSolutionScores(): SolutionScores {
+    // Nombre de tâches planifiées
+    const plannedTasks = this.solutions.length;
+
+    // Analyser le regroupement des enseignants
+    const teacherGrouping = this.analyzeHalfDayGrouping(ResourceType.TEACHER);
+
+    // Calculer la somme des scores de compacité pour les vacataires
+    let vacataireCompactnessScore = 0;
+    let permanentCompactnessScore = 0;
+
+    for (const teacher of teacherGrouping) {
+      // Trouver la ressource correspondante pour obtenir son status
+      const resource = this.getAllUsedResources().find(
+        r => r.id === teacher.resourceId && r.type === ResourceType.TEACHER
+      );
+
+      if (resource && resource.status) {
+        if (resource.status === 'VACATAIRE') {
+          vacataireCompactnessScore += teacher.compactnessScore;
+        } else if (resource.status === 'PERMANENT') {
+          permanentCompactnessScore += teacher.compactnessScore;
+        }
+      }
+    }
+
+    return {
+      plannedTasks,
+      vacataireCompactnessScore,
+      permanentCompactnessScore
+    };
   }
 }

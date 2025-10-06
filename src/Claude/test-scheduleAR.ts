@@ -6,6 +6,7 @@
 import { ScheduleAR } from '../scheduleAR.js';
 import { Loader } from '../lib/loader.js';
 import { exec } from 'child_process';
+import { ScheduleAnalysis } from '../scheduleAnalysis.js';
 
 // Fixer l'encodage de la console pour Windows
 if (process.platform === 'win32') {
@@ -132,11 +133,22 @@ async function testScheduleAR(): Promise<any> {
         // Créer et configurer le planificateur AR
         const scheduler = new ScheduleAR();
         
+        // Configuration : chercher 26 solutions complètes avec timeout de 3 minutes
+        scheduler.setMaxCompleteSolutions(10);
+        scheduler.setTimeoutSeconds(180); // 3 minutes = 180 secondes
+        
         // Mesurer le temps d'exécution
         const startTime = Date.now();
         const result = scheduler.solve();
         const endTime = Date.now();
         const executionTime = endTime - startTime;
+
+        const analysis = new ScheduleAnalysis(result.solutions);
+        const scores = analysis.getSolutionScores();
+
+        console.log(`Tâches planifiées: ${scores.plannedTasks}`);
+        console.log(`Score vacataires: ${scores.vacataireCompactnessScore.toFixed(2)}`);
+        console.log(`Score permanents: ${scores.permanentCompactnessScore.toFixed(2)}`);
         
         // Afficher les métriques de performance
         displayPerformanceMetrics(executionTime, result);
@@ -206,6 +218,8 @@ async function testScheduleAR(): Promise<any> {
         console.error('❌ Erreur lors du test ScheduleAR:', error);
         throw error;
     }
+
+   
 }
 
 // Exécuter le test si ce fichier est lancé directement

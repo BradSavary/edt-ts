@@ -177,6 +177,96 @@ displayResourceStats(ResourceType.GROUP, groupGrouping);
 displayResourceStats(ResourceType.ROOM, roomGrouping);
 
 // ============================================
+// SECTION 3: CHARGE QUOTIDIENNE (ResourceDailyLoad)
+// ============================================
+console.log('\n' + '═'.repeat(80));
+console.log('📅 CHARGE QUOTIDIENNE DES RESSOURCES');
+console.log('═'.repeat(80));
+
+function displayDailyLoad(resourceType: ResourceType): void {
+  const typeNames = {
+    [ResourceType.TEACHER]: 'Enseignants',
+    [ResourceType.GROUP]: 'Groupes',
+    [ResourceType.ROOM]: 'Salles'
+  };
+
+  const dailyLoads = analysis.analyzeResourceDailyLoad(resourceType);
+  
+  console.log(`\n👥 ${typeNames[resourceType]} (${dailyLoads.length} ressources):`);
+  console.log('┌──────────────────────────┬────────────────┬────────────────┬──────────────┐');
+  console.log('│ Ressource                │ Max/jour       │ Moyenne/jour   │ Total        │');
+  console.log('├──────────────────────────┼────────────────┼────────────────┼──────────────┤');
+  
+  dailyLoads.forEach(load => {
+    const maxHours = (load.maxDailyUsage / 60).toFixed(1) + 'h';
+    const avgHours = (load.avgDailyUsage / 60).toFixed(1) + 'h';
+    const totalHours = (load.totalUsage / 60).toFixed(1) + 'h';
+    
+    // Tronquer le nom si trop long
+    let resourceName = load.resourceId;
+    if (resourceName.length > 24) {
+      resourceName = resourceName.substring(0, 21) + '...';
+    }
+    
+    console.log(`│ ${resourceName.padEnd(24)} │ ${maxHours.padStart(14)} │ ${avgHours.padStart(14)} │ ${totalHours.padStart(12)} │`);
+  });
+  
+  console.log('└──────────────────────────┴────────────────┴────────────────┴──────────────┘');
+}
+
+displayDailyLoad(ResourceType.TEACHER);
+displayDailyLoad(ResourceType.GROUP);
+displayDailyLoad(ResourceType.ROOM);
+
+// ============================================
+// SECTION 4: INTERRUPTIONS (ResourceGaps)
+// ============================================
+console.log('\n' + '═'.repeat(80));
+console.log('⏱️  ANALYSE DES INTERRUPTIONS ENTRE COURS');
+console.log('═'.repeat(80));
+
+function displayGapsAnalysis(resourceType: ResourceType): void {
+  const typeNames = {
+    [ResourceType.TEACHER]: 'Enseignants',
+    [ResourceType.GROUP]: 'Groupes',
+    [ResourceType.ROOM]: 'Salles'
+  };
+
+  const gaps = analysis.analyzeResourceGaps(resourceType);
+  
+  console.log(`\n👥 ${typeNames[resourceType]} (${gaps.length} ressources):`);
+  console.log('┌──────────────────────────┬────────────────┬────────────────┬──────────────┐');
+  console.log('│ Ressource                │ Total gaps     │ Nb jours       │ Moy./jour    │');
+  console.log('├──────────────────────────┼────────────────┼────────────────┼──────────────┤');
+  
+  gaps.forEach(gap => {
+    const totalGapsHours = (gap.totalGaps / 60).toFixed(1) + 'h';
+    const nbDays = gap.dailyGaps.size.toString();
+    
+    // Calculer la moyenne par jour
+    let avgGapPerDay = 0;
+    if (gap.dailyGaps.size > 0) {
+      avgGapPerDay = gap.totalGaps / gap.dailyGaps.size / 60;
+    }
+    const avgGapStr = avgGapPerDay.toFixed(1) + 'h';
+    
+    // Tronquer le nom si trop long
+    let resourceName = gap.resourceId;
+    if (resourceName.length > 24) {
+      resourceName = resourceName.substring(0, 21) + '...';
+    }
+    
+    console.log(`│ ${resourceName.padEnd(24)} │ ${totalGapsHours.padStart(14)} │ ${nbDays.padStart(14)} │ ${avgGapStr.padStart(12)} │`);
+  });
+  
+  console.log('└──────────────────────────┴────────────────┴────────────────┴──────────────┘');
+}
+
+displayGapsAnalysis(ResourceType.TEACHER);
+displayGapsAnalysis(ResourceType.GROUP);
+displayGapsAnalysis(ResourceType.ROOM);
+
+// ============================================
 // RÉSUMÉ FINAL
 // ============================================
 console.log('\n' + '═'.repeat(80));

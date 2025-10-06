@@ -1,8 +1,9 @@
 import { Loader } from './lib/loader.js';
 import { Task } from './task.js';
-import { Resource } from './resource.js';
+import { Resource, ResourceType } from './resource.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { ScheduleAnalysis } from './scheduleAnalysis.js';
 
 /**
  * Représente une solution de planification pour une tâche
@@ -10,7 +11,6 @@ import * as path from 'path';
 export interface TaskSolution {
     task: Task;
     startTime: number; // Créneau de début (0-119 pour 5 jours * 24 créneaux)
-    // assignedResources supprimé : utiliser directement task.resources
 }
 
 /**
@@ -431,11 +431,26 @@ export class Schedule {
     /**
      * Évalue la qualité d'une solution
      */
-    protected evaluateSolution(solution: TaskSolution[]): number {
-        // Score simple : nombre de tâches planifiées
-        // C'est le seul critère pertinent car l'algorithme de backtracking
-        // garantit déjà qu'aucun conflit ne peut exister
-        return solution.length * 100;
+    protected  evaluateSolution(solution: TaskSolution[]): number {
+        // Score composite pour différencier les solutions complètes :
+        // 1. Nombre de tâches planifiées (critère principal)
+        // 2. Compacité des enseignants vacataires et permanents
+        // 3. Pénalité pour les interruptions (gaps) entre cours
+
+        const analysis = new ScheduleAnalysis(solution);
+        const scores = analysis.getSolutionScores();
+        
+        // Score principal : tâches planifiées + compacité
+        let score = 0 //scores.plannedTasks * 1000 
+                  + scores.vacataireCompactnessScore * 100 
+                  + scores.permanentCompactnessScore;
+        
+        // Critère secondaire : pénaliser les interruptions (gaps) pour les enseignants
+        const teacherGaps = analysis.analyzeResourceGaps(ResourceType.TEACHER);
+        const totalGaps = teacherGaps.reduce((sum, gap) => sum + gap.totalGaps, 0);
+        score -= totalGaps * 0.01; // Pénalité légère : 0.01 point par minute d'interruption
+        
+        return score;
     }
 
     /**
@@ -522,7 +537,7 @@ export class Schedule {
 
         // Calculer la date du lundi de la semaine 3 de 2026
         const year = 2025;
-        const weekNumber = 44; // Semaine 3 (à modifier si nécessaire)
+        const weekNumber = 47; // Semaine 3 (à modifier si nécessaire)
 
         // Le 1er janvier 2026 est un jeudi
         // Calcul du premier lundi de l'année 2026 : 5 janvier 2026
