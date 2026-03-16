@@ -1,7 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
     "outDir": "dist",
     "paths": {
       "@edt-ts/scheduler-core": ["../scheduler-core/src/index.ts"]

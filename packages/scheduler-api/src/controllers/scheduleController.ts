@@ -3,7 +3,6 @@ import {
   Loader,
   ConstraintsManager,
   ScheduleAR,
-  ResourceType,
 } from '@edt-ts/scheduler-core';
 import type {
   RawScheduleData,
