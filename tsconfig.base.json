@@ -6,7 +6,6 @@
     "lib": ["ES2022"],
     "skipLibCheck": true,
 
-    /* Node.js mode */
     "moduleResolution": "Node",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
@@ -15,16 +14,11 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
 
-    /* Linting */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
-  },
-  "include": ["packages/*/src"],
-  "ts-node": {
-    "esm": true
   }
 }

@@ -1,0 +1,19 @@
+{
+  "name": "@edt-ts/scheduler-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test-ar": "npx tsx examples/test-scheduleAR.ts",
+    "test-standard": "npx tsx examples/test-standard-schedule.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.3",
+    "typescript": "~5.8.3"
+  }
+}

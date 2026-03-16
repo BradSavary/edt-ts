@@ -3,27 +3,16 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "start": "tsx src/example.ts",
-    "example": "tsx src/example.ts",
-    "test-constraints": "tsx src/testConstraints.ts",
-    "test-integration": "tsx src/testIntegration.ts",
-    "test-display": "tsx src/testDisplay.ts",
-    "test-load-tasks": "tsx src/testLoadTasks.ts",
-    "test-loader-properties": "tsx src/testLoaderProperties.ts",
-    "test-schedule": "tsx src/testSchedule.ts",
-    "test-simple-schedule": "tsx src/testSimpleSchedule.ts",
-    "debug-resources": "tsx src/debugResources.ts",
-    "debug-constraints": "tsx src/debugConstraints.ts",
-    "debug-time-units": "tsx src/debugTimeUnits.ts",
-    "debug-teachers": "tsx src/debugTeachers.ts",
-    "debug-task-teachers": "tsx src/debugTaskTeachers.ts",
-    "debug-constraints-application": "tsx src/debugConstraintsApplication.ts",
-    "test-constraints-simple": "tsx src/testConstraintsSimple.ts",
-    "test-slot-conversion": "tsx src/testSlotConversion.ts",
-    "debug-availability": "tsx src/debugAvailability.ts",
-    "build": "tsc --noEmit",
-    "test": "tsx src/example.ts"
+    "test-ar": "npm run test-ar --workspace=packages/scheduler-core",
+    "test-standard": "npm run test-standard --workspace=packages/scheduler-core",
+    "api:dev": "npm run dev --workspace=packages/scheduler-api",
+    "api:start": "npm run start --workspace=packages/scheduler-api",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^22.18.3",
@@ -32,3 +21,4 @@
     "typescript": "~5.8.3"
   }
 }
+
