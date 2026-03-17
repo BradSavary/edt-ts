@@ -1,6 +1,6 @@
-import { ResourcesManager } from '../resourcesManager.js';
-import { Resource, ResourceType } from '../resource.js';
-import { Task } from '../task.js';
+import { ResourcesManager } from '../model/resourcesManager.js';
+import { Resource, ResourceType } from '../model/resource.js';
+import { Task } from '../model/task.js';
 import * as fs from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';

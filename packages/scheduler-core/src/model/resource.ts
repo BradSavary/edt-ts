@@ -1,6 +1,6 @@
-import { AvailabilityManager } from './bookable';
-import type { AvailableSlot } from './bookable';
-import type { Task } from './task';
+import { AvailabilityManager } from './bookable.js';
+import type { AvailableSlot } from './bookable.js';
+import type { Task } from './task.js';
 
 /**
  * Types de ressources disponibles
@@ -11,7 +11,7 @@ const ResourceType = {
   GROUP: 'group'
 } as const;
 
-type ResourceType = typeof ResourceType[keyof typeof ResourceType];
+export type ResourceType = typeof ResourceType[keyof typeof ResourceType];
 
 /**
  * Classe représentant une ressource abstraite avec des plages de disponibilité
@@ -284,4 +284,3 @@ class Resource {
 }
 
 export { Resource, ResourceType };
-export type { ResourceType as ResourceTypeType };

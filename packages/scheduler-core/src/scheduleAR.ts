@@ -15,8 +15,8 @@
 import { Loader } from './lib/loader.js';
 import { Schedule } from './schedule.js';
 import type { ScheduleSolution, TaskSolution } from './schedule.js';
-import type { Task } from './task.js';
-import type { Resource } from './resource.js';
+import type { Task } from './model/task.js';
+import type { Resource } from './model/resource.js';
 
 /**
  * Extension de TaskSolution pour ScheduleAR qui sauvegarde les ressources utilisées

@@ -11,13 +11,13 @@ export { ScheduleAR } from './scheduleAR.js';
 export type { ScheduleSolution, TaskSolution } from './schedule.js';
 
 // --- Modèles de données ---
-export { Task, TaskStatus } from './task.js';
-export { Resource, ResourceType } from './resource.js';
-export { ResourcesManager } from './resourcesManager.js';
+export { Task, TaskStatus } from './model/task.js';
+export { Resource, ResourceType } from './model/resource.js';
+export { ResourcesManager } from './model/resourcesManager.js';
 
 // --- Gestionnaires ---
 export { Loader } from './lib/loader.js';
-export { ConstraintsManager } from './constraintsManager.js';
+export { ConstraintsManager } from './model/constraintsManager.js';
 
 // --- Analyse ---
 export { ScheduleAnalysis } from './scheduleAnalysis.js';
@@ -31,4 +31,4 @@ export type {
   TeacherConstraints,
 } from './lib/loader.js';
 export type { RawScheduleData } from './lib/loader.js';
-export type { AvailableSlot } from './bookable.js';
+export type { AvailableSlot } from './model/bookable.js';

@@ -1,6 +1,6 @@
 import { Loader } from './lib/loader.js';
-import { Task } from './task.js';
-import { Resource, ResourceType } from './resource.js';
+import { Task } from './model/task.js';
+import { Resource, ResourceType } from './model/resource.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';

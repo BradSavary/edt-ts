@@ -1,8 +1,8 @@
 
-import { Resource, ResourceType } from './resource';
-import { AvailabilityManager } from './bookable';
-import type { AvailableSlot } from './bookable';
-import type { CourseTaskData } from './lib/loader';
+import { Resource, ResourceType } from './resource.js';
+import { AvailabilityManager } from './bookable.js';
+import type { AvailableSlot } from './bookable.js';
+import type { CourseTaskData } from '../lib/loader.js';
 
 // ...définitions TaskStatus, TaskScheduleResult, etc...
 

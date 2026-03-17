@@ -4,8 +4,8 @@
  */
 
 import type { TaskSolution } from './schedule.js';
-import type { Resource } from './resource.js';
-import { ResourceType } from './resource.js';
+import type { Resource } from './model/resource.js';
+import { ResourceType } from './model/resource.js';
 
 /**
  * Statistiques d'utilisation pour une ressource
