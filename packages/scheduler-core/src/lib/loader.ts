@@ -1,26 +1,9 @@
-import { ResourcesManager } from '../model/resourcesManager.js';
-import { Resource, ResourceType } from '../model/resource.js';
-import { Task } from '../model/task.js';
+import { ResourcesManager, Resource, ResourceType, Task, ConstraintsManager } from '@edt-ts/scheduler-common';
 import * as fs from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-// Types pour les contraintes JSON
-interface TimeSlot {
-  days: string;
-  from: string;
-  to: string;
-}
-
-interface ResourceConstraints {
-  default?: TimeSlot[] | null;
-  [weekKey: string]: TimeSlot[] | null | undefined; // S36, S38, etc.
-}
-
-interface ConstraintsData {
-  Default?: TimeSlot[];
-  [resourceId: string]: TimeSlot[] | ResourceConstraints | null | undefined;
-}
+import type { ConstraintsData, CourseTaskData, CoursesData } from '@edt-ts/scheduler-common';
 
 // Types pour l'extraction des enseignants
 interface Course {
@@ -34,24 +17,7 @@ interface TeacherConstraints {
   [key: string]: any;
 }
 
-// Types pour les données de cours JSON
-interface CourseTaskData {
-  week: number;
-  semester: number;
-  level: number;
-  code: string;
-  type: string;
-  teacher: string[]; // Array of alternative teachers
-  groups: string[];
-  name: string;
-  rooms: string[];
-  duration: number;
-}
 
-interface CoursesData {
-  weeks: number;
-  courses: CourseTaskData[];
-}
 
 /**
  * Classe utilitaire pour charger des fichiers JSON dans un environnement Node.js
@@ -103,6 +69,7 @@ export class Loader {
    * Recharge toutes les données (utile pour le développement ou les tests)
    */
   static reload(): void {
+    ConstraintsManager.reset();
     this._resourcesManager = null;
     this._tasks = null;
     this._currentWeek = null;    this._rawConstraintsData = null;
@@ -222,6 +189,8 @@ export class Loader {
       // Utiliser le ResourcesManager centralisé
       const resourcesManager = this.resourcesManager;
 
+      // Initialiser ConstraintsManager avec les données de contraintes (idempotent)
+      ConstraintsManager.initialize(Loader.loadConstraints());
       // Appliquer les contraintes pour la semaine spécifiée
       resourcesManager.applyConstraintsForWeek(targetWeek);
 
@@ -668,7 +637,12 @@ export class Loader {
     data.teachers.forEach(t => manager.addResource(new Resource(t.teacher, ResourceType.TEACHER, t.status)));
     this._resourcesManager = manager;
 
-    // Appliquer les contraintes pour la semaine (utilise _rawConstraintsData si défini)
+    // Initialiser ConstraintsManager avec les contraintes fournies
+    ConstraintsManager.reset();
+    if (data.constraints) {
+      ConstraintsManager.initialize(data.constraints);
+    }
+    // Appliquer les contraintes pour la semaine (utilise les données fournies)
     manager.applyConstraintsForWeek(data.week);
 
     // Construire les tâches en utilisant les données brutes
@@ -681,7 +655,7 @@ export class Loader {
 }
 
 // Export des types pour utilisation dans d'autres modules
-export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, Course, TeacherConstraints };
+export type { Course, TeacherConstraints };
 
 /**
  * Interface pour les données brutes acceptées par loadFromRawData (mode API)

@@ -1,6 +1,5 @@
 import { Loader } from './lib/loader.js';
-import { Task } from './model/task.js';
-import { Resource, ResourceType } from './model/resource.js';
+import { Task, Resource, ResourceType } from '@edt-ts/scheduler-common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -344,7 +343,7 @@ export class Schedule {
         
         // Utiliser l'index bidirectionnel pour collecter directement les tâches concernées
         for (const resource of resources) {
-            const resourceTasks = resource.getTasks();
+            const resourceTasks = resource.getTasks() as Task[];
             for (const task of resourceTasks) {
                 tasksToInvalidate.add(task);
             }

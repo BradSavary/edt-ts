@@ -11,24 +11,19 @@ export { ScheduleAR } from './scheduleAR.js';
 export type { ScheduleSolution, TaskSolution } from './schedule.js';
 
 // --- Modèles de données ---
-export { Task, TaskStatus } from './model/task.js';
-export { Resource, ResourceType } from './model/resource.js';
-export { ResourcesManager } from './model/resourcesManager.js';
+export { Task, TaskStatus } from '@edt-ts/scheduler-common';
+export { Resource, ResourceType } from '@edt-ts/scheduler-common';
+export { ResourcesManager } from '@edt-ts/scheduler-common';
 
 // --- Gestionnaires ---
 export { Loader } from './lib/loader.js';
-export { ConstraintsManager } from './model/constraintsManager.js';
+export { ConstraintsManager } from '@edt-ts/scheduler-common';
 
 // --- Analyse ---
 export { ScheduleAnalysis } from './scheduleAnalysis.js';
 
 // --- Types ---
-export type {
-  TimeSlot,
-  ConstraintsData,
-  CourseTaskData,
-  CoursesData,
-  TeacherConstraints,
-} from './lib/loader.js';
+export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData } from '@edt-ts/scheduler-common';
+export type { TeacherConstraints } from './lib/loader.js';
 export type { RawScheduleData } from './lib/loader.js';
-export type { AvailableSlot } from './model/bookable.js';
+export type { AvailableSlot } from '@edt-ts/scheduler-common';

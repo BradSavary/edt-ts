@@ -1,6 +1,9 @@
-import { AvailabilityManager } from './bookable.js';
-import type { AvailableSlot } from './bookable.js';
-import type { Task } from './task.js';
+import { AvailabilityManager } from './bookable.ts';
+import type { AvailableSlot } from './bookable.ts';
+
+// Référence forward pour éviter la dépendance circulaire resource ↔ task
+// Task est uniquement utilisé pour typer le Set interne et les méthodes publiques
+type TaskLike = { readonly id: string };
 
 /**
  * Types de ressources disponibles
@@ -23,7 +26,7 @@ class Resource {
   public readonly status: string | undefined;
   private availabilityManager: AvailabilityManager;
   private _workload: number = 0;
-  private _tasks: Set<Task> = new Set();
+  private _tasks: Set<TaskLike> = new Set();
 
   constructor(id: string, type: ResourceType, status?: string) {
     this.id = id;
@@ -77,28 +80,28 @@ class Resource {
   /**
    * Ajoute une tâche à l'index de cette ressource
    */
-  addTask(task: Task): void {
+  addTask(task: TaskLike): void {
     this._tasks.add(task);
   }
 
   /**
    * Supprime une tâche de l'index de cette ressource
    */
-  removeTask(task: Task): void {
+  removeTask(task: TaskLike): void {
     this._tasks.delete(task);
   }
 
   /**
    * Retourne toutes les tâches qui utilisent cette ressource
    */
-  getTasks(): Task[] {
+  getTasks(): TaskLike[] {
     return Array.from(this._tasks);
   }
 
   /**
    * Vérifie si une tâche utilise cette ressource
    */
-  hasTask(task: Task): boolean {
+  hasTask(task: TaskLike): boolean {
     return this._tasks.has(task);
   }
 
@@ -148,8 +151,6 @@ class Resource {
   isAvailable(start: number, end: number): boolean {
     return this.availabilityManager.isAvailable(start, end);
   }
-
-
 
   /**
    * Réserve un créneau sur cette ressource

@@ -1,5 +1,5 @@
-import { Resource } from './resource';
-import { ConstraintsManager } from './constraintsManager.js';
+import { Resource } from './resource.ts';
+import { ConstraintsManager } from './constraintsManager.ts';
 
 /**
  * Gestionnaire d'un ensemble de ressources avec indexation optimisée
@@ -113,7 +113,6 @@ class ResourcesManager {
     for (const resource of this.resources.values()) {
       const availabilityManager = ConstraintsManager.getAvailabilityManager(resource.id);
       if (availabilityManager) {
-        // Assigner directement l'AvailabilityManager (plus efficace que la copie)
         resource.availability = availabilityManager;
       }
     }
@@ -126,7 +125,6 @@ class ResourcesManager {
     for (const resource of this.resources.values()) {
       const availabilityManager = ConstraintsManager.getAvailabilityManager(resource.id, weekNumber);
       if (availabilityManager) {
-        // Assigner directement l'AvailabilityManager (plus efficace que la copie)
         resource.availability = availabilityManager;
       }
     }

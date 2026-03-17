@@ -19,9 +19,11 @@ Le package `scheduler-api` expose le moteur via HTTP (Express) sans dupliquer la
 - `src/routes/` : routage HTTP
 - `src/controllers/` : orchestration request/response
 
-## Règles d’intégration avec le core
+## Règles d'intégration
 
 - Toute logique de planification reste dans `@edt-ts/scheduler-core`
+- Les modèles partagés (`Resource`, `Task`, `ConstraintsManager`, etc.) viennent de `@edt-ts/scheduler-common`
+- Ne pas réimporter depuis `@edt-ts/scheduler-core` ce qui est déjà exposé par `@edt-ts/scheduler-common`
 - Utiliser `Loader.loadFromRawData()` pour charger les données requête
 - Réinitialiser l’état statique avant résolution :
   - `ConstraintsManager.reset()`

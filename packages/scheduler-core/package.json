@@ -12,6 +12,9 @@
     "test-ar": "npx tsx examples/test-scheduleAR.ts",
     "test-standard": "npx tsx examples/test-standard-schedule.ts"
   },
+  "dependencies": {
+    "@edt-ts/scheduler-common": "*"
+  },
   "devDependencies": {
     "@types/node": "^22.18.3",
     "typescript": "~5.8.3"

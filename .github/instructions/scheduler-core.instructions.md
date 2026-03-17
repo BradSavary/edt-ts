@@ -6,16 +6,17 @@ applyTo: "packages/scheduler-core/**"
 
 Le package `scheduler-core` contient le moteur de planification pur. Il doit rester indépendant de tout framework HTTP.
 
+## Dépendances
+
+- Consomme `@edt-ts/scheduler-common` pour les modèles partagés (`Resource`, `Task`, `ConstraintsManager`, `AvailabilityManager`, etc.)
+- Ne doit pas réimplémenter ce qui est déjà dans `scheduler-common`
+
 ## Architecture & composants clés
 
 - `src/schedule.ts` : planificateur principal (backtracking + propagation)
 - `src/scheduleAR.ts` : scheduler à ressources alternatives (classe minimale exposée)
-- `src/task.ts` : modèle tâche + ressources alternatives
-- `src/resource.ts` : modèle ressource + logique pause méridienne groupe
-- `src/bookable.ts` : disponibilité/réservation de créneaux
 - `src/lib/loader.ts` : chargement JSON + chargement brut (`loadFromRawData`)
-- `src/resourcesManager.ts` : indexation O(1)
-- `src/constraintsManager.ts` : contraintes + cache statique
+- Les modèles (`Resource`, `Task`, `ResourcesManager`, `ConstraintsManager`, `AvailabilityManager`) proviennent de `@edt-ts/scheduler-common`
 
 ## Données & flux
 

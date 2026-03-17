@@ -4,8 +4,8 @@
  */
 
 import type { TaskSolution } from './schedule.js';
-import type { Resource } from './model/resource.js';
-import { ResourceType } from './model/resource.js';
+import type { Resource } from '@edt-ts/scheduler-common';
+import { ResourceType } from '@edt-ts/scheduler-common';
 
 /**
  * Statistiques d'utilisation pour une ressource
