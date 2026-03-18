@@ -1,7 +1,7 @@
 import { Resource, ResourceType } from './resource.ts';
 import { ResourcesManager } from './resourcesManager.ts';
 import { TasksManager } from './tasksManager.ts';
-import { ConstraintsManager } from './constraintsManager.ts';
+import { AvailabilityManager } from './availabilityManager.ts';
 import { Task } from './task.ts';
 import type { ResourceGroupData, CoursesData, ConstraintsData, ResourceEntry } from './types.ts';
 
@@ -10,7 +10,7 @@ import type { ResourceGroupData, CoursesData, ConstraintsData, ResourceEntry } f
  *
  * Construit vide, il s'initialise en trois étapes indépendantes :
  *   1. `initResources()` — peuple le ResourcesManager
- *   2. `initConstraints()` — initialise le ConstraintsManager
+ *   2. `initConstraints()` — initialise l'AvailabilityManager
  *   3. `initTasks()` — construit les tâches et leurs dépendances
  *
  * `isReady` passe à `true` quand les trois étapes sont complètes.
@@ -18,14 +18,14 @@ import type { ResourceGroupData, CoursesData, ConstraintsData, ResourceEntry } f
 export class SchedulerData {
   private _resourcesManager: ResourcesManager | null = null;
   private _tasksManager: TasksManager | null = null;
-  private _constraintsInitialized: boolean = false;
+  private _availabilityManager: AvailabilityManager | null = null;
   private _taskCounter: number = 0;
 
   get isReady(): boolean {
     return (
       this._resourcesManager !== null &&
       this._tasksManager !== null &&
-      this._constraintsInitialized
+      this._availabilityManager !== null
     );
   }
 
@@ -35,6 +35,10 @@ export class SchedulerData {
 
   get tasksManager(): TasksManager | null {
     return this._tasksManager;
+  }
+
+  get availabilityManager(): AvailabilityManager | null {
+    return this._availabilityManager;
   }
 
   /**
@@ -64,13 +68,10 @@ export class SchedulerData {
   }
 
   /**
-   * Initialise le ConstraintsManager avec les données de contraintes fournies.
-   * Réinitialise toujours le gestionnaire statique avant d'appliquer les nouvelles données.
+   * Crée et initialise l'AvailabilityManager avec les données de contraintes fournies.
    */
   initConstraints(data: ConstraintsData): void {
-    ConstraintsManager.reset();
-    ConstraintsManager.initialize(data);
-    this._constraintsInitialized = true;
+    this._availabilityManager = new AvailabilityManager(data);
   }
 
   /**
@@ -85,8 +86,8 @@ export class SchedulerData {
 
     const { weeks: week, courses } = coursesData;
 
-    if (this._constraintsInitialized) {
-      this._resourcesManager.applyConstraintsForWeek(week);
+    if (this._availabilityManager !== null) {
+      this._resourcesManager.applyConstraintsForWeek(week, this._availabilityManager);
     }
 
     this._taskCounter = 0;

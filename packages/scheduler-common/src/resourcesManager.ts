@@ -1,5 +1,5 @@
 import { Resource } from './resource.ts';
-import { ConstraintsManager } from './constraintsManager.ts';
+import { AvailabilityManager } from './availabilityManager.ts';
 
 /**
  * Gestionnaire d'un ensemble de ressources avec indexation optimisée
@@ -107,13 +107,13 @@ class ResourcesManager {
 
   /**
    * Applique les contraintes de disponibilité aux ressources
-   * en utilisant le ConstraintsManager pour la semaine par défaut
+   * en utilisant l'AvailabilityManager pour la semaine par défaut
    */
-  applyConstraints(): void {
+  applyConstraints(am: AvailabilityManager): void {
     for (const resource of this.resources.values()) {
-      const availabilityManager = ConstraintsManager.getAvailabilityManager(resource.id);
-      if (availabilityManager) {
-        resource.availability = availabilityManager;
+      const availability = am.getAvailability(resource.id);
+      if (availability) {
+        resource.availability = availability;
       }
     }
   }
@@ -121,11 +121,11 @@ class ResourcesManager {
   /**
    * Applique les contraintes pour une semaine spécifique
    */
-  applyConstraintsForWeek(weekNumber: number): void {
+  applyConstraintsForWeek(weekNumber: number, am: AvailabilityManager): void {
     for (const resource of this.resources.values()) {
-      const availabilityManager = ConstraintsManager.getAvailabilityManager(resource.id, weekNumber);
-      if (availabilityManager) {
-        resource.availability = availabilityManager;
+      const availability = am.getAvailability(resource.id, weekNumber);
+      if (availability) {
+        resource.availability = availability;
       }
     }
   }
@@ -133,7 +133,7 @@ class ResourcesManager {
   /**
    * Obtient les statistiques des contraintes pour les ressources gérées
    */
-  getConstraintsStats(): {
+  getConstraintsStats(am: AvailabilityManager): {
     resourcesWithConstraints: number;
     resourcesWithOverrides: number;
     averageAvailability: number;
@@ -143,10 +143,10 @@ class ResourcesManager {
     let totalAvailability = 0;
 
     for (const resource of this.resources.values()) {
-      const hasConstraints = ConstraintsManager.hasResource(resource.id);
+      const hasConstraints = am.hasResource(resource.id);
       if (hasConstraints) {
         resourcesWithConstraints++;
-        const overrides = ConstraintsManager.getOverrideWeeks(resource.id);
+        const overrides = am.getOverrideWeeks(resource.id);
         if (overrides.length > 0) {
           resourcesWithOverrides++;
         }

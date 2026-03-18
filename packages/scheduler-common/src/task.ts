@@ -1,6 +1,6 @@
 import { Resource, ResourceType } from './resource.ts';
-import { AvailabilityManager } from './bookable.ts';
-import type { AvailableSlot } from './bookable.ts';
+import { Availability } from './availability.ts';
+import type { AvailableSlot } from './availability.ts';
 import type { CourseTaskData } from './types.ts';
 
 // ...définitions TaskStatus, TaskScheduleResult, etc...
@@ -50,7 +50,7 @@ class Task {
   public readonly availableRooms: Resource[]; // Toutes les salles possibles pour cette tâche
   private status: TaskStatus;
   private scheduledSlot?: AvailableSlot;
-  private _schedulable: AvailabilityManager | null = null;
+  private _schedulable: Availability | null = null;
   private dependsOn: Task | null = null;
   private dependentTasks: Task[] = [];
 
@@ -81,7 +81,7 @@ class Task {
     this.status = TaskStatus.PENDING;
   }
 
-  get schedulable(): AvailabilityManager {
+  get schedulable(): Availability {
     if (this._schedulable === null) {
       this._schedulable = this._computeSchedulable();
     }
@@ -154,10 +154,10 @@ class Task {
     return true;
   }
 
-  private _computeSchedulable(): AvailabilityManager {
+  private _computeSchedulable(): Availability {
     const allResources = this.getAllResources();
     if (allResources.length === 0) {
-      return new AvailabilityManager();
+      return new Availability();
     }
 
     let result = allResources[0].availability.copy();

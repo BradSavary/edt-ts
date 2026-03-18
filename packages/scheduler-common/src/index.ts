@@ -6,8 +6,8 @@
  */
 
 // --- Modèles de disponibilité ---
-export { TimeInterval, AvailabilityManager, TimestampUtils, formatTimestamp, formatInterval, formatIntervals } from './bookable.ts';
-export type { AvailableSlot } from './bookable.ts';
+export { TimeInterval, Availability, TimestampUtils, formatTimestamp, formatInterval, formatIntervals } from './availability.ts';
+export type { AvailableSlot } from './availability.ts';
 
 // --- Modèles de ressources et tâches ---
 export { Resource, ResourceType } from './resource.ts';
@@ -17,7 +17,7 @@ export { ResourcesManager } from './resourcesManager.ts';
 export { TasksManager } from './tasksManager.ts';
 
 // --- Gestionnaire de contraintes ---
-export { ConstraintsManager } from './constraintsManager.ts';
+export { AvailabilityManager } from './availabilityManager.ts';
 
 // --- Données de planification ---
 export { SchedulerData } from './schedulerData.ts';

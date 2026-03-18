@@ -18,7 +18,7 @@ export { TasksManager } from '@edt-ts/scheduler-common';
 
 // --- Gestionnaires ---
 export { Loader } from './loader.js';
-export { ConstraintsManager } from '@edt-ts/scheduler-common';
+export { AvailabilityManager } from '@edt-ts/scheduler-common';
 export { SchedulerData } from '@edt-ts/scheduler-common';
 
 // --- Analyse ---

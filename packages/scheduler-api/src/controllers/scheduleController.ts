@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express';
 import {
   Loader,
-  ConstraintsManager,
   ScheduleAR,
 } from '@edt-ts/scheduler-core';
 import type {
@@ -66,8 +65,7 @@ export async function scheduleHandler(req: Request, res: Response): Promise<void
       return;
     }
 
-    // ── Réinitialisation de l'état statique (important en mode serveur) ──
-    ConstraintsManager.reset();
+    // ── Réinitialisation pour chaque requête ──
     Loader.reload();
 
     // ── Chargement des données brutes dans le moteur ─────────────────────

@@ -93,7 +93,7 @@ class TimeInterval {
  * Gestionnaire de plages de disponibilités
  * Maintient une liste triée d'intervalles non-chevauchants
  */
-class AvailabilityManager {
+class Availability {
   private intervals: TimeInterval[]; // Liste triée par heure de début
 
   constructor() {
@@ -355,8 +355,8 @@ class AvailabilityManager {
    * Retourne une nouvelle instance contenant les créneaux communs
    * Utilise un algorithme optimisé à deux pointeurs exploitant le tri des intervalles
    */
-  intersect(other: AvailabilityManager): AvailabilityManager {
-    const result = new AvailabilityManager();
+  intersect(other: Availability): Availability {
+    const result = new Availability();
     
     // Algorithme à deux pointeurs pour parcourir les listes triées
     let i = 0; // Pointeur pour this.intervals
@@ -407,10 +407,10 @@ class AvailabilityManager {
 
 
   /**
-   * Retourne une copie profonde de l'AvailabilityManager
+   * Retourne une copie profonde de l'Availability
    */
-  copy(): AvailabilityManager {
-    const clone = new AvailabilityManager();
+  copy(): Availability {
+    const clone = new Availability();
     for (const interval of this.intervals) {
       clone.addAvailability(interval.start, interval.end);
     }
@@ -418,10 +418,10 @@ class AvailabilityManager {
   }
 
   /**
-   * Vérifie que tous les créneaux de this sont également disponibles dans un autre AvailabilityManager
+   * Vérifie que tous les créneaux de this sont également disponibles dans un autre Availability
    * Retourne true si chaque intervalle de this est inclus dans au moins un intervalle de other
    */
-  isFullyContainedIn(other: AvailabilityManager): boolean {
+  isFullyContainedIn(other: Availability): boolean {
     for (const interval of this.intervals) {
       let contained = false;
       for (const otherInterval of other.intervals) {
@@ -609,5 +609,5 @@ function formatIntervals(intervals: { start: number, end: number }[]): void {
 }
 
 // Export des classes
-export { TimeInterval, AvailabilityManager, TimestampUtils, formatTimestamp, formatInterval, formatIntervals };
+export { TimeInterval, Availability, TimestampUtils, formatTimestamp, formatInterval, formatIntervals };
 export type { AvailableSlot };

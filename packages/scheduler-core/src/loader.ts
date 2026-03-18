@@ -1,4 +1,4 @@
-import { SchedulerData, ConstraintsManager } from '@edt-ts/scheduler-common';
+import { SchedulerData } from '@edt-ts/scheduler-common';
 import * as fs from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -50,7 +50,6 @@ export class Loader {
   // ── Réinitialisation ────────────────────────────────────────────────────
 
   static reload(): void {
-    ConstraintsManager.reset();
     this._data = new SchedulerData();
     this._currentWeek = null;
     console.log('🔄 Rechargement de toutes les données...');

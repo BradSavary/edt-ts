@@ -1,5 +1,5 @@
-import { AvailabilityManager } from './bookable.ts';
-import type { AvailableSlot } from './bookable.ts';
+import { Availability } from './availability.ts';
+import type { AvailableSlot } from './availability.ts';
 
 // Référence forward pour éviter la dépendance circulaire resource ↔ task
 // Task est uniquement utilisé pour typer le Set interne et les méthodes publiques
@@ -24,7 +24,7 @@ class Resource {
   public readonly id: string;
   public readonly type: ResourceType;
   public readonly status: string | undefined;
-  private availabilityManager: AvailabilityManager;
+  private availabilityManager: Availability;
   private _workload: number = 0;
   private _tasks: Set<TaskLike> = new Set();
 
@@ -32,20 +32,20 @@ class Resource {
     this.id = id;
     this.type = type;
     this.status = type === ResourceType.TEACHER ? status : undefined;
-    this.availabilityManager = new AvailabilityManager();
+    this.availabilityManager = new Availability();
   }
 
   /**
    * Retourne le gestionnaire de disponibilités de cette ressource
    */
-  get availability(): AvailabilityManager {
+  get availability(): Availability {
     return this.availabilityManager;
   }
 
   /**
    * Définit le gestionnaire de disponibilités de cette ressource
    */
-  set availability(manager: AvailabilityManager) {
+  set availability(manager: Availability) {
     this.availabilityManager = manager;
   }
 
@@ -254,9 +254,9 @@ class Resource {
 
   /**
    * Calcule l'intersection des disponibilités avec une autre ressource
-   * Retourne un AvailabilityManager contenant les créneaux communs
+   * Retourne un Availability contenant les créneaux communs
    */
-  intersectWith(other: Resource): AvailabilityManager {
+  intersectWith(other: Resource): Availability {
     return this.availabilityManager.intersect(other.availabilityManager);
   }
 
