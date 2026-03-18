@@ -12,7 +12,7 @@
  * - Gère correctement la propagation et l'annulation des contraintes
  * - Utilise un snapshot des ressources appliquées pour garantir la cohérence
  */
-import { Loader } from './lib/loader.js';
+import { Loader } from './loader.js';
 import { Schedule } from './schedule.js';
 import type { ScheduleSolution, TaskSolution } from './schedule.js';
 import type { Task, Resource } from '@edt-ts/scheduler-common';

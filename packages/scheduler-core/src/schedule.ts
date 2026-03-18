@@ -1,4 +1,4 @@
-import { Loader } from './lib/loader.js';
+import { Loader } from './loader.js';
 import { Task, Resource, ResourceType } from '@edt-ts/scheduler-common';
 import * as fs from 'fs';
 import * as path from 'path';

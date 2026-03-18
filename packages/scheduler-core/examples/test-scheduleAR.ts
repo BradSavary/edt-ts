@@ -4,7 +4,7 @@
  */
 
 import { ScheduleAR } from '../src/scheduleAR.js';
-import { Loader } from '../src/lib/loader.js';
+import { Loader } from '../src/loader.js';
 import { exec } from 'child_process';
 import { ScheduleAnalysis } from '../src/scheduleAnalysis.js';
 
