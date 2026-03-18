@@ -19,4 +19,4 @@ export { ResourcesManager } from './resourcesManager.ts';
 export { ConstraintsManager } from './constraintsManager.ts';
 
 // --- Types de données ---
-export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData } from './types.ts';
+export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, ResourceEntry } from './types.ts';

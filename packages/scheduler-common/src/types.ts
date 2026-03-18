@@ -19,16 +19,24 @@ export interface ConstraintsData {
   [resourceId: string]: TimeSlot[] | ResourceConstraints | null | undefined;
 }
 
+/**
+ * Un élément de ressource est soit un identifiant unique (string),
+ * soit un groupe d'alternatives dont une seule sera choisie (string[]).
+ *
+ * Convention : [A, [B, C]] signifie A ET (B OU C).
+ */
+export type ResourceEntry = string | string[];
+
 export interface CourseTaskData {
   week: number;
   semester: number;
   level: number;
   code: string;
   type: string;
-  teacher: string[]; // Array of alternative teachers
-  groups: string[];
+  teacher: ResourceEntry[];
+  groups: ResourceEntry[];
   name: string;
-  rooms: string[];
+  rooms: ResourceEntry[];
   duration: number;
 }
 
