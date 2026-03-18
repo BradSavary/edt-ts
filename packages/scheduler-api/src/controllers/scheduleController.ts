@@ -42,9 +42,11 @@ function serializeSolution(solutions: TaskSolution[]): object[] {
  * Corps attendu de la requête :
  * {
  *   "week": 36,
- *   "teachers": [{ "teacher": "John Doe", "status": "P" }, ...],
- *   "groups":   ["BUT1-G1", "BUT1-G2"],
- *   "rooms":    ["Salle101"],
+ *   "resources": [
+ *     { "resourceType": "teacher", "resources": [{ "id": "John Doe", "info": "{\"status\":\"PERMANENT\"}" }] },
+ *     { "resourceType": "room",    "resources": [{ "id": "Salle101" }] },
+ *     { "resourceType": "group",   "resources": [{ "id": "BUT1-G1" }] }
+ *   ],
  *   "courses":  [ <CourseTaskData>, ... ],
  *   "constraints": { "Default": [...], "John Doe": [...] },  // optionnel
  *   "options": { "maxSolutions": 10, "timeoutSeconds": 60 }  // optionnel
@@ -71,9 +73,7 @@ export async function scheduleHandler(req: Request, res: Response): Promise<void
     // ── Chargement des données brutes dans le moteur ─────────────────────
     Loader.loadFromRawData({
       week: body.week,
-      teachers: body.teachers ?? [],
-      groups: body.groups ?? [],
-      rooms: body.rooms ?? [],
+      resources: body.resources ?? [],
       courses: body.courses,
       constraints: body.constraints,
     });

@@ -16,14 +16,14 @@ export { Resource, ResourceType } from '@edt-ts/scheduler-common';
 export { ResourcesManager } from '@edt-ts/scheduler-common';
 
 // --- Gestionnaires ---
-export { Loader } from './lib/loader.js';
+export { Loader } from './loader.js';
 export { ConstraintsManager } from '@edt-ts/scheduler-common';
+export { SchedulerData } from '@edt-ts/scheduler-common';
 
 // --- Analyse ---
 export { ScheduleAnalysis } from './scheduleAnalysis.js';
 
 // --- Types ---
-export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData } from '@edt-ts/scheduler-common';
-export type { TeacherConstraints } from './lib/loader.js';
-export type { RawScheduleData } from './lib/loader.js';
+export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, ResourceGroupData, ResourceData } from '@edt-ts/scheduler-common';
+export type { RawScheduleData } from './loader.js';
 export type { AvailableSlot } from '@edt-ts/scheduler-common';

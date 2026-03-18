@@ -16,9 +16,7 @@ router.get('/health', healthHandler);
  * Corps JSON attendu :
  * {
  *   "week": <number>,
- *   "teachers": [{ "teacher": string, "status": string }],
- *   "groups":   [string],
- *   "rooms":    [string],
+ *   "resources": [{ "resourceType": "teacher"|"room"|"group", "resources": [{ "id": string, "info"?: string }] }],
  *   "courses":  [CourseTaskData],
  *   "constraints": ConstraintsData,   // optionnel
  *   "options": { "maxSolutions": number, "timeoutSeconds": number } // optionnel

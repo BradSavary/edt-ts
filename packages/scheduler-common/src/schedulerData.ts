@@ -1,0 +1,188 @@
+import { Resource, ResourceType } from './resource.ts';
+import { ResourcesManager } from './resourcesManager.ts';
+import { ConstraintsManager } from './constraintsManager.ts';
+import { Task } from './task.ts';
+import type { ResourceGroupData, CoursesData, ConstraintsData, ResourceEntry } from './types.ts';
+
+/**
+ * Conteneur des données nécessaires à la planification.
+ *
+ * Construit vide, il s'initialise en trois étapes indépendantes :
+ *   1. `initResources()` — peuple le ResourcesManager
+ *   2. `initConstraints()` — initialise le ConstraintsManager
+ *   3. `initTasks()` — construit les tâches et leurs dépendances
+ *
+ * `isReady` passe à `true` quand les trois étapes sont complètes.
+ */
+export class SchedulerData {
+  private _resourcesManager: ResourcesManager | null = null;
+  private _tasks: Task[] | null = null;
+  private _constraintsInitialized: boolean = false;
+  private _taskCounter: number = 0;
+
+  get isReady(): boolean {
+    return (
+      this._resourcesManager !== null &&
+      this._tasks !== null &&
+      this._constraintsInitialized
+    );
+  }
+
+  get resourcesManager(): ResourcesManager | null {
+    return this._resourcesManager;
+  }
+
+  get tasks(): Task[] | null {
+    return this._tasks;
+  }
+
+  /**
+   * Initialise le ResourcesManager à partir d'un tableau de groupes de ressources.
+   * Peuple automatiquement enseignants (avec leur info), salles et groupes.
+   */
+  initResources(resourcesData: ResourceGroupData[]): void {
+    const manager = new ResourcesManager();
+    for (const group of resourcesData) {
+      for (const r of group.resources) {
+        switch (group.resourceType) {
+          case 'teacher': {
+            const info = r.info ? (JSON.parse(r.info) as { status?: string }) : {};
+            manager.addResource(new Resource(r.id, ResourceType.TEACHER, info.status));
+            break;
+          }
+          case 'room':
+            manager.addResource(new Resource(r.id, ResourceType.ROOM));
+            break;
+          case 'group':
+            manager.addResource(new Resource(r.id, ResourceType.GROUP));
+            break;
+        }
+      }
+    }
+    this._resourcesManager = manager;
+  }
+
+  /**
+   * Initialise le ConstraintsManager avec les données de contraintes fournies.
+   * Réinitialise toujours le gestionnaire statique avant d'appliquer les nouvelles données.
+   */
+  initConstraints(data: ConstraintsData): void {
+    ConstraintsManager.reset();
+    ConstraintsManager.initialize(data);
+    this._constraintsInitialized = true;
+  }
+
+  /**
+   * Construit le tableau de tâches à partir des données de cours.
+   * Applique les contraintes hebdomadaires aux ressources et détermine les dépendances CM→TD→TP.
+   * Requiert que `initResources()` ait été appelé au préalable.
+   */
+  initTasks(coursesData: CoursesData): void {
+    if (!this._resourcesManager) {
+      throw new Error('initResources() doit être appelé avant initTasks()');
+    }
+
+    const { weeks: week, courses } = coursesData;
+
+    if (this._constraintsInitialized) {
+      this._resourcesManager.applyConstraintsForWeek(week);
+    }
+
+    this._taskCounter = 0;
+    const tasks: Task[] = [];
+
+    for (const courseData of courses) {
+      const normalize = (arr: ResourceEntry[]): string[][] =>
+        arr.map(item => (Array.isArray(item) ? item : [item]));
+
+      const teacherGroups = normalize(courseData.teacher);
+      const groupGroups   = normalize(courseData.groups);
+      const roomGroups    = normalize(courseData.rooms);
+
+      // Collecter toutes les salles possibles (nécessaire pour Task.availableRooms)
+      const allRoomResources: Resource[] = [];
+      for (const roomGroup of roomGroups) {
+        for (const id of roomGroup) {
+          const r = this._resourcesManager.getResource(id);
+          if (r) allRoomResources.push(r);
+        }
+      }
+
+      this._taskCounter++;
+      const teacherIds = courseData.teacher.flat().join('_');
+      const taskId = `${courseData.code}_${teacherIds}_${courseData.groups.flat().join('_')}_${this._taskCounter}`;
+      const task = new Task(taskId, courseData, [], allRoomResources);
+
+      task.resources[ResourceType.TEACHER] = [];
+      task.resources[ResourceType.ROOM]    = [];
+      task.resources[ResourceType.GROUP]   = [];
+
+      for (const teacherGroup of teacherGroups) {
+        const group: Resource[] = [];
+        for (const id of teacherGroup) {
+          const r = this._resourcesManager.getResource(id);
+          if (r) { group.push(r); r.addTask(task); }
+        }
+        if (group.length > 0) task.resources[ResourceType.TEACHER].push(group);
+      }
+
+      for (const roomGroup of roomGroups) {
+        const group: Resource[] = [];
+        for (const id of roomGroup) {
+          const r = this._resourcesManager.getResource(id);
+          if (r) { group.push(r); r.addTask(task); }
+        }
+        if (group.length > 0) task.resources[ResourceType.ROOM].push(group);
+      }
+
+      for (const groupGroup of groupGroups) {
+        const group: Resource[] = [];
+        for (const id of groupGroup) {
+          const r = this._resourcesManager.getResource(id);
+          if (r) { group.push(r); r.addTask(task); }
+        }
+        if (group.length > 0) task.resources[ResourceType.GROUP].push(group);
+      }
+
+      tasks.push(task);
+    }
+
+    this._determineDependencies(tasks);
+    this._tasks = tasks;
+  }
+
+  private _determineDependencies(tasks: Task[]): void {
+    const tasksByCode = new Map<string, Task[]>();
+    for (const task of tasks) {
+      const list = tasksByCode.get(task.code) ?? [];
+      list.push(task);
+      tasksByCode.set(task.code, list);
+    }
+
+    for (const codeTasks of tasksByCode.values()) {
+      const cmTasks = codeTasks.filter(t => t.type === 'CM');
+      const tdTasks = codeTasks.filter(t => t.type === 'TD');
+      const tpTasks = codeTasks.filter(t => t.type === 'TP');
+
+      for (const td of tdTasks) {
+        const dep = this._findDependentTask(td, cmTasks);
+        if (dep) td.setDependsOn(dep);
+      }
+      for (const tp of tpTasks) {
+        const dep = this._findDependentTask(tp, tdTasks);
+        if (dep) tp.setDependsOn(dep);
+      }
+    }
+  }
+
+  private _findDependentTask(task: Task, candidates: Task[]): Task | null {
+    const taskGroups = task.getGroups();
+    for (const candidate of candidates) {
+      const candidateGroups = candidate.getGroups();
+      if (taskGroups.length > 0 && taskGroups.every(g => candidateGroups.includes(g))) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+}

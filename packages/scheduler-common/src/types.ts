@@ -10,13 +10,13 @@ export interface TimeSlot {
 }
 
 export interface ResourceConstraints {
-  default?: TimeSlot[] | null;
-  [weekKey: string]: TimeSlot[] | null | undefined; // S36, S38, etc.
+  default?: TimeSlot[];
+  [weekKey: string]: TimeSlot[] | undefined; // S36, S38, etc. — toujours un tableau si présent
 }
 
 export interface ConstraintsData {
   Default?: TimeSlot[];
-  [resourceId: string]: TimeSlot[] | ResourceConstraints | null | undefined;
+  [resourceId: string]: TimeSlot[] | ResourceConstraints | undefined;
 }
 
 /**
@@ -43,4 +43,14 @@ export interface CourseTaskData {
 export interface CoursesData {
   weeks: number;
   courses: CourseTaskData[];
+}
+
+export interface ResourceData {
+  id: string;
+  info?: string; // JSON string pour les métadonnées spécifiques au type (ex: '{"status":"VACATAIRE"}')
+}
+
+export interface ResourceGroupData {
+  resourceType: 'teacher' | 'room' | 'group';
+  resources: ResourceData[];
 }

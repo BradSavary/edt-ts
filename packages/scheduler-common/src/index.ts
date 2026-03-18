@@ -18,5 +18,8 @@ export { ResourcesManager } from './resourcesManager.ts';
 // --- Gestionnaire de contraintes ---
 export { ConstraintsManager } from './constraintsManager.ts';
 
+// --- Données de planification ---
+export { SchedulerData } from './schedulerData.ts';
+
 // --- Types de données ---
-export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, ResourceEntry } from './types.ts';
+export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, ResourceEntry, ResourceData, ResourceGroupData } from './types.ts';
