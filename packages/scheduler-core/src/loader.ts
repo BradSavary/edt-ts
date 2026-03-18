@@ -3,7 +3,9 @@ import * as fs from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-import type { ConstraintsData, CourseTaskData, CoursesData, ResourceGroupData, ResourcesManager, TasksManager } from '@edt-ts/scheduler-common';
+import type { ConstraintsData, CoursesData, ResourceGroupData, ResourcesManager, TasksManager, RawScheduleData } from '@edt-ts/scheduler-common';
+
+export type { RawScheduleData };
 
 /**
  * Loader — point d'entrée Node.js pour la planification.
@@ -107,14 +109,4 @@ export class Loader {
   private static _loadConstraintsFromFile(): ConstraintsData {
     return Loader.loadJson<ConstraintsData>(join(Loader.getJsonDir(), 'contraintes.json'));
   }
-}
-
-/**
- * Données brutes attendues par loadFromRawData (mode API REST).
- */
-export interface RawScheduleData {
-  week: number;
-  resources: ResourceGroupData[];
-  courses: CourseTaskData[];
-  constraints?: ConstraintsData;
 }

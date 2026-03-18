@@ -54,3 +54,29 @@ export interface ResourceGroupData {
   resourceType: 'teacher' | 'room' | 'group';
   resources: ResourceData[];
 }
+
+/**
+ * Données brutes transmises à Loader.loadFromRawData() (mode API REST).
+ * Correspond au corps JSON du POST /api/schedule.
+ */
+export interface RawScheduleData {
+  week: number;
+  resources: ResourceGroupData[];
+  courses: CourseTaskData[];
+  constraints?: ConstraintsData;
+}
+
+/**
+ * Représentation JSON sérialisable d'une tâche planifiée.
+ * Correspond à un élément du tableau `solutions` retourné par POST /api/schedule.
+ */
+export interface TaskSolutionJSON {
+  taskId: string;
+  code: string;
+  name: string;
+  type: string;
+  week: number;
+  duration: number;
+  startTime: number;
+  resources: { id: string; type: string }[];
+}

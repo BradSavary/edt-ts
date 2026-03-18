@@ -23,4 +23,4 @@ export { AvailabilityManager } from './availabilityManager.ts';
 export { SchedulerData } from './schedulerData.ts';
 
 // --- Types de données ---
-export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, ResourceEntry, ResourceData, ResourceGroupData } from './types.ts';
+export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, ResourceEntry, ResourceData, ResourceGroupData, RawScheduleData, TaskSolutionJSON } from './types.ts';

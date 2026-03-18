@@ -25,6 +25,5 @@ export { SchedulerData } from '@edt-ts/scheduler-common';
 export { ScheduleAnalysis } from './scheduleAnalysis.js';
 
 // --- Types ---
-export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, ResourceGroupData, ResourceData } from '@edt-ts/scheduler-common';
-export type { RawScheduleData } from './loader.js';
+export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, ResourceGroupData, ResourceData, RawScheduleData } from '@edt-ts/scheduler-common';
 export type { AvailableSlot } from '@edt-ts/scheduler-common';

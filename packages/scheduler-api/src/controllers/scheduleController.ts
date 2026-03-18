@@ -3,8 +3,8 @@ import {
   Loader,
   ScheduleAR,
 } from '@edt-ts/scheduler-core';
+import type { RawScheduleData, TaskSolutionJSON } from '@edt-ts/scheduler-common';
 import type {
-  RawScheduleData,
   TaskSolution,
   ScheduleSolution,
 } from '@edt-ts/scheduler-core';
@@ -13,7 +13,7 @@ import type {
 // Serialisation d'une TaskSolution vers JSON plain
 // --------------------------------------------------------------------------
 
-function serializeSolution(solutions: TaskSolution[]): object[] {
+function serializeSolution(solutions: TaskSolution[]): TaskSolutionJSON[] {
   return solutions.map(sol => {
     const task = sol.task;
     const resources = task.getAllResources?.() ?? [];
@@ -38,18 +38,67 @@ function serializeSolution(solutions: TaskSolution[]): object[] {
 // --------------------------------------------------------------------------
 
 /**
- * Corps attendu de la requête :
+ * Corps attendu de la requête — sérialisation JSON de `RawScheduleData & { options? }`.
+ *
+ * ```json
  * {
- *   "week": 36,
+ *   "week": 47,
  *   "resources": [
- *     { "resourceType": "teacher", "resources": [{ "id": "John Doe", "info": "{\"status\":\"PERMANENT\"}" }] },
- *     { "resourceType": "room",    "resources": [{ "id": "Salle101" }] },
- *     { "resourceType": "group",   "resources": [{ "id": "BUT1-G1" }] }
+ *     {
+ *       "resourceType": "teacher",
+ *       "resources": [
+ *         { "id": "John Doe", "info": "{\"status\":\"PERMANENT\"}" }
+ *       ]
+ *     },
+ *     {
+ *       "resourceType": "room",
+ *       "resources": [{ "id": "Salle101" }, { "id": "Salle102" }]
+ *     },
+ *     {
+ *       "resourceType": "group",
+ *       "resources": [{ "id": "BUT1-G1" }, { "id": "BUT1-G2" }]
+ *     }
  *   ],
- *   "courses":  [ <CourseTaskData>, ... ],
- *   "constraints": { "Default": [...], "John Doe": [...] },  // optionnel
- *   "options": { "maxSolutions": 10, "timeoutSeconds": 60 }  // optionnel
+ *   "courses": [
+ *     {
+ *       "week": 47,
+ *       "semester": 1,
+ *       "level": 1,
+ *       "code": "R101",
+ *       "type": "CM",
+ *       "name": "Intro programmation",
+ *       "duration": 120,
+ *       "teacher": ["John Doe"],
+ *       "groups": ["BUT1-G1", "BUT1-G2"],
+ *       "rooms": [["Salle101", "Salle102"]]
+ *     }
+ *   ],
+ *   "constraints": {
+ *     "Default": [{ "days": "lundi, mardi, jeudi, vendredi", "from": "08:00", "to": "18:00" }],
+ *     "John Doe": [{ "days": "lundi, mercredi", "from": "09:00", "to": "17:00" }],
+ *     "BUT1-G1": {
+ *       "default": [{ "days": "lundi, mardi, jeudi", "from": "08:00", "to": "18:00" }],
+ *       "S48": [{ "days": "lundi", "from": "08:00", "to": "12:00" }]
+ *     }
+ *   },
+ *   "options": {
+ *     "maxSolutions": 10,
+ *     "timeoutSeconds": 60
+ *   }
  * }
+ * ```
+ *
+ * Notes :
+ * - `resources` : obligatoire en pratique. Si absent ou vide, aucune ressource n'est chargée
+ *   et la planification produira un résultat vide.
+ * - `constraints` : optionnel. Si absent, aucune contrainte de disponibilité n'est appliquée —
+ *   les ressources sont considérées disponibles sur toute la semaine.
+ *   Les fichiers JSON embarqués (`resources.json`, `contraintes.json`) ne sont jamais lus
+ *   par cet endpoint ; toutes les données doivent être fournies dans le corps de la requête.
+ * - `courses[].teacher/groups/rooms` : chaque élément est soit un `string` (ressource unique),
+ *   soit un `string[]` (alternatives — une seule sera choisie).
+ * - `constraints` — voir `ConstraintsData` : chaque ressource peut avoir des créneaux fixes
+ *   (`TimeSlot[]`) ou des overrides hebdomadaires (`{ default, S36, S47, ... }`).
  */
 export async function scheduleHandler(req: Request, res: Response): Promise<void> {
   try {
