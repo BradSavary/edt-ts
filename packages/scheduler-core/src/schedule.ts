@@ -93,7 +93,7 @@ export class Schedule {
      * Charge les données depuis le Loader
      */
     protected loadData(): void {
-        this.tasks = Loader.tasks;
+        this.tasks = Loader.tasksManager.getAllTasks();
       //  this.resources = Array.from(Loader.resourcesManager.getAllResources());
         
         if (this.tasks.length === 0) {

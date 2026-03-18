@@ -1,5 +1,6 @@
 import { Resource, ResourceType } from './resource.ts';
 import { ResourcesManager } from './resourcesManager.ts';
+import { TasksManager } from './tasksManager.ts';
 import { ConstraintsManager } from './constraintsManager.ts';
 import { Task } from './task.ts';
 import type { ResourceGroupData, CoursesData, ConstraintsData, ResourceEntry } from './types.ts';
@@ -16,14 +17,14 @@ import type { ResourceGroupData, CoursesData, ConstraintsData, ResourceEntry } f
  */
 export class SchedulerData {
   private _resourcesManager: ResourcesManager | null = null;
-  private _tasks: Task[] | null = null;
+  private _tasksManager: TasksManager | null = null;
   private _constraintsInitialized: boolean = false;
   private _taskCounter: number = 0;
 
   get isReady(): boolean {
     return (
       this._resourcesManager !== null &&
-      this._tasks !== null &&
+      this._tasksManager !== null &&
       this._constraintsInitialized
     );
   }
@@ -32,8 +33,8 @@ export class SchedulerData {
     return this._resourcesManager;
   }
 
-  get tasks(): Task[] | null {
-    return this._tasks;
+  get tasksManager(): TasksManager | null {
+    return this._tasksManager;
   }
 
   /**
@@ -89,7 +90,7 @@ export class SchedulerData {
     }
 
     this._taskCounter = 0;
-    const tasks: Task[] = [];
+    const manager = new TasksManager();
 
     for (const courseData of courses) {
       const normalize = (arr: ResourceEntry[]): string[][] =>
@@ -144,11 +145,11 @@ export class SchedulerData {
         if (group.length > 0) task.resources[ResourceType.GROUP].push(group);
       }
 
-      tasks.push(task);
+      manager.addTask(task);
     }
 
-    this._determineDependencies(tasks);
-    this._tasks = tasks;
+    this._determineDependencies(manager.getAllTasks());
+    this._tasksManager = manager;
   }
 
   private _determineDependencies(tasks: Task[]): void {

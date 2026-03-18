@@ -54,7 +54,7 @@ export class ScheduleAR extends Schedule {
      * au lieu d'aléatoire comme dans Schedule
      */
     protected loadData(): void {
-        this.tasks = Loader.tasks;
+        this.tasks = Loader.tasksManager.getAllTasks();
         this.resources = Array.from(Loader.resourcesManager.getAllResources());
         
         if (this.tasks.length === 0) {

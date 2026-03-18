@@ -14,6 +14,7 @@ export { Resource, ResourceType } from './resource.ts';
 export { Task, TaskStatus } from './task.ts';
 export type { TaskScheduleResult } from './task.ts';
 export { ResourcesManager } from './resourcesManager.ts';
+export { TasksManager } from './tasksManager.ts';
 
 // --- Gestionnaire de contraintes ---
 export { ConstraintsManager } from './constraintsManager.ts';

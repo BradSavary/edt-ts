@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-import type { ConstraintsData, CourseTaskData, CoursesData, ResourceGroupData, ResourcesManager, Task } from '@edt-ts/scheduler-common';
+import type { ConstraintsData, CourseTaskData, CoursesData, ResourceGroupData, ResourcesManager, TasksManager } from '@edt-ts/scheduler-common';
 
 /**
  * Loader — point d'entrée Node.js pour la planification.
@@ -26,8 +26,8 @@ export class Loader {
     return this._data.resourcesManager!;
   }
 
-  static get tasks(): Task[] {
-    if (!this._data.tasks) {
+  static get tasksManager(): TasksManager {
+    if (!this._data.tasksManager) {
       // S'assure que les ressources sont chargées
       void this.resourcesManager;
       const coursesData = Loader.loadJson<CoursesData>(join(Loader.getJsonDir(), 'cours.json'));
@@ -35,14 +35,14 @@ export class Loader {
       console.log(`📚 Chargement des tâches pour la semaine ${coursesData.weeks}`);
       this._data.initTasks(coursesData);
       this._currentWeek = coursesData.weeks;
-      console.log(`✅ ${this._data.tasks!.length} tâches chargées pour la semaine ${this._currentWeek}`);
+      console.log(`✅ ${this._data.tasksManager!.getTaskCount()} tâches chargées pour la semaine ${this._currentWeek}`);
     }
-    return this._data.tasks!;
+    return this._data.tasksManager!;
   }
 
   static get currentWeek(): number | null {
-    if (this._currentWeek === null && !this._data.tasks) {
-      void this.tasks; // force le chargement
+    if (this._currentWeek === null && !this._data.tasksManager) {
+      void this.tasksManager; // force le chargement
     }
     return this._currentWeek;
   }
@@ -58,7 +58,7 @@ export class Loader {
 
   // ── Chargement par semaine ───────────────────────────────────────────────
 
-  static loadTasksForWeek(weekNumber: number): Task[] {
+  static loadTasksForWeek(weekNumber: number): TasksManager {
     this._data = new SchedulerData();
     this._data.initResources(Loader.loadJson<ResourceGroupData[]>(join(Loader.getJsonDir(), 'resources.json')));
     this._data.initConstraints(Loader._loadConstraintsFromFile());
@@ -66,8 +66,8 @@ export class Loader {
     console.log(`📚 Chargement des tâches pour la semaine ${weekNumber}`);
     this._data.initTasks({ weeks: weekNumber, courses: allCourses.courses });
     this._currentWeek = weekNumber;
-    console.log(`✅ ${this._data.tasks!.length} tâches chargées pour la semaine ${weekNumber}`);
-    return this._data.tasks!;
+    console.log(`✅ ${this._data.tasksManager!.getTaskCount()} tâches chargées pour la semaine ${weekNumber}`);
+    return this._data.tasksManager!;
   }
 
   // ── Mode API (données fournies en mémoire) ───────────────────────────────
@@ -85,7 +85,7 @@ export class Loader {
     console.log(`📚 Chargement des tâches pour la semaine ${data.week}`);
     this._data.initTasks({ weeks: data.week, courses: data.courses });
     this._currentWeek = data.week;
-    console.log(`✅ ${this._data.tasks!.length} tâches chargées pour la semaine ${data.week}`);
+    console.log(`✅ ${this._data.tasksManager!.getTaskCount()} tâches chargées pour la semaine ${data.week}`);
   }
 
   // ── Utilitaires JSON ────────────────────────────────────────────────────

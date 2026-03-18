@@ -14,6 +14,7 @@ export type { ScheduleSolution, TaskSolution } from './schedule.js';
 export { Task, TaskStatus } from '@edt-ts/scheduler-common';
 export { Resource, ResourceType } from '@edt-ts/scheduler-common';
 export { ResourcesManager } from '@edt-ts/scheduler-common';
+export { TasksManager } from '@edt-ts/scheduler-common';
 
 // --- Gestionnaires ---
 export { Loader } from './loader.js';

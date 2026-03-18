@@ -89,7 +89,7 @@ function displayPerformanceMetrics(executionTime: number, result: any): void {
     console.log(`🔍 Conflits détectés: ${result.conflictCount || 0}`);
     
     // Calcul du taux de réussite
-    const tasks = Loader.tasks;
+    const tasks = Loader.tasksManager.getAllTasks();
     const successRate = (result.solutions.length / tasks.length * 100).toFixed(1);
     console.log(`📈 Taux de réussite: ${successRate}%`);
 }
@@ -106,7 +106,7 @@ async function testScheduleAR(): Promise<any> {
         Loader.reload();
         
         // Analyser les données chargées
-        const tasks = Loader.tasks;
+        const tasks = Loader.tasksManager.getAllTasks();
         console.log(`📚 Données chargées:`);
         console.log(`   📋 Tâches totales: ${tasks.length}`);
         console.log(`   🏢 Ressources disponibles: ${Loader.resourcesManager.getAllResources().length}`);
