@@ -1,0 +1,125 @@
+﻿name: 🚀 CI — scheduler-client
+
+on:
+  pull_request:
+    paths:
+      - 'packages/scheduler-client/**'
+      - 'packages/scheduler-common/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+
+  # ============================================================
+  # 🧹 LINT (non-bloquant)
+  # ============================================================
+
+  lint:
+    name: 🧹 Lint (non-bloquant)
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🧹 Run lint
+        continue-on-error: true
+        working-directory: packages/scheduler-client
+        run: npm run lint
+
+  # ============================================================
+  # 🧠 TYPECHECK
+  # ============================================================
+
+  typecheck:
+    name: 🧠 Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🧠 Run typecheck
+        run: npm run typecheck --workspace=packages/scheduler-client
+
+  # ============================================================
+  # 🏗️ BUILD
+  # ============================================================
+
+  build:
+    name: 🏗️ Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🏗️ Next.js build
+        run: npm run client:build
+
+  # ============================================================
+  # 🧪 UNIT TESTS (placeholder)
+  # ============================================================
+
+  unit-tests:
+    name: 🧪 Unit Tests (placeholder)
+    runs-on: ubuntu-latest
+    steps:
+      - name: ✅ Placeholder
+        shell: bash
+        run: |
+          echo "No unit tests yet. TODO: add test runner (Jest, Vitest...)."
+
+  # ============================================================
+  # 🧪 E2E TESTS (placeholder)
+  # ============================================================
+
+  e2e-tests:
+    name: 🧪 E2E Tests (placeholder)
+    runs-on: ubuntu-latest
+    steps:
+      - name: ✅ Placeholder
+        shell: bash
+        run: |
+          echo "No e2e tests yet. TODO: add Playwright."
+
+  # ============================================================
+  # 📊 FINAL SUMMARY
+  # ============================================================
+
+  success:
+    name: ✅ All Checks Passed
+    if: ${{ success() }}
+    needs: [lint, typecheck, build, unit-tests, e2e-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🎉 Summary
+        shell: bash
+        run: |
+          echo "All scheduler-client checks passed for PR #${{ github.event.pull_request.number }}."
