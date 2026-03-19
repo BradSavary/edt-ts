@@ -5,6 +5,7 @@ Ce fichier contient les règles globales du workspace. Les règles métier déta
 - `.github/instructions/scheduler-common.instructions.md`
 - `.github/instructions/scheduler-core.instructions.md`
 - `.github/instructions/scheduler-api.instructions.md`
+- `.github/instructions/scheduler-client.instructions.md`
 
 ## Structure du repository
 

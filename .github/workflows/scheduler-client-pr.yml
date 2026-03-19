@@ -84,31 +84,54 @@ jobs:
         run: npm run client:build
 
   # ============================================================
-  # 🧪 UNIT TESTS (placeholder)
+  # 🧪 UNIT TESTS (Vitest)
   # ============================================================
 
   unit-tests:
-    name: 🧪 Unit Tests (placeholder)
+    name: 🧪 Unit Tests
     runs-on: ubuntu-latest
     steps:
-      - name: ✅ Placeholder
-        shell: bash
-        run: |
-          echo "No unit tests yet. TODO: add test runner (Jest, Vitest...)."
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🧪 Run unit tests
+        run: npm run test --workspace=packages/scheduler-client
 
   # ============================================================
-  # 🧪 E2E TESTS (placeholder)
+  # 🧪 E2E TESTS (Playwright)
   # ============================================================
 
   e2e-tests:
-    name: 🧪 E2E Tests (placeholder)
+    name: 🧪 E2E Tests (Playwright)
     runs-on: ubuntu-latest
     steps:
-      - name: ✅ Placeholder
-        shell: bash
-        run: |
-          echo "No e2e tests yet. TODO: add Playwright."
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
 
+      - name: 🔧 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🎥 Install Playwright browsers
+        working-directory: packages/scheduler-client
+        run: npx playwright install --with-deps chromium
+
+      - name: 🧪 Run E2E tests
+        run: npm run test:e2e --workspace=packages/scheduler-client
   # ============================================================
   # 📊 FINAL SUMMARY
   # ============================================================
