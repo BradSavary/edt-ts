@@ -18,7 +18,20 @@
       "name": "Anglais",
       "rooms": [
         "101"
-      ]
+      ],
+       "enforced": {
+        "startTime": 930, 
+        "teacher": [
+          "ROUSSEAU Camille"
+        ],
+        "groups": [
+          "BUT1-G1",
+          "BUT1-G2"
+        ],
+        "rooms": [
+          "101"
+        ]
+      } 
     },
     {
       "week": 36,
