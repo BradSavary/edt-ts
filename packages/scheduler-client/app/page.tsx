@@ -11,7 +11,7 @@ export default function SchedulePage() {
   const [constraintsFile, setConstraintsFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<{ message: string; kind: 'ok' | 'err' | 'inf' } | null>(null);
-  const [result, setResult] = useState<{ isComplete: boolean; scheduledCount: number; conflictCount: number; solutions: TaskSolutionJSON[] } | null>(null);
+  const [result, setResult] = useState<{ isComplete: boolean; scheduledCount: number; conflictCount: number; solutions: TaskSolutionJSON[]; week: number } | null>(null);
 
   async function readJSON<T>(file: File): Promise<T> {
     const text = await file.text();
@@ -68,7 +68,7 @@ export default function SchedulePage() {
         throw new Error(data.error ?? `Erreur ${response.status}`);
       }
 
-      setResult(data);
+      setResult({ ...data, week: weekNum });
       const summary = `${data.isComplete ? '✅ Planification complète' : '⚠️ Incomplète'} — ${data.scheduledCount} cours, ${data.conflictCount} conflit(s)`;
       setStatus({ message: summary, kind: data.isComplete ? 'ok' : 'err' });
     } catch (err: unknown) {
@@ -155,7 +155,7 @@ export default function SchedulePage() {
         )}
 
         {result && (
-          <ScheduleCalendar solutions={result.solutions} week={parseInt(week, 10)} />
+          <ScheduleCalendar solutions={result.solutions} week={result.week} />
         )}
 
         {result && (
