@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { RawScheduleData, TaskSolutionJSON } from '@edt-ts/scheduler-common';
 import { parseCsvCourses } from '../lib/parseCsvCourses';
-
+import ScheduleCalendar from './ScheduleCalendar';
 export default function SchedulePage() {
   const [week, setWeek] = useState('');
   const [resourcesFile, setResourcesFile] = useState<File | null>(null);
@@ -152,6 +152,10 @@ export default function SchedulePage() {
           <div className={`mt-6 p-4 rounded-lg ${status.kind === 'ok' ? 'bg-green-100 text-green-700' : status.kind === 'err' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
             {status.message}
           </div>
+        )}
+
+        {result && (
+          <ScheduleCalendar solutions={result.solutions} week={parseInt(week, 10)} />
         )}
 
         {result && (
