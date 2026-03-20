@@ -144,6 +144,7 @@ export default function ScheduleCalendar({ solutions, week }: Props) {
         Calendrier — Semaine {week}
       </h2>
       <FullCalendar
+        key={week}
         plugins={[timeGridPlugin]}
         initialView="timeGridWeek"
         initialDate={monday}
