@@ -30,6 +30,7 @@ export class ScheduleAR extends Schedule {
     private maxCompleteSolutions: number = 6;
     private startTime: number = 0;
     private maxTimeMs: number = 3 * 60 * 1000; // 3 minutes par défaut
+    protected firstNonEnforcedIndex: number = 0;
     
     /**
      * Configure le nombre de solutions complètes à trouver avant d'arrêter
@@ -66,16 +67,17 @@ export class ScheduleAR extends Schedule {
         }
         
         // SÉLECTION DÉTERMINISTE: Appliquer la PREMIÈRE combinaison de ressources à chaque tâche
+        // Les tâches enforced obtiennent leurs ressources depuis enforced.* (déjà validées plates)
         // ScheduleAR explorera ensuite toutes les combinaisons pendant le backtracking
         console.log('🎯 Sélection déterministe des jeux de ressources (première combinaison)...');
         let tasksWithoutResources = 0;
         for (const task of this.tasks) {
+            if (task.isEnforced) continue; // Les ressources enforced sont gérées plus bas
             const allCombinations = task.getApplicableResources();
             if (allCombinations.length === 0) {
                 console.warn(`⚠️  Aucune combinaison de ressources disponible pour ${task.name}`);
                 tasksWithoutResources++;
             } else {
-                // Toujours utiliser la première combinaison (comportement déterministe)
                 task.appliedResources = allCombinations[0];
             }
         }
@@ -84,10 +86,48 @@ export class ScheduleAR extends Schedule {
         }
         console.log('✅ Jeux de ressources appliqués (déterministe)\n');
         
-        // STRATÉGIE SIMPLIFIÉE: Trier les tâches par contraintes croissantes
+        // Trier: enforced en tête, puis par score de contrainte croissant
         console.log('🎯 Application de la priorisation par contraintes...');
-        this.tasks.sort((a, b) => this.getTaskConstraintScore(a) - this.getTaskConstraintScore(b));
+        this.tasks.sort((a, b) => {
+            if (a.isEnforced && !b.isEnforced) return -1;
+            if (!a.isEnforced && b.isEnforced) return 1;
+            return this.getTaskConstraintScore(a) - this.getTaskConstraintScore(b);
+        });
         console.log('✅ Tâches triées par ordre de difficulté\n');
+
+        // Calculer l'index de la première tâche non-enforced
+        const idx = this.tasks.findIndex(t => !t.isEnforced);
+        this.firstNonEnforcedIndex = idx === -1 ? this.tasks.length : idx;
+
+        // Pré-booking des tâches enforced : résoudre leurs ressources et réserver les créneaux
+        if (this.firstNonEnforcedIndex > 0) {
+            console.log(`⚓ ${this.firstNonEnforcedIndex} tâche(s) enforced — placement imposé en cours...`);
+            const resourcesManager = Loader.resourcesManager;
+            for (let i = 0; i < this.firstNonEnforcedIndex; i++) {
+                const task = this.tasks[i];
+                const enforced = task.enforced!;
+                const enforcedResources = [
+                    ...enforced.teacher,
+                    ...enforced.groups,
+                    ...enforced.rooms,
+                ].map(id => resourcesManager.getResource(id))
+                 .filter((r): r is NonNullable<ReturnType<typeof resourcesManager.getResource>> => r !== undefined);
+
+                task.appliedResources = enforcedResources;
+
+                // Warning si une ressource n'est pas disponible au créneau imposé
+                for (const resource of enforcedResources) {
+                    if (!resource.availability.isAvailable(enforced.startTime, enforced.startTime + task.duration)) {
+                        console.warn(`⚠️ Tâche enforced "${task.name}" (${task.code}): ressource "${resource.id}" non disponible au créneau imposé.`);
+                    }
+                }
+
+                // Réserver les créneaux (booking direct, ne sera jamais undone)
+                // On passe appliedResources pour que ScheduleAR.applyConstraints (qui cast en TaskSolutionAR) trouve le champ
+                this.applyConstraints({ task, startTime: enforced.startTime, appliedResources: enforcedResources } as TaskSolution);
+            }
+            console.log('✅ Créneaux enforced réservés.\n');
+        }
     }
     
     /**
@@ -107,8 +147,23 @@ export class ScheduleAR extends Schedule {
         this.completeSolutionsFound = 0;
         this.startTime = Date.now();
         
-        // Tri initial
-        this.tasks.sort((a, b) => this.getCurrentConstraintScore(b) - this.getCurrentConstraintScore(a));
+        // Tri initial (en préservant les enforced en tête)
+        this.tasks.sort((a, b) => {
+            if (a.isEnforced && !b.isEnforced) return -1;
+            if (!a.isEnforced && b.isEnforced) return 1;
+            return this.getCurrentConstraintScore(b) - this.getCurrentConstraintScore(a);
+        });
+
+        // Pré-peupler la solution avec les tâches enforced (déjà bookées dans loadData)
+        for (let i = 0; i < this.firstNonEnforcedIndex; i++) {
+            const task = this.tasks[i];
+            const enforcedSol: TaskSolutionAR = {
+                task,
+                startTime: task.enforced!.startTime,
+                appliedResources: [...task.appliedResources],
+            };
+            this.solution.push(enforcedSol);
+        }
         
         console.log(`📋 ${this.tasks.length} tâches à planifier`);
         console.log(`🏢 ${this.resources.length} ressources disponibles`);
@@ -120,9 +175,9 @@ export class ScheduleAR extends Schedule {
         // Analyser le potentiel de ressources alternatives
         this.analyzeAlternativesPotential();
         
-        // Lancement du backtracking
+        // Lancement du backtracking (depuis la première tâche non-enforced)
         const startTime = Date.now();
-        const foundComplete = this.backtrack(0);
+        const foundComplete = this.backtrack(this.firstNonEnforcedIndex);
         const endTime = Date.now();
         
         console.log(`\n⏱️ Résolution AR terminée en ${endTime - startTime}ms`);

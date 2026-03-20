@@ -36,6 +36,7 @@ export class Schedule {
     protected maxIterations: number = 1000000; // Limite de sécurité augmentée
     protected currentIterations: number = 0;
     protected limitWarningShown: boolean = false;
+    protected firstNonEnforcedIndex: number = 0;
 
     constructor() {
         // Les données seront chargées via Loader lors de la résolution
@@ -57,17 +58,26 @@ export class Schedule {
         this.bestScore = -Infinity;
         this.currentIterations = 0;
         
-    // Tri initial par disponibilité des ressources (état de base)
-    // Traite d'abord les tâches avec le score le plus élevé (plus contraint)
-    this.tasks.sort((a, b) => this.getCurrentConstraintScore(b) - this.getCurrentConstraintScore(a));
+    // Tri initial par disponibilité des ressources (en préservant les enforced en tête)
+    this.tasks.sort((a, b) => {
+        if (a.isEnforced && !b.isEnforced) return -1;
+        if (!a.isEnforced && b.isEnforced) return 1;
+        return this.getCurrentConstraintScore(b) - this.getCurrentConstraintScore(a);
+    });
+
+    // Pré-peupler la solution avec les tâches enforced (déjà bookées dans loadData)
+    for (let i = 0; i < this.firstNonEnforcedIndex; i++) {
+        const task = this.tasks[i];
+        this.solution.push({ task, startTime: task.enforced!.startTime });
+    }
      
         console.log(`📋 ${this.tasks.length} tâches à planifier`);
         console.log(`🏢 ${this.resources.length} ressources disponibles`);
         console.log(`⏱️ Limite: ${this.maxIterations} itérations, pas de limite de temps`);
         
-        // Lancement de l'algorithme de backtracking
+        // Lancement de l'algorithme de backtracking (depuis la première tâche non-enforced)
         const startTime = Date.now();
-        this.backtrack(0);
+        this.backtrack(this.firstNonEnforcedIndex);
         const endTime = Date.now();
         
         console.log(`⏱️ Résolution terminée en ${endTime - startTime}ms`);
@@ -104,11 +114,11 @@ export class Schedule {
             throw new Error('Aucune ressource disponible. Vérifiez que les ressources sont chargées.');
         }
        */ 
-        // SÉLECTION DES RESSOURCES: Appliquer un jeu de ressources aléatoire à chaque tâche
-        // Ceci doit être fait UNE SEULE FOIS avant la planification
+        // SÉLECTION DES RESSOURCES: ressources aléatoires pour les tâches non-enforced
         console.log('🎲 Sélection des jeux de ressources pour chaque tâche...');
         let tasksWithoutResources = 0;
         for (const task of this.tasks) {
+            if (task.isEnforced) continue; // géré plus bas
             const selectedResources = task.getRandomApplicableResources();
             if (!selectedResources) {
                 console.warn(`⚠️  Aucune combinaison de ressources disponible pour ${task.name}`);
@@ -122,12 +132,45 @@ export class Schedule {
         }
         console.log('✅ Jeux de ressources appliqués\n');
         
-        // STRATÉGIE SIMPLIFIÉE: Trier les tâches par contraintes croissantes uniquement
-        // Le tri topologique est redondant car canTaskBeScheduledNow() et getCurrentConstraintScore() 
-        // gèrent déjà les dépendances de manière dynamique
+        // Trier : enforced en tête, puis par score de contrainte croissant
         console.log('🎯 Application de la priorisation par contraintes...');
-        this.tasks.sort((a, b) => this.getTaskConstraintScore(a) - this.getTaskConstraintScore(b));
-        console.log('✅ Tâches triées par ordre de difficulté (tri topologique supprimé car redondant)\n');
+        this.tasks.sort((a, b) => {
+            if (a.isEnforced && !b.isEnforced) return -1;
+            if (!a.isEnforced && b.isEnforced) return 1;
+            return this.getTaskConstraintScore(a) - this.getTaskConstraintScore(b);
+        });
+        console.log('✅ Tâches triées par ordre de difficulté\n');
+
+        // Calculer l'index de la première tâche non-enforced
+        const idx = this.tasks.findIndex(t => !t.isEnforced);
+        this.firstNonEnforcedIndex = idx === -1 ? this.tasks.length : idx;
+
+        // Pré-booking des tâches enforced
+        if (this.firstNonEnforcedIndex > 0) {
+            console.log(`⚓ ${this.firstNonEnforcedIndex} tâche(s) enforced — placement imposé en cours...`);
+            const resourcesManager = Loader.resourcesManager;
+            for (let i = 0; i < this.firstNonEnforcedIndex; i++) {
+                const task = this.tasks[i];
+                const enforced = task.enforced!;
+                const enforcedResources = [
+                    ...enforced.teacher,
+                    ...enforced.groups,
+                    ...enforced.rooms,
+                ].map(id => resourcesManager.getResource(id))
+                 .filter((r): r is NonNullable<ReturnType<typeof resourcesManager.getResource>> => r !== undefined);
+
+                task.appliedResources = enforcedResources;
+
+                for (const resource of enforcedResources) {
+                    if (!resource.availability.isAvailable(enforced.startTime, enforced.startTime + task.duration)) {
+                        console.warn(`⚠️ Tâche enforced "${task.name}" (${task.code}): ressource "${resource.id}" non disponible au créneau imposé.`);
+                    }
+                }
+
+                this.applyConstraints({ task, startTime: enforced.startTime });
+            }
+            console.log('✅ Créneaux enforced réservés.\n');
+        }
     }
 
     /**
