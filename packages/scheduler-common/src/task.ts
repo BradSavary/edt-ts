@@ -1,7 +1,7 @@
 import { Resource, ResourceType } from './resource.ts';
 import { Availability } from './availability.ts';
 import type { AvailableSlot } from './availability.ts';
-import type { CourseTaskData } from './types.ts';
+import type { CourseTaskData, EnforcedData } from './types.ts';
 
 // ...définitions TaskStatus, TaskScheduleResult, etc...
 
@@ -43,6 +43,7 @@ class Task {
   public readonly semester: number;
   public readonly level: number;
   public readonly groups: string[] = [];
+  public readonly enforced: EnforcedData | undefined;
   // Ressources actuellement appliquées à la tâche (une combinaison spécifique)
   private _appliedResources: Resource[] | null = null;
   // Ressources applicables à la tâche (ressources alternatives incluses)
@@ -78,7 +79,12 @@ class Task {
     });
 
     this.availableRooms = [...availableRooms];
+    this.enforced = courseData.enforced;
     this.status = TaskStatus.PENDING;
+  }
+
+  get isEnforced(): boolean {
+    return this.enforced !== undefined;
   }
 
   get schedulable(): Availability {

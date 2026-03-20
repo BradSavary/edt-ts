@@ -27,6 +27,17 @@ export interface ConstraintsData {
  */
 export type ResourceEntry = string | string[];
 
+/**
+ * Placement imposé pour un cours : heure et ressources fixes, sans alternatives.
+ * Prioritaire sur les disponibilités des ressources (peut générer un warning).
+ */
+export interface EnforcedData {
+  startTime: number;   // Minutes depuis lundi minuit
+  teacher: string[];   // IDs exacts, sans alternatives
+  groups: string[];
+  rooms: string[];
+}
+
 export interface CourseTaskData {
   week: number;
   semester: number;
@@ -38,6 +49,7 @@ export interface CourseTaskData {
   name: string;
   rooms: ResourceEntry[];
   duration: number;
+  enforced?: EnforcedData;
 }
 
 export interface CoursesData {
