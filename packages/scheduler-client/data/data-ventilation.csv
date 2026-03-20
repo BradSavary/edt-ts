@@ -1,0 +1,1821 @@
+ Semestre,Parcours,Code,Enseignement,Intervenant,Nature,Groupes,Salles,S35,S36,S37,S38,S39,S40,S41,S42,S43,S44,S45,S46,S47,S48,S49,S50,S51,S52,S1,S2,S3,S4,S5,S6,S7,S8,S9,S10,S11,S12,S13,S14,S15,S16,S17,S18,S19,S20,S21,S22,S23,S24,S25,S26,S27,S28
+
+S1,TC,R1.01,Anglais,ROUSSEAU Camille,TD,"BUT1-G3, BUT1-G4",101,,1.5,,,1.5,,1.5,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.01,Anglais,ROUSSEAU Camille,TD,"BUT1-G1, BUT1-G2",101,,1.5,,,1.5,,1.5,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.01,Anglais,ROUSSEAU Camille,TP,BUT1-G1,Labo,,,1.5,1.5,1.5,1.5,2.0,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.01,Anglais,ROUSSEAU Camille,TP,BUT1-G2,Labo,,,1.5,1.5,1.5,1.5,2.0,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.01,Anglais,ROUSSEAU Camille,TP,BUT1-G3,Labo,,,1.5,1.5,1.5,1.5,2.0,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.01,Anglais,ROUSSEAU Camille,TP,BUT1-G4,Labo,,,1.5,1.5,1.5,1.5,2.0,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.02,Anglais Renforcé ou LV2,ROUSSEAU Camille,TD,"BUT1-G1, BUT1-G2",101,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.02,Anglais Renforcé ou LV2,ROUSSEAU Camille,TD,"BUT1-G3, BUT1-G4",101,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.02,Anglais Renforcé ou LV2,ROUSSEAU Camille,TP,BUT1-G1,Labo,,,,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.02,Anglais Renforcé ou LV2,ROUSSEAU Camille,TP,BUT1-G2,Labo,,,,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.02,Anglais Renforcé ou LV2,ROUSSEAU Camille,TP,BUT1-G3,Labo,,,,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.02,Anglais Renforcé ou LV2,ROUSSEAU Camille,TP,BUT1-G4,Labo,,,,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.03,Ergonomie et Accessibilité,AUBRY Bastien,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.03,Ergonomie et Accessibilité,AUBRY Bastien,TD,"BUT1-G1, BUT1-G2",101,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.03,Ergonomie et Accessibilité,AUBRY Bastien,TD,"BUT1-G3, BUT1-G4",101,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.03,Ergonomie et Accessibilité,MASSON Baptiste,TP,"BUT1-G1, BUT1-G2",,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.03,Ergonomie et Accessibilité,AUBRY Bastien,TP,BUT1-G2,,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.03,Ergonomie et Accessibilité,AUBRY Bastien,TP,BUT1-G2,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.03,Ergonomie et Accessibilité,MASSON Baptiste,TP,"BUT1-G3, BUT1-G4",,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.03,Ergonomie et Accessibilité,AUBRY Bastien,TP,BUT1-G4,,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.03,Ergonomie et Accessibilité,AUBRY Bastien,TP,BUT1-G4,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.04,Culture numérique,MEUNIER Sandrine,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.04,Culture numérique,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2","101, 103, R03",,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.04,Culture numérique,MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4","101, 103, R03",,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.04,Culture numérique,PINAUD Anaïs,TD,"BUT1-G1, BUT1-G2","101, 103, R03",,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.04,Culture numérique,PINAUD Anaïs,TD,"BUT1-G3, BUT1-G4","101, 103, R03",,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.05,Stratégies de communication et marketing,DUBREUIL Anne-Sophie,TD,"BUT1-G1, BUT1-G2",103,,,,,,,,,,,1.5,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.05,Stratégies de communication et marketing,DUBREUIL Anne-Sophie,TD,"BUT1-G3, BUT1-G4",103,,,,,,,,,,,1.5,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.05,Stratégies de communication et marketing,AUBRY Bastien,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4","101, 103",,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.05,Stratégies de communication et marketing,AUBRY Bastien,TD,"BUT1-G1, BUT1-G2",R04,,,2.0,2.0,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.05,Stratégies de communication et marketing,AUBRY Bastien,TD,"BUT1-G3, BUT1-G4",R04,,,2.0,2.0,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.06,"Expression, communication et rhétorique",MEUNIER Sandrine,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.06,"Expression, communication et rhétorique",MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2","101, 103, R03",,,,,1.5,1.5,1.5,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.06,"Expression, communication et rhétorique",MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4","101, 103, R03",,,,,1.5,1.5,1.5,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.06,"Expression, communication et rhétorique",BARBIER Romain,TP,BUT1-G1,"ADM132, R01, R02",,,,,,,,,,,2.0,,2.0,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.06,"Expression, communication et rhétorique",MEUNIER Sandrine,TP,BUT1-G2,"ADM132, R01, R02",,,,,,,,,,,2.0,,2.0,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.06,"Expression, communication et rhétorique",BARBIER Romain,TP,BUT1-G3,"ADM132, R01, R02",,,,,,,,,,,2.0,,2.0,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.06,"Expression, communication et rhétorique",MEUNIER Sandrine,TP,BUT1-G4,"ADM132, R01, R02",,,,,,,,,,,2.0,,2.0,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.06,"Expression, communication et rhétorique",MEUNIER Sandrine,TP,BUT1-G1,"ADM132, R01, R02",,,,,,,,,,,,2.0,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.06,"Expression, communication et rhétorique",BARBIER Romain,TP,BUT1-G2,"ADM132, R01, R02",,,,,,,,,,,,2.0,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.06,"Expression, communication et rhétorique",MEUNIER Sandrine,TP,BUT1-G3,"ADM132, R01, R02",,,,,,,,,,,,2.0,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.06,"Expression, communication et rhétorique",BARBIER Romain,TP,BUT1-G4,"ADM132, R01, R02",,,,,,,,,,,,2.0,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.07,Écriture multimédia et narration,GARNIER Mathieu,TP,BUT1-G1,"R01, R02, ADM132, R04",,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.07,Écriture multimédia et narration,GARNIER Mathieu,TP,BUT1-G2,"R01, R02, ADM132, R04",,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.07,Écriture multimédia et narration,GARNIER Mathieu,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.07,Écriture multimédia et narration,FAURE Celine,TD,"BUT1-G1, BUT1-G2","102, 115",,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.07,Écriture multimédia et narration,GARNIER Mathieu,TD,"BUT1-G3, BUT1-G4","102, 115",,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.07,Écriture multimédia et narration,GARNIER Mathieu,TP,BUT1-G3,"R01, R02, ADM132, R04",,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.07,Écriture multimédia et narration,FAURE Celine,TP,BUT1-G4,"R01, R02, ADM132, R04",,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.08,Production graphique,BERGER Julien,TD,"BUT1-G1, BUT1-G2",102,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.08,Production graphique,BERGER Julien,TD,"BUT1-G3, BUT1-G4",102,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.08,Production graphique,BERGER Julien,TP,BUT1-G1,102,,,,2.0,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.08,Production graphique,BERGER Julien,TP,BUT1-G3,102,,,,2.0,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.08,Production graphique,BERGER Julien,TP,BUT1-G2,102,,,,2.0,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.08,Production graphique,BERGER Julien,TP,BUT1-G4,102,,,,2.0,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.08,Production graphique,MASSON Baptiste,TD,"BUT1-G1, BUT1-G2",102,,,,,,,,4.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.08,Production graphique,MASSON Baptiste,TD,"BUT1-G3, BUT1-G4",102,,,,,,,,4.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.09,Culture artistique,CHEVALIER Charlotte,TD,"BUT1-G1, BUT1-G2",115,,2.0,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.09,Culture artistique,CHEVALIER Charlotte,TD,"BUT1-G3, BUT1-G4",115,,2.0,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.09,Culture artistique,HUBERT Quentin,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4","102, 115",,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.09,Culture artistique,HUBERT Quentin,TD,"BUT1-G1, BUT1-G2","102, 115",,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.09,Culture artistique,HUBERT Quentin,TD,"BUT1-G3, BUT1-G4","102, 115",,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.10,Production audio et vidéo,FAURE Celine,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.10,Production audio et vidéo,FAURE Celine,TD,"BUT1-G1, BUT1-G2","101, 103",,,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.10,Production audio et vidéo,FAURE Celine,TD,"BUT1-G3, BUT1-G4","101, 103",,,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.10,Production audio et vidéo,LAZARE Jean-Cédric,TP,BUT1-G1,Studio,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.10,Production audio et vidéo,LAZARE Jean-Cédric,TP,BUT1-G2,Studio,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.10,Production audio et vidéo,LAZARE Jean-Cédric,TP,BUT1-G3,Studio,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.10,Production audio et vidéo,LAZARE Jean-Cédric,TP,BUT1-G4,Studio,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.10,Production audio et vidéo,LAZARE Jean-Cédric,TP,BUT1-G1,Studio,,,,,,,,,,,,,4.0,4.0,4.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.10,Production audio et vidéo,LAZARE Jean-Cédric,TP,BUT1-G2,Studio,,,,,,,,,,,,,4.0,4.0,4.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.10,Production audio et vidéo,LAZARE Jean-Cédric,TP,BUT1-G3,Studio,,,,,,,,,,,,,4.0,4.0,4.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.10,Production audio et vidéo,LAZARE Jean-Cédric,TP,BUT1-G4,Studio,,,,,,,,,,,,,4.0,4.0,4.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.11,Intégration,HUBERT Quentin,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,1.5,1.5,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.11,Intégration,HUBERT Quentin,TD,"BUT1-G1, BUT1-G2","102, 115",,1.5,,2.0,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.11,Intégration,HUBERT Quentin,TD,"BUT1-G3, BUT1-G4","102, 115",,1.5,,2.0,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.11,Intégration,CEZAC Clément,TP,BUT1-G2,"R02, R01, ADM132, R04",,,,,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.11,Intégration,HUBERT Quentin,TP,BUT1-G1,"R02, R01, ADM132, R04",,,,,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.11,Intégration,CEZAC Clément,TP,BUT1-G3,"R02, R01, ADM132, R04",,,,,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.11,Intégration,HUBERT Quentin,TP,BUT1-G4,"R02, R01, ADM132, R04",,,,,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.12,Développement Web,NOEL Melanie,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.12,Développement Web,GIRARD Damien,TD,"BUT1-G3, BUT1-G4","115, 102",,,1.5,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.12,Développement Web,NOEL Melanie,TD,"BUT1-G1, BUT1-G2","115, 102",,,1.5,,,1.5,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.12,Développement Web,GIRARD Damien,TP,BUT1-G2,"R02, R01, ADM132, R04, 115, 102",,,,2.0,2.0,2.0,2.0,,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.12,Développement Web,PICARD Delphine,TP,BUT1-G1,"R02, R01, ADM132, R04, 115, 102",,,,2.0,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.12,Développement Web,TESSIER Pauline,TP,BUT1-G4,"R02, R01, ADM132, R04, 115, 103",,,,2.0,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.12,Développement Web,NOEL Melanie,TP,BUT1-G3,R04,,,,2.0,2.0,2.0,2.0,,,,4.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.13,Hébergement,RENAUD Kevin,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.13,Hébergement,TESSIER Pauline,TP,BUT1-G1,"R01, R02",,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.13,Hébergement,RENAUD Kevin,TP,BUT1-G2,"R01, R02",,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.13,Hébergement,TESSIER Pauline,TP,BUT1-G3,"R01, R02",,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.13,Hébergement,RENAUD Kevin,TP,BUT1-G4,"R01, R02",,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.14,Représentation et traitement de l'information,FONTAINE Antoine,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.14,Représentation et traitement de l'information,FONTAINE Antoine,TD,"BUT1-G1, BUT1-G2","101, 103",,,,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.14,Représentation et traitement de l'information,FONTAINE Antoine,TD,"BUT1-G3, BUT1-G4","101, 103",,,,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.14,Représentation et traitement de l'information,RENAUD Kevin,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,1.5,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.14,Représentation et traitement de l'information,RENAUD Kevin,TD,"BUT1-G1, BUT1-G2","101, 103",,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.14,Représentation et traitement de l'information,RENAUD Kevin,TD,"BUT1-G3, BUT1-G4","101, 103",,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.14,Représentation et traitement de l'information,RENAUD Kevin,TP,BUT1-G1,"R01, R02",,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.14,Représentation et traitement de l'information,RENAUD Kevin,TP,BUT1-G2,"R01, R02",,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.14,Représentation et traitement de l'information,RENAUD Kevin,TP,BUT1-G3,"R01, R02",,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.14,Représentation et traitement de l'information,RENAUD Kevin,TP,BUT1-G4,"R01, R02",,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.15,Gestion de projet,FAURE Stéphanie,TD,"BUT1-G3, BUT1-G4","R04, 102, 115",,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.15,Gestion de projet,FAURE Stéphanie,TD,"BUT1-G1, BUT1-G2","R04, 102, 115",,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.16,"Économie, gestion et droit du numérique",LEROUX Elodie,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.16,"Économie, gestion et droit du numérique",LEROUX Elodie,TD,"BUT1-G1, BUT1-G2",101,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.16,"Économie, gestion et droit du numérique",LEROUX Elodie,TD,"BUT1-G3, BUT1-G4",101,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.16,"Économie, gestion et droit du numérique",LEROUX Elodie,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.16,"Économie, gestion et droit du numérique",LEROUX Elodie,TD,"BUT1-G1, BUT1-G2",101,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.16,"Économie, gestion et droit du numérique",LEROUX Elodie,TD,"BUT1-G3, BUT1-G4",101,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.17,Projet Personnel et Professionnel,RENAUD Kevin,TD,"BUT1-G1, BUT1-G2","102, 115",,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.17,Projet Personnel et Professionnel,RENAUD Kevin,TD,"BUT1-G3, BUT1-G4","102, 115",,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.17,Projet Personnel et Professionnel,RENAUD Kevin,TD,"BUT1-G1, BUT1-G2","102, 115",,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.17,Projet Personnel et Professionnel,RENAUD Kevin,TD,"BUT1-G3, BUT1-G4","102, 115",,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.17,Projet Personnel et Professionnel,MEUNIER Sandrine,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.17,Projet Personnel et Professionnel,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2","101, 103, R03",,,,1.5,1.5,,,,,,1.5,,,2.0,1.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.17,Projet Personnel et Professionnel,MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4","101, 103, R03",,,,1.5,1.5,,,,,,1.5,,,2.0,1.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.17,Projet Personnel et Professionnel,MEUNIER Sandrine,TP,BUT1-G1,"R01, R02,  ADM132, R04, 102, 115, R03",,,,,,2.0,2.0,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.17,Projet Personnel et Professionnel,MEUNIER Sandrine,TP,BUT1-G2,"R01, R02,  ADM132, R04, 102, 115, R03",,,,,,2.0,2.0,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.17,Projet Personnel et Professionnel,MEUNIER Sandrine,TP,BUT1-G3,"R01, R02,  ADM132, R04, 102, 115, R03",,,,,,2.0,2.0,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,R1.17,Projet Personnel et Professionnel,MEUNIER Sandrine,TP,BUT1-G4,"R01, R02,  ADM132, R04, 102, 115, R03",,,,,,2.0,2.0,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.01,Auditer une communication numérique,MOULIN Sophie,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.01,Auditer une communication numérique,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2",102,,,,,,,,2.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.01,Auditer une communication numérique,MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4",102,,,,,,,,2.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.01,Auditer une communication numérique,AUBRY Bastien,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.01,Auditer une communication numérique,AUBRY Bastien,TD,"BUT1-G1, BUT1-G2",102,,,,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.01,Auditer une communication numérique,AUBRY Bastien,TD,"BUT1-G3, BUT1-G4",102,,,,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.01,Auditer une communication numérique,MASSON Baptiste,TD,"BUT1-G1, BUT1-G2",102,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.01,Auditer une communication numérique,MASSON Baptiste,TD,"BUT1-G3, BUT1-G4",102,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.01,Auditer une communication numérique,NON AFFECTE,Autonomie,BUT1-G1,,,,,,,,,20.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.01,Auditer une communication numérique,NON AFFECTE,Autonomie,BUT1-G2,,,,,,,,,20.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.01,Auditer une communication numérique,NON AFFECTE,Autonomie,BUT1-G3,,,,,,,,,20.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.01,Auditer une communication numérique,NON AFFECTE,Autonomie,BUT1-G4,,,,,,,,,20.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,ROUSSEAU Camille,TD,"BUT1-G1, BUT1-G2","101, 103",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,ROUSSEAU Camille,TD,"BUT1-G3, BUT1-G4","101, 103",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,ROUSSEAU Camille,TD,"BUT1-G1, BUT1-G2","101, 103",,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,ROUSSEAU Camille,TD,"BUT1-G3, BUT1-G4","101, 103",,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,DUBREUIL Anne-Sophie,TD,"BUT1-G1, BUT1-G2","101, 103",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,DUBREUIL Anne-Sophie,TD,"BUT1-G3, BUT1-G4","101, 103",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,DUBREUIL Anne-Sophie,TP,BUT1-G1,"R02, R01, ADM132, 115, 102",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,DUBREUIL Anne-Sophie,TP,BUT1-G2,"R02, R01, ADM132, 115, 102",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,DUBREUIL Anne-Sophie,TP,BUT1-G3,"R02, R01, ADM132, 115, 102",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,DUBREUIL Anne-Sophie,TP,BUT1-G4,"R02, R01, ADM132, 115, 102",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2","101, 103",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4","101, 103",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,AUBRY Bastien,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,AUBRY Bastien,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,AUBRY Bastien,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,AUBRY Bastien,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,AUBRY Bastien,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,AUBRY Bastien,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,AUBRY Bastien,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,NON AFFECTE,Autonomie,BUT1-G1,,,,,,,,,,,,,,,,,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,NON AFFECTE,Autonomie,BUT1-G2,,,,,,,,,,,,,,,,,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,NON AFFECTE,Autonomie,BUT1-G3,,,,,,,,,,,,,,,,,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.02,Concevoir une recommandation de communication numérique,NON AFFECTE,Autonomie,BUT1-G4,,,,,,,,,,,,,,,,,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,BERGER Julien,TP,BUT1-G1,102,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,BERGER Julien,TP,BUT1-G2,102,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,BERGER Julien,TP,BUT1-G3,102,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,BERGER Julien,TP,BUT1-G4,102,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,CHEVALIER Charlotte,TP,BUT1-G1,115,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,CHEVALIER Charlotte,TP,BUT1-G2,115,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,CHEVALIER Charlotte,TP,BUT1-G3,115,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,CHEVALIER Charlotte,TP,BUT1-G4,115,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,HUBERT Quentin,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,PASQUIER Aurore,TD,"BUT1-G1, BUT1-G2",115,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,HUBERT Quentin,TD,"BUT1-G3, BUT1-G4",115,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,PASQUIER Aurore,TD,"BUT1-G1, BUT1-G2",115,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,HUBERT Quentin,TD,"BUT1-G3, BUT1-G4",115,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,PASQUIER Aurore,TD,"BUT1-G3, BUT1-G4",115,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,PASQUIER Aurore,TD,"BUT1-G3, BUT1-G4",115,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,HUBERT Quentin,TD,"BUT1-G1, BUT1-G2",115,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,HUBERT Quentin,TD,"BUT1-G3, BUT1-G4",115,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,NON AFFECTE,Autonomie,BUT1-G1,,,,,,,,,,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,NON AFFECTE,Autonomie,BUT1-G2,,,,,,,,,,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,NON AFFECTE,Autonomie,BUT1-G3,,,,,,,,,,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.03,Produire les éléments d'une communication visuelle,NON AFFECTE,Autonomie,BUT1-G4,,,,,,,,,,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,ROUSSEAU Camille,TD,"BUT1-G1, BUT1-G2",101,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,ROUSSEAU Camille,TD,"BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,ROUSSEAU Camille,TD,"BUT1-G1, BUT1-G2",101,,,,,,,,,,,,,,,,,1.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,ROUSSEAU Camille,TD,"BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,1.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2",101,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,ROUSSEAU Camille,TP,BUT1-G1,R03,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,ROUSSEAU Camille,TP,BUT1-G2,R03,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,ROUSSEAU Camille,TP,BUT1-G3,R03,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,ROUSSEAU Camille,TP,BUT1-G4,R03,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,GARNIER Mathieu,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,GARNIER Mathieu,TD,"BUT1-G1, BUT1-G2",101,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,GARNIER Mathieu,TD,"BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,GARNIER Mathieu,TD,"BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,FAURE Celine,TD,"BUT1-G1, BUT1-G2",101,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,FAURE Celine,TD,"BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,FAURE Celine,TD,"BUT1-G1, BUT1-G2",102,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,NON AFFECTE,Autonomie,BUT1-G1,,,,,,,,,,,,,,,,,,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,NON AFFECTE,Autonomie,BUT1-G2,,,,,,,,,,,,,,,,,,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,NON AFFECTE,Autonomie,BUT1-G3,,,,,,,,,,,,,,,,,,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.04,Produire un contenu audio et vidéo,NON AFFECTE,Autonomie,BUT1-G4,,,,,,,,,,,,,,,,,,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,HUBERT Quentin,TP,BUT1-G3,"R02, R01, R04",,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,HUBERT Quentin,TD,"BUT1-G1, BUT1-G2","115, 102, R04",,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,CEZAC Clément,TD,"BUT1-G3, BUT1-G4","115, 102, R04",,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,GIRARD Damien,TD,"BUT1-G3, BUT1-G4","115, 102, R04",,,,,,,,,,,,,,,,,,,,4.0,4.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,GIRARD Damien,TP,BUT1-G2,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,GIRARD Damien,TP,BUT1-G2,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,RENAUD Kevin,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,RENAUD Kevin,TD,"BUT1-G1, BUT1-G2","115, 102, R04",,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,RENAUD Kevin,TD,"BUT1-G3, BUT1-G4","115, 102, R04",,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,RENAUD Kevin,TP,BUT1-G1,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,RENAUD Kevin,TP,BUT1-G2,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,TESSIER Pauline,TP,BUT1-G3,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,TESSIER Pauline,TP,BUT1-G4,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,PICARD Delphine,TP,BUT1-G3,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,NOEL Melanie,TP,BUT1-G4,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,NOEL Melanie,TP,BUT1-G4,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,PICARD Delphine,TP,BUT1-G3,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,HUBERT Quentin,TP,BUT1-G4,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,NOEL Melanie,TD,"BUT1-G1, BUT1-G2","115, 102, R04",,,,,,,,,,,,,,,,,,,,4.0,4.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,NOEL Melanie,TP,BUT1-G1,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,NOEL Melanie,TP,BUT1-G1,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,HUBERT Quentin,TD,"BUT1-G1, BUT1-G2","115, 102, R04",,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,HUBERT Quentin,TD,"BUT1-G3, BUT1-G4","115, 102, R04",,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,HUBERT Quentin,TD,"BUT1-G1, BUT1-G2","115, 102, R04",,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,HUBERT Quentin,TD,"BUT1-G3, BUT1-G4","115, 102, R04",,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,CEZAC Clément,TP,BUT1-G1,"R02, R01, R04",,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,CEZAC Clément,TP,BUT1-G2,"R02, R01, R04",,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,NON AFFECTE,Autonomie,BUT1-G1,,,,,,,,,,,,,,,,,,,,,5.0,8.0,12.0,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,NON AFFECTE,Autonomie,BUT1-G2,,,,,,,,,,,,,,,,,,,,,5.0,8.0,12.0,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,NON AFFECTE,Autonomie,BUT1-G3,,,,,,,,,,,,,,,,,,,,,5.0,8.0,12.0,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.05,Produire un site Web,NON AFFECTE,Autonomie,BUT1-G4,,,,,,,,,,,,,,,,,,,,,5.0,8.0,12.0,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.06,Gérer un projet de communication numérique,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2","101, 103",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.06,Gérer un projet de communication numérique,MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4","101, 103",,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.06,Gérer un projet de communication numérique,FAURE Stéphanie,TD,"BUT1-G1, BUT1-G2",102,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.06,Gérer un projet de communication numérique,FAURE Stéphanie,TD,"BUT1-G3, BUT1-G4",102,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.06,Gérer un projet de communication numérique,NON AFFECTE,Autonomie,BUT1-G1,,,,,,,,,,,,,,,,,,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.06,Gérer un projet de communication numérique,NON AFFECTE,Autonomie,BUT1-G2,,,,,,,,,,,,,,,,,,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.06,Gérer un projet de communication numérique,NON AFFECTE,Autonomie,BUT1-G3,,,,,,,,,,,,,,,,,,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,SAÉ 1.06,Gérer un projet de communication numérique,NON AFFECTE,Autonomie,BUT1-G4,,,,,,,,,,,,,,,,,,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,PORTFOLIO S1,Portfolio,MEUNIER Sandrine,CM,"BUT1-G1, BUT1-G2",101,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,PORTFOLIO S1,Portfolio,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2",102,,,,,,,,,,,1.5,,,,1.5,1.5,,,,1.5,,1.5,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,PORTFOLIO S1,Portfolio,MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4",102,,,,,,,,,,,1.5,,,,1.5,1.5,,,,1.5,,1.5,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,PORTFOLIO S1,Portfolio,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2",101,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S1,TC,PORTFOLIO S1,Portfolio,MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4",101,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.01,Anglais,ROUSSEAU Camille,TD,"BUT1-G1, BUT1-G2","101, 103",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,1.5,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.01,Anglais,ROUSSEAU Camille,TD,"BUT1-G3, BUT1-G4","101, 103",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,1.5,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.01,Anglais,ROUSSEAU Camille,TP,BUT1-G1,R03,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,1.5,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,
+
+S2,TC,R2.01,Anglais,ROUSSEAU Camille,TP,BUT1-G2,R03,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,1.5,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,
+
+S2,TC,R2.01,Anglais,ROUSSEAU Camille,TP,BUT1-G3,R03,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,1.5,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,
+
+S2,TC,R2.01,Anglais,ROUSSEAU Camille,TP,BUT1-G4,R03,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,1.5,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,
+
+S2,TC,R2.02,Anglais Renforcé ou LV2,ROUSSEAU Camille,TD,"BUT1-G1, BUT1-G2","101, 103",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,
+
+S2,TC,R2.02,Anglais Renforcé ou LV2,ROUSSEAU Camille,TD,"BUT1-G3, BUT1-G4","101, 103",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,
+
+S2,TC,R2.02,Anglais Renforcé ou LV2,ROUSSEAU Camille,TP,BUT1-G1,"R02, R01, R03",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,
+
+S2,TC,R2.02,Anglais Renforcé ou LV2,ROUSSEAU Camille,TP,BUT1-G2,"R02, R01, R03",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,
+
+S2,TC,R2.02,Anglais Renforcé ou LV2,ROUSSEAU Camille,TP,BUT1-G3,"R02, R01, R03",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,
+
+S2,TC,R2.02,Anglais Renforcé ou LV2,ROUSSEAU Camille,TP,BUT1-G4,"R02, R01, R03",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,
+
+S2,TC,R2.03,Ergonomie et Accessibilité,CARON Coralie,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,1.5,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.03,Ergonomie et Accessibilité,CARON Coralie,TD,"BUT1-G1, BUT1-G2",115,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.5,2.0,,,,,,,,,,,,,,,,
+
+S2,TC,R2.03,Ergonomie et Accessibilité,CARON Coralie,TD,"BUT1-G3, BUT1-G4",115,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.5,2.0,,,,,,,,,,,,,,,,
+
+S2,TC,R2.03,Ergonomie et Accessibilité,CARON Coralie,TP,BUT1-G3,R04,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,
+
+S2,TC,R2.03,Ergonomie et Accessibilité,CARON Coralie,TP,BUT1-G4,R04,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,
+
+S2,TC,R2.03,Ergonomie et Accessibilité,AUBRY Bastien,TD,"BUT1-G3, BUT1-G4",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.5,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.03,Ergonomie et Accessibilité,AUBRY Bastien,TD,"BUT1-G1, BUT1-G2",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.5,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.03,Ergonomie et Accessibilité,AUBRY Bastien,TP,BUT1-G1,R04,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,
+
+S2,TC,R2.03,Ergonomie et Accessibilité,AUBRY Bastien,TP,BUT1-G2,R04,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,
+
+S2,TC,R2.04,Culture numérique,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,
+
+S2,TC,R2.04,Culture numérique,MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,
+
+S2,TC,R2.04,Culture numérique,PINAUD Anaïs,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,
+
+S2,TC,R2.04,Culture numérique,PINAUD Anaïs,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,
+
+S2,TC,R2.05,Stratégies de communication et marketing,AUBRY Bastien,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.05,Stratégies de communication et marketing,AUBRY Bastien,TD,"BUT1-G1, BUT1-G2","101, 103",,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.05,Stratégies de communication et marketing,AUBRY Bastien,TD,"BUT1-G3, BUT1-G4","101, 103",,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.06,"Expression, communication et rhétorique",MEUNIER Sandrine,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,
+
+S2,TC,R2.06,"Expression, communication et rhétorique",MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2","102, R04, 115",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,1.5,1.5,,,,,,,,,,,,,,
+
+S2,TC,R2.06,"Expression, communication et rhétorique",MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4","102, R04, 115",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,1.5,1.5,,,,,,,,,,,,,,
+
+S2,TC,R2.06,"Expression, communication et rhétorique",MEUNIER Sandrine,TP,BUT1-G1,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,,,,2.0,2.0,,,,,,,2.0,,,,,,,
+
+S2,TC,R2.06,"Expression, communication et rhétorique",MEUNIER Sandrine,TP,BUT1-G2,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,,,,2.0,2.0,,,,,,,2.0,,,,,,,
+
+S2,TC,R2.06,"Expression, communication et rhétorique",MEUNIER Sandrine,TP,BUT1-G3,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,,,,2.0,2.0,,,,,,,2.0,,,,,,,
+
+S2,TC,R2.06,"Expression, communication et rhétorique",MEUNIER Sandrine,TP,BUT1-G4,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,,,,2.0,2.0,,,,,,,2.0,,,,,,,
+
+S2,TC,R2.07,Écriture multimédia et narration,FAURE Celine,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.07,Écriture multimédia et narration,FAURE Celine,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.07,Écriture multimédia et narration,FAURE Celine,TP,BUT1-G1,"R02, R01, R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,
+
+S2,TC,R2.07,Écriture multimédia et narration,FAURE Celine,TP,BUT1-G2,"R02, R01, R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,
+
+S2,TC,R2.07,Écriture multimédia et narration,FAURE Celine,TP,BUT1-G3,"R02, R01, R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,
+
+S2,TC,R2.07,Écriture multimédia et narration,FAURE Celine,TP,BUT1-G4,"R02, R01, R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,
+
+S2,TC,R2.08,Production graphique,BERGER Julien,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,
+
+S2,TC,R2.08,Production graphique,BERGER Julien,TP,BUT1-G1,"102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,
+
+S2,TC,R2.08,Production graphique,BERGER Julien,TP,BUT1-G2,"102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,
+
+S2,TC,R2.08,Production graphique,BERGER Julien,TP,BUT1-G3,"102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,
+
+S2,TC,R2.08,Production graphique,BERGER Julien,TP,BUT1-G4,"102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,
+
+S2,TC,R2.08,Production graphique,MARCHAND Emilie,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.08,Production graphique,MARCHAND Emilie,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.08,Production graphique,MASSON Baptiste,TP,BUT1-G1,102,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,
+
+S2,TC,R2.08,Production graphique,MARCHAND Emilie,TP,BUT1-G2,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,
+
+S2,TC,R2.08,Production graphique,MASSON Baptiste,TP,BUT1-G3,102,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,
+
+S2,TC,R2.08,Production graphique,MARCHAND Emilie,TP,BUT1-G4,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,
+
+S2,TC,R2.09,Culture artistique,AYMARD Adrien,TP,BUT1-G1,"102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,4.0,4.0,,,,,
+
+S2,TC,R2.09,Culture artistique,AYMARD Adrien,TP,BUT1-G3,"102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,4.0,4.0,,,,,
+
+S2,TC,R2.09,Culture artistique,GARNIER Mathieu,TP,BUT1-G2,ADM132,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,4.0,4.0,,,,,
+
+S2,TC,R2.09,Culture artistique,GARNIER Mathieu,TP,BUT1-G4,ADM132,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,4.0,4.0,,,,,
+
+S2,TC,R2.09,Culture artistique,HUBERT Quentin,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,
+
+S2,TC,R2.09,Culture artistique,HUBERT Quentin,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,
+
+S2,TC,R2.09,Culture artistique,HUBERT Quentin,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,
+
+S2,TC,R2.10,Production audio et vidéo,FAURE Celine,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,
+
+S2,TC,R2.10,Production audio et vidéo,FAURE Celine,TD,"BUT1-G1, BUT1-G2",115,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,
+
+S2,TC,R2.10,Production audio et vidéo,FAURE Celine,TD,"BUT1-G3, BUT1-G4",115,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,
+
+S2,TC,R2.10,Production audio et vidéo,FAURE Celine,TP,BUT1-G1,102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,3.0,3.0,,,,
+
+S2,TC,R2.10,Production audio et vidéo,FAURE Celine,TP,BUT1-G3,102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,3.0,3.0,,,,
+
+S2,TC,R2.10,Production audio et vidéo,BEVERINI Johan,TP,BUT1-G2,102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,3.0,3.0,,,,
+
+S2,TC,R2.10,Production audio et vidéo,BEVERINI Johan,TP,BUT1-G4,102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,3.0,3.0,,,,
+
+S2,TC,R2.11,Gestion de contenus,PERRIN Gregory,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,4.0,,,,,
+
+S2,TC,R2.11,Gestion de contenus,PERRIN Gregory,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,4.0,,,,,
+
+S2,TC,R2.12,Intégration,HUBERT Quentin,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.12,Intégration,HUBERT Quentin,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,,,1.5,,1.5,,,,,,,,,,,,,,,
+
+S2,TC,R2.12,Intégration,HUBERT Quentin,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,,,1.5,,1.5,,,,,,,,,,,,,,,
+
+S2,TC,R2.12,Intégration,HUBERT Quentin,TP,BUT1-G1,102,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,,2.0,2.0,2.0,2.0,,,,,,2.0,,,,,,,,
+
+S2,TC,R2.12,Intégration,HUBERT Quentin,TP,BUT1-G3,102,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,,2.0,2.0,2.0,2.0,,,,,,2.0,,,,,,,,
+
+S2,TC,R2.12,Intégration,CEZAC Clément,TP,BUT1-G2,R01,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,,2.0,2.0,2.0,2.0,,,,,,2.0,,,,,,,,
+
+S2,TC,R2.12,Intégration,CEZAC Clément,TP,BUT1-G4,R01,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,,2.0,2.0,2.0,2.0,,,,,,2.0,,,,,,,,
+
+S2,TC,R2.13,Développement Web,NOEL Melanie,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.13,Développement Web,NOEL Melanie,TD,"BUT1-G3, BUT1-G4","115, 102, R04",,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.13,Développement Web,GIRARD Damien,TD,"BUT1-G1, BUT1-G2","115, 102, R04",,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.13,Développement Web,GIRARD Damien,TP,BUT1-G1,R04,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,2.0,2.0,2.0,2.0,2.0,,,,,,2.0,,,,,,,,
+
+S2,TC,R2.13,Développement Web,PICARD Delphine,TP,BUT1-G2,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,2.0,2.0,2.0,2.0,2.0,,,,,,2.0,,,,,,,,
+
+S2,TC,R2.13,Développement Web,NOEL Melanie,TP,BUT1-G3,R04,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,4.0,4.0,4.0,2.0,2.0,2.0,,,,,,2.0,,,,,,,,
+
+S2,TC,R2.13,Développement Web,TESSIER Pauline,TP,BUT1-G4,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,2.0,2.0,2.0,,,,,,2.0,,,,,,,,
+
+S2,TC,R2.14,Système d'information,GIRARD Damien,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.8,,,,,,,,,,,,,,
+
+S2,TC,R2.14,Système d'information,PAILLIER Stéphane,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",102,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,0.8,,,,,,,,,,,,,,
+
+S2,TC,R2.14,Système d'information,PAILLIER Stéphane,TD,"BUT1-G1, BUT1-G2",R04,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,1.5,,1.5,1.5,1.5,,,,,,,,,,,,,,,
+
+S2,TC,R2.14,Système d'information,PAILLIER Stéphane,TD,"BUT1-G3, BUT1-G4",R04,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,1.5,,1.5,1.5,1.5,,,,,,,,,,,,,,,
+
+S2,TC,R2.14,Système d'information,PAILLIER Stéphane,TP,BUT1-G1,R04,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,2.0,2.0,,,,,,,,,,,,,,,
+
+S2,TC,R2.14,Système d'information,PAILLIER Stéphane,TP,BUT1-G3,R04,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,2.0,2.0,,,,,,,,,,,,,,,
+
+S2,TC,R2.14,Système d'information,GIRARD Damien,TP,BUT1-G2,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,2.0,2.0,,,,,,,,,,,,,,,
+
+S2,TC,R2.14,Système d'information,GIRARD Damien,TP,BUT1-G4,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,2.0,2.0,,,,,,,,,,,,,,,
+
+S2,TC,R2.15,Hébergement,RENAUD Kevin,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,,,,1.5,,,,,,,,,,,,,,,,
+
+S2,TC,R2.15,Hébergement,TESSIER Pauline,TP,BUT1-G1,R01,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,2.0,2.0,,,,,,,,,,,,,,,
+
+S2,TC,R2.15,Hébergement,RENAUD Kevin,TP,BUT1-G1,R01,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.15,Hébergement,RENAUD Kevin,TP,BUT1-G2,R02,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,2.0,,2.0,2.0,2.0,,,,,,,,,,,,,,,
+
+S2,TC,R2.15,Hébergement,TESSIER Pauline,TP,BUT1-G3,R01,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,2.0,2.0,,,,,,,,,,,,,,,
+
+S2,TC,R2.15,Hébergement,RENAUD Kevin,TP,BUT1-G3,R01,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.15,Hébergement,RENAUD Kevin,TP,BUT1-G4,R02,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,2.0,,2.0,2.0,2.0,,,,,,,,,,,,,,,
+
+S2,TC,R2.16,Représentation et traitement de l'information,ROLLAND Justine,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.16,Représentation et traitement de l'information,ROLLAND Justine,TD,"BUT1-G1, BUT1-G2","101, 103",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,1.5,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.16,Représentation et traitement de l'information,ROLLAND Justine,TD,"BUT1-G3, BUT1-G4","101, 103",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,1.5,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.16,Représentation et traitement de l'information,RENAUD Kevin,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,1.5,,1.5,1.5,,,,,,,,,,,,,,,,
+
+S2,TC,R2.16,Représentation et traitement de l'information,RENAUD Kevin,TD,"BUT1-G1, BUT1-G2","101, 103",,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,1.5,,,,,,,,,,,,,,,,
+
+S2,TC,R2.16,Représentation et traitement de l'information,RENAUD Kevin,TD,"BUT1-G3, BUT1-G4","101, 103",,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,1.5,,,,,,,,,,,,,,,,
+
+S2,TC,R2.16,Représentation et traitement de l'information,RENAUD Kevin,TP,BUT1-G1,"R01, R04, R02",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,
+
+S2,TC,R2.16,Représentation et traitement de l'information,RENAUD Kevin,TP,BUT1-G2,"R01, R04, R02",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,
+
+S2,TC,R2.16,Représentation et traitement de l'information,TESSIER Pauline,TP,BUT1-G3,"R01, R04, R02",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,
+
+S2,TC,R2.16,Représentation et traitement de l'information,TESSIER Pauline,TP,BUT1-G4,"R01, R04, R02",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,
+
+S2,TC,R2.17,Gestion de projet,FAURE Stéphanie,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,
+
+S2,TC,R2.17,Gestion de projet,FAURE Stéphanie,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,
+
+S2,TC,R2.17,Gestion de projet,FAURE Stéphanie,TP,BUT1-G1,"R02, R01, ADM132",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,
+
+S2,TC,R2.17,Gestion de projet,FAURE Stéphanie,TP,BUT1-G3,"R02, R01, ADM132",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,
+
+S2,TC,R2.17,Gestion de projet,FAURE Stéphanie,TP,BUT1-G2,"R02, R01, ADM132",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,
+
+S2,TC,R2.17,Gestion de projet,FAURE Stéphanie,TP,BUT1-G4,"R02, R01, ADM132",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,
+
+S2,TC,R2.18,"Économie, gestion et droit du numérique",GOUDARD Bérénice,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,1.5,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.18,"Économie, gestion et droit du numérique",GOUDARD Bérénice,TD,"BUT1-G1, BUT1-G2","101, 103",,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,1.5,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.18,"Économie, gestion et droit du numérique",GOUDARD Bérénice,TD,"BUT1-G3, BUT1-G4","101, 103",,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,1.5,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.18,"Économie, gestion et droit du numérique",GOUDARD Bérénice,TD,"BUT1-G1, BUT1-G2","101, 103",,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.18,"Économie, gestion et droit du numérique",GOUDARD Bérénice,TD,"BUT1-G3, BUT1-G4","101, 103",,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.18,"Économie, gestion et droit du numérique",GOUDARD Bérénice,TD,"BUT1-G1, BUT1-G2","101, 103",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,
+
+S2,TC,R2.18,"Économie, gestion et droit du numérique",GOUDARD Bérénice,TD,"BUT1-G3, BUT1-G4","101, 103",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,
+
+S2,TC,R2.18,"Économie, gestion et droit du numérique",GOUDARD Bérénice,Eval-CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4","101, 103",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,
+
+S2,TC,R2.19,Projet Personnel et Professionnel,MEUNIER Sandrine,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,R2.19,Projet Personnel et Professionnel,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2","102, 115, R04",,,,,,,,,,,,,,,,,,,,,,,2.0,1.5,1.5,,1.5,,1.5,,1.5,,,,,,,,,,2.0,,,,,
+
+S2,TC,R2.19,Projet Personnel et Professionnel,MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4","102, 115, R04",,,,,,,,,,,,,,,,,,,,,,,2.0,1.5,1.5,,1.5,,1.5,,1.5,,,,,,,,,,2.0,,,,,
+
+S2,TC,R2.19,Projet Personnel et Professionnel,MEUNIER Sandrine,TP,BUT1-G1,"R02, R01",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,1.5,,,,1.5,,,,,,,,1.5,,,,,,,
+
+S2,TC,R2.19,Projet Personnel et Professionnel,MEUNIER Sandrine,TP,BUT1-G2,"R02, R01",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,1.5,,,,1.5,,,,,,,,1.5,,,,,,,
+
+S2,TC,R2.19,Projet Personnel et Professionnel,MEUNIER Sandrine,TP,BUT1-G3,"R02, R01",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,1.5,,,,1.5,,,,,,,,1.5,,,,,,,
+
+S2,TC,R2.19,Projet Personnel et Professionnel,MEUNIER Sandrine,TP,BUT1-G4,"R02, R01",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,1.5,,,,1.5,,,,,,,,1.5,,,,,,,
+
+S2,TC,SAÉ 2.01,Explorer les usages du numérique,CARON Coralie,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,1.5,,,,,,,,,,,
+
+S2,TC,SAÉ 2.01,Explorer les usages du numérique,CARON Coralie,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,1.5,,,,,,,,,,,
+
+S2,TC,SAÉ 2.01,Explorer les usages du numérique,CARON Coralie,TP,BUT1-G3,"ADM132, R02, R01",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,
+
+S2,TC,SAÉ 2.01,Explorer les usages du numérique,CARON Coralie,TP,BUT1-G4,"ADM132, R02, R01",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,
+
+S2,TC,SAÉ 2.01,Explorer les usages du numérique,AUBRY Bastien,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.01,Explorer les usages du numérique,AUBRY Bastien,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,1.5,,,,,,,,,,,
+
+S2,TC,SAÉ 2.01,Explorer les usages du numérique,AUBRY Bastien,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,1.5,,,,,,,,,,,
+
+S2,TC,SAÉ 2.01,Explorer les usages du numérique,AUBRY Bastien,TP,BUT1-G1,"102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,
+
+S2,TC,SAÉ 2.01,Explorer les usages du numérique,AUBRY Bastien,TP,BUT1-G2,"102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,
+
+S2,TC,SAÉ 2.01,Explorer les usages du numérique,NON AFFECTE,Autonomie,BUT1-G1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,5.0,,,5.0,,,,,,,,,,,
+
+S2,TC,SAÉ 2.01,Explorer les usages du numérique,NON AFFECTE,Autonomie,BUT1-G2,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,5.0,,,5.0,,,,,,,,,,,
+
+S2,TC,SAÉ 2.01,Explorer les usages du numérique,NON AFFECTE,Autonomie,BUT1-G3,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,5.0,,,5.0,,,,,,,,,,,
+
+S2,TC,SAÉ 2.01,Explorer les usages du numérique,NON AFFECTE,Autonomie,BUT1-G4,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,5.0,,,5.0,,,,,,,,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,GILLET Anthony,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,GILLET Anthony,TD,"BUT1-G1, BUT1-G2",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,GILLET Anthony,TD,"BUT1-G3, BUT1-G4",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,GILLET Anthony,TD,"BUT1-G1, BUT1-G2",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,GILLET Anthony,TD,"BUT1-G3, BUT1-G4",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,FAURE Celine,TD,"BUT1-G3, BUT1-G4",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,FAURE Celine,TD,"BUT1-G1, BUT1-G2",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,FAURE Celine,TD,"BUT1-G3, BUT1-G4",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,FAURE Celine,TD,"BUT1-G1, BUT1-G2",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,FAURE Celine,TD,"BUT1-G3, BUT1-G4",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,FAURE Celine,TD,"BUT1-G1, BUT1-G2",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,GARNIER Mathieu,TD,"BUT1-G1, BUT1-G2",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,GARNIER Mathieu,TD,"BUT1-G3, BUT1-G4",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,FAURE Stéphanie,TD,"BUT1-G1, BUT1-G2",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,FAURE Stéphanie,TD,"BUT1-G3, BUT1-G4",R04,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,PERRIN Gregory,TD,"BUT1-G3, BUT1-G4",R04,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,PERRIN Gregory,TD,"BUT1-G1, BUT1-G2",R04,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,ROUSSEAU Camille,TD,"BUT1-G3, BUT1-G4",R04,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,ROUSSEAU Camille,TD,"BUT1-G1, BUT1-G2",R04,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2",115,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4",115,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2",115,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4",115,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,AUBRY Bastien,TD,"BUT1-G1, BUT1-G2",115,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3.0,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,AUBRY Bastien,TD,"BUT1-G3, BUT1-G4",115,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3.0,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,AUBRY Bastien,TD,"BUT1-G1, BUT1-G2",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,AUBRY Bastien,TD,"BUT1-G3, BUT1-G4",102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,PELLETIER Vincent,TP,BUT1-G1,115,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,PELLETIER Vincent,TP,BUT1-G2,115,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,PELLETIER Vincent,TP,BUT1-G3,102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,PELLETIER Vincent,TP,BUT1-G4,102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,NON AFFECTE,Autonomie,BUT1-G1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,17.0,18.0,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,NON AFFECTE,Autonomie,BUT1-G2,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,17.0,18.0,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,NON AFFECTE,Autonomie,BUT1-G3,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,17.0,18.0,,,
+
+S2,TC,SAÉ 2.02,Concevoir un produit ou un service et sa communication,NON AFFECTE,Autonomie,BUT1-G4,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,17.0,18.0,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,GIRARD Damien,TD,"BUT1-G1, BUT1-G2","115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,GIRARD Damien,TD,"BUT1-G3, BUT1-G4","115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,GIRARD Damien,TD,"BUT1-G1, BUT1-G2","115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,HUBERT Quentin,TD,"BUT1-G3, BUT1-G4","115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,CEZAC Clément,TD,"BUT1-G3, BUT1-G4","115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,NOEL Melanie,TP,BUT1-G4,"115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,NOEL Melanie,TP,BUT1-G4,"115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,RENAUD Kevin,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,RENAUD Kevin,TD,"BUT1-G1, BUT1-G2",R04,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,RENAUD Kevin,TD,"BUT1-G3, BUT1-G4",R04,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,TESSIER Pauline,TP,BUT1-G1,R01,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,RENAUD Kevin,TP,BUT1-G2,R01,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,TESSIER Pauline,TP,BUT1-G3,R01,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,RENAUD Kevin,TP,BUT1-G4,R01,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,PICARD Delphine,TP,BUT1-G3,"R01, R02, R04, 102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,PICARD Delphine,TP,BUT1-G3,"R01, R02, R04, 102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,PICARD Delphine,TD,"BUT1-G1, BUT1-G2","R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,PICARD Delphine,TD,"BUT1-G3, BUT1-G4","R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,NOEL Melanie,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,NOEL Melanie,TD,"BUT1-G1, BUT1-G2","R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,NOEL Melanie,TD,"BUT1-G3, BUT1-G4","R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,NOEL Melanie,TD,"BUT1-G1, BUT1-G2","R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,NOEL Melanie,TD,"BUT1-G3, BUT1-G4","R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,TESSIER Pauline,TD,"BUT1-G3, BUT1-G4","R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,PAILLIER Stéphane,TD,"BUT1-G1, BUT1-G2","R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,PAILLIER Stéphane,TD,"BUT1-G3, BUT1-G4","R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,GIRARD Damien,TP,BUT1-G2,"R01, R02, R04, 102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,GIRARD Damien,TP,BUT1-G2,"R01, R02, R04, 102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,NOEL Melanie,TD,"BUT1-G1, BUT1-G2","R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3.0,2.0,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,HUBERT Quentin,TD,"BUT1-G1, BUT1-G2","R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,HUBERT Quentin,TD,"BUT1-G1, BUT1-G2","R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,CEZAC Clément,TD,"BUT1-G1, BUT1-G2","R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,CEZAC Clément,TD,"BUT1-G1, BUT1-G2","R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,CEZAC Clément,TD,"BUT1-G3, BUT1-G4","R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,HUBERT Quentin,TD,"BUT1-G1, BUT1-G2","R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,NOEL Melanie,TD,"BUT1-G3, BUT1-G4","R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,HUBERT Quentin,TP,BUT1-G1,"R01, R02, R04, 102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,HUBERT Quentin,TP,BUT1-G1,"R01, R02, R04, 102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,CEZAC Clément,TP,BUT1-G1,"R01, R02, R04, 102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,CEZAC Clément,TP,BUT1-G1,"R01, R02, R04, 102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,NON AFFECTE,Autonomie,BUT1-G1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,10.0,10.0,10.0,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,NON AFFECTE,Autonomie,BUT1-G2,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,10.0,10.0,10.0,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,NON AFFECTE,Autonomie,BUT1-G3,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,10.0,10.0,10.0,,,,,,,,,
+
+S2,TC,SAÉ 2.03,Concevoir un site web avec une source de données,NON AFFECTE,Autonomie,BUT1-G4,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,10.0,10.0,10.0,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MEUNIER Sandrine,CM,"BUT1-G1, BUT1-G2, BUT1-G3, BUT1-G4",101,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MASSON Baptiste,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MASSON Baptiste,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MASSON Baptiste,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MASSON Baptiste,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MEUNIER Sandrine,TP,BUT1-G1,"R01, R02, ADM132",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MEUNIER Sandrine,TP,BUT1-G2,"R01, R02, ADM132",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MEUNIER Sandrine,TP,BUT1-G3,"R01, R02, ADM132",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MEUNIER Sandrine,TP,BUT1-G4,"R01, R02, ADM132",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MEUNIER Sandrine,TP,BUT1-G1,"R01, R02, ADM132",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MEUNIER Sandrine,TP,BUT1-G2,"R01, R02, ADM132",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MEUNIER Sandrine,TP,BUT1-G3,"R01, R02, ADM132",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MEUNIER Sandrine,TP,BUT1-G4,"R01, R02, ADM132",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,4.0,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,MASSON Baptiste,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,4.0,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,NON AFFECTE,Autonomie,BUT1-G1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,15.0,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,NON AFFECTE,Autonomie,BUT1-G2,,,,,,,,,,,,,,,,,,,,,,,,,,,,,15.0,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,NON AFFECTE,Autonomie,BUT1-G3,,,,,,,,,,,,,,,,,,,,,,,,,,,,,15.0,,,,,,,,,,,,,,,,,,
+
+S2,TC,SAÉ 2.04,Construire sa présence en ligne,NON AFFECTE,Autonomie,BUT1-G4,,,,,,,,,,,,,,,,,,,,,,,,,,,,,15.0,,,,,,,,,,,,,,,,,,
+
+S2,TC,PORTFOLIO S2,Portfolio,MEUNIER Sandrine,TD,"BUT1-G1, BUT1-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,1.5,,,1.5,,1.5,,,,,
+
+S2,TC,PORTFOLIO S2,Portfolio,MEUNIER Sandrine,TD,"BUT1-G3, BUT1-G4","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,1.5,,,1.5,,1.5,,,,,
+
+S2,TC,PORTFOLIO S2,Portfolio,NON AFFECTE,Autonomie,BUT1-G1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,PORTFOLIO S2,Portfolio,NON AFFECTE,Autonomie,BUT1-G2,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,PORTFOLIO S2,Portfolio,NON AFFECTE,Autonomie,BUT1-G3,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S2,TC,PORTFOLIO S2,Portfolio,NON AFFECTE,Autonomie,BUT1-G4,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.Crea.05,Stratégies de communication et marketing,DUBREUIL Anne-Sophie,CM,"BUT2-G1, BUT2-G2, BUT2-G3",103,,,,,,,,,,,1.5,1.5,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.Crea.05,Stratégies de communication et marketing,DUBREUIL Anne-Sophie,TP,BUT2-G1,"R02, R01, ADM132, 115, 102",,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.Crea.05,Stratégies de communication et marketing,DUBREUIL Anne-Sophie,TP,BUT2-G2,"R02, R01, ADM132, 115, 102",,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,R3.Crea.09,Création et design interactif (UI),MARCHAND Emilie,TP,BUT2-G1,R04,,,2.0,2.0,4.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,R3.Crea.09,Création et design interactif (UI),MASSON Baptiste,TP,BUT2-G2,R04,,,2.0,2.0,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,R3.Crea.09,Création et design interactif (UI),MARCHAND Emilie,TP,BUT2-G1,R04,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,R3.Crea.09,Création et design interactif (UI),MASSON Baptiste,TP,BUT2-G2,ADM132,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,R3.Crea.09,Création et design interactif (UI),MARCHAND Emilie,TD,"BUT2-G1, BUT2-G2",R04,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,R3.Crea.09,Création et design interactif (UI),MARCHAND Emilie,TD,"BUT2-G1, BUT2-G2",R04,,1.5,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,R3.Crea.13,Gestion de contenus avancée,MERCIER Laurie,TD,"BUT2-G1, BUT2-G2",R04,,2.0,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,R3.Crea.13,Gestion de contenus avancée,MERCIER Laurie,TD,"BUT2-G1, BUT2-G2",R04,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.DWeb-DI.05,Stratégies de communication et marketing,DUBREUIL Anne-Sophie,CM,BUT2-G3,103,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.DWeb-DI.05,Stratégies de communication et marketing,DUBREUIL Anne-Sophie,TP,BUT2-G3,"R02, R01, ADM132, 115, 102",,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,R3.DWeb-DI.09,Création et design interactif (UI),MARCHAND Emilie,TD,BUT2-G3,"115, 102, R04",,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,R3.DWeb-DI.09,Création et design interactif (UI),MARCHAND Emilie,TD,BUT2-G3,"115, 102, R04",,1.5,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,R3.DWeb-DI.09,Création et design interactif (UI),MARCHAND Emilie,TP,BUT2-G3,R02,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,R3.DWeb-DI.09,Création et design interactif (UI),MASSON Baptiste,TP,BUT2-G3,R02,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,R3.DWeb-DI.09,Création et design interactif (UI),MASSON Baptiste,TP,BUT2-G3,R02,,,2.0,2.0,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,R3.DWeb-DI.13,Développement Back,NOEL Melanie,CM,BUT2-G3,103,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,R3.DWeb-DI.13,Développement Back,NOEL Melanie,TD,BUT2-G3,"R02, R04, 115, 102",,1.5,1.5,1.5,1.5,1.5,1.5,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,R3.DWeb-DI.13,Développement Back,NOEL Melanie,TD,BUT2-G3,"R02, R04, 115, 102",,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.01,Anglais,ROUSSEAU Camille,TD,"BUT2-G1, BUT2-G2",R03,,1.5,1.5,1.5,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.01,Anglais,ROUSSEAU Camille,TD,BUT2-G3,R03,,1.5,1.5,1.5,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.01,Anglais,ROUSSEAU Camille,TP,BUT2-G1,R03,,,1.5,1.5,1.5,1.5,1.5,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.01,Anglais,ROUSSEAU Camille,TP,BUT2-G2,R03,,,1.5,1.5,1.5,1.5,1.5,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.01,Anglais,ROUSSEAU Camille,TP,BUT2-G3,R03,,,1.5,1.5,1.5,1.5,1.5,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.02,Anglais Renforcé ou LV2,ROUSSEAU Camille,TD,"BUT2-G1, BUT2-G2",R03,,,,,,,,,,,1.5,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.02,Anglais Renforcé ou LV2,ROUSSEAU Camille,TD,BUT2-G3,R03,,,,,,,,,,,1.5,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.02,Anglais Renforcé ou LV2,ROUSSEAU Camille,TP,BUT2-G1,R03,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.02,Anglais Renforcé ou LV2,ROUSSEAU Camille,TP,BUT2-G2,R03,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.02,Anglais Renforcé ou LV2,ROUSSEAU Camille,TP,BUT2-G3,R03,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.03,Design d'expérience,CARON Coralie,TD,"BUT2-G1, BUT2-G2",115,,,,,,3.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.03,Design d'expérience,CARON Coralie,TD,BUT2-G3,115,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.03,Design d'expérience,CARON Coralie,TD,"BUT2-G1, BUT2-G2",115,,,,,,3.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.03,Design d'expérience,CARON Coralie,TD,BUT2-G3,115,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.03,Design d'expérience,AUBRY Bastien,CM,"BUT2-G1, BUT2-G2, BUT2-G3",103,,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.03,Design d'expérience,AUBRY Bastien,TD,BUT2-G3,R04,,,,,,3.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.03,Design d'expérience,AUBRY Bastien,TD,"BUT2-G1, BUT2-G2",R04,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.03,Design d'expérience,AUBRY Bastien,TD,BUT2-G3,R04,,,,,,3.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.03,Design d'expérience,AUBRY Bastien,TD,"BUT2-G1, BUT2-G2",R04,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.04,Culture numérique,MEUNIER Sandrine,CM,"BUT2-G1, BUT2-G2, BUT2-G3",103,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.04,Culture numérique,MEUNIER Sandrine,TD,"BUT2-G1, BUT2-G2","103, 101",,,,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.04,Culture numérique,MEUNIER Sandrine,TD,BUT2-G3,"103, 101",,,,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.04,Culture numérique,BARBIER Romain,TD,BUT2-G3,"103, 101",,1.5,1.5,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.04,Culture numérique,BARBIER Romain,TD,"BUT2-G1, BUT2-G2","103, 101",,1.5,1.5,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.06,Référencement,MOULIN Sophie,CM,"BUT2-G1, BUT2-G2, BUT2-G3",103,,,,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.06,Référencement,MOULIN Sophie,TD,"BUT2-G1, BUT2-G2","103, 101",,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.06,Référencement,MOULIN Sophie,TD,BUT2-G3,"103, 101",,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.06,Référencement,MOULIN Sophie,TP,BUT2-G1,"R01, R02, ADM132, R04, 102, 115",,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.06,Référencement,MOULIN Sophie,TP,BUT2-G2,"R01, R02, ADM132, R04, 102, 115",,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.06,Référencement,MOULIN Sophie,TP,BUT2-G3,"R01, R02, ADM132, R04, 102, 115",,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.07,"Expression, communication et rhétorique",MEUNIER Sandrine,TD,"BUT2-G1, BUT2-G2","103, 101",,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.07,"Expression, communication et rhétorique",MEUNIER Sandrine,TD,BUT2-G3,"103, 101",,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.07,"Expression, communication et rhétorique",GILLET Anthony,TD,"BUT2-G1, BUT2-G2","103, 101",,,,,,,,,,,,,,,,,,,,,1.2,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.07,"Expression, communication et rhétorique",GILLET Anthony,TD,BUT2-G3,"103, 101",,,,,,,,,,,,,,,,,,,,,1.2,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.07,"Expression, communication et rhétorique",GILLET Anthony,TD,"BUT2-G1, BUT2-G2","103, 101",,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.07,"Expression, communication et rhétorique",GILLET Anthony,TD,BUT2-G3,"103, 101",,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.07,"Expression, communication et rhétorique",MEUNIER Sandrine,TP,BUT2-G1,"R01, R02, ADM132",,,,,,,,,,,2.0,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.07,"Expression, communication et rhétorique",MEUNIER Sandrine,TP,BUT2-G2,"R01, R02, ADM132",,,,,,,,,,,2.0,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.07,"Expression, communication et rhétorique",MEUNIER Sandrine,TP,BUT2-G3,"R01, R02, ADM132",,,,,,,,,,,2.0,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.08,Écriture multimédia et narration,GARNIER Mathieu,CM,"BUT2-G1, BUT2-G2, BUT2-G3",103,,,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.08,Écriture multimédia et narration,GARNIER Mathieu,TD,"BUT2-G1, BUT2-G2","115, 102, R04",,,,,,,,,,,1.5,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.08,Écriture multimédia et narration,GARNIER Mathieu,TD,BUT2-G3,"115, 102, R04",,,,,,,,,,,1.5,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.08,Écriture multimédia et narration,GARNIER Mathieu,TP,BUT2-G1,"ADM132, R02, R04",,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.08,Écriture multimédia et narration,GARNIER Mathieu,TP,BUT2-G2,"ADM132, R02, R04",,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.08,Écriture multimédia et narration,GARNIER Mathieu,TP,BUT2-G3,"ADM132, R02, R04",,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.10,Culture artistique,CHEVALIER Charlotte,TP,BUT2-G1,"102, 115",,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.10,Culture artistique,CHEVALIER Charlotte,TP,BUT2-G2,"102, 115",,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.10,Culture artistique,GARNIER Mathieu,CM,"BUT2-G1, BUT2-G2, BUT2-G3",103,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.10,Culture artistique,GARNIER Mathieu,TD,"BUT2-G1, BUT2-G2",115,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.10,Culture artistique,GARNIER Mathieu,TD,BUT2-G3,115,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.10,Culture artistique,GARNIER Mathieu,TP,BUT2-G3,"102, 115",,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.11,Audiovisuel et Motion design,FAURE Celine,CM,"BUT2-G1, BUT2-G2, BUT2-G3",103,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.11,Audiovisuel et Motion design,FAURE Celine,TD,"BUT2-G1, BUT2-G2",102,,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.11,Audiovisuel et Motion design,FAURE Celine,TD,BUT2-G3,102,,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.11,Audiovisuel et Motion design,BRUNET Clemence,TP,BUT2-G1,"102, 115",,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.11,Audiovisuel et Motion design,BRUNET Clemence,TP,BUT2-G2,"102, 115",,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.11,Audiovisuel et Motion design,BRUNET Clemence,TP,BUT2-G3,115,,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.12,Intégration et développement front,GAUTHIER Yannick,TD,"BUT2-G1, BUT2-G2",R04,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.12,Intégration et développement front,GAUTHIER Yannick,TD,BUT2-G3,R04,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.12,Intégration et développement front,GAUTHIER Yannick,TP,"BUT2-G1, BUT2-G2",R04,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.12,Intégration et développement front,HUBERT Quentin,TP,BUT2-G3,102,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.12,Intégration et développement front,ROBIN Loic,TP,BUT2-G2,R04,,2.0,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.12,Intégration et développement front,ROBIN Loic,TP,BUT2-G1,R04,,2.0,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.12,Intégration et développement front,NOEL Melanie,CM,"BUT2-G1, BUT2-G2, BUT2-G3",103,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.12,Intégration et développement front,NOEL Melanie,TD,"BUT2-G1, BUT2-G2","115, 102, R04",,1.5,1.5,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.12,Intégration et développement front,NOEL Melanie,TD,BUT2-G3,"115, 102, R04",,1.5,1.5,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.12,Intégration et développement front,NOEL Melanie,TP,BUT2-G3,R02,,2.0,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.12,Intégration et développement front,HUBERT Quentin,CM,"BUT2-G1, BUT2-G2, BUT2-G3",101,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.12,Intégration et développement front,HUBERT Quentin,TD,"BUT2-G1, BUT2-G2","115, 102, R04",,1.5,1.5,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.12,Intégration et développement front,HUBERT Quentin,TD,BUT2-G3,"115, 102, R04",,1.5,1.5,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.14,Déploiement de services,RENAUD Kevin,TD,"BUT2-G1, BUT2-G2","103, 101",,1.5,1.5,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.14,Déploiement de services,RENAUD Kevin,TD,BUT2-G3,"103, 101",,1.5,1.5,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.14,Déploiement de services,TESSIER Pauline,TP,BUT2-G1,R02,,2.0,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.14,Déploiement de services,RENAUD Kevin,TP,BUT2-G2,R01,,2.0,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.14,Déploiement de services,RENAUD Kevin,TP,BUT2-G3,R01,,2.0,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.15,Représentation et traitement de l'information,GIRARD Damien,TD,"BUT2-G1, BUT2-G2","R04, 115, 102",,,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.15,Représentation et traitement de l'information,NOEL Melanie,TD,"BUT2-G1, BUT2-G2","R04, 115, 102",,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.15,Représentation et traitement de l'information,NOEL Melanie,TD,BUT2-G3,"R04, 115, 102",,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.15,Représentation et traitement de l'information,GIRARD Damien,TP,BUT2-G1,"R04, 115, 102, R02, R01",,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.15,Représentation et traitement de l'information,GIRARD Damien,TP,BUT2-G3,"R04, 115, 102, R02, R01",,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.15,Représentation et traitement de l'information,PICARD Delphine,TP,BUT2-G1,"R04, 115, 102, R02, R01",,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.15,Représentation et traitement de l'information,PICARD Delphine,TP,BUT2-G3,"R04, 115, 102, R02, R01",,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.15,Représentation et traitement de l'information,PICARD Delphine,TP,BUT2-G2,"R02, R04, 115, 102",,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.15,Représentation et traitement de l'information,GIRARD Damien,TD,BUT2-G3,"R04, 115, 102",,,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.16,Gestion de projet,GILLET Anthony,CM,"BUT2-G1, BUT2-G2",103,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.16,Gestion de projet,GILLET Anthony,CM,"BUT2-G1, BUT2-G2",103,,,,,,,1.5,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.16,Gestion de projet,GILLET Anthony,TD,"BUT2-G1, BUT2-G2",103,,,1.5,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.16,Gestion de projet,GILLET Anthony,TD,BUT2-G3,103,,,1.5,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.16,Gestion de projet,GILLET Anthony,TD,"BUT2-G1, BUT2-G2",103,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.16,Gestion de projet,GILLET Anthony,TD,BUT2-G3,103,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.16,Gestion de projet,GILLET Anthony,TD,"BUT2-G1, BUT2-G2",103,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.16,Gestion de projet,GILLET Anthony,TD,BUT2-G3,103,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.16,Gestion de projet,GILLET Anthony,TD,"BUT2-G1, BUT2-G2",103,,,,,,,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.16,Gestion de projet,GILLET Anthony,TD,BUT2-G3,103,,,,,,,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.16,Gestion de projet,GILLET Anthony,Eval-TD,"BUT2-G1, BUT2-G2, BUT2-G3","103, 101",,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.17,"Economie, gestion et droit du numérique",GOUDARD Bérénice,TD,"BUT2-G1, BUT2-G2","103, 101",,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.17,"Economie, gestion et droit du numérique",GOUDARD Bérénice,TD,BUT2-G3,"103, 101",,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.17,"Economie, gestion et droit du numérique",GOUDARD Bérénice,TD,"BUT2-G1, BUT2-G2","103, 101",,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.17,"Economie, gestion et droit du numérique",GOUDARD Bérénice,TD,BUT2-G3,"103, 101",,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.17,"Economie, gestion et droit du numérique",GOUDARD Bérénice,Eval-TD,"BUT2-G1, BUT2-G2, BUT2-G3","103, 101",,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.18,Projet Personnel et Professionnel,GIRARD Damien,TD,"BUT2-G1, BUT2-G2","103, 101",,1.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.18,Projet Personnel et Professionnel,GIRARD Damien,TD,BUT2-G3,"103, 101",,1.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.18,Projet Personnel et Professionnel,ROUX Maxence,TD,"BUT2-G1, BUT2-G2","103, 101",,,1.5,1.5,1.5,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,R3.18,Projet Personnel et Professionnel,ROUX Maxence,TD,BUT2-G3,"103, 101",,,1.5,1.5,1.5,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,GILLET Anthony,CM,"BUT2-G1, BUT2-G2, BUT2-G3",103,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,ROUSSEAU Camille,TD,"BUT2-G1, BUT2-G2","115, 102, R04",,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,A TROUVER,TD,BUT2-G3,"115, 102, R04",,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,AUBRY Bastien,TD,"BUT2-G1, BUT2-G2","115, 102, R04",,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,AUBRY Bastien,TD,BUT2-G3,"115, 102, R04",,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,AUBRY Bastien,TP,BUT2-G1,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,AUBRY Bastien,TP,BUT2-G2,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,AUBRY Bastien,TP,BUT2-G3,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,DUBREUIL Anne-Sophie,TD,"BUT2-G1, BUT2-G2","115, 102",,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,DUBREUIL Anne-Sophie,TD,BUT2-G3,"115, 102",,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,BRUNET Clemence,TD,"BUT2-G1, BUT2-G2","115, 102",,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,BRUNET Clemence,TD,BUT2-G3,"115, 102",,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,BRUNET Clemence,TD,"BUT2-G1, BUT2-G2","115, 102",,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,BRUNET Clemence,TD,BUT2-G3,"115, 102",,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,MASSON Baptiste,TD,"BUT2-G1, BUT2-G2","115, 102",,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,MASSON Baptiste,TD,BUT2-G3,"115, 102",,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,MOULIN Sophie,TD,"BUT2-G1, BUT2-G2","115, 102",,,,,,,,,,,,,,,,,,,,,1.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,MOULIN Sophie,TD,BUT2-G3,"115, 102",,,,,,,,,,,,,,,,,,,,,1.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,BRUNET Clemence,TD,"BUT2-G1, BUT2-G2","115, 102",,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,BRUNET Clemence,TD,BUT2-G3,"115, 102",,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,MASSON Baptiste,TD,"BUT2-G1, BUT2-G2","115, 102",,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,MASSON Baptiste,TD,BUT2-G3,"115, 102",,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,GILLET Anthony,TD,"BUT2-G1, BUT2-G2","115, 102",,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,GILLET Anthony,TD,BUT2-G3,"115, 102",,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,ROUSSEAU Camille,TD,"BUT2-G1, BUT2-G2","R01, R02, R04",,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,ROUSSEAU Camille,TD,BUT2-G3,"R01, R02, R04",,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,ROUSSEAU Camille,TP,BUT2-G1,101,,,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,AUBRY Bastien,TP,BUT2-G2,101,,,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,MASSON Baptiste,TP,BUT2-G3,101,,,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,NON AFFECTE,Autonomie,BUT2-G1,,,,,,,,,,,,,,,,,,,,,18.0,22.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,NON AFFECTE,Autonomie,BUT2-G2,,,,,,,,,,,,,,,,,,,,,18.0,22.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,SAÉ 3.02,Produire des contenus pour une communication plurimédia,NON AFFECTE,Autonomie,BUT2-G3,,,,,,,,,,,,,,,,,,,,,18.0,22.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.01,Intégrer des interfaces utilisateurs au sein d'un système d'information,CARON Coralie,TD,"BUT2-G1, BUT2-G2",R04,,,,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.01,Intégrer des interfaces utilisateurs au sein d'un système d'information,CARON Coralie,TD,"BUT2-G1, BUT2-G2",R04,,,,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.01,Intégrer des interfaces utilisateurs au sein d'un système d'information,MERCIER Laurie,TD,"BUT2-G1, BUT2-G2",R04,,,,,,,,3.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.01,Intégrer des interfaces utilisateurs au sein d'un système d'information,MERCIER Laurie,TD,"BUT2-G1, BUT2-G2",R04,,,,,,,,3.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.01,Intégrer des interfaces utilisateurs au sein d'un système d'information,HUBERT Quentin,TD,"BUT2-G1, BUT2-G2",R04,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.01,Intégrer des interfaces utilisateurs au sein d'un système d'information,GAUTHIER Yannick,TD,"BUT2-G1, BUT2-G2",R04,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.01,Intégrer des interfaces utilisateurs au sein d'un système d'information,GAUTHIER Yannick,TD,"BUT2-G1, BUT2-G2",R04,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.01,Intégrer des interfaces utilisateurs au sein d'un système d'information,HUBERT Quentin,TP,BUT2-G1,R04,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.01,Intégrer des interfaces utilisateurs au sein d'un système d'information,HUBERT Quentin,TP,BUT2-G2,R04,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.01,Intégrer des interfaces utilisateurs au sein d'un système d'information,NON AFFECTE,Autonomie,BUT2-G1,,,,,,,,,17.0,23.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.01,Intégrer des interfaces utilisateurs au sein d'un système d'information,NON AFFECTE,Autonomie,BUT2-G2,,,,,,,,,17.0,23.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.03,Concevoir des visualisations de données pour le web et un support animé,AUBRY Bastien,CM,"BUT2-G1, BUT2-G2",R02,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.03,Concevoir des visualisations de données pour le web et un support animé,PASQUIER Aurore,TD,"BUT2-G1, BUT2-G2",,,,,,,,,,,,,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.03,Concevoir des visualisations de données pour le web et un support animé,AUBRY Bastien,TD,"BUT2-G1, BUT2-G2",,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.03,Concevoir des visualisations de données pour le web et un support animé,AUBRY Bastien,TD,"BUT2-G1, BUT2-G2",102,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.03,Concevoir des visualisations de données pour le web et un support animé,HUBERT Quentin,TP,BUT2-G1,102,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.03,Concevoir des visualisations de données pour le web et un support animé,HUBERT Quentin,TP,BUT2-G2,102,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.03,Concevoir des visualisations de données pour le web et un support animé,HUBERT Quentin,TD,"BUT2-G1, BUT2-G2",102,,,,,,,,,,,,,,,,4.0,4.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.03,Concevoir des visualisations de données pour le web et un support animé,GARNIER Mathieu,TD,"BUT2-G1, BUT2-G2",102,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.03,Concevoir des visualisations de données pour le web et un support animé,FAURE Celine,TD,"BUT2-G1, BUT2-G2",102,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.03,Concevoir des visualisations de données pour le web et un support animé,GARNIER Mathieu,TD,"BUT2-G1, BUT2-G2",102,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.03,Concevoir des visualisations de données pour le web et un support animé,NON AFFECTE,Autonomie,BUT2-G1,,,,,,,,,,,,,,,,,20.0,20.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,Crea,SAÉ 3.Crea.03,Concevoir des visualisations de données pour le web et un support animé,NON AFFECTE,Autonomie,BUT2-G2,,,,,,,,,,,,,,,,,20.0,20.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.01,Développer des parcours utilisateur au sein d'un système d'information,AUBRY Bastien,TD,BUT2-G3,R02,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.01,Développer des parcours utilisateur au sein d'un système d'information,AUBRY Bastien,TD,BUT2-G3,R02,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.01,Développer des parcours utilisateur au sein d'un système d'information,SIMONET Alexia,TD,BUT2-G3,R04,,,,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.01,Développer des parcours utilisateur au sein d'un système d'information,HUBERT Quentin,TD,BUT2-G3,R02,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.01,Développer des parcours utilisateur au sein d'un système d'information,NOEL Melanie,TD,BUT2-G3,R02,,,,,,,,2.0,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.01,Développer des parcours utilisateur au sein d'un système d'information,TESSIER Pauline,TP,BUT2-G3,R02,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.01,Développer des parcours utilisateur au sein d'un système d'information,PAILLIER Stéphane,TD,BUT2-G3,R02,,,,,,,,3.0,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.01,Développer des parcours utilisateur au sein d'un système d'information,NOEL Melanie,CM,BUT2-G3,R02,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.01,Développer des parcours utilisateur au sein d'un système d'information,NOEL Melanie,TP,BUT2-G3,R02,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.01,Développer des parcours utilisateur au sein d'un système d'information,NON AFFECTE,Autonomie,BUT2-G3,,,,,,,,,20.0,20.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.03,Concevoir des visualisations de données pour le web et une application interactive,NOEL Melanie,CM,BUT2-G3,R02,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.03,Concevoir des visualisations de données pour le web et une application interactive,NOEL Melanie,TP,BUT2-G3,R02,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.03,Concevoir des visualisations de données pour le web et une application interactive,NOEL Melanie,TD,BUT2-G3,R02,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.03,Concevoir des visualisations de données pour le web et une application interactive,NOEL Melanie,TD,BUT2-G3,R02,,,,,,,,,,,,,,,,3.0,4.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.03,Concevoir des visualisations de données pour le web et une application interactive,AUBRY Bastien,TD,BUT2-G3,R02,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.03,Concevoir des visualisations de données pour le web et une application interactive,HUBERT Quentin,TD,BUT2-G3,R02,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.03,Concevoir des visualisations de données pour le web et une application interactive,GIRARD Damien,TD,BUT2-G3,R02,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,DWeb,SAÉ 3.DWeb-DI.03,Concevoir des visualisations de données pour le web et une application interactive,NON AFFECTE,Autonomie,BUT2-G3,,,,,,,,,,,,,,,,,20.0,20.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,PORTFOLIO S3,Portfolio,MEUNIER Sandrine,TD,"BUT2-G1, BUT2-G2",102,,,,,,,,,2.0,,,,,,,,2.0,,,2.0,,2.0,,,,,,,,,,,,,,,,,,,,,,,,
+
+S3,TC,PORTFOLIO S3,Portfolio,MEUNIER Sandrine,TD,BUT2-G3,102,,,,,,,,,2.0,,,,,,,,2.0,,,2.0,,2.0,,,,,,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.01,Anglais,ROUSSEAU Camille,TD,"BUT2-G1, BUT2-G2",R03,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.01,Anglais,ROUSSEAU Camille,TP,BUT2-G1,R03,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.01,Anglais,ROUSSEAU Camille,TP,BUT2-G2,R03,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,
+
+S4,DWeb,R4.DWeb-DI.01,Anglais,ROUSSEAU Camille,TD,BUT2-G3,R03,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,
+
+S4,DWeb,R4.DWeb-DI.01,Anglais,ROUSSEAU Camille,TP,BUT2-G3,R03,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.05,Gestion de contenus spécialisée,MERCIER Laurie,CM,"BUT2-G1, BUT2-G2",103,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,1.5,,,,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.05,Gestion de contenus spécialisée,MERCIER Laurie,TD,"BUT2-G1, BUT2-G2",R04,,,,,,,,,,,,,,,,,,,,,,2.0,3.0,2.0,2.0,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.06,Culture artistique,AUBRY Bastien,CM,"BUT2-G1, BUT2-G2",103,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.06,Culture artistique,AUBRY Bastien,TD,BUT2-G1,"103, 101",,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.06,Culture artistique,AUBRY Bastien,TP,BUT2-G1,"102, 115",,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,,,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.06,Culture artistique,AUBRY Bastien,TP,BUT2-G2,"102, 115",,,,,,,,,,,,,,,,,,,,,,,2.0,,2.0,,,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.06,Culture artistique,PASQUIER Aurore,TD,"BUT2-G1, BUT2-G2","115, 102",,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.06,Culture artistique,PASQUIER Aurore,TP,BUT2-G1,"115, 102",,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.06,Culture artistique,PASQUIER Aurore,TP,BUT2-G2,"115, 102",,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.07,Audiovisuel - Motion design,PELLETIER Vincent,TP,BUT2-G2,ADM132,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,3.0,,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.07,Audiovisuel - Motion design,PELLETIER Vincent,CM,"BUT2-G1, BUT2-G2",103,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.07,Audiovisuel - Motion design,BRUNET Clemence,TD,"BUT2-G1, BUT2-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.07,Audiovisuel - Motion design,PELLETIER Vincent,TD,"BUT2-G1, BUT2-G2","102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.07,Audiovisuel - Motion design,BRUNET Clemence,TP,BUT2-G2,ADM132,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.07,Audiovisuel - Motion design,PELLETIER Vincent,TP,BUT2-G1,ADM132,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,3.0,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.07,Audiovisuel - Motion design,BRUNET Clemence,TP,BUT2-G1,102,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.08,Ecriture multimédia et narration,GARNIER Mathieu,TD,"BUT2-G1, BUT2-G2","102, 115, R04",,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.08,Ecriture multimédia et narration,GARNIER Mathieu,TP,BUT2-G1,"R01, R04, R02, ADM132",,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.08,Ecriture multimédia et narration,GARNIER Mathieu,TP,BUT2-G2,"R01, R04, R02, ADM132",,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.09,Intégration et développement front,HUBERT Quentin,TD,"BUT2-G1, BUT2-G2","R02, R01, R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,1.5,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.09,Intégration et développement front,HUBERT Quentin,TP,BUT2-G1,"R02, R01, R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,
+
+S4,Crea,R4.Crea.09,Intégration et développement front,HUBERT Quentin,TP,BUT2-G2,"R02, R01, R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.01,Créer pour une campagne de communication visuelle,ROUSSEAU Camille,TD,"BUT2-G1, BUT2-G2",103,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.01,Créer pour une campagne de communication visuelle,MEUNIER Sandrine,TP,BUT2-G1,"R01, R02, R04, 102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.01,Créer pour une campagne de communication visuelle,MEUNIER Sandrine,TP,BUT2-G2,"R01, R02, R04, 102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.01,Créer pour une campagne de communication visuelle,AUBRY Bastien,TD,"BUT2-G1, BUT2-G2",,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.01,Créer pour une campagne de communication visuelle,PINAUD Anaïs,TD,"BUT2-G1, BUT2-G2",,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.01,Créer pour une campagne de communication visuelle,AUBRY Bastien,TD,"BUT2-G1, BUT2-G2","115, 102",,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,1.5,,1.5,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.01,Créer pour une campagne de communication visuelle,PASQUIER Aurore,TD,"BUT2-G1, BUT2-G2","115, 102",,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,3.0,,,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.01,Créer pour une campagne de communication visuelle,AUBRY Bastien,TP,BUT2-G1,"115, 102",,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.01,Créer pour une campagne de communication visuelle,PASQUIER Aurore,TP,BUT2-G2,"115, 102",,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.01,Créer pour une campagne de communication visuelle,NON AFFECTE,Autonomie,BUT2-G1,,,,,,,,,,,,,,,,,,,,,,,4.5,4.5,4.5,3.0,,18.5,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.01,Créer pour une campagne de communication visuelle,NON AFFECTE,Autonomie,BUT2-G2,,,,,,,,,,,,,,,,,,,,,,,4.5,4.5,4.5,3.0,,18.5,,,,,,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.02,Produire du contenu multimédia,GIRARD Damien,TD,"BUT2-G1, BUT2-G2",R04,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.02,Produire du contenu multimédia,FAURE Celine,TD,"BUT2-G1, BUT2-G2","115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.02,Produire du contenu multimédia,PELLETIER Vincent,TD,"BUT2-G1, BUT2-G2","115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,,,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.02,Produire du contenu multimédia,MEUNIER Sandrine,TD,"BUT2-G1, BUT2-G2",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.02,Produire du contenu multimédia,FAURE Celine,TP,BUT2-G1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.02,Produire du contenu multimédia,PELLETIER Vincent,TP,BUT2-G2,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.02,Produire du contenu multimédia,AUBRY Bastien,TP,BUT2-G1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.02,Produire du contenu multimédia,AUBRY Bastien,TP,BUT2-G2,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.02,Produire du contenu multimédia,AUBRY Bastien,TD,"BUT2-G1, BUT2-G2",,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.02,Produire du contenu multimédia,HUBERT Quentin,TD,"BUT2-G1, BUT2-G2","115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,1.5,1.5,,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.02,Produire du contenu multimédia,NON AFFECTE,Autonomie,BUT2-G1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,4.0,4.0,4.0,4.0,24.0,,,,,,,,,,,,,,
+
+S4,Crea,SAÉ 4.Crea.02,Produire du contenu multimédia,NON AFFECTE,Autonomie,BUT2-G2,,,,,,,,,,,,,,,,,,,,,,,,,,,,,4.0,4.0,4.0,4.0,24.0,,,,,,,,,,,,,,
+
+S4,DWeb,R4.DWeb-DI.05,Création et design interactif,GIRARD Damien,CM,BUT2-G3,"R02, R01, R04",,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,
+
+S4,DWeb,R4.DWeb-DI.05,Création et design interactif,GIRARD Damien,TD,BUT2-G3,"R02, R01, R04",,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,
+
+S4,DWeb,R4.DWeb-DI.05,Création et design interactif,GIRARD Damien,TP,BUT2-G3,"R02, R01, R04",,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,2.0,,2.0,,2.0,,,,,,,,,,,,,,,,,
+
+S4,DWeb,R4.DWeb-DI.06,Développement front,NOEL Melanie,CM,BUT2-G3,"R02, R01, R04",,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,
+
+S4,DWeb,R4.DWeb-DI.06,Développement front,NOEL Melanie,TD,BUT2-G3,"R01, R04, R02",,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,3.0,,,,,,,,,,,,,,,,,,,,,
+
+S4,DWeb,R4.DWeb-DI.06,Développement front,NOEL Melanie,TP,BUT2-G3,"R01, R04, R02",,,,,,,,,,,,,,,,,,,,,,,,,,,,4.0,,,,,,,,,,,,,,,,,,
+
+S4,DWeb,R4.DWeb-DI.06,Développement front,HUBERT Quentin,TD,BUT2-G3,"R02, R01, R04",,,,,,,,,,,,,,,,,,,,,,,,,,,,4.0,2.0,2.0,,,,,,,,,,,,,,,,
+
+S4,DWeb,R4.DWeb-DI.06,Développement front,HUBERT Quentin,TP,BUT2-G3,"R02, R01, R04, 115, 102",,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,
+
+S4,DWeb,R4.DWeb-DI.07,Développement back,SIMONET Alexia,CM,BUT2-G3,"R02, R01, R04",,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,
+
+S4,DWeb,R4.DWeb-DI.07,Développement back,SIMONET Alexia,TD,BUT2-G3,"R02, R01, R04",,,,,,,,,,,,,,,,,,,,,,2.0,4.0,4.0,4.0,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,
+
+S4,DWeb,R4.DWeb-DI.08,Déploiement de services,RENAUD Kevin,TD,BUT2-G3,"R01, R04, R02",,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,
+
+S4,DWeb,R4.DWeb-DI.08,Déploiement de services,RENAUD Kevin,TP,BUT2-G3,"R01, R04, R02",,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,
+
+S4,DWeb,SAÉ 4.DWeb-DI.01,Développer pour le Web,SIMONET Alexia,TD,BUT2-G3,"R02, R01, R04",,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,
+
+S4,DWeb,SAÉ 4.DWeb-DI.01,Développer pour le Web,HUBERT Quentin,TD,BUT2-G3,"R02, R01, R01, 102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,
+
+S4,DWeb,SAÉ 4.DWeb-DI.01,Développer pour le Web,NOEL Melanie,TD,BUT2-G3,"R02, R01, R01, 102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,
+
+S4,DWeb,SAÉ 4.DWeb-DI.01,Développer pour le Web,MASSON Baptiste,TD,BUT2-G3,"R02, R01, R01, 102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,
+
+S4,DWeb,SAÉ 4.DWeb-DI.01,Développer pour le Web,MEUNIER Sandrine,TP,BUT2-G3,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,
+
+S4,DWeb,SAÉ 4.DWeb-DI.01,Développer pour le Web,TESSIER Pauline,TP,BUT2-G3,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,
+
+S4,DWeb,SAÉ 4.DWeb-DI.01,Développer pour le Web,NON AFFECTE,Autonomie,BUT2-G3,,,,,,,,,,,,,,,,,,,,,,,,,,,,,8.0,8.0,8.0,8.0,8.0,,,,,,,,,,,,,,
+
+S4,DWeb,SAÉ 4.DWeb-DI.02,Concevoir un dispositif interactif,GIRARD Damien,TD,BUT2-G3,"R02, R01, R04",,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,1.5,,,,,,,,,,,,,,,,,,,
+
+S4,DWeb,SAÉ 4.DWeb-DI.02,Concevoir un dispositif interactif,MEUNIER Sandrine,TP,BUT2-G3,"R01, R02, R04, 102, 115",,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,
+
+S4,DWeb,SAÉ 4.DWeb-DI.02,Concevoir un dispositif interactif,NOEL Melanie,TD,BUT2-G3,"R02, R01, R04",,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,1.0,,,,,,,,,,,,,,,,,,,
+
+S4,DWeb,SAÉ 4.DWeb-DI.02,Concevoir un dispositif interactif,HUBERT Quentin,TD,BUT2-G3,"R02, R01, R04",,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,
+
+S4,DWeb,SAÉ 4.DWeb-DI.02,Concevoir un dispositif interactif,HUBERT Quentin,TP,BUT2-G3,"R02, R01, R04",,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,
+
+S4,DWeb,SAÉ 4.DWeb-DI.02,Concevoir un dispositif interactif,NON AFFECTE,Autonomie,BUT2-G3,,,,,,,,,,,,,,,,,,,,,,,4.0,6.0,6.0,6.0,,13.0,,,,,,,,,,,,,,,,,,,
+
+S4,TC,R4.02,"Economie, gestion et Droit du numérique",GOUDARD Bérénice,CM,"BUT2-G1, BUT2-G2, BUT2-G3",103,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,
+
+S4,TC,R4.02,"Economie, gestion et Droit du numérique",GOUDARD Bérénice,TD,"BUT2-G1, BUT2-G2","103, 101",,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,
+
+S4,TC,R4.02,"Economie, gestion et Droit du numérique",GOUDARD Bérénice,TD,BUT2-G3,"103, 101",,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,
+
+S4,TC,R4.02,"Economie, gestion et Droit du numérique",GOUDARD Bérénice,CM,"BUT2-G1, BUT2-G2, BUT2-G3",103,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,
+
+S4,TC,R4.02,"Economie, gestion et Droit du numérique",GOUDARD Bérénice,TD,"BUT2-G1, BUT2-G2","103, 101",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,
+
+S4,TC,R4.02,"Economie, gestion et Droit du numérique",GOUDARD Bérénice,TD,BUT2-G3,"103, 101",,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,
+
+S4,TC,R4.02,"Economie, gestion et Droit du numérique",GOUDARD Bérénice,TD,"BUT2-G1, BUT2-G2","103, 101",,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,
+
+S4,TC,R4.02,"Economie, gestion et Droit du numérique",GOUDARD Bérénice,TD,BUT2-G3,"103, 101",,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,
+
+S4,TC,R4.02,"Economie, gestion et Droit du numérique",GOUDARD Bérénice,TD,"BUT2-G1, BUT2-G2","103, 101",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,
+
+S4,TC,R4.02,"Economie, gestion et Droit du numérique",GOUDARD Bérénice,TD,BUT2-G3,"103, 101",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,
+
+S4,TC,R4.02,"Economie, gestion et Droit du numérique",GOUDARD Bérénice,Eval-CM,"BUT2-G1, BUT2-G2, BUT2-G3","103, 101",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,
+
+S4,TC,R4.03,Design d'expérience,AUBRY Bastien,CM,"BUT2-G1, BUT2-G2, BUT2-G3",103,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,1.5,,,,,,,,,,,,,,,,,,
+
+S4,TC,R4.03,Design d'expérience,AUBRY Bastien,TD,"BUT2-G1, BUT2-G2","102, 115, R04",,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,
+
+S4,TC,R4.03,Design d'expérience,AUBRY Bastien,TD,BUT2-G3,"102, 115, R04",,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,
+
+S4,TC,R4.04,"Expression, communication",MEUNIER Sandrine,TD,"BUT2-G1, BUT2-G2","102, R04, 115",,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,
+
+S4,TC,R4.04,"Expression, communication",MEUNIER Sandrine,TD,BUT2-G3,"102, R04, 115",,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,
+
+S4,TC,R4.04,"Expression, communication",MEUNIER Sandrine,TP,BUT2-G1,"R02, R01, ADM132",,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,
+
+S4,TC,R4.04,"Expression, communication",MEUNIER Sandrine,TP,BUT2-G2,"R02, R01, ADM132",,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,
+
+S4,TC,R4.04,"Expression, communication",MEUNIER Sandrine,TP,BUT2-G3,"R02, R01, ADM132",,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,
+
+S4,TC,R4.04,"Expression, communication",LEFORT Noemie,TD,"BUT2-G1, BUT2-G2","103, 101",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,
+
+S4,TC,R4.04,"Expression, communication",LEFORT Noemie,TD,BUT2-G3,"103, 101",,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,
+
+S4,TC,R4.04,"Expression, communication",LEFORT Noemie,CM,"BUT2-G1, BUT2-G2, BUT2-G3","103, 101",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1.5,,,,,,,,,,,,,,
+
+S5,TC,R5.01,Anglais,ROUSSEAU Camille,TD,"BUT3-G1, BUT3-G2","101, 103, R03",,1.5,1.5,,,,1.5,1.5,1.5,,,1.5,1.5,2.0,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.01,Anglais,ROUSSEAU Camille,TD,BUT3-G3,"101, 103, R03",,1.5,1.5,,,,1.5,1.5,1.5,,,1.5,1.5,2.0,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.01,Anglais,ROUSSEAU Camille,TP,BUT3-G1,R03,,,,2.0,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.01,Anglais,ROUSSEAU Camille,TP,BUT3-G2,R03,,,,2.0,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.01,Anglais,ROUSSEAU Camille,TP,BUT3-G3,R03,,,,2.0,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.02,Management et Assurance qualité,GARNIER Mathieu,TD,"BUT3-G1, BUT3-G2",101,,2.0,1.5,1.5,,,2.0,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.02,Management et Assurance qualité,GARNIER Mathieu,TP,BUT3-G1,101,,,,,,,,,,,,1.5,,1.5,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.02,Management et Assurance qualité,GARNIER Mathieu,TP,BUT3-G2,101,,,,,,,,,,,,1.5,,1.5,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.02,Management et Assurance qualité,GAUDIN Jerome,TD,BUT3-G3,R01,,2.0,1.5,1.5,,,2.0,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.02,Management et Assurance qualité,GAUDIN Jerome,TP,BUT3-G3,R01,,,,,,,,,,,,1.5,1.5,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.03,Entrepreneuriat,COLIN Aurelie,TD,"BUT3-G1, BUT3-G2",103,,,,2.0,,,2.0,1.5,1.5,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.03,Entrepreneuriat,COLIN Aurelie,TD,BUT3-G3,103,,,,2.0,,,2.0,1.5,1.5,,,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.03,Entrepreneuriat,COLIN Aurelie,TP,BUT3-G1,"R03, 101, 103",,,,,,,,,,,,,,1.5,1.5,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.03,Entrepreneuriat,COLIN Aurelie,TP,BUT3-G2,"R03, 101, 103",,,,,,,,,,,,,,1.5,1.5,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.03,Entrepreneuriat,COLIN Aurelie,TP,BUT3-G3,"R03, 101, 103",,,,,,,,,,,,,,1.5,1.5,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.04,Projet Personnel et Professionnel,MEUNIER Sandrine,CM,"BUT3-G1, BUT3-G2, BUT3-G3",102,,,,,,,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.04,Projet Personnel et Professionnel,MEUNIER Sandrine,TD,"BUT3-G1, BUT3-G2","R04, 115, 102",,1.5,1.5,1.5,,,,,,,,,,1.5,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.04,Projet Personnel et Professionnel,MEUNIER Sandrine,TD,BUT3-G3,"R04, 115, 102",,1.5,1.5,1.5,,,,,,,,,,1.5,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.04,Projet Personnel et Professionnel,A TROUVER,CM,"BUT3-G1, BUT3-G2, BUT3-G3","R04, 115, 102",,,,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.04,Projet Personnel et Professionnel,A TROUVER,TD,"BUT3-G1, BUT3-G2","R04, 115, 102",,,,,,,1.5,1.5,1.5,,,,1.5,,1.5,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,TC,R5.04,Projet Personnel et Professionnel,A TROUVER,TD,BUT3-G3,"R04, 115, 102",,,,,,,1.5,1.5,1.5,,,,1.5,,1.5,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.DWeb-DI.05,Développement front avancé,NOEL Melanie,TD,BUT3-G3,R01,,2.0,2.0,2.0,,,2.0,2.0,2.0,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.DWeb-DI.05,Développement front avancé,NOEL Melanie,TP,BUT3-G3,"R01, R02, R04",,,,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.DWeb-DI.05,Développement front avancé,HUBERT Quentin,TD,BUT3-G3,R01,,2.0,2.0,2.0,,,2.0,2.0,2.0,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.DWeb-DI.05,Développement front avancé,HUBERT Quentin,TP,BUT3-G3,"R01, R02, R04",,,,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.DWeb-DI.06,Développement back avancé,GIRARD Damien,TD,BUT3-G3,R01,,,,,,,2.0,2.0,3.0,,,2.0,2.0,3.0,2.0,2.0,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.DWeb-DI.06,Développement back avancé,GIRARD Damien,TP,BUT3-G3,"R01, R02, R04",,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.DWeb-DI.06,Développement back avancé,GIRARD Damien,TD,BUT3-G3,R01,,3.0,3.0,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.DWeb-DI.06,Développement back avancé,GIRARD Damien,TP,BUT3-G3,R01,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.DWeb-DI.07,Dispositifs interactifs,GIRARD Damien,TD,BUT3-G3,"R01, R02, R04, 115, 102",,4.0,,,,,,,,,,,,,,,4.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.DWeb-DI.07,Dispositifs interactifs,GIRARD Damien,TP,BUT3-G3,"R01, R02, R04, 115, 102",,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.DWeb-DI.07,Dispositifs interactifs,PICARD Delphine,TD,BUT3-G3,R01,,,4.0,2.0,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.DWeb-DI.07,Dispositifs interactifs,PICARD Delphine,TP,BUT3-G3,"R01, R02, R04, 115, 102",,,,2.0,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.DWeb-DI.07,Dispositifs interactifs,BOULANGER Mickael,TD,BUT3-G3,"R01, R02, R04, 115, 102",,,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.DWeb-DI.07,Dispositifs interactifs,BOULANGER Mickael,TP,BUT3-G3,"R01, R02, R04, 115, 102",,,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.DWeb-DI.08,Hébergement et cybersécurité,CHARRIER Marion,TD,BUT3-G3,R01,,2.0,2.0,2.0,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.DWeb-DI.08,Hébergement et cybersécurité,TESSIER Pauline,TD,BUT3-G3,"R01, R02, R04",,,,,,,2.0,,2.0,,,2.0,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,R5.DWeb-DI.08,Hébergement et cybersécurité,TESSIER Pauline,TP,BUT3-G3,"R01, R02, R04",,,,,,,2.0,2.0,2.0,,,2.0,2.0,2.0,2.0,4.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,SAÉ 5.DWeb-DI.01,Développer pour le web ou concevoir un dispositif interactif,NON AFFECTE,Autonomie,BUT3-G3,,,9.0,9.5,9.0,,,2.5,5.0,8.0,,,9.0,8.0,9.5,12.0,4.0,8.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,SAÉ 5.DWeb-DI.01,Développer pour le web ou concevoir un dispositif interactif,GAUDIN Jerome,TD,BUT3-G3,R01,,,,,,,,,,,2.0,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,SAÉ 5.DWeb-DI.01,Développer pour le web ou concevoir un dispositif interactif,CARON Coralie,TD,BUT3-G3,R01,,2.0,2.0,2.0,,,2.0,2.0,,,,2.0,2.0,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,SAÉ 5.DWeb-DI.01,Développer pour le web ou concevoir un dispositif interactif,HUBERT Quentin,TD,BUT3-G3,R01,,,,,,,2.0,2.0,,,,2.0,2.0,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,SAÉ 5.DWeb-DI.01,Développer pour le web ou concevoir un dispositif interactif,CHARRIER Marion,TD,BUT3-G3,R01,,,,,,,2.0,2.0,2.0,,,2.0,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,SAÉ 5.DWeb-DI.01,Développer pour le web ou concevoir un dispositif interactif,NOEL Melanie,TD,BUT3-G3,R01,,,,,,,,2.0,2.0,,,,2.0,2.0,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,SAÉ 5.DWeb-DI.01,Développer pour le web ou concevoir un dispositif interactif,GIRARD Damien,TD,BUT3-G3,R01,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,SAÉ 5.DWeb-DI.01,Développer pour le web ou concevoir un dispositif interactif,NON AFFECTE,Autonomie,BUT3-G3,,,,,,13.5,13.5,,,,,13.5,,,,,,,,,13.5,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,SAÉ 5.DWeb-DI.01,Développer pour le web ou concevoir un dispositif interactif,NOEL Melanie,TD,BUT3-G3,"R01, R02, 102",,,,,3.0,3.0,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,SAÉ 5.DWeb-DI.01,Développer pour le web ou concevoir un dispositif interactif,HUBERT Quentin,TD,BUT3-G3,"R01, R02, 102",,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,SAÉ 5.DWeb-DI.01,Développer pour le web ou concevoir un dispositif interactif,NOEL Melanie,TD,BUT3-G3,"R01, R02, 102",,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,SAÉ 5.DWeb-DI.01,Développer pour le web ou concevoir un dispositif interactif,NOEL Melanie,TD,BUT3-G3,"R01, R02, 102",,,,,2.0,2.0,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,SAÉ 5.DWeb-DI.01,Développer pour le web ou concevoir un dispositif interactif,GIRARD Damien,TD,BUT3-G3,"R01, R02, 102",,,,,3.0,3.0,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,SAÉ 5.DWeb-DI.01,Développer pour le web ou concevoir un dispositif interactif,GIRARD Damien,TD,BUT3-G3,"R01, R02, 102",,,,,2.0,2.0,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,SAÉ 5.DWeb-DI.01,Développer pour le web ou concevoir un dispositif interactif,GIRARD Damien,TD,BUT3-G3,"R01, R02, 102",,,,,2.0,2.0,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,SAÉ 5.DWeb-DI.01,Développer pour le web ou concevoir un dispositif interactif,HUBERT Quentin,TP,BUT3-G3,"R01, R02, 102",,,,,3.0,3.0,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,DWeb,SAÉ 5.DWeb-DI.01,Développer pour le web ou concevoir un dispositif interactif,HUBERT Quentin,TP,BUT3-G3,"R01, R02, 102",,,,,2.0,2.0,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.05,Définir une direction artistique,PASQUIER Aurore,TD,"BUT3-G1, BUT3-G2",115,,2.0,2.0,2.0,,,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.05,Définir une direction artistique,PASQUIER Aurore,TP,BUT3-G1,115,,2.0,2.0,2.0,,,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.05,Définir une direction artistique,PASQUIER Aurore,TP,BUT3-G2,115,,2.0,2.0,2.0,,,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.06,Création numérique,HUBERT Quentin,TD,"BUT3-G1, BUT3-G2",R04,,2.0,2.0,2.0,,,2.0,2.0,2.0,,,2.5,2.0,2.0,2.0,2.0,2.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.06,Création numérique,HUBERT Quentin,TD,"BUT3-G1, BUT3-G2",R04,,2.0,2.0,2.0,,,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.06,Création numérique,HUBERT Quentin,TP,BUT3-G1,R04,,,2.0,2.0,,,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.06,Création numérique,BODIN Cyril,TP,BUT3-G2,,,,2.0,2.0,,,2.0,2.0,2.0,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.07,Ecriture Multimédia et narration,FAURE Celine,TD,"BUT3-G1, BUT3-G2",115,,2.0,2.0,2.0,,,2.0,2.0,2.0,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.07,Ecriture Multimédia et narration,GARNIER Mathieu,TD,"BUT3-G1, BUT3-G2",115,,2.0,2.0,2.0,,,2.0,2.0,,,,2.0,2.0,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.07,Ecriture Multimédia et narration,FAURE Celine,TP,BUT3-G1,115,,2.0,2.0,2.0,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.07,Ecriture Multimédia et narration,GARNIER Mathieu,TP,BUT3-G2,115,,2.0,2.0,2.0,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.07,Ecriture Multimédia et narration,CARON Coralie,TD,"BUT3-G1, BUT3-G2",115,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.07,Ecriture Multimédia et narration,CARON Coralie,TP,BUT3-G2,,,,,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.07,Ecriture Multimédia et narration,AUBRY Bastien,TD,"BUT3-G1, BUT3-G2",115,,,,,,,,,,,,,,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.07,Ecriture Multimédia et narration,AUBRY Bastien,TP,BUT3-G1,115,,,,,,,,,,,,,,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.08,Intégration et développement front,HUBERT Quentin,TD,"BUT3-G1, BUT3-G2","R04, 115, 102",,2.0,2.0,2.0,,,2.0,2.0,2.0,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.08,Intégration et développement front,HUBERT Quentin,TP,BUT3-G1,R04,,,,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,R5.Crea.08,Intégration et développement front,BODIN Cyril,TP,BUT3-G2,,,,,,,,,,,,,,2.0,2.0,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,NON AFFECTE,Autonomie,BUT3-G1,,,9.0,9.5,6.0,,,0.5,5.0,9.0,,,15.5,8.0,4.5,4.0,8.5,16.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,NON AFFECTE,Autonomie,BUT3-G2,,,9.0,9.5,6.0,,,0.5,5.0,9.0,,,15.5,8.0,4.5,4.0,8.5,16.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,DOE John,TD,"BUT3-G1, BUT3-G2",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,GARNIER Mathieu,TD,"BUT3-G1, BUT3-G2",115,,,,,,,2.0,2.0,,,,,,2.0,2.0,2.0,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,FAURE Celine,TD,"BUT3-G1, BUT3-G2",115,,,,,,,,2.0,2.0,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,AUBRY Bastien,TD,"BUT3-G1, BUT3-G2",115,,,,,,,6.0,,,,,2.0,2.0,,,,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,HUBERT Quentin,TD,"BUT3-G1, BUT3-G2",115,,,,,,,,,,,,,2.0,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,PASQUIER Aurore,TD,"BUT3-G1, BUT3-G2",115,,5.0,3.0,4.0,,,,2.0,2.0,,,2.0,2.0,2.0,2.0,1.5,1.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,NON AFFECTE,Autonomie,BUT3-G1,,,,,,13.5,13.5,,,,,13.5,,,,,,,,,13.5,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,NON AFFECTE,Autonomie,BUT3-G2,,,,,,13.5,13.5,,,,,13.5,,,,,,,,,13.5,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,HUBERT Quentin,TD,"BUT3-G1, BUT3-G2","115, 102",,,,,4.0,4.0,,,,,4.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,FAURE Celine,TD,"BUT3-G1, BUT3-G2","115, 102",,,,,4.0,4.0,,,,,4.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,AUBRY Bastien,TD,"BUT3-G1, BUT3-G2","115, 102",,,,,2.0,2.0,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,GARNIER Mathieu,TD,"BUT3-G1, BUT3-G2","115, 102",,,,,,,,,,,,,,,,,,,,10.5,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,HUBERT Quentin,TD,"BUT3-G1, BUT3-G2","115, 102",,,,,4.0,4.0,,,,,4.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,PASQUIER Aurore,TP,BUT3-G1,"115, 102",,,,,3.0,3.0,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,PASQUIER Aurore,TP,BUT3-G2,"115, 102",,,,,3.0,3.0,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,PASQUIER Aurore,TP,BUT3-G1,"115, 102",,,,,2.0,2.0,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S5,Crea,SAÉ 5.Crea.01,Créer par/pour le numérique,PASQUIER Aurore,TP,BUT3-G2,"115, 102",,,,,2.0,2.0,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,TC,R6.01,Entrepreneuriat,COLIN Aurelie,TD,"BUT3-G1, BUT3-G2",101,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,TC,R6.01,Entrepreneuriat,MOULIN Valentin,TD,BUT3-G3,103,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,TC,R6.01,Entrepreneuriat,COLIN Aurelie,TD,"BUT3-G1, BUT3-G2",101,,,,,,,,,,,,,,,,,,,,,3.0,3.0,3.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,TC,R6.01,Entrepreneuriat,MOULIN Valentin,TD,BUT3-G3,103,,,,,,,,,,,,,,,,,,,,,3.0,3.0,3.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,Crea,R6.Crea.02,Création numérique interactive,HUBERT Quentin,TD,"BUT3-G1, BUT3-G2","R04, 102, 115",,,,,,,,,,,,,,,,,,,,,4.0,4.0,4.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,Crea,R6.Crea.02,Création numérique interactive,HUBERT Quentin,TD,"BUT3-G1, BUT3-G2","R04, 102, 115",,,,,,,,,,,,,,,,,,,,,4.0,4.0,4.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,Crea,R6.Crea.02,Création numérique interactive,HUBERT Quentin,TD,"BUT3-G1, BUT3-G2","R04, 102, 115",,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,Crea,R6.Crea.02,Création numérique interactive,FAURE Celine,TD,"BUT3-G1, BUT3-G2","115, 102",,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,Crea,R6.Crea.02,Création numérique interactive,FAURE Celine,TD,"BUT3-G1, BUT3-G2","115, 102",,,,,,,,,,,,,,,,,,,,,3.0,3.0,3.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,DWeb,R6.DWeb-DI.02,Développement Web et dispositif interactif,GIRARD Damien,TD,BUT3-G3,R01,,,,,,,,,,,,,,,,,,,,,3.0,3.0,3.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,DWeb,R6.DWeb-DI.02,Développement Web et dispositif interactif,TORIBIO Florian,TD,BUT3-G3,R01,,,,,,,,,,,,,,,,,,,,,3.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,DWeb,R6.DWeb-DI.02,Développement Web et dispositif interactif,TORIBIO Florian,TD,BUT3-G3,R01,,,,,,,,,,,,,,,,,,,,,2.0,2.5,3.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,DWeb,R6.DWeb-DI.02,Développement Web et dispositif interactif,TORIBIO Florian,TD,BUT3-G3,R01,,,,,,,,,,,,,,,,,,,,,2.0,2.5,3.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,DWeb,R6.DWeb-DI.02,Développement Web et dispositif interactif,CHARRIER Marion,TD,BUT3-G3,R01,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,DWeb,R6.DWeb-DI.02,Développement Web et dispositif interactif,TESSIER Pauline,TD,BUT3-G3,R01,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,DWeb,R6.DWeb-DI.02,Développement Web et dispositif interactif,TESSIER Pauline,TD,BUT3-G3,R01,,,,,,,,,,,,,,,,,,,,,2.0,2.0,2.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,DWeb,PORTFOLIO.DWeb.S6,Portfolio-Parcours Développement Web et Dispositifs interactifs,MEUNIER Sandrine,TD,BUT3-G3,R01,,,,,,,,,,,,,,,,,,,,,2.0,3.0,3.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,DWeb,PORTFOLIO.DWeb.S6,Portfolio-Parcours Développement Web et Dispositifs interactifs,MEUNIER Sandrine,TD,BUT3-G3,R01,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,DWeb,PORTFOLIO.DWeb.S6,Portfolio-Parcours Développement Web et Dispositifs interactifs,NON AFFECTE,Autonomie,BUT3-G3,,,,,,,,,,,,,,,,,,,,,,10.0,13.0,12.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,DWeb,PORTFOLIO.DWeb.S6,Portfolio-Parcours Développement Web et Dispositifs interactifs,NON AFFECTE,Autonomie,BUT3-G3,,,,,,,,,,,,,,,,,,,,,,,,,15.0,,,,,,,,,,,,,,,,,,,,,,
+
+S6,Crea,PORTFOLIO.Crea.S6,Portfolio-Parcours Création Numérique,MEUNIER Sandrine,TD,"BUT3-G1, BUT3-G2",115,,,,,,,,,,,,,,,,,,,,,2.0,3.0,3.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,Crea,PORTFOLIO.Crea.S6,Portfolio-Parcours Création Numérique,MEUNIER Sandrine,TD,"BUT3-G1, BUT3-G2",115,,,,,,,,,,,,,,,,,,,,,2.0,,,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,Crea,PORTFOLIO.Crea.S6,Portfolio-Parcours Création Numérique,NON AFFECTE,Autonomie,BUT3-G1,,,,,,,,,,,,,,,,,,,,,,11.0,12.0,12.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,Crea,PORTFOLIO.Crea.S6,Portfolio-Parcours Création Numérique,NON AFFECTE,Autonomie,BUT3-G2,,,,,,,,,,,,,,,,,,,,,,11.0,12.0,12.0,,,,,,,,,,,,,,,,,,,,,,,
+
+S6,Crea,PORTFOLIO.Crea.S6,Portfolio-Parcours Création Numérique,NON AFFECTE,Autonomie,BUT3-G1,,,,,,,,,,,,,,,,,,,,,,,,,15.0,,,,,,,,,,,,,,,,,,,,,,
+
+S6,Crea,PORTFOLIO.Crea.S6,Portfolio-Parcours Création Numérique,NON AFFECTE,Autonomie,BUT3-G2,,,,,,,,,,,,,,,,,,,,,,,,,15.0,,,,,,,,,,,,,,,,,,,,,,

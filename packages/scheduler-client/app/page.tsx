@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import type { RawScheduleData, TaskSolutionJSON } from '@edt-ts/scheduler-common';
+import { parseCsvCourses } from '../lib/parseCsvCourses';
 
 export default function SchedulePage() {
   const [week, setWeek] = useState('');
   const [resourcesFile, setResourcesFile] = useState<File | null>(null);
-  const [coursesFile, setCoursesFile] = useState<File | null>(null);
+  const [coursesCsvFile, setCoursesCsvFile] = useState<File | null>(null);
   const [constraintsFile, setConstraintsFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<{ message: string; kind: 'ok' | 'err' | 'inf' } | null>(null);
@@ -29,18 +30,18 @@ export default function SchedulePage() {
       }
 
       if (!resourcesFile) throw new Error('Fichier resources requis.');
-      if (!coursesFile) throw new Error('Fichier courses requis.');
+      if (!coursesCsvFile) throw new Error('Fichier cours CSV requis.');
 
       const resources = await readJSON<RawScheduleData['resources']>(resourcesFile);
-      const coursesData = await readJSON<{ courses?: RawScheduleData['courses'] }>(coursesFile);
-      const courses = coursesData?.courses ?? null;
+      const csvText = await coursesCsvFile.text();
+      const courses = parseCsvCourses(csvText, weekNum);
       const constraints = constraintsFile ? await readJSON<RawScheduleData['constraints']>(constraintsFile) : null;
 
       if (!Array.isArray(resources)) {
         throw new Error('Le fichier resources doit être un tableau JSON.');
       }
-      if (!Array.isArray(courses)) {
-        throw new Error('Le fichier cours doit contenir "courses" (tableau).');
+      if (courses.length === 0) {
+        throw new Error(`Aucun cours trouvé pour la semaine ${weekNum} dans le CSV.`);
       }
 
       const payload: RawScheduleData = { week: weekNum, resources, courses, ...(constraints ? { constraints } : {}) };
@@ -115,12 +116,12 @@ export default function SchedulePage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Courses (JSON)
+              Courses (CSV)
             </label>
             <input
               type="file"
-              accept=".json"
-              onChange={(e) => setCoursesFile(e.target.files?.[0] ?? null)}
+              accept=".csv"
+              onChange={(e) => setCoursesCsvFile(e.target.files?.[0] ?? null)}
               required
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
             />
