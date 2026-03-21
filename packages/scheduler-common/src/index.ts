@@ -6,7 +6,7 @@
  */
 
 // --- Modèles de disponibilité ---
-export { TimeInterval, Availability, TimestampUtils, formatTimestamp, formatInterval, formatIntervals } from './availability.ts';
+export { Availability } from './availability.ts';
 export type { AvailableSlot } from './availability.ts';
 
 // --- Modèles de ressources et tâches ---
