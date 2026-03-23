@@ -7,11 +7,11 @@
     {
       "days": "lundi, mardi, mercredi, jeudi, vendredi",
       "from": "8:00",
-      "to": "12:00"
+      "to": "12:30"
     },
      {
       "days": "lundi, mardi, mercredi",
-      "from": "14:00",
+      "from": "13:30",
       "to": "19:30"
     },
     {
@@ -1014,6 +1014,7 @@
   "BUT1-G3": null,
   "BUT1-G4": null,
   "BUT2-G1": null,
+  "BUT2-G2": null,
   "BUT2-G21": null,
   "BUT2-G22": null,
   "BUT2-G3": null,
