@@ -36,6 +36,7 @@ scheduler-api     -->  scheduler-core  -->  scheduler-common
 - `scheduler-client` ne doit importer que depuis `@edt-ts/scheduler-common` (pas depuis `scheduler-core` ni `scheduler-api`).
 - Garder les changements ciblés, minimaux, et compatibles avec l’existant.
 - Préférer des corrections à la racine (chemins, types, état statique) plutôt que des contournements.
+- Ne jamais générer plus de code que nécessaire
 
 ## Workflows monorepo
 

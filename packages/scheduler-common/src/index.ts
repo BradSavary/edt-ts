@@ -6,13 +6,12 @@
  */
 
 // --- Modèles de disponibilité ---
-export { TimeInterval, Availability, TimestampUtils, formatTimestamp, formatInterval, formatIntervals } from './availability.ts';
+export { Availability } from './availability.ts';
 export type { AvailableSlot } from './availability.ts';
 
 // --- Modèles de ressources et tâches ---
 export { Resource, ResourceType } from './resource.ts';
-export { Task, TaskStatus } from './task.ts';
-export type { TaskScheduleResult } from './task.ts';
+export { Task } from './task.ts';
 export { ResourcesManager } from './resourcesManager.ts';
 export { TasksManager } from './tasksManager.ts';
 
@@ -23,4 +22,4 @@ export { AvailabilityManager } from './availabilityManager.ts';
 export { SchedulerData } from './schedulerData.ts';
 
 // --- Types de données ---
-export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, ResourceEntry, ResourceData, ResourceGroupData, RawScheduleData, TaskSolutionJSON } from './types.ts';
+export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, ResourceEntry, ResourceData, ResourceGroupData, RawScheduleData, TaskSolutionJSON, EnforcedData } from './types.ts';

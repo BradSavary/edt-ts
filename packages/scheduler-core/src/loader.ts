@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-import type { ConstraintsData, CoursesData, ResourceGroupData, ResourcesManager, TasksManager, RawScheduleData } from '@edt-ts/scheduler-common';
+import type { ConstraintsData, CoursesData, ResourceGroupData, ResourcesManager, TasksManager, RawScheduleData, CourseTaskData } from '@edt-ts/scheduler-common';
 
 export type { RawScheduleData };
 
@@ -33,6 +33,7 @@ export class Loader {
       // S'assure que les ressources sont chargées
       void this.resourcesManager;
       const coursesData = Loader.loadJson<CoursesData>(join(Loader.getJsonDir(), 'cours.json'));
+      Loader.validateEnforcedCourses(coursesData.courses);
       this._data.initConstraints(Loader._loadConstraintsFromFile());
       console.log(`📚 Chargement des tâches pour la semaine ${coursesData.weeks}`);
       this._data.initTasks(coursesData);
@@ -64,6 +65,7 @@ export class Loader {
     this._data.initResources(Loader.loadJson<ResourceGroupData[]>(join(Loader.getJsonDir(), 'resources.json')));
     this._data.initConstraints(Loader._loadConstraintsFromFile());
     const allCourses = Loader.loadJson<CoursesData>(join(Loader.getJsonDir(), 'cours.json'));
+    Loader.validateEnforcedCourses(allCourses.courses);
     console.log(`📚 Chargement des tâches pour la semaine ${weekNumber}`);
     this._data.initTasks({ weeks: weekNumber, courses: allCourses.courses });
     this._currentWeek = weekNumber;
@@ -83,6 +85,7 @@ export class Loader {
     if (data.constraints) {
       this._data.initConstraints(data.constraints);
     }
+    Loader.validateEnforcedCourses(data.courses);
     console.log(`📚 Chargement des tâches pour la semaine ${data.week}`);
     this._data.initTasks({ weeks: data.week, courses: data.courses });
     this._currentWeek = data.week;
@@ -108,5 +111,51 @@ export class Loader {
 
   private static _loadConstraintsFromFile(): ConstraintsData {
     return Loader.loadJson<ConstraintsData>(join(Loader.getJsonDir(), 'contraintes.json'));
+  }
+
+  /**
+   * Valide la cohérence des cours enforced avant l'initialisation des tâches.
+   * - Les ressources enforced doivent être des listes plates (pas d'alternatives).
+   * - Deux cours enforced ne peuvent pas se chevaucher sur une même ressource.
+   */
+  private static validateEnforcedCourses(courses: CourseTaskData[]): void {
+    const enforced = courses.filter(c => c.enforced !== undefined);
+
+    // 1. Vérification des tableaux plats (pas de string[][] dans enforced)
+    for (const course of enforced) {
+      const e = course.enforced!;
+      const allEntries: unknown[] = [...e.teacher, ...e.groups, ...e.rooms];
+      for (const entry of allEntries) {
+        if (Array.isArray(entry)) {
+          throw new Error(
+            `Cours enforced "${course.code}" (${course.type}) : les ressources enforced ne peuvent pas contenir d'alternatives (tableau imbriqué détecté : ${JSON.stringify(entry)}).`
+          );
+        }
+      }
+    }
+
+    // 2. Détection des conflits entre cours enforced
+    for (let i = 0; i < enforced.length; i++) {
+      const a = enforced[i];
+      const ea = a.enforced!;
+      const endA = ea.startTime + a.duration;
+
+      for (let j = i + 1; j < enforced.length; j++) {
+        const b = enforced[j];
+        const eb = b.enforced!;
+        const endB = eb.startTime + b.duration;
+
+        // Chevauchement temporel ?
+        if (ea.startTime < endB && endA > eb.startTime) {
+          const resourcesA = new Set([...ea.teacher, ...ea.groups, ...ea.rooms]);
+          const shared = [...eb.teacher, ...eb.groups, ...eb.rooms].filter(id => resourcesA.has(id));
+          if (shared.length > 0) {
+            throw new Error(
+              `Conflit entre cours enforced "${a.code}" (${a.type}) et "${b.code}" (${b.type}) : ressource(s) partagée(s) [${shared.join(', ')}] sur le même créneau.`
+            );
+          }
+        }
+      }
+    }
   }
 }

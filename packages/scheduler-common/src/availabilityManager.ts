@@ -152,33 +152,4 @@ export class AvailabilityManager {
     return this._createFromSlots(defaultSlots);
   }
 
-  public getAllResourceIds(): string[] {
-    return Array.from(this.availabilities.keys());
-  }
-
-  public hasResource(resourceId: string): boolean {
-    return this.availabilities.has(resourceId);
-  }
-
-  public getOverrideWeeks(resourceId: string): number[] {
-    const weeklyOverrides = this.weeklyOverrides.get(resourceId);
-    return weeklyOverrides ? Array.from(weeklyOverrides.keys()).sort((a, b) => a - b) : [];
-  }
-
-  public getStats(): {
-    totalResources: number;
-    resourcesWithOverrides: number;
-    totalOverrides: number;
-  } {
-    let totalOverrides = 0;
-    for (const weeklyMap of this.weeklyOverrides.values()) {
-      totalOverrides += weeklyMap.size;
-    }
-
-    return {
-      totalResources: this.availabilities.size,
-      resourcesWithOverrides: this.weeklyOverrides.size,
-      totalOverrides
-    };
-  }
 }

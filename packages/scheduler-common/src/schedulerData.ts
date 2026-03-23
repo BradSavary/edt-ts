@@ -101,19 +101,10 @@ export class SchedulerData {
       const groupGroups   = normalize(courseData.groups);
       const roomGroups    = normalize(courseData.rooms);
 
-      // Collecter toutes les salles possibles (nécessaire pour Task.availableRooms)
-      const allRoomResources: Resource[] = [];
-      for (const roomGroup of roomGroups) {
-        for (const id of roomGroup) {
-          const r = this._resourcesManager.getResource(id);
-          if (r) allRoomResources.push(r);
-        }
-      }
-
       this._taskCounter++;
       const teacherIds = courseData.teacher.flat().join('_');
       const taskId = `${courseData.code}_${teacherIds}_${courseData.groups.flat().join('_')}_${this._taskCounter}`;
-      const task = new Task(taskId, courseData, [], allRoomResources);
+      const task = new Task(taskId, courseData, []);
 
       task.resources[ResourceType.TEACHER] = [];
       task.resources[ResourceType.ROOM]    = [];

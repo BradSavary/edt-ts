@@ -64,24 +64,10 @@ class TimeInterval {
   }
 
   /**
-   * Vérifie si un moment donné est dans cet intervalle
-   */
-  contains(time: number): boolean {
-    return time >= this.start && time < this.end;
-  }
-
-  /**
    * Calcule la durée de l'intervalle
    */
   duration(): number {
     return this.end - this.start;
-  }
-
-  /**
-   * Clone l'intervalle
-   */
-  clone(): TimeInterval {
-    return new TimeInterval(this.start, this.end);
   }
 
   toString(): string {
@@ -248,30 +234,6 @@ class Availability {
   }
 
   /**
-   * Trouve le prochain créneau disponible d'une durée donnée
-   * Utilise une recherche optimisée grâce au tri des intervalles
-   */
-  findNextAvailableSlot(duration: number, afterTime: number = 0): AvailableSlot | null {
-    // Recherche binaire pour trouver le premier intervalle qui commence >= afterTime
-    const startIndex = this._findFirstIntervalAfter(afterTime);
-    
-    // Parcourir à partir de cet index
-    for (let i = startIndex; i < this.intervals.length; i++) {
-      const interval = this.intervals[i];
-      const slotStart = Math.max(interval.start, afterTime);
-      
-      if (slotStart + duration <= interval.end) {
-        return {
-          start: slotStart,
-          end: slotStart + duration
-        };
-      }
-    }
-    
-    return null;
-  }
-
-  /**
    * Trouve l'index du premier intervalle qui pourrait contenir ou suivre afterTime
    */
   private _findFirstIntervalAfter(afterTime: number): number {
@@ -294,25 +256,6 @@ class Availability {
     }
     
     return result;
-  }
-
-  /**
-   * Trouve tous les créneaux disponibles d'une durée minimale
-   */
-  findAvailableSlots(minDuration: number): AvailableSlot[] {
-    const slots: AvailableSlot[] = [];
-    
-    for (const interval of this.intervals) {
-      if (interval.duration() >= minDuration) {
-        slots.push({
-          start: interval.start,
-          end: interval.end,
-          duration: interval.duration()
-        });
-      }
-    }
-    
-    return slots;
   }
 
   /**
@@ -389,22 +332,6 @@ class Availability {
     
     return result;
   }
-
-  /**
-   * Nettoie les intervalles vides ou invalides
-   */
-  cleanup(): void {
-    this.intervals = this.intervals.filter(interval => interval.duration() > 0);
-  }
-
-  /**
-   * Vide toutes les disponibilités
-   */
-  clear(): void {
-    this.intervals = [];
-  }
-
-
 
   /**
    * Retourne une copie profonde de l'Availability
@@ -487,127 +414,6 @@ class Availability {
   }
 }
 
-/**
- * Utilitaires de formatage pour les timestamps 
- * 
- * SYSTÈME DE TIMESTAMPS :
- * Les timestamps représentent des minutes écoulées depuis le LUNDI MINUIT d'une semaine type de 7 jours.
- * 
- * Mapping des jours :
- * - Jour 0 = Lundi    (0 à 1439 minutes)
- * - Jour 1 = Mardi    (1440 à 2879 minutes) 
- * - Jour 2 = Mercredi (2880 à 4319 minutes)
- * - Jour 3 = Jeudi    (4320 à 5759 minutes)
- * - Jour 4 = Vendredi (5760 à 7199 minutes)
- * - Jour 5 = Samedi   (7200 à 8639 minutes)
- * - Jour 6 = Dimanche (8640 à 10079 minutes)
- * 
- * Exemples :
- * - Lundi 08:00 = 0 * 1440 + 480 = 480 minutes
- * - Vendredi 13:30 = 4 * 1440 + 810 = 6570 minutes
- * - Dimanche 23:59 = 6 * 1440 + 1439 = 10079 minutes
- * 
- * Cette semaine "type" peut ensuite être appliquée à n'importe quelle semaine réelle,
- * avec des overrides spécifiques pour certaines semaines (S36, S37, etc.)
- */
-
-/**
- * Classe utilitaire pour les conversions de timestamps
- */
-class TimestampUtils {
-  private static readonly MINUTES_PER_DAY = 24 * 60; // 1440 minutes
-  private static readonly DAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-  
-  /**
-   * Convertit jour + heure en timestamp
-   * @param dayIndex Index du jour (0=Lundi, 1=Mardi, ..., 6=Dimanche)
-   * @param hour Heure (0-23)
-   * @param minute Minute (0-59)
-   * @returns Timestamp en minutes depuis lundi minuit
-   */
-  static toTimestamp(dayIndex: number, hour: number, minute: number): number {
-    return dayIndex * this.MINUTES_PER_DAY + hour * 60 + minute;
-  }
-  
-  /**
-   * Convertit une heure "HH:MM" en minutes depuis minuit
-   * @param timeString Format "HH:MM"
-   * @returns Minutes depuis minuit (0-1439)
-   */
-  static parseTime(timeString: string): number {
-    const [hours, minutes] = timeString.split(':').map(Number);
-    return hours * 60 + (minutes || 0);
-  }
-  
-  /**
-   * Convertit un timestamp en composants jour/heure/minute
-   * @param timestamp Minutes depuis lundi minuit
-   * @returns Objet avec dayIndex, hour, minute, dayName
-   */
-  static fromTimestamp(timestamp: number): { dayIndex: number, hour: number, minute: number, dayName: string } {
-    const dayIndex = Math.floor(timestamp / this.MINUTES_PER_DAY);
-    const timeInDay = timestamp % this.MINUTES_PER_DAY;
-    const hour = Math.floor(timeInDay / 60);
-    const minute = timeInDay % 60;
-    const dayName = this.DAY_NAMES[dayIndex] || `Jour ${dayIndex}`;
-    
-    return { dayIndex, hour, minute, dayName };
-  }
-  
-  /**
-   * Affiche un timestamp sous forme lisible
-   * @param timestamp Minutes depuis lundi minuit
-   * @returns Format "Jour HH:MM"
-   */
-  static format(timestamp: number): string {
-    const { dayName, hour, minute } = this.fromTimestamp(timestamp);
-    return `${dayName} ${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-  }
-}
-
-/**
- * Convertit un timestamp (minutes depuis lundi minuit d'une semaine type) en format jour + heure
- * @deprecated Utilisez TimestampUtils.fromTimestamp() à la place
- */
-function formatTimestamp(timestamp: number): { day: string, time: string, dayIndex: number } {
-  const dayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-  
-  const dayIndex = Math.floor(timestamp / (24 * 60));
-  const hour = Math.floor((timestamp % (24 * 60)) / 60);
-  const minute = timestamp % 60;
-  
-  const day = dayNames[dayIndex] || `Jour ${dayIndex}`;
-  const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-  
-  return { day, time, dayIndex };
-}
-
-/**
- * Formate un intervalle de temps pour l'affichage
- */
-function formatInterval(start: number, end: number): string {
-  const startInfo = formatTimestamp(start);
-  const endInfo = formatTimestamp(end);
-  const duration = end - start;
-  
-  if (startInfo.dayIndex === endInfo.dayIndex) {
-    // Même jour
-    return `${startInfo.day} ${startInfo.time} - ${endInfo.time} (${duration} min)`;
-  } else {
-    // Créneau sur plusieurs jours
-    return `${startInfo.day} ${startInfo.time} - ${endInfo.day} ${endInfo.time} (${duration} min)`;
-  }
-}
-
-/**
- * Formate une liste d'intervalles pour l'affichage
- */
-function formatIntervals(intervals: { start: number, end: number }[]): void {
-  intervals.forEach((interval, index) => {
-    console.log(`   ${index + 1}. ${formatInterval(interval.start, interval.end)}`);
-  });
-}
-
 // Export des classes
-export { TimeInterval, Availability, TimestampUtils, formatTimestamp, formatInterval, formatIntervals };
+export { Availability };
 export type { AvailableSlot };

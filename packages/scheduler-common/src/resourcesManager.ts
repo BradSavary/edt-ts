@@ -17,13 +17,6 @@ class ResourcesManager {
   }
 
   /**
-   * Supprime une ressource du gestionnaire
-   */
-  removeResource(id: string): boolean {
-    return this.resources.delete(id);
-  }
-
-  /**
    * Récupère une ressource par son identifiant (accès O(1))
    */
   getResource(id: string): Resource | undefined {
@@ -31,91 +24,10 @@ class ResourcesManager {
   }
 
   /**
-   * Vérifie si une ressource existe
-   */
-  hasResource(id: string): boolean {
-    return this.resources.has(id);
-  }
-
-  /**
    * Récupère toutes les ressources
    */
   getAllResources(): Resource[] {
     return Array.from(this.resources.values());
-  }
-
-  /**
-   * Récupère tous les identifiants de ressources
-   */
-  getAllResourceIds(): string[] {
-    return Array.from(this.resources.keys());
-  }
-
-  /**
-   * Compte le nombre total de ressources
-   */
-  getResourceCount(): number {
-    return this.resources.size;
-  }
-
-  /**
-   * Vide le gestionnaire de toutes les ressources
-   */
-  clear(): void {
-    this.resources.clear();
-  }
-
-  /**
-   * Vérifie si le gestionnaire est vide
-   */
-  isEmpty(): boolean {
-    return this.resources.size === 0;
-  }
-
-  /**
-   * Trouve les ressources qui correspondent à un prédicat
-   */
-  findResources(predicate: (resource: Resource) => boolean): Resource[] {
-    return Array.from(this.resources.values()).filter(predicate);
-  }
-
-  /**
-   * Trouve la première ressource qui correspond à un prédicat
-   */
-  findResource(predicate: (resource: Resource) => boolean): Resource | undefined {
-    for (const resource of this.resources.values()) {
-      if (predicate(resource)) {
-        return resource;
-      }
-    }
-    return undefined;
-  }
-
-  /**
-   * Exécute une fonction pour chaque ressource
-   */
-  forEach(callback: (resource: Resource, id: string) => void): void {
-    this.resources.forEach(callback);
-  }
-
-  /**
-   * Retourne une représentation textuelle du gestionnaire
-   */
-  toString(): string {
-    return `ResourcesManager(${this.getResourceCount()} ressources)`;
-  }
-
-  /**
-   * Applique les contraintes de disponibilité aux ressources
-   * en utilisant l'AvailabilityManager pour la semaine par défaut
-   */
-  applyConstraints(am: AvailabilityManager): void {
-    for (const resource of this.resources.values()) {
-      const availability = am.getAvailability(resource.id);
-      if (availability) {
-        resource.availability = availability;
-      }
-    }
   }
 
   /**
@@ -128,37 +40,6 @@ class ResourcesManager {
         resource.availability = availability;
       }
     }
-  }
-
-  /**
-   * Obtient les statistiques des contraintes pour les ressources gérées
-   */
-  getConstraintsStats(am: AvailabilityManager): {
-    resourcesWithConstraints: number;
-    resourcesWithOverrides: number;
-    averageAvailability: number;
-  } {
-    let resourcesWithConstraints = 0;
-    let resourcesWithOverrides = 0;
-    let totalAvailability = 0;
-
-    for (const resource of this.resources.values()) {
-      const hasConstraints = am.hasResource(resource.id);
-      if (hasConstraints) {
-        resourcesWithConstraints++;
-        const overrides = am.getOverrideWeeks(resource.id);
-        if (overrides.length > 0) {
-          resourcesWithOverrides++;
-        }
-        totalAvailability += resource.getTotalAvailableTime();
-      }
-    }
-
-    return {
-      resourcesWithConstraints,
-      resourcesWithOverrides,
-      averageAvailability: this.resources.size > 0 ? totalAvailability / this.resources.size : 0
-    };
   }
 }
 

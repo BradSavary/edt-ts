@@ -11,7 +11,7 @@ export { ScheduleAR } from './scheduleAR.js';
 export type { ScheduleSolution, TaskSolution } from './schedule.js';
 
 // --- Modèles de données ---
-export { Task, TaskStatus } from '@edt-ts/scheduler-common';
+export { Task } from '@edt-ts/scheduler-common';
 export { Resource, ResourceType } from '@edt-ts/scheduler-common';
 export { ResourcesManager } from '@edt-ts/scheduler-common';
 export { TasksManager } from '@edt-ts/scheduler-common';
