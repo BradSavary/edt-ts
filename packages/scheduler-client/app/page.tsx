@@ -4,14 +4,34 @@ import { useState } from 'react';
 import type { RawScheduleData, TaskSolutionJSON } from '@edt-ts/scheduler-common';
 import { parseCsvCourses } from '../lib/parseCsvCourses';
 import ScheduleCalendar from './ScheduleCalendar';
+
 export default function SchedulePage() {
-  const [week, setWeek] = useState('');
+  const [week, setWeek] = useState('1');
   const [resourcesFile, setResourcesFile] = useState<File | null>(null);
   const [coursesCsvFile, setCoursesCsvFile] = useState<File | null>(null);
   const [constraintsFile, setConstraintsFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<{ message: string; kind: 'ok' | 'err' | 'inf' } | null>(null);
   const [result, setResult] = useState<{ isComplete: boolean; scheduledCount: number; conflictCount: number; solutions: TaskSolutionJSON[]; week: number } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const calendarWeek = parseInt(week, 10) || 1;
+
+  const filteredSolutions = (() => {
+    const solutions = result?.solutions ?? [];
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return solutions;
+    return solutions.filter((task) => {
+      const teachers = task.resources.filter((r) => r.type === 'teacher').map((r) => r.id.toLowerCase());
+      const rooms = task.resources.filter((r) => r.type === 'room').map((r) => r.id.toLowerCase());
+      return (
+        task.code.toLowerCase().includes(q) ||
+        task.name.toLowerCase().includes(q) ||
+        teachers.some((t) => t.includes(q)) ||
+        rooms.some((r) => r.includes(q))
+      );
+    });
+  })();
 
   async function readJSON<T>(file: File): Promise<T> {
     const text = await file.text();
@@ -75,7 +95,7 @@ export default function SchedulePage() {
       }
 
       setResult({ ...data, week: weekNum });
-      const summary = `${data.isComplete ? '✅ Planification complète' : '⚠️ Incomplète'} — ${data.scheduledCount} cours, ${data.conflictCount} conflit(s)`;
+      const summary = `${data.isComplete ? '✅ Planification complète' : '⚠️ Incomplète'} — ${data.scheduledCount} cours planifiés, ${data.conflictCount} conflit(s)`;
       setStatus({ message: summary, kind: data.isComplete ? 'ok' : 'err' });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -86,93 +106,121 @@ export default function SchedulePage() {
     }
   }
 
+  const bannerClass = status
+    ? status.kind === 'ok'
+      ? 'bg-green-100 text-green-800 border-green-200'
+      : status.kind === 'err'
+      ? 'bg-red-100 text-red-800 border-red-200'
+      : 'bg-blue-100 text-blue-800 border-blue-200'
+    : '';
+
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black p-8">
-      <main className="max-w-3xl mx-auto bg-white dark:bg-zinc-900 rounded-lg shadow p-8">
-        <h1 className="text-3xl font-bold text-black dark:text-white mb-6">Planification</h1>
+    <div className="h-screen flex flex-col overflow-hidden bg-gray-100 dark:bg-zinc-950">
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Semaine (1-53)
+      {/* Bannière de statut */}
+      <div className={`shrink-0 px-6 py-2.5 text-sm font-medium border-b ${bannerClass || 'bg-gray-100 dark:bg-zinc-900 border-gray-200 dark:border-zinc-800'}`}>
+        {status?.message ?? '\u00a0'}
+      </div>
+
+      {/* Contenu principal : sidebar + calendrier */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* Sidebar */}
+        <aside className="w-80 shrink-0 bg-white dark:bg-zinc-900 border-r border-gray-200 dark:border-zinc-800 p-6 overflow-y-auto">
+
+          {/* Recherche */}
+          <div className="mb-5">
+            <label className="block text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">
+              Rechercher
             </label>
             <input
-              type="number"
-              min="1"
-              max="53"
-              value={week}
-              onChange={(e) => setWeek(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-zinc-800 text-black dark:text-white"
+              type="search"
+              placeholder="Enseignant, salle, code, cours…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-zinc-800 text-black dark:text-white text-sm placeholder:text-gray-400"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Resources (JSON)
-            </label>
-            <input
-              type="file"
-              accept=".json"
-              onChange={(e) => setResourcesFile(e.target.files?.[0] ?? null)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
-            />
-          </div>
+          <div className="border-t border-gray-200 dark:border-zinc-700 mb-5" />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Courses (CSV)
-            </label>
-            <input
-              type="file"
-              accept=".csv"
-              onChange={(e) => setCoursesCsvFile(e.target.files?.[0] ?? null)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
-            />
-          </div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-5">
+            Planification
+          </p>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Constraints (JSON, optionnel)
-            </label>
-            <input
-              type="file"
-              accept=".json"
-              onChange={(e) => setConstraintsFile(e.target.files?.[0] ?? null)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Semaine (1–53)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="53"
+                value={week}
+                onChange={(e) => setWeek(e.target.value)}
+                required
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-zinc-800 text-black dark:text-white text-sm"
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full px-6 py-3 bg-black dark:bg-white text-white dark:text-black font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 transition"
-          >
-            {isLoading ? 'Traitement…' : 'Envoyer'}
-          </button>
-        </form>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Resources <span className="text-gray-400 font-normal">(JSON)</span>
+              </label>
+              <input
+                type="file"
+                accept=".json"
+                onChange={(e) => setResourcesFile(e.target.files?.[0] ?? null)}
+                required
+                className="w-full text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-100 dark:file:bg-zinc-700 file:text-gray-700 dark:file:text-gray-200 hover:file:bg-gray-200 dark:hover:file:bg-zinc-600"
+              />
+            </div>
 
-        {status && (
-          <div className={`mt-6 p-4 rounded-lg ${status.kind === 'ok' ? 'bg-green-100 text-green-700' : status.kind === 'err' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-            {status.message}
-          </div>
-        )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Cours <span className="text-gray-400 font-normal">(CSV)</span>
+              </label>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={(e) => setCoursesCsvFile(e.target.files?.[0] ?? null)}
+                required
+                className="w-full text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-100 dark:file:bg-zinc-700 file:text-gray-700 dark:file:text-gray-200 hover:file:bg-gray-200 dark:hover:file:bg-zinc-600"
+              />
+            </div>
 
-        {result && (
-          <ScheduleCalendar solutions={result.solutions} week={result.week} />
-        )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Contraintes <span className="text-gray-400 font-normal">(JSON, optionnel)</span>
+              </label>
+              <input
+                type="file"
+                accept=".json"
+                onChange={(e) => setConstraintsFile(e.target.files?.[0] ?? null)}
+                className="w-full text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-100 dark:file:bg-zinc-700 file:text-gray-700 dark:file:text-gray-200 hover:file:bg-gray-200 dark:hover:file:bg-zinc-600"
+              />
+            </div>
 
-        {result && (
-          <div className="mt-6 p-4 bg-gray-100 dark:bg-zinc-800 rounded-lg">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              ✅ {result.scheduledCount} cours planifiés | ⚠️ {result.conflictCount} conflit(s)
-            </p>
-            <pre className="mt-2 text-xs overflow-auto dark:text-gray-300">{JSON.stringify(result, null, 2)}</pre>
-          </div>
-        )}
-      </main>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full px-4 py-2.5 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 transition"
+            >
+              {isLoading ? 'Traitement…' : 'Planifier'}
+            </button>
+          </form>
+        </aside>
+
+        {/* Zone calendrier */}
+        <main className="flex-1 overflow-hidden p-4 flex flex-col">
+          <ScheduleCalendar
+            solutions={filteredSolutions}
+            week={calendarWeek}
+          />
+        </main>
+
+      </div>
     </div>
   );
 }

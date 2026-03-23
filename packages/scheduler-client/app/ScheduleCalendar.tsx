@@ -139,10 +139,8 @@ export default function ScheduleCalendar({ solutions, week }: Props) {
   });
 
   return (
-    <div className="mt-6 p-4 bg-white dark:bg-zinc-900 rounded-lg shadow">
-      <h2 className="text-lg font-semibold text-black dark:text-white mb-4">
-        Calendrier — Semaine {week}
-      </h2>
+    <div className="flex-1 bg-white dark:bg-zinc-900 rounded-lg shadow overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0">
       <FullCalendar
         key={week}
         plugins={[timeGridPlugin]}
@@ -166,8 +164,10 @@ export default function ScheduleCalendar({ solutions, week }: Props) {
         events={events}
         eventContent={renderEventContent}
         eventClick={handleEventClick}
-        height="auto"
+        height="100%"
+        expandRows
       />
+      </div>
 
       {selected && (
         <div
