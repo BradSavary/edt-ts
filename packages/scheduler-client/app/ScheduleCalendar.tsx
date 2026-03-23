@@ -148,6 +148,8 @@ export default function ScheduleCalendar({ solutions, week }: Props) {
         plugins={[timeGridPlugin]}
         initialView="timeGridWeek"
         initialDate={monday}
+        locale="fr"
+        dayHeaderFormat={{ weekday: 'short', day: 'numeric', month: 'short' }}
         headerToolbar={false}
         slotMinTime="07:00:00"
         slotMaxTime="21:00:00"

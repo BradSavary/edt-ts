@@ -58,14 +58,20 @@ export default function SchedulePage() {
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json() as any;
+      const rawText = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error(`L'API a répondu avec une erreur ${response.status} : ${rawText.slice(0, 200)}`);
+      }
 
       console.groupCollapsed('📥 Réponse /api/schedule');
       console.log(data);
       console.groupEnd();
 
       if (!response.ok) {
-        throw new Error(data.error ?? `Erreur ${response.status}`);
+        throw new Error(data?.error ?? `Erreur ${response.status}`);
       }
 
       setResult({ ...data, week: weekNum });
