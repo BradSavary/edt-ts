@@ -5,7 +5,7 @@ import { Draggable } from '@fullcalendar/interaction';
 import type { RawScheduleData, TaskSolutionJSON, CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
 import { parseCsvCourses } from '../lib/parseCsvCourses';
 import ScheduleCalendar from './ScheduleCalendar';
-import CourseCard from './CourseCard';
+import CourseGroupList, { type GroupBy } from './CourseGroupList';
 
 export default function SchedulePage() {
   const [week, setWeek] = useState('1');
@@ -16,6 +16,8 @@ export default function SchedulePage() {
   const [status, setStatus] = useState<{ message: string; kind: 'ok' | 'err' | 'inf' } | null>(null);
   const [result, setResult] = useState<{ isComplete: boolean; scheduledCount: number; conflictCount: number; solutions: TaskSolutionJSON[]; week: number } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isImportOpen, setIsImportOpen] = useState(true);
+  const [groupBy, setGroupBy] = useState<GroupBy>('code');
 
   // Cours parsés depuis le CSV pour la semaine sélectionnée
   const [parsedCourses, setParsedCourses] = useState<CourseTaskData[]>([]);
@@ -228,42 +230,57 @@ export default function SchedulePage() {
                 />
               </div>
 
+              {/* En-tête repliable pour les imports de fichiers */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                  Resources <span className="text-gray-400 font-normal">(JSON)</span>
-                </label>
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={(e) => setResourcesFile(e.target.files?.[0] ?? null)}
-                  required
-                  className="w-full text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-100 dark:file:bg-zinc-700 file:text-gray-700 dark:file:text-gray-200 hover:file:bg-gray-200 dark:hover:file:bg-zinc-600"
-                />
-              </div>
+                <button
+                  type="button"
+                  onClick={() => setIsImportOpen((v) => !v)}
+                  className="w-full flex items-center justify-between text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 hover:text-gray-900 dark:hover:text-white transition"
+                >
+                  <span>Fichiers d&apos;import</span>
+                  <span className="text-gray-400 text-[11px]">{isImportOpen ? '▲' : '▼'}</span>
+                </button>
+                {isImportOpen && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        Resources <span className="text-gray-400 font-normal">(JSON)</span>
+                      </label>
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={(e) => setResourcesFile(e.target.files?.[0] ?? null)}
+                        required
+                        className="w-full text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-100 dark:file:bg-zinc-700 file:text-gray-700 dark:file:text-gray-200 hover:file:bg-gray-200 dark:hover:file:bg-zinc-600"
+                      />
+                    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                  Cours <span className="text-gray-400 font-normal">(CSV)</span>
-                </label>
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={(e) => setCoursesCsvFile(e.target.files?.[0] ?? null)}
-                  required
-                  className="w-full text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-100 dark:file:bg-zinc-700 file:text-gray-700 dark:file:text-gray-200 hover:file:bg-gray-200 dark:hover:file:bg-zinc-600"
-                />
-              </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        Cours <span className="text-gray-400 font-normal">(CSV)</span>
+                      </label>
+                      <input
+                        type="file"
+                        accept=".csv"
+                        onChange={(e) => setCoursesCsvFile(e.target.files?.[0] ?? null)}
+                        required
+                        className="w-full text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-100 dark:file:bg-zinc-700 file:text-gray-700 dark:file:text-gray-200 hover:file:bg-gray-200 dark:hover:file:bg-zinc-600"
+                      />
+                    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                  Contraintes <span className="text-gray-400 font-normal">(JSON, optionnel)</span>
-                </label>
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={(e) => setConstraintsFile(e.target.files?.[0] ?? null)}
-                  className="w-full text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-100 dark:file:bg-zinc-700 file:text-gray-700 dark:file:text-gray-200 hover:file:bg-gray-200 dark:hover:file:bg-zinc-600"
-                />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        Contraintes <span className="text-gray-400 font-normal">(JSON, optionnel)</span>
+                      </label>
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={(e) => setConstraintsFile(e.target.files?.[0] ?? null)}
+                        className="w-full text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-100 dark:file:bg-zinc-700 file:text-gray-700 dark:file:text-gray-200 hover:file:bg-gray-200 dark:hover:file:bg-zinc-600"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <button
@@ -294,15 +311,31 @@ export default function SchedulePage() {
               <p className="text-xs text-gray-400 dark:text-gray-500 italic">
                 Glissez un cours sur le calendrier pour l&apos;imposer.
               </p>
-              <div ref={cardContainerRef} className="flex flex-col gap-1.5">
-                {parsedCourses.map((course, i) => (
-                  <CourseCard
-                    key={i}
-                    courseKey={String(i)}
-                    course={course}
-                    enforced={enforcedMap[String(i)] !== undefined}
-                  />
+
+              {/* Tabs de regroupement */}
+              <div className="flex rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden text-xs">
+                {(['code', 'teacher'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setGroupBy(tab)}
+                    className={`flex-1 py-1.5 font-medium transition ${
+                      groupBy === tab
+                        ? 'bg-gray-900 dark:bg-white text-white dark:text-black'
+                        : 'bg-white dark:bg-zinc-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-zinc-700'
+                    }`}
+                  >
+                    {tab === 'code' ? 'Par code' : 'Par enseignant'}
+                  </button>
                 ))}
+              </div>
+
+              <div ref={cardContainerRef}>
+                <CourseGroupList
+                  courses={parsedCourses}
+                  groupBy={groupBy}
+                  enforcedMap={enforcedMap}
+                />
               </div>
             </div>
           )}
