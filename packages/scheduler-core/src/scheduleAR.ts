@@ -31,6 +31,21 @@ export class ScheduleAR extends Schedule {
     private startTime: number = 0;
     private maxTimeMs: number = 3 * 60 * 1000; // 3 minutes par défaut
     protected firstNonEnforcedIndex: number = 0;
+
+    /**
+     * Compteur d'échecs par tâche : nombre de fois où la tâche n'avait
+     * aucun créneau disponible pour aucune combinaison de ressources.
+     * Cumulatif sur toute l'exécution, sans reset pendant le backtracking.
+     */
+    private _taskFailureCount = new Map<string, number>();
+
+    /** Indicateur interne utilisé par tryTaskWithCurrentResources → tryAllResourceCombinations */
+    private _lastAttemptHadSlots = false;
+
+    /** Retourne une copie du compteur d'échecs par tâche (taskId → count) */
+    getTaskFailureCounts(): Map<string, number> {
+        return new Map(this._taskFailureCount);
+    }
     
     /**
      * Configure le nombre de solutions complètes à trouver avant d'arrêter
@@ -146,6 +161,7 @@ export class ScheduleAR extends Schedule {
         this.currentIterations = 0;
         this.completeSolutionsFound = 0;
         this.startTime = Date.now();
+        this._taskFailureCount.clear();
         
         // Tri initial (en préservant les enforced en tête)
         this.tasks.sort((a, b) => {
@@ -347,12 +363,20 @@ export class ScheduleAR extends Schedule {
         }
         
         // Explorer chaque combinaison possible
+        let someHadSlots = false;
         for (const resourceCombination of allCombinations) {
             if (this.tryWithResourceCombination(task, resourceCombination, taskIndex)) {
                 return true;
             }
+            someHadSlots ||= this._lastAttemptHadSlots;
         }
-        
+
+        // Aucune combinaison n'a produit de créneau disponible : tâche bloquée
+        if (!someHadSlots) {
+            const count = (this._taskFailureCount.get(task.id) ?? 0) + 1;
+            this._taskFailureCount.set(task.id, count);
+        }
+
         return false;
     }
     
@@ -387,10 +411,12 @@ export class ScheduleAR extends Schedule {
     private tryTaskWithCurrentResources(task: Task, taskIndex: number): boolean {
         // Générer les créneaux possibles
         const possibleSlots = this.generatePossibleSlots(task);
-        
+
         if (possibleSlots.length === 0) {
+            this._lastAttemptHadSlots = false;
             return false;
         }
+        this._lastAttemptHadSlots = true;
         
         for (const slot of possibleSlots) {
             // Snapshot des ressources AVANT l'application des contraintes
