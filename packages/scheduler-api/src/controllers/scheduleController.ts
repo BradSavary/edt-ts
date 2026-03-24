@@ -135,6 +135,7 @@ export async function scheduleHandler(req: Request, res: Response): Promise<void
     }
 
     // ── Résolution ───────────────────────────────────────────────────────
+    scheduler.initSolver();
     const results: ScheduleSolution[] = scheduler.solve();
 
     // ── Réponse ──────────────────────────────────────────────────────────

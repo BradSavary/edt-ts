@@ -11,6 +11,7 @@ import { ScheduleAnalysis } from './scheduleAnalysis.js';
 export interface TaskSolution {
     task: Task;
     startTime: number; // Créneau de début (0-119 pour 5 jours * 24 créneaux)
+    appliedResources: Resource[];
 }
 
 /**
@@ -21,6 +22,7 @@ export interface ScheduleSolution {
     isComplete: boolean;
     conflictCount: number;
     score?: number;
+    neutralizedTasks?: Task[];
 }
 
 /**
@@ -38,6 +40,7 @@ export class Schedule {
     protected currentIterations: number = 0;
     protected limitWarningShown: boolean = false;
     protected firstNonEnforcedIndex: number = 0;
+    protected _initialized: boolean = false;
 
     constructor() {
         // Les données seront chargées via Loader lors de la résolution
@@ -48,10 +51,10 @@ export class Schedule {
      * avec propagation de contraintes
      */
     solve(): ScheduleSolution[] {
+        if (!this._initialized) {
+            throw new Error('Appelez initSolver() avant solve().');
+        }
         console.log('🚀 Début de la résolution du planning...');
-        
-        // Chargement des données via Loader
-        this.loadData();
         
         // Initialisation
         this.solution = [];
@@ -59,18 +62,18 @@ export class Schedule {
         this.bestScore = -Infinity;
         this.currentIterations = 0;
         
-    // Tri initial par disponibilité des ressources (en préservant les enforced en tête)
-    this.tasks.sort((a, b) => {
-        if (a.isEnforced && !b.isEnforced) return -1;
-        if (!a.isEnforced && b.isEnforced) return 1;
-        return this.getCurrentConstraintScore(b) - this.getCurrentConstraintScore(a);
-    });
+        // Tri initial par disponibilité des ressources (en préservant les enforced en tête)
+        this.tasks.sort((a, b) => {
+            if (a.isEnforced && !b.isEnforced) return -1;
+            if (!a.isEnforced && b.isEnforced) return 1;
+            return this.getCurrentConstraintScore(b) - this.getCurrentConstraintScore(a);
+        });
 
-    // Pré-peupler la solution avec les tâches enforced (déjà bookées dans loadData)
-    for (let i = 0; i < this.firstNonEnforcedIndex; i++) {
-        const task = this.tasks[i];
-        this.solution.push({ task, startTime: task.enforced!.startTime });
-    }
+        // Pré-peupler la solution avec les tâches enforced (déjà bookées dans loadData)
+        for (let i = 0; i < this.firstNonEnforcedIndex; i++) {
+            const task = this.tasks[i];
+            this.solution.push({ task, startTime: task.enforced!.startTime, appliedResources: [...task.getAllResources()] });
+        }
      
         console.log(`📋 ${this.tasks.length} tâches à planifier`);
         console.log(`🏢 ${this.resources.length} ressources disponibles`);
@@ -102,9 +105,11 @@ export class Schedule {
     }
 
     /**
-     * Charge les données depuis le Loader
+     * Initialise le solveur : chargement des données, sélection des ressources,
+     * tri initial et booking des tâches enforced.
+     * Doit être appelé avant solve().
      */
-    protected loadData(): void {
+    initSolver(): void {
         this.tasks = Loader.tasksManager.getAllTasks();
       //  this.resources = Array.from(Loader.resourcesManager.getAllResources());
         
@@ -169,10 +174,11 @@ export class Schedule {
                     }
                 }
 
-                this.applyConstraints({ task, startTime: enforced.startTime });
+                this.applyConstraints({ task, startTime: enforced.startTime, appliedResources: [...task.getAllResources()] });
             }
             console.log('✅ Créneaux enforced réservés.\n');
         }
+        this._initialized = true;
     }
 
     /**
@@ -245,8 +251,8 @@ export class Schedule {
             // Les slots sont déjà valides grâce à task.schedulable (intersection des ressources)
             const taskSolution: TaskSolution = {
                 task,
-                startTime: slot.startTime
-                // Les ressources sont directement dans task.resources
+                startTime: slot.startTime,
+                appliedResources: [...task.getAllResources()],
             };
 
             this.solution.push(taskSolution);
@@ -349,34 +355,30 @@ export class Schedule {
      * Applique les contraintes après l'assignation d'une tâche
      */
     protected applyConstraints(taskSolution: TaskSolution): void {
-        const { startTime, task } = taskSolution;
+        const { startTime, task, appliedResources } = taskSolution;
         
         const startMinutes = startTime;
         const endMinutes = startMinutes + task.duration;
         
-        // Marquer les ressources comme occupées en utilisant la méthode book
-        for (const resource of task.getAllResources()) {
+        for (const resource of appliedResources) {
             resource.book(startMinutes, endMinutes);
         }
-        // Invalider le schedulable de toutes les tâches qui utilisent ces ressources
-        this.invalidateSchedulableForResources(task.getAllResources());
+        this.invalidateSchedulableForResources(appliedResources);
     }
 
     /**
      * Annule les contraintes lors du backtrack
      */
     protected undoConstraints(taskSolution: TaskSolution): void {
-        const { startTime, task } = taskSolution;
+        const { startTime, task, appliedResources } = taskSolution;
         
         const startMinutes = startTime;
         const endMinutes = startMinutes + task.duration;
         
-        // Rendre les ressources disponibles en ajoutant la disponibilité
-        for (const resource of task.getAllResources()) {
+        for (const resource of appliedResources) {
             resource.availability.addAvailability(startMinutes, endMinutes);
         }
-        // Invalider le schedulable de toutes les tâches qui utilisent ces ressources
-        this.invalidateSchedulableForResources(task.getAllResources());
+        this.invalidateSchedulableForResources(appliedResources);
     }
 
     /**
@@ -486,7 +488,7 @@ export class Schedule {
         const scores = analysis.getSolutionScores();
         
         // Score principal : tâches planifiées + compacité
-        let score = 0 //scores.plannedTasks * 1000 
+        let score = scores.plannedTasks * 1000 
                   + scores.vacataireCompactnessScore * 100 
                   + scores.permanentCompactnessScore;
         

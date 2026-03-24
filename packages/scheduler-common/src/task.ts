@@ -259,6 +259,14 @@ class Task {
     return this.appliedResources.find(r => r.type === ResourceType.TEACHER) || null;
   }
 
+  /**
+   * Vérifie si le schedulable de la tâche contient au moins un créneau
+   * d'une durée >= à la durée de la tâche (avec les ressources actuellement appliquées)
+   */
+  hasSchedulableSlot(): boolean {
+    return this.schedulable.hasSlotOfDuration(this.duration);
+  }
+
   toString(): string {
     const resourceIds = this.appliedResources.map(r => r.id).join(', ');
     const dependsOnInfo = this.dependsOn ? ` dépend de: ${this.dependsOn.id}` : '';

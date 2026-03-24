@@ -17,17 +17,9 @@ import { Schedule } from './schedule.js';
 import type { ScheduleSolution, TaskSolution } from './schedule.js';
 import type { Task, Resource } from '@edt-ts/scheduler-common';
 
-/**
- * Extension de TaskSolution pour ScheduleAR qui sauvegarde les ressources utilisées
- * Nécessaire pour garantir que undoConstraints libère les bonnes ressources
- */
-interface TaskSolutionAR extends TaskSolution {
-    appliedResources: Resource[]; // Snapshot des ressources au moment de l'application
-}
-
 export class ScheduleAR extends Schedule {
-    private completeSolutionsFound: number = 0;
-    private maxCompleteSolutions: number = 6;
+    private solutionsFound: number = 0;
+    private maxSolutions: number = 6;
     private startTime: number = 0;
     private maxTimeMs: number = 3 * 60 * 1000; // 3 minutes par défaut
     protected firstNonEnforcedIndex: number = 0;
@@ -56,7 +48,7 @@ export class ScheduleAR extends Schedule {
      * @param count Nombre de solutions (défaut: 6)
      */
     setMaxCompleteSolutions(count: number): void {
-        this.maxCompleteSolutions = count;
+        this.maxSolutions = count;
     }
     
     /**
@@ -68,12 +60,12 @@ export class ScheduleAR extends Schedule {
     }
     
     /**
-     * Override loadData pour garantir un comportement déterministe
+     * Override initSolver pour garantir un comportement déterministe.
      * ScheduleAR explore TOUTES les combinaisons pendant le backtracking,
-     * donc la sélection initiale doit être déterministe (première combinaison)
-     * au lieu d'aléatoire comme dans Schedule
+     * donc la sélection initiale est déterministe (première combinaison)
+     * au lieu d'aléatoire comme dans Schedule.
      */
-    protected loadData(): void {
+    initSolver(): void {
         this.tasks = Loader.tasksManager.getAllTasks();
         this.resources = Array.from(Loader.resourcesManager.getAllResources());
         
@@ -147,23 +139,33 @@ export class ScheduleAR extends Schedule {
             }
             console.log('✅ Créneaux enforced réservés.\n');
         }
+
+        // Vérification préalable : chaque tâche non-enforced doit avoir au moins 1 créneau schedulable
+        for (const task of this.tasks) {
+            if (task.isEnforced) continue;
+            if (!task.hasSchedulableSlot()) {
+                console.warn(`⚠️ Aucun créneau suffisant pour la tâche "${task.name}" (${task.code}, durée: ${task.duration} min) avec les ressources initiales.`);
+            }
+        }
+
+        this._initialized = true;
     }
     
     /**
      * Résout le problème avec exploration des ressources alternatives
      */
     solve(): ScheduleSolution[] {
+        if (!this._initialized) {
+            throw new Error('Appelez initSolver() avant solve().');
+        }
         console.log('🔄 ALTERNATIVE RESOURCES: Début de la résolution avec exploration des ressources alternatives...');
-        
-        // Chargement des données
-        this.loadData();
         
         // Initialisation
         this.solution = [];
         this.bestSolution = [];
         this.bestScore = -Infinity;
         this.currentIterations = 0;
-        this.completeSolutionsFound = 0;
+        this.solutionsFound = 0;
         this.startTime = Date.now();
         this._taskFailureCount.clear();
         this._allSolutions = [];
@@ -178,7 +180,7 @@ export class ScheduleAR extends Schedule {
         // Pré-peupler la solution avec les tâches enforced (déjà bookées dans loadData)
         for (let i = 0; i < this.firstNonEnforcedIndex; i++) {
             const task = this.tasks[i];
-            const enforcedSol: TaskSolutionAR = {
+            const enforcedSol: TaskSolution = {
                 task,
                 startTime: task.enforced!.startTime,
                 appliedResources: [...task.appliedResources],
@@ -189,12 +191,9 @@ export class ScheduleAR extends Schedule {
         console.log(`📋 ${this.tasks.length} tâches à planifier`);
         console.log(`🏢 ${this.resources.length} ressources disponibles`);
         console.log(`⏱️ Limite: ${this.maxIterations} itérations`);
-        console.log(`🎯 Objectif: ${this.maxCompleteSolutions} solutions complètes`);
+        console.log(`🎯 Objectif: ${this.maxSolutions} solutions complètes`);
         console.log(`⏰ Timeout: ${this.maxTimeMs / 1000}s`);
         console.log(`🔄 Mode Alternative Resources: exploration de toutes les combinaisons\n`);
-        
-        // Analyser le potentiel de ressources alternatives
-        this.analyzeAlternativesPotential();
         
         // Lancement du backtracking (depuis la première tâche non-enforced)
         const startTime = Date.now();
@@ -203,7 +202,7 @@ export class ScheduleAR extends Schedule {
         
         console.log(`\n⏱️ Résolution AR terminée en ${endTime - startTime}ms`);
         console.log(`🔄 Itérations effectuées: ${this.currentIterations}`);
-        console.log(`🎯 Solutions complètes trouvées: ${this.completeSolutionsFound}`);
+        console.log(`🎯 Solutions complètes trouvées: ${this.solutionsFound}`);
         
         if (this._allSolutions.length > 0) {
             console.log(`✅ ${this._allSolutions.length} solution(s) complète(s) trouvée(s), meilleur score: ${this.bestScore}`);
@@ -229,36 +228,105 @@ export class ScheduleAR extends Schedule {
     }
     
     /**
+     * Stratégie de réordonnancement : lance une première résolution normale, puis,
+     * si aucune solution complète n'est trouvée, remonte les N tâches les plus
+     * bloquantes en tête de la liste non-enforced et relance solve() une seconde fois.
+     * @param n Nombre de tâches prioritaires à placer en tête
+     */
+    solveWithPriorityRetry(n: number): ScheduleSolution[] {
+        this.initSolver();
+        const firstResults = this.solve();
+
+        if (firstResults.length > 0) {
+            return firstResults;
+        }
+
+        // Identifier les N tâches non-enforced avec le plus d'échecs (aucun créneau)
+        const failureCounts = this.getTaskFailureCounts();
+        const topNIds = new Set(
+            Array.from(failureCounts.entries())
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, n)
+                .map(([id]) => id)
+        );
+
+        // Re-trier les tâches non-enforced : prioritaires en tête, reste après
+        const nonEnforced = this.tasks.slice(this.firstNonEnforcedIndex);
+        const priority = nonEnforced.filter(t => topNIds.has(t.id));
+        const rest = nonEnforced.filter(t => !topNIds.has(t.id));
+        const reordered = [...priority, ...rest];
+        for (let i = 0; i < reordered.length; i++) {
+            this.tasks[this.firstNonEnforcedIndex + i] = reordered[i];
+        }
+
+        console.log(`🔁 PriorityRetry: ${priority.length} tâche(s) bloquante(s) remontées en tête`);
+
+        // Relancer solve() sans réinitialiser (_initialized est toujours true)
+        return this.solve();
+    }
+
+    /**
+     * Stratégie d'élimination : relance solve() en supprimant progressivement
+     * les tâches les plus bloquantes (sans aucun créneau disponible pour toutes
+     * leurs combinaisons de ressources). Répète jusqu'à n fois ou jusqu'à trouver
+     * au moins une solution complète.
+     * @param n Nombre maximum de tâches à éliminer
+     */
+    solveWithTaskElimination(n: number): ScheduleSolution[] {
+        this.initSolver();
+        const neutralized: Task[] = [];
+        let lastResults = this.solve();
+
+        for (let i = 0; i < n && lastResults.length === 0; i++) {
+            const failureCounts = this.getTaskFailureCounts();
+
+            // Identifier la tâche non-enforced avec le plus d'échecs (aucun créneau)
+            let maxFailures = 0;
+            let targetIndex = -1;
+            for (let j = this.firstNonEnforcedIndex; j < this.tasks.length; j++) {
+                const count = failureCounts.get(this.tasks[j].id) ?? 0;
+                if (count > maxFailures) {
+                    maxFailures = count;
+                    targetIndex = j;
+                }
+            }
+
+            if (targetIndex === -1) {
+                console.log(`⚠️ Aucune tâche bloquante identifiable — arrêt de l'élimination.`);
+                break;
+            }
+
+            const eliminated = this.tasks[targetIndex];
+            neutralized.push(eliminated);
+            console.log(`🗑️ Élimination #${i + 1}: "${eliminated.name}" (${maxFailures} échec(s) sans créneau)`);
+            this.tasks.splice(targetIndex, 1);
+
+            // solve() réinitialise son état interne (solution, bestSolution, compteurs…)
+            lastResults = this.solve();
+        }
+
+        // Injecter les tâches neutralisées dans chaque solution retournée
+        // et pénaliser le score en conséquence (1 tâche neutralisée = -1000 pts,
+        // cohérent avec le poids plannedTasks * 1000 dans evaluateSolution)
+        if (neutralized.length > 0) {
+            const penalty = neutralized.length * 1000;
+            for (const result of lastResults) {
+                result.neutralizedTasks = [...neutralized];
+                if (result.score !== undefined) {
+                    result.score = Math.round(result.score - penalty);
+                }
+            }
+        }
+
+        return lastResults;
+    }
+
+    /**
      * Restaure les ressources correctes dans les tâches depuis la solution sauvegardée
      */
     private restoreTaskResourcesFromSolution(solution: TaskSolution[]): void {
         for (const sol of solution) {
-            const arSol = sol as TaskSolutionAR;
-            if (arSol.appliedResources) {
-                arSol.task.appliedResources = arSol.appliedResources;
-            }
-        }
-    }
-    
-    /**
-     * Analyse le potentiel de flexibilité des ressources alternatives
-     */
-    private analyzeAlternativesPotential(): void {
-        let tasksWithAlternatives = 0;
-        let totalCombinations = 0;
-        
-        for (const task of this.tasks) {
-            const combinations = task.getApplicableResources();
-            if (combinations.length > 1) {
-                tasksWithAlternatives++;
-                totalCombinations += combinations.length;
-            }
-        }
-        
-        console.log(`🔍 Analyse des alternatives:`);
-        console.log(`   📊 Tâches avec ressources alternatives: ${tasksWithAlternatives}/${this.tasks.length}`);
-        if (tasksWithAlternatives > 0) {
-            console.log(`   🔄 Moyenne de combinaisons: ${(totalCombinations / tasksWithAlternatives).toFixed(2)}`);
+            sol.task.appliedResources = sol.appliedResources;
         }
     }
     
@@ -290,18 +358,15 @@ export class ScheduleAR extends Schedule {
         
         // Condition d'arrêt : toutes les tâches planifiées
         if (taskIndex >= this.tasks.length) {
-            this.completeSolutionsFound++;
+            this.solutionsFound++;
             const score = Math.round(this.evaluateSolution(this.solution));
 
             // Copie profonde avec snapshot des ressources
-            const solutionSnapshot: TaskSolutionAR[] = this.solution.map(sol => {
-                const arSol = sol as TaskSolutionAR;
-                return {
-                    task: arSol.task,
-                    startTime: arSol.startTime,
-                    appliedResources: [...arSol.appliedResources],
-                };
-            });
+            const solutionSnapshot: TaskSolution[] = this.solution.map(sol => ({
+                task: sol.task,
+                startTime: sol.startTime,
+                appliedResources: [...sol.appliedResources],
+            }));
 
             this._allSolutions.push({ solutions: solutionSnapshot, isComplete: true, conflictCount: 0, score });
 
@@ -309,11 +374,11 @@ export class ScheduleAR extends Schedule {
                 this.bestScore = score;
                 this.bestSolution = solutionSnapshot;
             }
-            console.log(`✅ Solution COMPLÈTE ${this.completeSolutionsFound}/${this.maxCompleteSolutions} (score: ${score}, meilleur: ${this.bestScore})`);
+            console.log(`✅ Solution COMPLÈTE ${this.solutionsFound}/${this.maxSolutions} (score: ${score}, meilleur: ${this.bestScore})`);
 
             // Vérifier si on a atteint l'objectif de solutions complètes
-            if (this.completeSolutionsFound >= this.maxCompleteSolutions) {
-                console.log(`🎯 Objectif atteint: ${this.completeSolutionsFound} solutions complètes trouvées`);
+            if (this.solutionsFound >= this.maxSolutions) {
+                console.log(`🎯 Objectif atteint: ${this.solutionsFound} solutions complètes trouvées`);
                 return true; // Arrêter la recherche
             }
 
@@ -419,12 +484,11 @@ export class ScheduleAR extends Schedule {
         this._lastAttemptHadSlots = true;
         
         for (const slot of possibleSlots) {
-            // Snapshot des ressources AVANT l'application des contraintes
-            const taskSolution: TaskSolutionAR = {
-                task,
-                startTime: slot.startTime,
-                appliedResources: [...task.getAllResources()]
-            };
+        const taskSolution: TaskSolution = {
+            task,
+            startTime: slot.startTime,
+            appliedResources: [...task.getAllResources()],
+        };
             
             this.solution.push(taskSolution);
             
@@ -458,37 +522,26 @@ export class ScheduleAR extends Schedule {
      * Applique les contraintes avec le snapshot des ressources
      */
     protected applyConstraints(taskSolution: TaskSolution): void {
-        const { startTime, task } = taskSolution;
-        const arSol = taskSolution as TaskSolutionAR;
+        const { startTime, task, appliedResources } = taskSolution;
         
         const startMinutes = startTime;
         const endMinutes = startMinutes + task.duration;
         
-        // Utiliser le snapshot des ressources pour garantir la cohérence
-        for (const resource of arSol.appliedResources) {
+        for (const resource of appliedResources) {
             resource.book(startMinutes, endMinutes);
         }
-        
-        // Invalider le schedulable des tâches affectées
-        this.invalidateSchedulableForResources(arSol.appliedResources);
+        this.invalidateSchedulableForResources(appliedResources);
     }
     
-    /**
-     * Annule les contraintes avec le snapshot des ressources
-     */
     protected undoConstraints(taskSolution: TaskSolution): void {
-        const { startTime, task } = taskSolution;
-        const arSol = taskSolution as TaskSolutionAR;
+        const { startTime, task, appliedResources } = taskSolution;
         
         const startMinutes = startTime;
         const endMinutes = startMinutes + task.duration;
         
-        // Utiliser le snapshot des ressources
-        for (const resource of arSol.appliedResources) {
+        for (const resource of appliedResources) {
             resource.availability.addAvailability(startMinutes, endMinutes);
         }
-        
-        // Invalider le schedulable des tâches affectées
-        this.invalidateSchedulableForResources(arSol.appliedResources);
+        this.invalidateSchedulableForResources(appliedResources);
     }
 }

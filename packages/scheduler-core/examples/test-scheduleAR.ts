@@ -166,6 +166,7 @@ async function testScheduleAR(): Promise<any> {
         scheduler.setTimeoutSeconds(180); // 3 minutes = 180 secondes
         
         // Mesurer le temps d'exécution
+        scheduler.initSolver();
         const startTime = Date.now();
         const results = scheduler.solve();
         const result = results[0] ?? { solutions: [], isComplete: false, conflictCount: 0, score: undefined };
