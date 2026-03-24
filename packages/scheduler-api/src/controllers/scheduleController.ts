@@ -135,14 +135,18 @@ export async function scheduleHandler(req: Request, res: Response): Promise<void
     }
 
     // ── Résolution ───────────────────────────────────────────────────────
-    const result: ScheduleSolution = scheduler.solve();
+    const results: ScheduleSolution[] = scheduler.solve();
 
     // ── Réponse ──────────────────────────────────────────────────────────
     res.status(200).json({
-      isComplete: result.isComplete,
-      scheduledCount: result.solutions.length,
-      conflictCount: result.conflictCount,
-      solutions: serializeSolution(result.solutions),
+      solutionCount: results.length,
+      solutions: results.map(r => ({
+        score: r.score,
+        isComplete: r.isComplete,
+        scheduledCount: r.solutions.length,
+        conflictCount: r.conflictCount,
+        tasks: serializeSolution(r.solutions),
+      })),
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

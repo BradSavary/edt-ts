@@ -42,7 +42,11 @@ export class ScheduleAR extends Schedule {
     /** Indicateur interne utilisé par tryTaskWithCurrentResources → tryAllResourceCombinations */
     private _lastAttemptHadSlots = false;
 
+    /** Toutes les solutions complètes trouvées, triées par score décroissant en fin d'exécution */
+    private _allSolutions: ScheduleSolution[] = [];
+
     /** Retourne une copie du compteur d'échecs par tâche (taskId → count) */
+
     getTaskFailureCounts(): Map<string, number> {
         return new Map(this._taskFailureCount);
     }
@@ -148,7 +152,7 @@ export class ScheduleAR extends Schedule {
     /**
      * Résout le problème avec exploration des ressources alternatives
      */
-    solve(): ScheduleSolution {
+    solve(): ScheduleSolution[] {
         console.log('🔄 ALTERNATIVE RESOURCES: Début de la résolution avec exploration des ressources alternatives...');
         
         // Chargement des données
@@ -162,6 +166,7 @@ export class ScheduleAR extends Schedule {
         this.completeSolutionsFound = 0;
         this.startTime = Date.now();
         this._taskFailureCount.clear();
+        this._allSolutions = [];
         
         // Tri initial (en préservant les enforced en tête)
         this.tasks.sort((a, b) => {
@@ -193,38 +198,34 @@ export class ScheduleAR extends Schedule {
         
         // Lancement du backtracking (depuis la première tâche non-enforced)
         const startTime = Date.now();
-        const foundComplete = this.backtrack(this.firstNonEnforcedIndex);
+        this.backtrack(this.firstNonEnforcedIndex);
         const endTime = Date.now();
         
         console.log(`\n⏱️ Résolution AR terminée en ${endTime - startTime}ms`);
         console.log(`🔄 Itérations effectuées: ${this.currentIterations}`);
         console.log(`🎯 Solutions complètes trouvées: ${this.completeSolutionsFound}`);
         
-        if (foundComplete) {
-            console.log(`✅ Solution COMPLÈTE trouvée : ${this.bestSolution.length}/${this.tasks.length} tâches`);
-            console.log(`📊 Meilleur score: ${this.bestScore.toFixed(2)}`);
-        } else if (this.bestSolution.length > 0) {
-            console.log(`⚠️ Solution PARTIELLE uniquement : ${this.bestSolution.length}/${this.tasks.length} tâches`);
+        if (this._allSolutions.length > 0) {
+            console.log(`✅ ${this._allSolutions.length} solution(s) complète(s) trouvée(s), meilleur score: ${this.bestScore}`);
         } else {
-            console.log(`❌ Aucune solution trouvée`);
+            console.log(`❌ Aucune solution complète trouvée`);
         }
         
-        // Vérification de la solution
-        if (this.bestSolution.length > 0) {
-            this.restoreTaskResourcesFromSolution(this.bestSolution);
-            
-            const verification = this.verifySolution(this.bestSolution);
+        // Trier par score décroissant
+        this._allSolutions.sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
+
+        // Restaurer les ressources de la meilleure solution et vérifier
+        if (this._allSolutions.length > 0) {
+            const best = this._allSolutions[0];
+            this.restoreTaskResourcesFromSolution(best.solutions);
+            const verification = this.verifySolution(best.solutions);
             if (!verification.isValid) {
                 console.warn(`⚠️ ATTENTION: La solution contient ${verification.conflicts.length} conflit(s)`);
                 verification.conflicts.forEach(conflict => console.warn(`   ${conflict}`));
             }
         }
-        
-        return {
-            solutions: [...this.bestSolution],
-            isComplete: this.bestSolution.length === this.tasks.length,
-            conflictCount: 0
-        };
+
+        return this._allSolutions;
     }
     
     /**
@@ -289,35 +290,34 @@ export class ScheduleAR extends Schedule {
         
         // Condition d'arrêt : toutes les tâches planifiées
         if (taskIndex >= this.tasks.length) {
-            // Vérifier si c'est une solution COMPLÈTE
-            if (this.solution.length === this.tasks.length) {
-                this.completeSolutionsFound++;
-                const score = this.evaluateSolution(this.solution);
-                
-                if (score > this.bestScore) {
-                    this.bestScore = score;
-                    // Copie profonde avec snapshot des ressources
-                    this.bestSolution = this.solution.map(sol => {
-                        const arSol = sol as TaskSolutionAR;
-                        return {
-                            task: arSol.task,
-                            startTime: arSol.startTime,
-                            appliedResources: [...arSol.appliedResources]
-                        } as TaskSolutionAR;
-                    });
-                    console.log(`✅ Solution COMPLÈTE ${this.completeSolutionsFound}/${this.maxCompleteSolutions} trouvée (score: ${score.toFixed(2)}, meilleur: ${this.bestScore.toFixed(2)})`);
-                } 
-                
-                // Vérifier si on a atteint l'objectif de solutions complètes
-                if (this.completeSolutionsFound >= this.maxCompleteSolutions) {
-                    console.log(`🎯 Objectif atteint: ${this.completeSolutionsFound} solutions complètes trouvées`);
-                    return true; // Arrêter la recherche
-                }
-                
-                // Continuer la recherche pour trouver d'autres solutions
-                return false;
+            this.completeSolutionsFound++;
+            const score = Math.round(this.evaluateSolution(this.solution));
+
+            // Copie profonde avec snapshot des ressources
+            const solutionSnapshot: TaskSolutionAR[] = this.solution.map(sol => {
+                const arSol = sol as TaskSolutionAR;
+                return {
+                    task: arSol.task,
+                    startTime: arSol.startTime,
+                    appliedResources: [...arSol.appliedResources],
+                };
+            });
+
+            this._allSolutions.push({ solutions: solutionSnapshot, isComplete: true, conflictCount: 0, score });
+
+            if (score > this.bestScore) {
+                this.bestScore = score;
+                this.bestSolution = solutionSnapshot;
             }
-            // Solution partielle, continuer la recherche
+            console.log(`✅ Solution COMPLÈTE ${this.completeSolutionsFound}/${this.maxCompleteSolutions} (score: ${score}, meilleur: ${this.bestScore})`);
+
+            // Vérifier si on a atteint l'objectif de solutions complètes
+            if (this.completeSolutionsFound >= this.maxCompleteSolutions) {
+                console.log(`🎯 Objectif atteint: ${this.completeSolutionsFound} solutions complètes trouvées`);
+                return true; // Arrêter la recherche
+            }
+
+            // Continuer la recherche pour trouver d'autres solutions
             return false;
         }
         

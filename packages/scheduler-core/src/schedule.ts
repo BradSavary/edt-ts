@@ -20,6 +20,7 @@ export interface ScheduleSolution {
     solutions: TaskSolution[];
     isComplete: boolean;
     conflictCount: number;
+    score?: number;
 }
 
 /**
@@ -46,7 +47,7 @@ export class Schedule {
      * Résout le problème de planification en utilisant un algorithme de backtracking
      * avec propagation de contraintes
      */
-    solve(): ScheduleSolution {
+    solve(): ScheduleSolution[] {
         console.log('🚀 Début de la résolution du planning...');
         
         // Chargement des données via Loader
@@ -92,11 +93,12 @@ export class Schedule {
             }
         }
         
-        return {
+        return [{
             solutions: [...this.bestSolution],
             isComplete: this.bestSolution.length === this.tasks.length,
-            conflictCount: 0 // L'algorithme de backtracking garantit l'absence de conflits
-        };
+            conflictCount: 0, // L'algorithme de backtracking garantit l'absence de conflits
+            score: this.bestScore === -Infinity ? undefined : this.bestScore,
+        }];
     }
 
     /**

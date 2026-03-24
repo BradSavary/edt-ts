@@ -167,9 +167,21 @@ async function testScheduleAR(): Promise<any> {
         
         // Mesurer le temps d'exécution
         const startTime = Date.now();
-        const result = scheduler.solve();
+        const results = scheduler.solve();
+        const result = results[0] ?? { solutions: [], isComplete: false, conflictCount: 0, score: undefined };
         const endTime = Date.now();
         const executionTime = endTime - startTime;
+
+        // Classement de toutes les solutions complètes trouvées
+        console.log(`\n🏆 CLASSEMENT DES ${results.length} SOLUTION(S) COMPLÈTE(S)`);
+        console.log(`================================================`);
+        if (results.length === 0) {
+            console.log(`   Aucune solution complète trouvée.`);
+        } else {
+            results.forEach((sol, i) => {
+                console.log(`   ${i + 1}. score: ${sol.score ?? 'N/A'} — ${sol.solutions.length} tâches planifiées`);
+            });
+        }
 
         const analysis = new ScheduleAnalysis(result.solutions);
         const scores = analysis.getSolutionScores();
@@ -243,7 +255,7 @@ async function testScheduleAR(): Promise<any> {
         
         console.log(`\n🏁 Test ScheduleAR terminé !`);
         
-        return result;
+        return results;
         
     } catch (error) {
         console.error('❌ Erreur lors du test ScheduleAR:', error);
