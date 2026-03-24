@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -10,6 +10,7 @@ import type { TaskSolutionJSON, CourseTaskData, EnforcedData } from '@edt-ts/sch
 import EnforceModal from './EnforceModal';
 import type { EnforceSelection } from './EnforceModal';
 import { getMondayOfISOWeek, startTimeToDate, formatTime, formatDate } from '../lib/calendarUtils';
+import type { BlockedZone } from '../lib/blockedZones';
 
 interface PendingDrop {
   courseKey: string;
@@ -37,6 +38,9 @@ interface Props {
   week: number;
   parsedCourses?: CourseTaskData[];
   onEnforceChange?: (map: Record<string, EnforcedData>) => void;
+  blockedZones?: BlockedZone[];
+  onBlockedZoneAdd?: (start: Date, end: Date) => void;
+  onBlockedZoneRemove?: (id: string) => void;
 }
 
 // ─── Composant local : détail d'un event cliqué ───────────────────────────────
@@ -120,7 +124,21 @@ function renderEventContent(info: EventContentArg) {
     rooms?: string[];
     durationMin?: number;
     isEnforced?: boolean;
+    isBlockedZone?: boolean;
   };
+
+  if (props.isBlockedZone) {
+    return (
+      <div className="px-1 py-0.5 text-xs overflow-hidden leading-tight h-full flex items-start gap-1 cursor-pointer select-none">
+        <span className="shrink-0">🚫</span>
+        <div>
+          <div className="font-semibold">Zone vide</div>
+          <div className="opacity-60">Clic pour retirer</div>
+        </div>
+      </div>
+    );
+  }
+
   const groups = props.groups ?? [];
   const rooms = props.rooms ?? [];
   return (
@@ -140,10 +158,12 @@ function renderEventContent(info: EventContentArg) {
   );
 }
 
-export default function ScheduleCalendar({ solutions, week, parsedCourses = [], onEnforceChange }: Props) {
-  const monday = getMondayOfISOWeek(week);
+export default function ScheduleCalendar({ solutions, week, parsedCourses = [], onEnforceChange, blockedZones = [], onBlockedZoneAdd, onBlockedZoneRemove }: Props) {
+  const monday = useMemo(() => getMondayOfISOWeek(week), [week]);
   const [selected, setSelected] = useState<EventDetail | null>(null);
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
+  // Événements imposés gérés par état React pour être toujours inclus dans la prop events
+  const [enforcedEventsState, setEnforcedEventsState] = useState<object[]>([]);
 
   const calendarRef = useRef<FullCalendar | null>(null);
   const calendarWrapperRef = useRef<HTMLDivElement | null>(null);
@@ -152,12 +172,11 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
   // Map interne des cours imposés (source de vérité côté ScheduleCalendar)
   const enforcedMapRef = useRef<Record<string, EnforcedData>>({});
 
-  // Quand des résultats arrivent, vider les events imposés du calendrier
+  // Quand des résultats arrivent, vider les events imposés
   useEffect(() => {
     if (solutions.length > 0) {
-      calendarRef.current?.getApi().getEvents().forEach((ev) => {
-        if (ev.extendedProps.isEnforced) ev.remove();
-      });
+      setEnforcedEventsState([]);
+      enforcedMapRef.current = {};
     }
   }, [solutions.length]);
 
@@ -166,34 +185,52 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
   useEffect(() => {
     if (prevParsedCoursesRef.current !== parsedCourses) {
       prevParsedCoursesRef.current = parsedCourses;
-      // Retirer tous les events imposés du calendrier
-      calendarRef.current?.getApi().getEvents().forEach((ev) => {
-        if (ev.extendedProps.isEnforced) ev.remove();
-      });
+      // Vider les events imposés via état
+      setEnforcedEventsState([]);
       enforcedMapRef.current = {};
       onEnforceChange?.({});
     }
-  }, [parsedCourses, onEnforceChange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parsedCourses]); // onEnforceChange intentionnellement exclu : recrée à chaque render
 
   function confirmEnforce(courseKey: string, enforced: EnforcedData, event: EventApi) {
     const idx = parseInt(courseKey, 10);
     const course = parsedCourses[idx];
     const teacherStr = enforced.teacher.join(', ');
+    const title = [course?.code ?? '?', course?.type ?? '', teacherStr].filter(Boolean).join(' • ');
+    const startDate = new Date(monday.getTime() + enforced.startTime * 60 * 1000);
+    const endDate = new Date(startDate.getTime() + (course?.duration ?? 60) * 60 * 1000);
 
-    event.setProp('id', `enforced-${courseKey}`);
-    event.setProp('title', [course?.code ?? '?', course?.type ?? '', teacherStr].filter(Boolean).join(' • '));
-    event.setProp('backgroundColor', '#22c55e');
-    event.setProp('borderColor', '#16a34a');
-    event.setProp('textColor', '#fff');
-    event.setExtendedProp('name', course?.name ?? '');
-    event.setExtendedProp('code', course?.code ?? '');
-    event.setExtendedProp('type', course?.type ?? '');
-    event.setExtendedProp('teachers', enforced.teacher);
-    event.setExtendedProp('groups', enforced.groups);
-    event.setExtendedProp('rooms', enforced.rooms);
-    event.setExtendedProp('durationMin', course?.duration ?? 0);
-    event.setExtendedProp('isEnforced', true);
-    event.setExtendedProp('courseKey', courseKey);
+    // Supprimer l'événement reçu temporairement par FullCalendar
+    event.remove();
+
+    // Ajouter via état React (inclus dans la prop events = toujours visible)
+    setEnforcedEventsState((prev) => {
+      const filtered = prev.filter((e) => (e as { id?: string }).id !== `enforced-${courseKey}`);
+      return [
+        ...filtered,
+        {
+          id: `enforced-${courseKey}`,
+          title,
+          start: startDate,
+          end: endDate,
+          backgroundColor: '#22c55e',
+          borderColor: '#16a34a',
+          textColor: '#fff',
+          extendedProps: {
+            name: course?.name ?? '',
+            code: course?.code ?? '',
+            type: course?.type ?? '',
+            teachers: enforced.teacher,
+            groups: enforced.groups,
+            rooms: enforced.rooms,
+            durationMin: course?.duration ?? 0,
+            isEnforced: true,
+            courseKey,
+          },
+        },
+      ];
+    });
 
     const newMap = { ...enforcedMapRef.current, [courseKey]: enforced };
     enforcedMapRef.current = newMap;
@@ -201,11 +238,26 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
   }
 
   function removeEnforced(courseKey: string) {
-    calendarRef.current?.getApi().getEventById(`enforced-${courseKey}`)?.remove();
+    setEnforcedEventsState((prev) =>
+      prev.filter((e) => (e as { id?: string }).id !== `enforced-${courseKey}`)
+    );
     const newMap = { ...enforcedMapRef.current };
     delete newMap[courseKey];
     enforcedMapRef.current = newMap;
     onEnforceChange?.({ ...newMap });
+  }
+
+  function handleSelect(selectInfo: { start: Date; end: Date }) {
+    if (!onBlockedZoneAdd) return;
+    onBlockedZoneAdd(selectInfo.start, selectInfo.end);
+    calendarRef.current?.getApi().unselect();
+  }
+
+  function handleDateClick(info: { date: Date }) {
+    if (!onBlockedZoneRemove) return;
+    const clicked = info.date;
+    const zone = blockedZones.find((z) => z.start <= clicked && z.end > clicked);
+    if (zone) onBlockedZoneRemove(zone.id);
   }
 
   function handleEventClick(arg: EventClickArg) {
@@ -219,7 +271,14 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
       durationMin?: number;
       isEnforced?: boolean;
       courseKey?: string;
+      isBlockedZone?: boolean;
+      blockedZoneId?: string;
     };
+
+    if (ext.isBlockedZone && ext.blockedZoneId) {
+      onBlockedZoneRemove?.(ext.blockedZoneId);
+      return;
+    }
     setSelected({
       title: arg.event.title,
       name: ext.name ?? '',
@@ -297,6 +356,16 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
     const newMap = { ...enforcedMapRef.current, [courseKey]: updated };
     enforcedMapRef.current = newMap;
     onEnforceChange?.({ ...newMap });
+
+    // Mettre à jour la position dans l'état React
+    const course = parsedCourses[parseInt(courseKey, 10)];
+    const newEnd = new Date(startDate.getTime() + (course?.duration ?? 60) * 60 * 1000);
+    setEnforcedEventsState((prev) =>
+      prev.map((e) => {
+        if ((e as { id?: string }).id !== `enforced-${courseKey}`) return e;
+        return { ...e, start: startDate, end: newEnd };
+      })
+    );
   }
 
   function handleEventDragStop(info: EventDragStopArg) {
@@ -313,7 +382,10 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
 
     if (isOutside) {
       const courseKey = info.event.extendedProps.courseKey as string;
-      info.event.remove();
+      // Supprimer de l'état React (pas via API FullCalendar car géré par état)
+      setEnforcedEventsState((prev) =>
+        prev.filter((e) => (e as { id?: string }).id !== `enforced-${courseKey}`)
+      );
       const newMap = { ...enforcedMapRef.current };
       delete newMap[courseKey];
       enforcedMapRef.current = newMap;
@@ -321,33 +393,37 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
     }
   }
 
-  const solutionEvents = solutions.map((task) => {
-    const teachers = task.resources.filter((r) => r.type === 'teacher').map((r) => r.id);
-    const groups = task.resources.filter((r) => r.type === 'group').map((r) => r.id);
-    const rooms = task.resources.filter((r) => r.type === 'room').map((r) => r.id);
+  // Événements calendrier mémorisés : solutions + zones de vide + imposés
+  const calendarEvents = useMemo(() => {
+    const blockEvts = blockedZones.map((zone) => ({
+      id: `blocked-${zone.id}`,
+      start: zone.start,
+      end: zone.end,
+      backgroundColor: 'rgba(239,68,68)',
+      classNames: ['fc-blocked-zone'],
+      extendedProps: { isBlockedZone: true, blockedZoneId: zone.id },
+    }));
 
-    const start = startTimeToDate(monday, task.startTime);
-    const end = new Date(start.getTime() + task.duration * 60 * 1000);
+    const solEvts = solutions.map((task) => {
+      const teachers = task.resources.filter((r) => r.type === 'teacher').map((r) => r.id);
+      const groups = task.resources.filter((r) => r.type === 'group').map((r) => r.id);
+      const rooms = task.resources.filter((r) => r.type === 'room').map((r) => r.id);
+      const start = startTimeToDate(monday, task.startTime);
+      const end = new Date(start.getTime() + task.duration * 60 * 1000);
+      return {
+        id: task.taskId,
+        title: [task.code, task.type, ...teachers].join(' • '),
+        start,
+        end,
+        backgroundColor: '#22c55e',
+        borderColor: '#16a34a',
+        textColor: '#fff',
+        extendedProps: { name: task.name, code: task.code, type: task.type, teachers, groups, rooms, durationMin: task.duration },
+      };
+    });
 
-    return {
-      id: task.taskId,
-      title: [task.code, task.type, ...teachers].join(' • '),
-      start,
-      end,
-      backgroundColor: '#22c55e',
-      borderColor: '#16a34a',
-      textColor: '#fff',
-      extendedProps: {
-        name: task.name,
-        code: task.code,
-        type: task.type,
-        teachers,
-        groups,
-        rooms,
-        durationMin: task.duration,
-      },
-    };
-  });
+    return [...solEvts, ...blockEvts, ...enforcedEventsState];
+  }, [solutions, blockedZones, monday, enforcedEventsState]);
 
   return (
     <>
@@ -376,7 +452,17 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
         firstDay={1}
         droppable={solutions.length === 0}
         editable={solutions.length === 0}
-        events={solutionEvents}
+        selectable={solutions.length === 0}
+        selectMirror
+        selectMinDistance={5}
+        selectAllow={(info) => {
+          // Interdit la sélection sur plusieurs jours
+          const endAdjusted = new Date(info.end.getTime() - 1);
+          return info.start.toDateString() === endAdjusted.toDateString();
+        }}
+        select={handleSelect}
+        dateClick={handleDateClick}
+        events={calendarEvents}
         eventContent={renderEventContent}
         eventClick={handleEventClick}
         eventReceive={handleEventReceive}

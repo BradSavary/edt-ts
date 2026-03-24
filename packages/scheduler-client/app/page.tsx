@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Draggable } from '@fullcalendar/interaction';
 import type { RawScheduleData, TaskSolutionJSON, CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
 import { parseCsvCourses } from '../lib/parseCsvCourses';
 import ScheduleCalendar from './ScheduleCalendar';
 import CourseGroupList, { type GroupBy } from './CourseGroupList';
+import { type BlockedZone, applyBlockedZonesToConstraints } from '../lib/blockedZones';
 
 export default function SchedulePage() {
   const [week, setWeek] = useState('1');
@@ -18,6 +19,7 @@ export default function SchedulePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isImportOpen, setIsImportOpen] = useState(true);
   const [groupBy, setGroupBy] = useState<GroupBy>('code');
+  const [blockedZones, setBlockedZones] = useState<BlockedZone[]>([]);
 
   // Cours parsés depuis le CSV pour la semaine sélectionnée
   const [parsedCourses, setParsedCourses] = useState<CourseTaskData[]>([]);
@@ -27,6 +29,11 @@ export default function SchedulePage() {
   const cardContainerRef = useRef<HTMLDivElement | null>(null);
 
   const calendarWeek = parseInt(week, 10) || 1;
+
+  // Réinitialise les zones de vide quand la semaine change (elles sont semaine-spécifiques)
+  useEffect(() => {
+    setBlockedZones([]);
+  }, [week]);
 
   // Parse automatiquement le CSV quand le fichier ou la semaine change
   useEffect(() => {
@@ -67,7 +74,7 @@ export default function SchedulePage() {
     return () => draggable.destroy();
   }, [parsedCourses]);
 
-  const filteredSolutions = (() => {
+  const filteredSolutions = useMemo(() => {
     const solutions = result?.solutions ?? [];
     const q = searchQuery.trim().toLowerCase();
     if (!q) return solutions;
@@ -81,7 +88,7 @@ export default function SchedulePage() {
         rooms.some((r) => r.includes(q))
       );
     });
-  })();
+  }, [result, searchQuery]);
 
   async function readJSON<T>(file: File): Promise<T> {
     const text = await file.text();
@@ -120,7 +127,16 @@ export default function SchedulePage() {
         return enforced ? { ...course, enforced } : course;
       });
 
-      const payload: RawScheduleData = { week: weekNum, resources, courses: coursesWithEnforced, ...(constraints ? { constraints } : {}) };
+      // Fusionner les zones de vide dans les contraintes
+      const effectiveConstraints = applyBlockedZonesToConstraints(
+        resources,
+        constraints ?? null,
+        blockedZones,
+        weekNum
+      );
+      const hasConstraints = !!constraintsFile || blockedZones.length > 0;
+
+      const payload: RawScheduleData = { week: weekNum, resources, courses: coursesWithEnforced, ...(hasConstraints ? { constraints: effectiveConstraints } : {}) };
 
       console.groupCollapsed('📤 Payload envoyé à POST /api/schedule');
       console.log(payload);
@@ -166,7 +182,19 @@ export default function SchedulePage() {
 
   function handleEnforceChange(map: Record<string, EnforcedData>) {
     setEnforcedMap(map);
-    setResult(null); // Les résultats précédents sont inactifs si les impositions changent
+    setResult(null);
+  }
+
+  function handleBlockedZoneAdd(start: Date, end: Date) {
+    setBlockedZones((prev) => [
+      ...prev,
+      { id: `bz-${Date.now()}-${Math.random().toString(36).slice(2)}`, start, end },
+    ]);
+    setResult(null);
+  }
+
+  function handleBlockedZoneRemove(id: string) {
+    setBlockedZones((prev) => prev.filter((z) => z.id !== id));
   }
 
   const bannerClass = status
@@ -348,6 +376,9 @@ export default function SchedulePage() {
             week={calendarWeek}
             parsedCourses={parsedCourses}
             onEnforceChange={handleEnforceChange}
+            blockedZones={blockedZones}
+            onBlockedZoneAdd={handleBlockedZoneAdd}
+            onBlockedZoneRemove={handleBlockedZoneRemove}
           />
         </main>
 
