@@ -1,0 +1,1024 @@
+{
+  "101": null,
+  "102": null,
+  "103": null,
+  "115": null,
+  "Default": [
+    {
+      "days": "lundi, mardi, mercredi, jeudi, vendredi",
+      "from": "8:00",
+      "to": "12:30"
+    },
+     {
+      "days": "lundi, mardi, mercredi",
+      "from": "13:30",
+      "to": "19:30"
+    },
+    {
+      "days": "vendredi",
+      "from": "13:30",
+      "to": "17:30"
+    }
+  ],
+  "ROUSSEAU Camille": {
+    "default": [
+      {
+        "days": "lundi, mardi, jeudi, vendredi",
+        "from": "9:00",
+        "to": "17:30"
+      },
+      {
+        "days": "mercredi",
+        "from": "9:00",
+        "to": "12:30"
+      }
+    ]
+  },
+  "RENAUD Kevin": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ]
+  },
+  "MEUNIER Sandrine": { 
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi", 
+        "from": "8:00", 
+        "to": "18:30" 
+      }
+    ],
+    "S38": [ 
+      {
+        "days": "lundi", 
+        "from": "9:00",
+        "to": "11:30"
+      },
+      {
+        "days": "lundi",
+        "from": "14:00",
+        "to": "17:00"
+      },
+      {
+        "days": "mardi, mercredi, jeudi, vendredi",
+        "from": "8:00",
+        "to": "18:30"
+      }
+    ],
+    "S40": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi",
+        "from": "8:00",
+        "to": "18:30"
+      },
+      {
+        "days": "vendredi",
+        "from": "8:00",
+        "to": "12:30"
+      }
+    ],
+    "S41": [
+      {
+        "days": "lundi, mardi, vendredi",
+        "from": "8:00",
+        "to": "18:30"
+      },
+      {
+        "days": "mercredi",
+        "from": "8:00",
+        "to": "12:00"
+      }
+    ]
+  },
+  "BOULANGER Mickael": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi",
+        "from": "17:30",
+        "to": "19:30"
+      }
+    ]
+  },
+  "TESSIER Pauline": {
+    "default": [
+      {
+        "days": "mercredi, jeudi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ]
+  },
+  "NOEL Melanie": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ]
+  },
+  "GIRARD Damien": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S36": [
+      {
+        "days": "lundi",
+        "from": "13:00",
+        "to": "19:30"
+      },
+      {
+        "days": "mercredi, jeudi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S38": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi",
+        "from": "8:00",
+        "to": "19:30"
+      },
+      {
+        "days": "mardi",
+        "from": "8:00",
+        "to": "17:00"
+      }
+    ],
+    "S39": [
+      {
+        "days": "lundi, mardi, jeudi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S42": [
+      {
+        "days": "lundi, mardi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S45": [
+      {
+        "days": "vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ]
+  },
+  "AUBRY Bastien": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi",
+        "from": "8:00",
+        "to": "18:30"
+      }
+    ],
+    "S36": [
+      {
+        "days": "lundi",
+        "from": "8:00",
+        "to": "12:00"
+      },
+      {
+        "days": "lundi",
+        "from": "15:30",
+        "to": "18:30"
+      },
+      {
+        "days": "mardi, mercredi",
+        "from": "8:00",
+        "to": "18:30"
+      }
+    ],
+    "S41": [
+      {
+        "days": "lundi",
+        "from": "8:00",
+        "to": "16:00"
+      },
+      {
+        "days": "mardi, mercredi",
+        "from": "8:00",
+        "to": "18:30"
+      }
+    ]
+  },
+  "HUBERT Quentin": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ]
+  },
+  "BERGER Julien": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi",
+        "from": "17:30",
+        "to": "19:30"
+      },
+      {
+        "days": "vendredi",
+        "from": "13:30",
+        "to": "19:30"
+      }
+    ]
+  },
+  "FONTAINE Antoine": {
+    "default": [
+      {
+        "days": "mercredi",
+        "from": "13:30",
+        "to": "19:30"
+      }
+    ]
+  },
+  "MERCIER Laurie": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi",
+        "from": "13:30",
+        "to": "19:30"
+      }
+    ]
+  },
+  "GARNIER Mathieu": {
+    "default": [
+      {
+        "days": "mercredi, jeudi",
+        "from": "8:30",
+        "to": "19:30"
+      },
+      {
+        "days": "vendredi",
+        "from": "11:00",
+        "to": "19:30"
+      }
+    ]
+  },
+  "LEROUX Elodie": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi",
+        "from": "13:30",
+        "to": "19:30"
+      }
+    ],
+    "S36": [
+      {
+        "days": "mardi, mercredi, jeudi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S37": [
+      {
+        "days": "lundi, mercredi, jeudi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S39": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S40": [
+      {
+        "days": "lundi, mardi, mercredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S41": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S42": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ]
+  },
+  "CEZAC Clément": {
+    "default": [
+      {
+        "days": "jeudi, vendredi",
+        "from": "8:00",
+        "to": "12:30"
+      }
+    ],
+    "S18": [
+      {
+        "days": "jeudi",
+        "from": "8:00",
+        "to": "12:30"
+      }
+    ],
+    "S19": [
+      {
+        "days": "jeudi",
+        "from": "8:00",
+        "to": "12:30"
+      }
+    ]
+  },
+  "MOULIN Sophie": {
+    "default": [
+      {
+        "days": "mercredi, jeudi, vendredi",
+        "from": "8:00",
+        "to": "9:30"
+      },
+      {
+        "days": "mercredi, jeudi, vendredi",
+        "from": "17:30",
+        "to": "19:30"
+      }
+    ]
+  },
+  "PELLETIER Vincent": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ]
+  },
+  "FAURE Celine": {
+    "default": [
+      {
+        "days": "mardi, mercredi, jeudi",
+        "from": "9:30",
+        "to": "18:30"
+      }
+    ]
+  },
+  "BARBIER Romain": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "17:30",
+        "to": "19:30"
+      }
+    ]
+  },
+  "DUBREUIL Anne-Sophie": {
+    "default": [
+      {
+        "days": "mardi, mercredi, jeudi, vendredi",
+        "from": "13:30",
+        "to": "19:30"
+      }
+    ],
+    "S45": [
+      {
+        "days": "mardi, mercredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S46": [
+      {
+        "days": "mardi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S47": [
+      {
+        "days": "mardi",
+        "from": "8:00",
+        "to": "18:00"
+      },
+      {
+        "days": "mercredi",
+        "from": "8:00",
+        "to": "13:00"
+      }
+    ],
+    "S48": [
+      {
+        "days": "mercredi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S49": [
+      {
+        "days": "mercredi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S50": [
+      {
+        "days": "mardi, mercredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S2": [
+      {
+        "days": "jeeudi",
+        "from": "8:00",
+        "to": "11:00"
+      }
+    ],
+    "S3": [
+      {
+        "days": "jeeudi",
+        "from": "8:00",
+        "to": "11:00"
+      }
+    ]
+  },
+  "FAURE Stéphanie": {
+    "default": [
+      {
+        "days": "mardi, jeudi",
+        "from": "8:00",
+        "to": "12:30"
+      },
+      {
+        "days": "mercredi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S50": [
+      {
+        "days": "mardi, jeudi",
+        "from": "8:00",
+        "to": "12:30"
+      },
+      {
+        "days": "lundi, mercredi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S20": [
+      {
+        "days": "lundi, mardi, mercredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S21": [
+      {
+        "days": "lundi, mardi, mercredi",
+        "from": "8:00",
+        "to": "19:30"
+      },
+      {
+        "days": "jeudi",
+        "from": "8:00",
+        "to": "12:30"
+      }
+    ],
+    "S22": [
+      {
+        "days": " mardi, mercredi",
+        "from": "8:00",
+        "to": "19:30"
+      },
+      {
+        "days": "jeudi",
+        "from": "8:00",
+        "to": "12:30"
+      }
+    ],
+    "S23": [
+      {
+        "days": "mardi, jeudi",
+        "from": "8:00",
+        "to": "12:30"
+      },
+      {
+        "days": "lundi, mercredi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S24": [
+      {
+        "days": "jeudi",
+        "from": "8:00",
+        "to": "12:30"
+      },
+      {
+        "days": "mercredi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ]
+  },
+  "ROLLAND Justine": {
+    "default": [
+      {
+        "days": "mercredi",
+        "from": "13:30",
+        "to": "19:30"
+      }
+    ]
+  },
+  "MASSON Baptiste": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ]
+  },
+  "COLIN Aurelie": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S43": [
+      {
+        "days": "lundi, jeudi, mercredi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S48": [
+      {
+        "days": "lundi, jeudi, mercredi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S49": [
+      {
+        "days": "lundi",
+        "from": "8:00",
+        "to": "12:00"
+      },
+      {
+        "days": "mardi, mercredi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ]
+  },
+  "GOUDARD Bérénice": {
+    "default": [
+      {
+        "days": "vendredi",
+        "from": "13:30",
+        "to": "19:30"
+      }
+    ]
+  },
+  "CHARRIER Marion": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi",
+        "from": "16:00",
+        "to": "19:30"
+      }
+    ]
+  },
+  "BRUNET Clemence": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S46": [
+      {
+        "days": "lundi, mercredi, jeudi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S2": [
+      {
+        "days": "mercredi, jeudi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ]
+  },
+  "GAUTHIER Yannick": {
+    "default": [
+      {
+        "days": "lundi mardi mercredi jeudi vendredi",
+        "from": "17:30",
+        "to": "19:30"
+      }
+    ]
+  },
+  "PERRIN Gregory": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "17:30",
+        "to": "19:30"
+      }
+    ]
+  },
+  "MARCHAND Emilie": {
+    "default": [
+      {
+        "days": "lundi, mercredi, jeudi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ]
+  },
+  "ROBIN Loic": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi",
+        "from": "13:30",
+        "to": "19:30"
+      }
+    ]
+  },
+  "LAZARE Jean-Cédric": {
+    "default": null,
+    "S46": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "8:30",
+        "to": "12:30"
+      }
+    ],
+    "S47": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "8:30",
+        "to": "12:30"
+      },
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "13:30",
+        "to": "17:30"
+      }
+    ],
+    "S48": [
+      {
+        "days": "lundi, mardi, vendredi",
+        "from": "9:30",
+        "to": "12:30"
+      },
+      {
+        "days": "lundi, mardi, vendredi",
+        "from": "13:30",
+        "to": "17:30"
+      },
+      {
+        "days": "mercredi, jeudi",
+        "from": "9:30",
+        "to": "11:30"
+      }
+    ],
+    "S49": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "8:30",
+        "to": "12:30"
+      },
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "13:30",
+        "to": "17:30"
+      }
+    ]
+  },
+  "CARON Coralie": {
+    "default": [
+      {
+        "days": "lundi, mardi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ]
+  },
+  "PAILLIER Stéphane": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "13:30",
+        "to": "19:30"
+      }
+    ]
+  },
+  "PINAUD Anaïs": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi",
+        "from": "17:30",
+        "to": "19:00"
+      },
+      {
+        "days": "vendredi",
+        "from": "14:00",
+        "to": "18:00"
+      }
+    ],
+    "S39": [
+      {
+        "days": "mercredi",
+        "from": "17:30",
+        "to": "19:00"
+      },
+      {
+        "days": "vendredi",
+        "from": "14:00",
+        "to": "18:00"
+      }
+    ],
+    "S40": [
+      {
+        "days": "lundi, mercredi",
+        "from": "17:30",
+        "to": "19:00"
+      },
+      {
+        "days": "vendredi",
+        "from": "14:00",
+        "to": "18:00"
+      }
+    ]
+  },
+  "CHEVALIER Charlotte": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "17:30",
+        "to": "19:30"
+      }
+    ]
+  },
+  "PICARD Delphine": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "13:30",
+        "to": "19:30"
+      }
+    ]
+  },
+  "OLIVIER Sylvain": {
+    "default": [
+      {
+        "days": "vendredi",
+        "from": "8:00",
+        "to": "17:00"
+      }
+    ]
+  },
+  "GILLET Anthony": {
+    "default": [
+      {
+        "days": "mercredi",
+        "from": "16:30",
+        "to": "19:30"
+      }
+    ],
+    "S36": [
+      {
+        "days": "vendredi",
+        "from": "13:30",
+        "to": "15:00"
+      }
+    ],
+    "S37": [
+      {
+        "days": "lundi",
+        "from": "13:30",
+        "to": "15:00"
+      },
+      {
+        "days": "vendredi",
+        "from": "16:30",
+        "to": "18:00"
+      }
+    ],
+    "S38": [
+      {
+        "days": "mercredi",
+        "from": "16:30",
+        "to": "18:00"
+      }
+    ],
+    "S39": [
+      {
+        "days": "mercredi",
+        "from": "16:30",
+        "to": "18:00"
+      }
+    ],
+    "S41": [
+      {
+        "days": "mercredi",
+        "from": "16:30",
+        "to": "18:00"
+      }
+    ],
+    "S45": [
+      {
+        "days": "mercredi",
+        "from": "16:30",
+        "to": "19:30"
+      }
+    ],
+    "S46": [
+      {
+        "days": "mercredi",
+        "from": "16:30",
+        "to": "18:00"
+      }
+    ],
+    "S47": [
+      {
+        "days": "mercredi",
+        "from": "17:00",
+        "to": "18:00"
+      }
+    ]
+  },
+  "GAUDIN Jerome": {
+    "default": [
+      {
+        "days": "lundi",
+        "from": "13:30",
+        "to": "16:00"
+      }
+    ]
+  },
+  "LEFORT Noemie": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi",
+        "from": "18:00",
+        "to": "19:30"
+      }
+    ]
+  },
+  "BODIN Cyril": {
+    "default": [
+      {
+        "days": "lundi, mardi, jeudi",
+        "from": "8:00",
+        "to": "19:00"
+      },
+      {
+        "days": "vendredi",
+        "from": "8:00",
+        "to": "17:00"
+      }
+    ]
+  },
+  "SIMONET Alexia": {
+    "default": [
+      {
+        "days": "lundi mercredi",
+        "from": "8:00",
+        "to": "19:30"
+      },
+      {
+        "days": "vendredi",
+        "from": "8:00",
+        "to": "12:30"
+      }
+    ]
+  },
+  "THARAUD Sébastien": {
+    "default": [
+      {
+        "days": "vendredi",
+        "from": "8:00",
+        "to": "12:00"
+      }
+    ]
+  },
+  "PASQUIER Aurore": {
+    "default": [
+      {
+        "days": "lundi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S36": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S37": [
+      {
+        "days": "lundi, mardi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S44": [
+      {
+        "days": "lundi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S49": [
+      {
+        "days": "lundi, mardi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S50": [
+      {
+        "days": "lundi, mardi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ],
+    "S51": [
+      {
+        "days": "lundi",
+        "from": "8:00",
+        "to": "19:30"
+      },
+      {
+        "days": "vendredi",
+        "from": "10:00",
+        "to": "14:00"
+      }
+    ],
+    "S2": [
+      {
+        "days": "lundi",
+        "from": "8:00",
+        "to": "19:30"
+      },
+      {
+        "days": "vendredi",
+        "from": "10:00",
+        "to": "14:00"
+      }
+    ]
+  },
+  "ROUX Maxence": {
+    "default": [
+      {
+        "days": "lundi, mardi, mercredi, jeudi, vendredi",
+        "from": "8:00",
+        "to": "19:30"
+      }
+    ]
+  },
+  "R01": null,
+  "R02": null,
+  "R03": null,
+  "R04": null,
+  "R0X": null,
+  "ADM132": null,
+  "Amphi C": null,
+  "AMPHI C": null,
+  "Labo": null,
+  "Studio": null,
+  "BUT1-G1": null,
+  "BUT1-G2": null,
+  "BUT1-G3": null,
+  "BUT1-G4": null,
+  "BUT2-G1": null,
+  "BUT2-G2": null,
+  "BUT2-G21": null,
+  "BUT2-G22": null,
+  "BUT2-G3": null,
+  "BUT3-G1": null,
+  "BUT3-G2": null,
+  "BUT3-G3": null
+}

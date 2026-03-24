@@ -41,6 +41,7 @@ export default function SchedulePage() {
         const courses = parseCsvCourses(text, weekNum);
         setParsedCourses(courses);
         setEnforcedMap({});
+        setResult(null);
       } catch {
         setParsedCourses([]);
       }
@@ -280,7 +281,7 @@ export default function SchedulePage() {
           </div>
 
           {/* Liste des cours de la semaine */}
-          {parsedCourses.length > 0 && (
+          {parsedCourses.length > 0 && !result && (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">

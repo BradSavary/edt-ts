@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import type { EventContentArg, EventClickArg, EventApi } from '@fullcalendar/core';
+import type { EventContentArg, EventClickArg, EventApi, EventDropArg } from '@fullcalendar/core';
 import type { EventReceiveArg, EventDragStopArg } from '@fullcalendar/interaction';
 import type { TaskSolutionJSON, CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
 import EnforceModal from './EnforceModal';
@@ -282,6 +282,23 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
     setPendingDrop(null);
   }
 
+  function handleEventDrop(info: EventDropArg) {
+    if (!info.event.extendedProps.isEnforced) return;
+
+    const courseKey = info.event.extendedProps.courseKey as string;
+    const startDate = info.event.start;
+    if (!startDate || !courseKey) return;
+
+    const newStartTime = Math.round((startDate.getTime() - monday.getTime()) / 60000);
+    const existing = enforcedMapRef.current[courseKey];
+    if (!existing) return;
+
+    const updated = { ...existing, startTime: newStartTime };
+    const newMap = { ...enforcedMapRef.current, [courseKey]: updated };
+    enforcedMapRef.current = newMap;
+    onEnforceChange?.({ ...newMap });
+  }
+
   function handleEventDragStop(info: EventDragStopArg) {
     if (!info.event.extendedProps.isEnforced) return;
 
@@ -363,6 +380,7 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
         eventContent={renderEventContent}
         eventClick={handleEventClick}
         eventReceive={handleEventReceive}
+        eventDrop={handleEventDrop}
         eventDragStop={handleEventDragStop}
         height="100%"
         expandRows
