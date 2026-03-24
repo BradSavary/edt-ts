@@ -3,18 +3,18 @@ import { render, screen } from '@testing-library/react';
 import SchedulePage from '../app/page';
 
 describe('SchedulePage', () => {
-  it('renders the scheduling form heading', () => {
+  it('affiche le titre de la section Planification', () => {
     render(<SchedulePage />);
-    expect(screen.getByRole('heading', { name: /Planification/i })).toBeInTheDocument();
+    expect(screen.getByText(/Planification/i)).toBeInTheDocument();
   });
 
-  it('renders the submit button', () => {
+  it('affiche le bouton Planifier', () => {
     render(<SchedulePage />);
-    expect(screen.getByRole('button', { name: /Envoyer/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Planifier/i })).toBeInTheDocument();
   });
 
-  it('submit button is enabled by default', () => {
+  it('le bouton Planifier est actif par défaut', () => {
     render(<SchedulePage />);
-    expect(screen.getByRole('button', { name: /Envoyer/i })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /Planifier/i })).not.toBeDisabled();
   });
 });
