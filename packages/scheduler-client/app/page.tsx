@@ -33,20 +33,42 @@ export default function SchedulePage() {
   const [isImportOpen, setIsImportOpen] = useState(true);
   const [groupBy, setGroupBy] = useState<GroupBy>('code');
   const [blockedZones, setBlockedZones] = useState<BlockedZone[]>([]);
+  // IDs des tâches neutralisées placées manuellement sur le calendrier
+  const [placedNeutralizedIds, setPlacedNeutralizedIds] = useState<Set<string>>(new Set());
 
   // Cours parsés depuis le CSV pour la semaine sélectionnée
   const [parsedCourses, setParsedCourses] = useState<CourseTaskData[]>([]);
   // Map courseKey → EnforcedData pour les cours imposés (mise à jour via callback ScheduleCalendar)
   const [enforcedMap, setEnforcedMap] = useState<Record<string, EnforcedData>>({});
+  // Liste complète des ressources chargée depuis le resources.json (pour les selects d'édition)
+  const [resourcesData, setResourcesData] = useState<import('@edt-ts/scheduler-common').ResourceGroupData[]>([]);
 
   const cardContainerRef = useRef<HTMLDivElement | null>(null);
+  const neutralizedContainerRef = useRef<HTMLDivElement | null>(null);
 
   const calendarWeek = parseInt(week, 10) || 1;
 
   // Réinitialise les zones de vide quand la semaine change (elles sont semaine-spécifiques)
   useEffect(() => {
     setBlockedZones([]);
+    setPlacedNeutralizedIds(new Set());
   }, [week]);
+
+  // Réinitialise les cours non-placés manuellement quand on change de solution
+  useEffect(() => {
+    setPlacedNeutralizedIds(new Set());
+  }, [selectedSolutionIndex]);
+
+  // Charge les ressources dès que le fichier change
+  useEffect(() => {
+    if (!resourcesFile) { setResourcesData([]); return; }
+    resourcesFile.text().then((text) => {
+      try {
+        const data = JSON.parse(text) as import('@edt-ts/scheduler-common').ResourceGroupData[];
+        if (Array.isArray(data)) setResourcesData(data);
+      } catch { setResourcesData([]); }
+    });
+  }, [resourcesFile]);
 
   // Parse automatiquement le CSV quand le fichier ou la semaine change
   useEffect(() => {
@@ -88,7 +110,33 @@ export default function SchedulePage() {
     return () => draggable.destroy();
   }, [parsedCourses]);
 
+  // Initialise FullCalendar Draggable sur le conteneur des tâches neutralisées
   const activeSolution = scheduleResult?.solutions[selectedSolutionIndex];
+  useEffect(() => {
+    const container = neutralizedContainerRef.current;
+    if (!container || !activeSolution?.neutralizedTasks?.length) return;
+
+    const draggable = new Draggable(container, {
+      itemSelector: '[data-task-id]',
+      eventData: (el) => ({
+        title: el.getAttribute('data-title') ?? '',
+        duration: { minutes: parseInt(el.getAttribute('data-duration') ?? '60', 10) },
+        extendedProps: {
+          isNeutralizedTask: true,
+          taskId: el.getAttribute('data-task-id') ?? '',
+          teachers: JSON.parse(el.getAttribute('data-teachers') ?? '[]') as string[],
+          groups: JSON.parse(el.getAttribute('data-groups') ?? '[]') as string[],
+          rooms: JSON.parse(el.getAttribute('data-rooms') ?? '[]') as string[],
+          code: el.getAttribute('data-code') ?? '',
+          name: el.getAttribute('data-name') ?? '',
+          type: el.getAttribute('data-type') ?? '',
+          durationMin: parseInt(el.getAttribute('data-duration') ?? '60', 10),
+        },
+      }),
+    });
+
+    return () => draggable.destroy();
+  }, [activeSolution?.neutralizedTasks]);
 
   const filteredSolutions = useMemo(() => {
     const tasks = activeSolution?.tasks ?? [];
@@ -236,6 +284,7 @@ export default function SchedulePage() {
     setEnforcedMap(map);
     setScheduleResult(null);
     setSelectedSolutionIndex(0);
+    setPlacedNeutralizedIds(new Set());
   }
 
   function handleBlockedZoneAdd(start: Date, end: Date) {
@@ -253,6 +302,18 @@ export default function SchedulePage() {
   function handleBlockedZoneMove(id: string, start: Date, end: Date) {
     setBlockedZones((prev) => prev.map((z) => (z.id === id ? { ...z, start, end } : z)));
     setScheduleResult(null);
+  }
+
+  function handleNeutralizedTaskPlaced(taskId: string) {
+    setPlacedNeutralizedIds((prev) => new Set([...prev, taskId]));
+  }
+
+  function handleNeutralizedTaskRemoved(taskId: string) {
+    setPlacedNeutralizedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(taskId);
+      return next;
+    });
   }
 
   const bannerClass = status
@@ -473,6 +534,10 @@ export default function SchedulePage() {
             onBlockedZoneAdd={handleBlockedZoneAdd}
             onBlockedZoneRemove={handleBlockedZoneRemove}
             onBlockedZoneMove={handleBlockedZoneMove}
+            onNeutralizedTaskPlaced={handleNeutralizedTaskPlaced}
+            onNeutralizedTaskRemoved={handleNeutralizedTaskRemoved}
+            solutionKey={selectedSolutionIndex}
+            resourcesList={resourcesData}
           />
         </main>
 
@@ -480,15 +545,34 @@ export default function SchedulePage() {
         {activeSolution?.neutralizedTasks && activeSolution.neutralizedTasks.length > 0 && (
           <aside className="w-64 shrink-0 bg-amber-50 dark:bg-amber-950/20 border-l border-amber-200 dark:border-amber-900 p-3 overflow-y-auto flex flex-col gap-2">
             <p className="text-xs font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400 mb-1">
-              Non placés ({activeSolution.neutralizedTasks.length})
+              Non placés ({activeSolution.neutralizedTasks.filter((t) => !placedNeutralizedIds.has(t.taskId)).length})
             </p>
+            <p className="text-xs text-amber-600 dark:text-amber-500 italic">
+              Glissez un cours sur le calendrier pour le placer.
+            </p>
+            <div ref={neutralizedContainerRef} className="flex flex-col gap-2">
             {activeSolution.neutralizedTasks.map((task) => {
               const teachers = task.resources.filter((r) => r.type === 'teacher').map((r) => r.id);
               const groups = task.resources.filter((r) => r.type === 'group').map((r) => r.id);
+              const rooms = task.resources.filter((r) => r.type === 'room').map((r) => r.id);
+              const isPlaced = placedNeutralizedIds.has(task.taskId);
               return (
                 <div
                   key={task.taskId}
-                  className="p-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-100/60 dark:bg-amber-900/30 text-xs"
+                  data-task-id={!isPlaced ? task.taskId : undefined}
+                  data-title={`${task.code} ${task.type}`}
+                  data-duration={task.duration}
+                  data-teachers={JSON.stringify(teachers)}
+                  data-groups={JSON.stringify(groups)}
+                  data-rooms={JSON.stringify(rooms)}
+                  data-code={task.code}
+                  data-name={task.name}
+                  data-type={task.type}
+                  className={`p-2 rounded-lg border border-amber-200 dark:border-amber-800 text-xs transition-all ${
+                    isPlaced
+                      ? 'bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-700 opacity-60'
+                      : 'bg-amber-100/60 dark:bg-amber-900/30 cursor-grab active:cursor-grabbing hover:border-amber-400 hover:shadow-sm'
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-1 mb-0.5">
                     <span className="font-bold text-amber-900 dark:text-amber-200 truncate">
@@ -504,9 +588,13 @@ export default function SchedulePage() {
                   {groups.length > 0 && (
                     <div className="truncate text-amber-500 dark:text-amber-500">{groups.join(', ')}</div>
                   )}
+                  {isPlaced && (
+                    <div className="mt-1 text-green-600 dark:text-green-400 font-medium">✅ Placé</div>
+                  )}
                 </div>
               );
             })}
+            </div>
           </aside>
         )}
 
