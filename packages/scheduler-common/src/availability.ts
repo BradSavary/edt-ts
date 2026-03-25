@@ -294,6 +294,13 @@ class Availability {
   }
 
   /**
+   * Vérifie s'il existe au moins un intervalle disponible d'une durée >= à la durée donnée
+   */
+  hasSlotOfDuration(duration: number): boolean {
+    return this.intervals.some(interval => interval.duration() >= duration);
+  }
+
+  /**
    * Calcule l'intersection avec un autre gestionnaire de disponibilités
    * Retourne une nouvelle instance contenant les créneaux communs
    * Utilise un algorithme optimisé à deux pointeurs exploitant le tri des intervalles

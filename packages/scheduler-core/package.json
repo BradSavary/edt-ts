@@ -10,6 +10,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test-ar": "npx tsx examples/test-scheduleAR.ts",
+    "test-ar-priority": "npx tsx examples/test-scheduleAR-priority.ts",
+    "test-ar-elimination": "npx tsx examples/test-scheduleAR-elimination.ts",
     "test-standard": "npx tsx examples/test-standard-schedule.ts"
   },
   "dependencies": {
