@@ -8,6 +8,18 @@ import ScheduleCalendar from './ScheduleCalendar';
 import CourseGroupList, { type GroupBy } from './CourseGroupList';
 import { type BlockedZone, applyBlockedZonesToConstraints } from '../lib/blockedZones';
 
+interface NormalizedSolution {
+  isComplete: boolean;
+  score?: number;
+  tasks: TaskSolutionJSON[];
+  neutralizedTasks?: TaskSolutionJSON[];
+}
+
+interface ScheduleResult {
+  solutions: NormalizedSolution[];
+  week: number;
+}
+
 export default function SchedulePage() {
   const [week, setWeek] = useState('1');
   const [resourcesFile, setResourcesFile] = useState<File | null>(null);
@@ -15,7 +27,8 @@ export default function SchedulePage() {
   const [constraintsFile, setConstraintsFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<{ message: string; kind: 'ok' | 'err' | 'inf' } | null>(null);
-  const [result, setResult] = useState<{ isComplete: boolean; scheduledCount: number; conflictCount: number; solutions: TaskSolutionJSON[]; week: number } | null>(null);
+  const [scheduleResult, setScheduleResult] = useState<ScheduleResult | null>(null);
+  const [selectedSolutionIndex, setSelectedSolutionIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [isImportOpen, setIsImportOpen] = useState(true);
   const [groupBy, setGroupBy] = useState<GroupBy>('code');
@@ -50,7 +63,8 @@ export default function SchedulePage() {
         const courses = parseCsvCourses(text, weekNum);
         setParsedCourses(courses);
         setEnforcedMap({});
-        setResult(null);
+        setScheduleResult(null);
+        setSelectedSolutionIndex(0);
       } catch {
         setParsedCourses([]);
       }
@@ -74,11 +88,13 @@ export default function SchedulePage() {
     return () => draggable.destroy();
   }, [parsedCourses]);
 
+  const activeSolution = scheduleResult?.solutions[selectedSolutionIndex];
+
   const filteredSolutions = useMemo(() => {
-    const solutions = result?.solutions ?? [];
+    const tasks = activeSolution?.tasks ?? [];
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return solutions;
-    return solutions.filter((task) => {
+    if (!q) return tasks;
+    return tasks.filter((task) => {
       const teachers = task.resources.filter((r) => r.type === 'teacher').map((r) => r.id.toLowerCase());
       const rooms = task.resources.filter((r) => r.type === 'room').map((r) => r.id.toLowerCase());
       return (
@@ -88,15 +104,14 @@ export default function SchedulePage() {
         rooms.some((r) => r.includes(q))
       );
     });
-  }, [result, searchQuery]);
+  }, [activeSolution, searchQuery]);
 
   async function readJSON<T>(file: File): Promise<T> {
     const text = await file.text();
     return JSON.parse(text) as T;
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function runSchedule(mode: 'standard' | 'elimination') {
     setIsLoading(true);
     setStatus({ message: 'Lecture des fichiers…', kind: 'inf' });
 
@@ -136,15 +151,23 @@ export default function SchedulePage() {
       );
       const hasConstraints = !!constraintsFile || blockedZones.length > 0;
 
-      const payload: RawScheduleData = { week: weekNum, resources, courses: coursesWithEnforced, ...(hasConstraints ? { constraints: effectiveConstraints } : {}) };
+      const payload: RawScheduleData & { options?: { eliminationCount?: number } } = {
+        week: weekNum,
+        resources,
+        courses: coursesWithEnforced,
+        ...(hasConstraints ? { constraints: effectiveConstraints } : {}),
+        ...(mode === 'elimination' ? { options: { eliminationCount: 5 } } : {}),
+      };
 
-      console.groupCollapsed('📤 Payload envoyé à POST /api/schedule');
+      const endpoint = mode === 'elimination' ? '/api/schedule/elimination' : '/api/schedule';
+
+      console.groupCollapsed(`📤 Payload envoyé à POST ${endpoint}`);
       console.log(payload);
       console.groupEnd();
 
       setStatus({ message: 'Requête envoyée…', kind: 'inf' });
 
-      const response = await fetch('/api/schedule', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -158,7 +181,7 @@ export default function SchedulePage() {
         throw new Error(`L'API a répondu avec une erreur ${response.status} : ${rawText.slice(0, 200)}`);
       }
 
-      console.groupCollapsed('📥 Réponse /api/schedule');
+      console.groupCollapsed(`📥 Réponse ${endpoint}`);
       console.log(data);
       console.groupEnd();
 
@@ -167,10 +190,40 @@ export default function SchedulePage() {
         throw new Error(err?.error ?? `Erreur ${response.status}`);
       }
 
-      const d = data as { isComplete: boolean; scheduledCount: number; conflictCount: number; solutions: TaskSolutionJSON[] };
-      setResult({ ...d, week: weekNum });
-      const summary = `${d.isComplete ? '✅ Planification complète' : '⚠️ Incomplète'} — ${d.scheduledCount} cours planifiés, ${d.conflictCount} conflit(s)`;
-      setStatus({ message: summary, kind: d.isComplete ? 'ok' : 'err' });
+      let normalized: NormalizedSolution[];
+
+      if (mode === 'standard') {
+        // Format: { solutionCount, solutions: [{ score, isComplete, scheduledCount, conflictCount, tasks }] }
+        const d = data as { solutionCount: number; solutions: { score?: number; isComplete: boolean; scheduledCount: number; conflictCount: number; tasks: TaskSolutionJSON[] }[] };
+        normalized = d.solutions.map(s => ({
+          isComplete: s.isComplete,
+          score: s.score,
+          tasks: s.tasks,
+        }));
+      } else {
+        // Format: ScheduleSolutionJSON[] = [{ solutions, isComplete, score, neutralizedTasks }]
+        const d = data as { solutions: TaskSolutionJSON[]; isComplete: boolean; score?: number; neutralizedTasks?: TaskSolutionJSON[] }[];
+        normalized = d.map(s => ({
+          isComplete: s.isComplete,
+          score: s.score,
+          tasks: s.solutions,
+          neutralizedTasks: s.neutralizedTasks,
+        }));
+      }
+
+      if (normalized.length === 0) {
+        throw new Error('Aucune solution trouvée.');
+      }
+
+      setScheduleResult({ solutions: normalized, week: weekNum });
+      setSelectedSolutionIndex(0);
+
+      const best = normalized[0];
+      const neutralizedMsg = best.neutralizedTasks?.length
+        ? ` — ${best.neutralizedTasks.length} cours non placé(s)`
+        : '';
+      const summary = `${best.isComplete ? '✅ Planification complète' : '⚠️ Incomplète'} — ${normalized.length} solution(s)${neutralizedMsg}`;
+      setStatus({ message: summary, kind: best.isComplete ? 'ok' : 'err' });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       console.error('❌ Erreur :', message);
@@ -179,10 +232,10 @@ export default function SchedulePage() {
       setIsLoading(false);
     }
   }
-
   function handleEnforceChange(map: Record<string, EnforcedData>) {
     setEnforcedMap(map);
-    setResult(null);
+    setScheduleResult(null);
+    setSelectedSolutionIndex(0);
   }
 
   function handleBlockedZoneAdd(start: Date, end: Date) {
@@ -190,7 +243,7 @@ export default function SchedulePage() {
       ...prev,
       { id: `bz-${Date.now()}-${Math.random().toString(36).slice(2)}`, start, end },
     ]);
-    setResult(null);
+    setScheduleResult(null);
   }
 
   function handleBlockedZoneRemove(id: string) {
@@ -199,7 +252,7 @@ export default function SchedulePage() {
 
   function handleBlockedZoneMove(id: string, start: Date, end: Date) {
     setBlockedZones((prev) => prev.map((z) => (z.id === id ? { ...z, start, end } : z)));
-    setResult(null);
+    setScheduleResult(null);
   }
 
   const bannerClass = status
@@ -227,7 +280,7 @@ export default function SchedulePage() {
         <aside className="w-80 shrink-0 bg-white dark:bg-zinc-900 border-r border-gray-200 dark:border-zinc-800 p-4 overflow-y-auto flex flex-col gap-4">
 
           {/* Recherche (visible uniquement si résultats) */}
-          {result && (
+          {scheduleResult && (
             <div>
               <label className="block text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">
                 Rechercher
@@ -247,7 +300,7 @@ export default function SchedulePage() {
             <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-4">
               Planification
             </p>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                   Semaine (1–53)
@@ -316,22 +369,33 @@ export default function SchedulePage() {
                 )}
               </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full px-4 py-2.5 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 transition"
-              >
-                {isLoading
-                  ? 'Traitement…'
-                  : enforcedCount > 0
-                  ? `Planifier (${enforcedCount} imposé${enforcedCount > 1 ? 's' : ''})`
-                  : 'Planifier'}
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => runSchedule('standard')}
+                  disabled={isLoading}
+                  className="px-3 py-2.5 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 transition"
+                >
+                  {isLoading
+                    ? 'Traitement…'
+                    : enforcedCount > 0
+                    ? `Planifier (${enforcedCount} imposé${enforcedCount > 1 ? 's' : ''})`
+                    : 'Planifier'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runSchedule('elimination')}
+                  disabled={isLoading}
+                  className="px-3 py-2.5 bg-orange-600 dark:bg-orange-500 text-white text-sm font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 transition"
+                >
+                  {isLoading ? 'Traitement…' : 'Avec élimination'}
+                </button>
+              </div>
             </form>
           </div>
 
           {/* Liste des cours de la semaine */}
-          {parsedCourses.length > 0 && !result && (
+          {parsedCourses.length > 0 && !scheduleResult && (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
@@ -376,6 +440,30 @@ export default function SchedulePage() {
 
         {/* Zone calendrier */}
         <main className="flex-1 overflow-hidden p-4 flex flex-col">
+
+          {/* Onglets de solutions */}
+          {scheduleResult && scheduleResult.solutions.length > 1 && (
+            <div className="flex flex-wrap gap-1 mb-2 shrink-0">
+              {scheduleResult.solutions.map((sol, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setSelectedSolutionIndex(i)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${
+                    selectedSolutionIndex === i
+                      ? 'bg-gray-900 dark:bg-white text-white dark:text-black'
+                      : 'bg-white dark:bg-zinc-800 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-700 border border-gray-200 dark:border-zinc-600'
+                  }`}
+                >
+                  Solution {i + 1}{sol.score !== undefined ? ` — ${sol.score} pts` : ''}{sol.isComplete ? ' ✓' : ' ⚠️'}
+                  {sol.neutralizedTasks && sol.neutralizedTasks.length > 0 && (
+                    <span className="ml-1 text-orange-500">({sol.neutralizedTasks.length} éliminé{sol.neutralizedTasks.length > 1 ? 's' : ''})</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
           <ScheduleCalendar
             solutions={filteredSolutions}
             week={calendarWeek}
@@ -387,6 +475,40 @@ export default function SchedulePage() {
             onBlockedZoneMove={handleBlockedZoneMove}
           />
         </main>
+
+        {/* Sidebar droite : cours non placés (neutralisés) */}
+        {activeSolution?.neutralizedTasks && activeSolution.neutralizedTasks.length > 0 && (
+          <aside className="w-64 shrink-0 bg-amber-50 dark:bg-amber-950/20 border-l border-amber-200 dark:border-amber-900 p-3 overflow-y-auto flex flex-col gap-2">
+            <p className="text-xs font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400 mb-1">
+              Non placés ({activeSolution.neutralizedTasks.length})
+            </p>
+            {activeSolution.neutralizedTasks.map((task) => {
+              const teachers = task.resources.filter((r) => r.type === 'teacher').map((r) => r.id);
+              const groups = task.resources.filter((r) => r.type === 'group').map((r) => r.id);
+              return (
+                <div
+                  key={task.taskId}
+                  className="p-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-100/60 dark:bg-amber-900/30 text-xs"
+                >
+                  <div className="flex items-center justify-between gap-1 mb-0.5">
+                    <span className="font-bold text-amber-900 dark:text-amber-200 truncate">
+                      {task.code}{' '}
+                      <span className="font-normal text-amber-600 dark:text-amber-400">{task.type}</span>
+                    </span>
+                    <span className="text-amber-500 dark:text-amber-500 shrink-0">{task.duration}min</span>
+                  </div>
+                  <div className="truncate text-amber-800 dark:text-amber-300 mb-0.5">{task.name}</div>
+                  {teachers.length > 0 && (
+                    <div className="truncate text-amber-600 dark:text-amber-400">{teachers.join(', ')}</div>
+                  )}
+                  {groups.length > 0 && (
+                    <div className="truncate text-amber-500 dark:text-amber-500">{groups.join(', ')}</div>
+                  )}
+                </div>
+              );
+            })}
+          </aside>
+        )}
 
       </div>
 
