@@ -197,6 +197,11 @@ export default function SchedulePage() {
     setBlockedZones((prev) => prev.filter((z) => z.id !== id));
   }
 
+  function handleBlockedZoneMove(id: string, start: Date, end: Date) {
+    setBlockedZones((prev) => prev.map((z) => (z.id === id ? { ...z, start, end } : z)));
+    setResult(null);
+  }
+
   const bannerClass = status
     ? status.kind === 'ok'
       ? 'bg-green-100 text-green-800 border-green-200'
@@ -379,6 +384,7 @@ export default function SchedulePage() {
             blockedZones={blockedZones}
             onBlockedZoneAdd={handleBlockedZoneAdd}
             onBlockedZoneRemove={handleBlockedZoneRemove}
+            onBlockedZoneMove={handleBlockedZoneMove}
           />
         </main>
 

@@ -41,6 +41,7 @@ interface Props {
   blockedZones?: BlockedZone[];
   onBlockedZoneAdd?: (start: Date, end: Date) => void;
   onBlockedZoneRemove?: (id: string) => void;
+  onBlockedZoneMove?: (id: string, start: Date, end: Date) => void;
 }
 
 // ─── Composant local : détail d'un event cliqué ───────────────────────────────
@@ -158,7 +159,7 @@ function renderEventContent(info: EventContentArg) {
   );
 }
 
-export default function ScheduleCalendar({ solutions, week, parsedCourses = [], onEnforceChange, blockedZones = [], onBlockedZoneAdd, onBlockedZoneRemove }: Props) {
+export default function ScheduleCalendar({ solutions, week, parsedCourses = [], onEnforceChange, blockedZones = [], onBlockedZoneAdd, onBlockedZoneRemove, onBlockedZoneMove }: Props) {
   const monday = useMemo(() => getMondayOfISOWeek(week), [week]);
   const [selected, setSelected] = useState<EventDetail | null>(null);
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
@@ -342,7 +343,17 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
   }
 
   function handleEventDrop(info: EventDropArg) {
-    if (!info.event.extendedProps.isEnforced) return;
+    const ext = info.event.extendedProps as { isEnforced?: boolean; courseKey?: string; isBlockedZone?: boolean; blockedZoneId?: string };
+
+    if (ext.isBlockedZone && ext.blockedZoneId) {
+      const start = info.event.start;
+      const end = info.event.end;
+      if (!start || !end) { info.revert(); return; }
+      onBlockedZoneMove?.(ext.blockedZoneId, start, end);
+      return;
+    }
+
+    if (!ext.isEnforced) return;
 
     const courseKey = info.event.extendedProps.courseKey as string;
     const startDate = info.event.start;
