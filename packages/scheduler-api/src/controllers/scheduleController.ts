@@ -3,7 +3,8 @@ import {
   Loader,
   ScheduleAR,
 } from '@edt-ts/scheduler-core';
-import type { RawScheduleData, TaskSolutionJSON } from '@edt-ts/scheduler-common';
+import type { RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON } from '@edt-ts/scheduler-common';
+import type { Task } from '@edt-ts/scheduler-common';
 import type {
   TaskSolution,
   ScheduleSolution,
@@ -31,6 +32,37 @@ function serializeSolution(solutions: TaskSolution[]): TaskSolutionJSON[] {
       })),
     };
   });
+}
+
+/** Sérialise une Task non planifiée (startTime = -1 car absence de créneau) */
+function serializeTask(task: Task): TaskSolutionJSON {
+  const resources = task.getAllResources?.() ?? [];
+  return {
+    taskId: task.id,
+    code: task.code,
+    name: task.name,
+    type: task.type,
+    week: task.week,
+    duration: task.duration,
+    startTime: -1,
+    resources: resources.map((r: { id: string; type: string }) => ({
+      id: r.id,
+      type: r.type,
+    })),
+  };
+}
+
+/** Sérialise un ScheduleSolution vers ScheduleSolutionJSON */
+function serializeScheduleSolution(result: ScheduleSolution): ScheduleSolutionJSON {
+  const out: ScheduleSolutionJSON = {
+    solutions: serializeSolution(result.solutions),
+    isComplete: result.isComplete,
+    score: result.score,
+  };
+  if (result.neutralizedTasks && result.neutralizedTasks.length > 0) {
+    out.neutralizedTasks = result.neutralizedTasks.map(serializeTask);
+  }
+  return out;
 }
 
 // --------------------------------------------------------------------------
@@ -152,6 +184,60 @@ export async function scheduleHandler(req: Request, res: Response): Promise<void
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('❌ Erreur planification :', message);
+    res.status(500).json({ error: message });
+  }
+}
+
+// --------------------------------------------------------------------------
+// POST /api/schedule/elimination
+// --------------------------------------------------------------------------
+
+/**
+ * Même corps que POST /api/schedule, plus :
+ * - `options.eliminationCount` (number, défaut 3) : nombre maximum de tâches
+ *   que l'algorithme est autorisé à neutraliser pour débloquer la recherche.
+ *
+ * Retourne un tableau de ScheduleSolutionJSON (solutions complètes triées par
+ * score décroissant, avec les tâches neutralisées le cas échéant).
+ */
+export async function solveWithEliminationHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const body = req.body as RawScheduleData & {
+      options?: { maxSolutions?: number; timeoutSeconds?: number; eliminationCount?: number };
+    };
+
+    if (!body.week || !body.courses || !Array.isArray(body.courses)) {
+      res.status(400).json({
+        error: 'Corps invalide : les champs "week" et "courses" sont requis.',
+      });
+      return;
+    }
+
+    Loader.reload();
+
+    Loader.loadFromRawData({
+      week: body.week,
+      resources: body.resources ?? [],
+      courses: body.courses,
+      constraints: body.constraints,
+    });
+
+    const scheduler = new ScheduleAR();
+    if (body.options?.maxSolutions !== undefined) {
+      scheduler.setMaxCompleteSolutions(body.options.maxSolutions);
+    }
+    if (body.options?.timeoutSeconds !== undefined) {
+      scheduler.setTimeoutSeconds(body.options.timeoutSeconds);
+    }
+
+    const eliminationCount = body.options?.eliminationCount ?? 3;
+    const results: ScheduleSolution[] = scheduler.solveWithTaskElimination(eliminationCount);
+
+    const response: ScheduleSolutionJSON[] = results.map(serializeScheduleSolution);
+    res.status(200).json(response);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('❌ Erreur planification (elimination) :', message);
     res.status(500).json({ error: message });
   }
 }

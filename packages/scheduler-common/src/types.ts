@@ -92,3 +92,11 @@ export interface TaskSolutionJSON {
   startTime: number;
   resources: { id: string; type: string }[];
 }
+
+
+export interface ScheduleSolutionJSON {
+  solutions: TaskSolutionJSON[];
+  isComplete: boolean;
+  score?: number;
+  neutralizedTasks?: TaskSolutionJSON[];
+}

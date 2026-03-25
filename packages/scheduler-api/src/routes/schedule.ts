@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { scheduleHandler, healthHandler } from '../controllers/scheduleController.js';
+import { scheduleHandler, healthHandler, solveWithEliminationHandler } from '../controllers/scheduleController.js';
 
 const router = Router();
 
@@ -23,5 +23,18 @@ router.get('/health', healthHandler);
  * }
  */
 router.post('/', scheduleHandler);
+
+/**
+ * POST /api/schedule/elimination
+ * Planifie en autorisant la neutralisation des tâches les plus bloquantes.
+ *
+ * Corps JSON : identique à POST /api/schedule, plus :
+ * {
+ *   "options": { "eliminationCount": 3 }   // nombre max de tâches neutralisables (défaut: 3)
+ * }
+ *
+ * Retourne un tableau de ScheduleSolutionJSON.
+ */
+router.post('/elimination', solveWithEliminationHandler);
 
 export default router;
