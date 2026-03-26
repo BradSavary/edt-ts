@@ -11,7 +11,8 @@ import EnforceModal from '@/components/EnforceModal';
 import type { EnforceSelection } from '@/components/EnforceModal';
 import TaskEditModal from '@/components/TaskEditModal';
 import type { TaskEditUpdate } from '@/components/TaskEditModal';
-import { getMondayOfISOWeek, startTimeToDate, formatTime, formatDate } from '@/lib/calendarUtils';
+import { getMondayOfISOWeek, startTimeToDate, formatTime, formatDate, computeStaticConflicts, computeDragHighlights } from '@/lib/calendarUtils';
+import type { ResourceEventInfo } from '@/lib/calendarUtils';
 import type { BlockedZone } from '@/lib/blockedZones';
 import {
   Dialog,
@@ -192,51 +193,6 @@ function EventDetailPopup({ detail, onClose, onRemoveEnforced, onEditResources }
       </DialogContent>
     </Dialog>
   );
-}
-
-// ─── Helpers : détection de conflits de ressources ───────────────────────────
-
-type ResourceEventInfo = { id: string; start: Date; end: Date; teachers: string[]; groups: string[]; rooms: string[] };
-
-function computeStaticConflicts(events: ResourceEventInfo[]): Record<string, 'red' | 'orange'> {
-  const result: Record<string, 'red' | 'orange'> = {};
-  for (let i = 0; i < events.length; i++) {
-    for (let j = i + 1; j < events.length; j++) {
-      const a = events[i];
-      const b = events[j];
-      if (a.start >= b.end || b.start >= a.end) continue;
-      const setTeachers = new Set(a.teachers);
-      const setGroups = new Set(a.groups);
-      const setRooms = new Set(a.rooms);
-      const sharedTeacher = b.teachers.some((t) => setTeachers.has(t));
-      const sharedGroup = b.groups.some((g) => setGroups.has(g));
-      const sharedRoom = b.rooms.some((r) => setRooms.has(r));
-      if (sharedTeacher || sharedGroup) {
-        result[a.id] = 'red';
-        result[b.id] = 'red';
-      } else if (sharedRoom) {
-        if (result[a.id] !== 'red') result[a.id] = 'orange';
-        if (result[b.id] !== 'red') result[b.id] = 'orange';
-      }
-    }
-  }
-  return result;
-}
-
-function computeDragHighlights(events: ResourceEventInfo[], drag: DraggingState): Record<string, 'red' | 'orange'> {
-  const result: Record<string, 'red' | 'orange'> = {};
-  const dragTeachers = new Set(drag.teachers);
-  const dragGroups = new Set(drag.groups);
-  const dragRooms = new Set(drag.rooms);
-  for (const evt of events) {
-    if (evt.id === drag.id) continue;
-    const sharedTeacher = evt.teachers.some((t) => dragTeachers.has(t));
-    const sharedGroup = evt.groups.some((g) => dragGroups.has(g));
-    const sharedRoom = evt.rooms.some((r) => dragRooms.has(r));
-    if (sharedTeacher || sharedGroup) result[evt.id] = 'red';
-    else if (sharedRoom) result[evt.id] = 'orange';
-  }
-  return result;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -38,3 +38,69 @@ export function formatTime(date: Date): string {
 export function formatDate(date: Date): string {
   return `${DAY_LABELS[date.getDay()]} ${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
 }
+
+// ─── Détection de conflits de ressources ─────────────────────────────────────
+
+export type ResourceEventInfo = {
+  id: string;
+  start: Date;
+  end: Date;
+  teachers: string[];
+  groups: string[];
+  rooms: string[];
+};
+
+export type ConflictLevel = 'red' | 'orange';
+
+/**
+ * Calcule les conflits statiques entre tous les events (sans drag actif).
+ * Rouge = enseignant ou groupe en double ; Orange = salle en double.
+ */
+export function computeStaticConflicts(events: ResourceEventInfo[]): Record<string, ConflictLevel> {
+  const result: Record<string, ConflictLevel> = {};
+  for (let i = 0; i < events.length; i++) {
+    for (let j = i + 1; j < events.length; j++) {
+      const a = events[i];
+      const b = events[j];
+      if (a.start >= b.end || b.start >= a.end) continue;
+      const setTeachers = new Set(a.teachers);
+      const setGroups = new Set(a.groups);
+      const setRooms = new Set(a.rooms);
+      const sharedTeacher = b.teachers.some((t) => setTeachers.has(t));
+      const sharedGroup = b.groups.some((g) => setGroups.has(g));
+      const sharedRoom = b.rooms.some((r) => setRooms.has(r));
+      if (sharedTeacher || sharedGroup) {
+        result[a.id] = 'red';
+        result[b.id] = 'red';
+      } else if (sharedRoom) {
+        if (result[a.id] !== 'red') result[a.id] = 'orange';
+        if (result[b.id] !== 'red') result[b.id] = 'orange';
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * Calcule les events en conflit avec la tâche en cours de drag.
+ * Ignore les contraintes temporelles (le drag peut être n'importe où).
+ */
+export function computeDragHighlights(
+  events: ResourceEventInfo[],
+  drag: { id: string; teachers: string[]; groups: string[]; rooms: string[] },
+): Record<string, ConflictLevel> {
+  const result: Record<string, ConflictLevel> = {};
+  const dragTeachers = new Set(drag.teachers);
+  const dragGroups = new Set(drag.groups);
+  const dragRooms = new Set(drag.rooms);
+  for (const evt of events) {
+    if (evt.id === drag.id) continue;
+    const sharedTeacher = evt.teachers.some((t) => dragTeachers.has(t));
+    const sharedGroup = evt.groups.some((g) => dragGroups.has(g));
+    const sharedRoom = evt.rooms.some((r) => dragRooms.has(r));
+    if (sharedTeacher || sharedGroup) result[evt.id] = 'red';
+    else if (sharedRoom) result[evt.id] = 'orange';
+  }
+  return result;
+}
+

@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Draggable } from '@fullcalendar/interaction';
-import type { RawScheduleData, TaskSolutionJSON, CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
+import type { CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
 import { parseCsvCourses } from '@/lib/parseCsvCourses';
 import ScheduleCalendar from '@/components/ScheduleCalendar';
 import CourseGroupList, { type GroupBy } from '@/components/CourseGroupList';
-import { type BlockedZone, applyBlockedZonesToConstraints } from '@/lib/blockedZones';
+import { type BlockedZone } from '@/lib/blockedZones';
+import { runScheduleRequest } from '@/lib/scheduleApi';
+import type { ScheduleResult } from '@/lib/scheduleApi';
+import { useNeutralizedDraggable } from '@/hooks/useNeutralizedDraggable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,18 +17,6 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-
-interface NormalizedSolution {
-  isComplete: boolean;
-  score?: number;
-  tasks: TaskSolutionJSON[];
-  neutralizedTasks?: TaskSolutionJSON[];
-}
-
-interface ScheduleResult {
-  solutions: NormalizedSolution[];
-  week: number;
-}
 
 export default function SchedulePage() {
   const [week, setWeek] = useState('1');
@@ -42,6 +33,8 @@ export default function SchedulePage() {
   const [blockedZones, setBlockedZones] = useState<BlockedZone[]>([]);
   // IDs des tâches neutralisées placées manuellement sur le calendrier
   const [placedNeutralizedIds, setPlacedNeutralizedIds] = useState<Set<string>>(new Set());
+  // Tâche neutralisée en cours de drag depuis la sidebar (pour l'aperçu de conflits)
+  const [externalDraggingTask, setExternalDraggingTask] = useState<{ id: string; teachers: string[]; groups: string[]; rooms: string[] } | null>(null);
 
   // Cours parsés depuis le CSV pour la semaine sélectionnée
   const [parsedCourses, setParsedCourses] = useState<CourseTaskData[]>([]);
@@ -117,33 +110,20 @@ export default function SchedulePage() {
     return () => draggable.destroy();
   }, [parsedCourses]);
 
-  // Initialise FullCalendar Draggable sur le conteneur des tâches neutralisées
   const activeSolution = scheduleResult?.solutions[selectedSolutionIndex];
-  useEffect(() => {
-    const container = neutralizedContainerRef.current;
-    if (!container || !activeSolution?.neutralizedTasks?.length) return;
 
-    const draggable = new Draggable(container, {
-      itemSelector: '[data-task-id]',
-      eventData: (el) => ({
-        title: el.getAttribute('data-title') ?? '',
-        duration: { minutes: parseInt(el.getAttribute('data-duration') ?? '60', 10) },
-        extendedProps: {
-          isNeutralizedTask: true,
-          taskId: el.getAttribute('data-task-id') ?? '',
-          teachers: JSON.parse(el.getAttribute('data-teachers') ?? '[]') as string[],
-          groups: JSON.parse(el.getAttribute('data-groups') ?? '[]') as string[],
-          rooms: JSON.parse(el.getAttribute('data-rooms') ?? '[]') as string[],
-          code: el.getAttribute('data-code') ?? '',
-          name: el.getAttribute('data-name') ?? '',
-          type: el.getAttribute('data-type') ?? '',
-          durationMin: parseInt(el.getAttribute('data-duration') ?? '60', 10),
-        },
-      }),
-    });
+  const handleExternalDragStart = useCallback(
+    (task: { id: string; teachers: string[]; groups: string[]; rooms: string[] }) => setExternalDraggingTask(task),
+    [],
+  );
+  const handleExternalDragEnd = useCallback(() => setExternalDraggingTask(null), []);
 
-    return () => draggable.destroy();
-  }, [activeSolution?.neutralizedTasks]);
+  useNeutralizedDraggable({
+    containerRef: neutralizedContainerRef,
+    neutralizedTasks: activeSolution?.neutralizedTasks,
+    onExternalDragStart: handleExternalDragStart,
+    onExternalDragEnd: handleExternalDragEnd,
+  });
 
   const filteredSolutions = useMemo(() => {
     const tasks = activeSolution?.tasks ?? [];
@@ -161,123 +141,32 @@ export default function SchedulePage() {
     });
   }, [activeSolution, searchQuery]);
 
-  async function readJSON<T>(file: File): Promise<T> {
-    const text = await file.text();
-    return JSON.parse(text) as T;
-  }
-
   async function runSchedule(mode: 'standard' | 'elimination') {
+    if (!resourcesFile) { setStatus({ message: '❌ Fichier resources requis.', kind: 'err' }); return; }
+    if (!coursesCsvFile) { setStatus({ message: '❌ Fichier cours CSV requis.', kind: 'err' }); return; }
+
     setIsLoading(true);
     setStatus({ message: 'Lecture des fichiers…', kind: 'inf' });
 
     try {
-      const weekNum = parseInt(week, 10);
-      if (isNaN(weekNum) || weekNum < 1 || weekNum > 53) {
-        throw new Error('"week" doit être un entier entre 1 et 53.');
-      }
-
-      if (!resourcesFile) throw new Error('Fichier resources requis.');
-      if (!coursesCsvFile) throw new Error('Fichier cours CSV requis.');
-
-      const resources = await readJSON<RawScheduleData['resources']>(resourcesFile);
-      const csvText = await coursesCsvFile.text();
-      const courses = parseCsvCourses(csvText, weekNum);
-      const constraints = constraintsFile ? await readJSON<RawScheduleData['constraints']>(constraintsFile) : null;
-
-      if (!Array.isArray(resources)) {
-        throw new Error('Le fichier resources doit être un tableau JSON.');
-      }
-      if (courses.length === 0) {
-        throw new Error(`Aucun cours trouvé pour la semaine ${weekNum} dans le CSV.`);
-      }
-
-      // Injecter les données imposées dans les cours concernés
-      const coursesWithEnforced = courses.map((course, i) => {
-        const enforced = enforcedMap[String(i)];
-        return enforced ? { ...course, enforced } : course;
-      });
-
-      // Fusionner les zones de vide dans les contraintes
-      const effectiveConstraints = applyBlockedZonesToConstraints(
-        resources,
-        constraints ?? null,
+      const result = await runScheduleRequest({
+        weekStr: week,
+        resourcesFile,
+        coursesCsvFile,
+        constraintsFile,
+        enforcedMap,
         blockedZones,
-        weekNum
-      );
-      const hasConstraints = !!constraintsFile || blockedZones.length > 0;
-
-      const payload: RawScheduleData & { options?: { eliminationCount?: number } } = {
-        week: weekNum,
-        resources,
-        courses: coursesWithEnforced,
-        ...(hasConstraints ? { constraints: effectiveConstraints } : {}),
-        ...(mode === 'elimination' ? { options: { eliminationCount: 5 } } : {}),
-      };
-
-      const endpoint = mode === 'elimination' ? '/api/schedule/elimination' : '/api/schedule';
-
-      console.groupCollapsed(`📤 Payload envoyé à POST ${endpoint}`);
-      console.log(payload);
-      console.groupEnd();
-
-      setStatus({ message: 'Requête envoyée…', kind: 'inf' });
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        mode,
       });
 
-      const rawText = await response.text();
-      let data: unknown;
-      try {
-        data = JSON.parse(rawText);
-      } catch {
-        throw new Error(`L'API a répondu avec une erreur ${response.status} : ${rawText.slice(0, 200)}`);
-      }
-
-      console.groupCollapsed(`📥 Réponse ${endpoint}`);
-      console.log(data);
-      console.groupEnd();
-
-      if (!response.ok) {
-        const err = data as { error?: string };
-        throw new Error(err?.error ?? `Erreur ${response.status}`);
-      }
-
-      let normalized: NormalizedSolution[];
-
-      if (mode === 'standard') {
-        // Format: { solutionCount, solutions: [{ score, isComplete, scheduledCount, conflictCount, tasks }] }
-        const d = data as { solutionCount: number; solutions: { score?: number; isComplete: boolean; scheduledCount: number; conflictCount: number; tasks: TaskSolutionJSON[] }[] };
-        normalized = d.solutions.map(s => ({
-          isComplete: s.isComplete,
-          score: s.score,
-          tasks: s.tasks,
-        }));
-      } else {
-        // Format: ScheduleSolutionJSON[] = [{ solutions, isComplete, score, neutralizedTasks }]
-        const d = data as { solutions: TaskSolutionJSON[]; isComplete: boolean; score?: number; neutralizedTasks?: TaskSolutionJSON[] }[];
-        normalized = d.map(s => ({
-          isComplete: s.isComplete,
-          score: s.score,
-          tasks: s.solutions,
-          neutralizedTasks: s.neutralizedTasks,
-        }));
-      }
-
-      if (normalized.length === 0) {
-        throw new Error('Aucune solution trouvée.');
-      }
-
-      setScheduleResult({ solutions: normalized, week: weekNum });
+      setScheduleResult(result);
       setSelectedSolutionIndex(0);
 
-      const best = normalized[0];
+      const best = result.solutions[0];
       const neutralizedMsg = best.neutralizedTasks?.length
         ? ` — ${best.neutralizedTasks.length} cours non placé(s)`
         : '';
-      const summary = `${best.isComplete ? '✅ Planification complète' : '⚠️ Incomplète'} — ${normalized.length} solution(s)${neutralizedMsg}`;
+      const summary = `${best.isComplete ? '✅ Planification complète' : '⚠️ Incomplète'} — ${result.solutions.length} solution(s)${neutralizedMsg}`;
       setStatus({ message: summary, kind: best.isComplete ? 'ok' : 'err' });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
