@@ -3,10 +3,17 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Draggable } from '@fullcalendar/interaction';
 import type { RawScheduleData, TaskSolutionJSON, CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
-import { parseCsvCourses } from '../lib/parseCsvCourses';
-import ScheduleCalendar from './ScheduleCalendar';
-import CourseGroupList, { type GroupBy } from './CourseGroupList';
-import { type BlockedZone, applyBlockedZonesToConstraints } from '../lib/blockedZones';
+import { parseCsvCourses } from '@/lib/parseCsvCourses';
+import ScheduleCalendar from '@/components/ScheduleCalendar';
+import CourseGroupList, { type GroupBy } from '@/components/CourseGroupList';
+import { type BlockedZone, applyBlockedZonesToConstraints } from '@/lib/blockedZones';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 interface NormalizedSolution {
   isComplete: boolean;
@@ -316,114 +323,116 @@ export default function SchedulePage() {
     });
   }
 
-  const bannerClass = status
-    ? status.kind === 'ok'
-      ? 'bg-green-100 text-green-800 border-green-200'
-      : status.kind === 'err'
-      ? 'bg-red-100 text-red-800 border-red-200'
-      : 'bg-blue-100 text-blue-800 border-blue-200'
-    : '';
-
   const enforcedCount = Object.keys(enforcedMap).length;
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-gray-100 dark:bg-zinc-950">
+    <div className="h-screen flex flex-col overflow-hidden bg-secondary/30">
 
       {/* Bannière de statut */}
-      <div className={`shrink-0 px-6 py-2.5 text-sm font-medium border-b ${bannerClass || 'bg-gray-100 dark:bg-zinc-900 border-gray-200 dark:border-zinc-800'}`}>
-        {status?.message ?? '\u00a0'}
-      </div>
+      {status && (
+        <Alert
+          className={`shrink-0 rounded-none border-x-0 border-t-0 py-2 px-6 ${
+            status.kind === 'ok'
+              ? 'border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/40 dark:text-green-300'
+              : status.kind === 'err'
+              ? 'border-destructive/30 bg-destructive/10 text-destructive'
+              : 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
+          }`}
+        >
+          <AlertDescription className="text-sm font-medium">{status.message}</AlertDescription>
+        </Alert>
+      )}
+      {!status && <div className="shrink-0 h-[42px] border-b border-border bg-background/50" />}
 
       {/* Contenu principal : sidebar + calendrier */}
       <div className="flex flex-1 overflow-hidden">
 
         {/* Sidebar */}
-        <aside className="w-80 shrink-0 bg-white dark:bg-zinc-900 border-r border-gray-200 dark:border-zinc-800 p-4 overflow-y-auto flex flex-col gap-4">
+        <aside className="w-80 shrink-0 bg-card border-r border-border p-4 overflow-y-auto flex flex-col gap-4">
 
           {/* Recherche (visible uniquement si résultats) */}
           {scheduleResult && (
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Rechercher
-              </label>
-              <input
+              </Label>
+              <Input
                 type="search"
                 placeholder="Enseignant, salle, code, cours…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-zinc-800 text-black dark:text-white text-sm placeholder:text-gray-400"
               />
             </div>
           )}
 
           {/* Formulaire */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-4">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
               Planification
             </p>
             <form className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                  Semaine (1–53)
-                </label>
-                <input
+              <div className="space-y-1.5">
+                <Label htmlFor="week-input">Semaine (1–53)</Label>
+                <Input
+                  id="week-input"
                   type="number"
                   min="1"
                   max="53"
                   value={week}
                   onChange={(e) => setWeek(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-zinc-800 text-black dark:text-white text-sm"
                 />
               </div>
 
               {/* En-tête repliable pour les imports de fichiers */}
               <div>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setIsImportOpen((v) => !v)}
-                  className="w-full flex items-center justify-between text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 hover:text-gray-900 dark:hover:text-white transition"
+                  className="w-full justify-between px-0 mb-1.5 h-auto font-medium text-foreground hover:bg-transparent"
                 >
                   <span>Fichiers d&apos;import</span>
-                  <span className="text-gray-400 text-[11px]">{isImportOpen ? '▲' : '▼'}</span>
-                </button>
+                  <span className="text-muted-foreground text-[11px]">{isImportOpen ? '▲' : '▼'}</span>
+                </Button>
                 {isImportOpen && (
                   <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                        Resources <span className="text-gray-400 font-normal">(JSON)</span>
-                      </label>
+                    <div className="space-y-1.5">
+                      <Label>
+                        Resources <span className="text-muted-foreground font-normal">(JSON)</span>
+                      </Label>
                       <input
                         type="file"
                         accept=".json"
                         onChange={(e) => setResourcesFile(e.target.files?.[0] ?? null)}
                         required
-                        className="w-full text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-100 dark:file:bg-zinc-700 file:text-gray-700 dark:file:text-gray-200 hover:file:bg-gray-200 dark:hover:file:bg-zinc-600"
+                        className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-secondary file:text-secondary-foreground hover:file:bg-secondary/80"
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                        Cours <span className="text-gray-400 font-normal">(CSV)</span>
-                      </label>
+                    <div className="space-y-1.5">
+                      <Label>
+                        Cours <span className="text-muted-foreground font-normal">(CSV)</span>
+                      </Label>
                       <input
                         type="file"
                         accept=".csv"
                         onChange={(e) => setCoursesCsvFile(e.target.files?.[0] ?? null)}
                         required
-                        className="w-full text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-100 dark:file:bg-zinc-700 file:text-gray-700 dark:file:text-gray-200 hover:file:bg-gray-200 dark:hover:file:bg-zinc-600"
+                        className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-secondary file:text-secondary-foreground hover:file:bg-secondary/80"
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                        Contraintes <span className="text-gray-400 font-normal">(JSON, optionnel)</span>
-                      </label>
+                    <div className="space-y-1.5">
+                      <Label>
+                        Contraintes <span className="text-muted-foreground font-normal">(JSON, optionnel)</span>
+                      </Label>
                       <input
                         type="file"
                         accept=".json"
                         onChange={(e) => setConstraintsFile(e.target.files?.[0] ?? null)}
-                        className="w-full text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-100 dark:file:bg-zinc-700 file:text-gray-700 dark:file:text-gray-200 hover:file:bg-gray-200 dark:hover:file:bg-zinc-600"
+                        className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-secondary file:text-secondary-foreground hover:file:bg-secondary/80"
                       />
                     </div>
                   </div>
@@ -431,26 +440,26 @@ export default function SchedulePage() {
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <button
+                <Button
                   type="button"
                   onClick={() => runSchedule('standard')}
                   disabled={isLoading}
-                  className="px-3 py-2.5 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 transition"
                 >
                   {isLoading
                     ? 'Traitement…'
                     : enforcedCount > 0
                     ? `Planifier (${enforcedCount} imposé${enforcedCount > 1 ? 's' : ''})`
                     : 'Planifier'}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => runSchedule('elimination')}
                   disabled={isLoading}
-                  className="px-3 py-2.5 bg-orange-600 dark:bg-orange-500 text-white text-sm font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 transition"
+                  className="bg-orange-600 hover:bg-orange-700 text-white dark:bg-orange-500 dark:hover:bg-orange-600"
                 >
                   {isLoading ? 'Traitement…' : 'Avec élimination'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -458,35 +467,24 @@ export default function SchedulePage() {
           {/* Liste des cours de la semaine */}
           {parsedCourses.length > 0 && !scheduleResult && (
             <div className="flex flex-col gap-2">
+              <Separator />
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Cours S{week}
                 </p>
-                <span className="text-xs text-gray-400 dark:text-gray-500">
-                  {parsedCourses.length} cours
-                </span>
+                <Badge variant="secondary">{parsedCourses.length} cours</Badge>
               </div>
-              <p className="text-xs text-gray-400 dark:text-gray-500 italic">
+              <p className="text-xs text-muted-foreground italic">
                 Glissez un cours sur le calendrier pour l&apos;imposer.
               </p>
 
               {/* Tabs de regroupement */}
-              <div className="flex rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden text-xs">
-                {(['code', 'teacher'] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setGroupBy(tab)}
-                    className={`flex-1 py-1.5 font-medium transition ${
-                      groupBy === tab
-                        ? 'bg-gray-900 dark:bg-white text-white dark:text-black'
-                        : 'bg-white dark:bg-zinc-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-zinc-700'
-                    }`}
-                  >
-                    {tab === 'code' ? 'Par code' : 'Par enseignant'}
-                  </button>
-                ))}
-              </div>
+              <Tabs value={groupBy} onValueChange={(v) => setGroupBy(v as GroupBy)}>
+                <TabsList className="w-full">
+                  <TabsTrigger value="code" className="flex-1">Par code</TabsTrigger>
+                  <TabsTrigger value="teacher" className="flex-1">Par enseignant</TabsTrigger>
+                </TabsList>
+              </Tabs>
 
               <div ref={cardContainerRef}>
                 <CourseGroupList
@@ -506,21 +504,21 @@ export default function SchedulePage() {
           {scheduleResult && scheduleResult.solutions.length > 1 && (
             <div className="flex flex-wrap gap-1 mb-2 shrink-0">
               {scheduleResult.solutions.map((sol, i) => (
-                <button
+                <Button
                   key={i}
                   type="button"
+                  size="sm"
+                  variant={selectedSolutionIndex === i ? 'default' : 'outline'}
                   onClick={() => setSelectedSolutionIndex(i)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${
-                    selectedSolutionIndex === i
-                      ? 'bg-gray-900 dark:bg-white text-white dark:text-black'
-                      : 'bg-white dark:bg-zinc-800 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-700 border border-gray-200 dark:border-zinc-600'
-                  }`}
+                  className="text-xs h-7 px-3"
                 >
                   Solution {i + 1}{sol.score !== undefined ? ` — ${sol.score} pts` : ''}{sol.isComplete ? ' ✓' : ' ⚠️'}
                   {sol.neutralizedTasks && sol.neutralizedTasks.length > 0 && (
-                    <span className="ml-1 text-orange-500">({sol.neutralizedTasks.length} éliminé{sol.neutralizedTasks.length > 1 ? 's' : ''})</span>
+                    <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0 bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400">
+                      {sol.neutralizedTasks.length} éliminé{sol.neutralizedTasks.length > 1 ? 's' : ''}
+                    </Badge>
                   )}
-                </button>
+                </Button>
               ))}
             </div>
           )}

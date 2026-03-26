@@ -13,6 +13,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@edt-ts/scheduler-common': resolve(__dirname, '../scheduler-common/src/index.ts'),
+      '@': resolve(__dirname, '.'),
     },
   },
 });

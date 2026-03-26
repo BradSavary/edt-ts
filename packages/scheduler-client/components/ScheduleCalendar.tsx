@@ -6,13 +6,21 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventContentArg, EventClickArg, EventApi, EventDropArg } from '@fullcalendar/core';
 import type { EventReceiveArg, EventDragStopArg } from '@fullcalendar/interaction';
-import type { TaskSolutionJSON, CourseTaskData, EnforcedData, ResourceEntry, ResourceGroupData } from '@edt-ts/scheduler-common';
-import EnforceModal from './EnforceModal';
-import type { EnforceSelection } from './EnforceModal';
-import TaskEditModal from './TaskEditModal';
-import type { TaskEditUpdate } from './TaskEditModal';
-import { getMondayOfISOWeek, startTimeToDate, formatTime, formatDate } from '../lib/calendarUtils';
-import type { BlockedZone } from '../lib/blockedZones';
+import type { TaskSolutionJSON, CourseTaskData, EnforcedData, ResourceGroupData } from '@edt-ts/scheduler-common';
+import EnforceModal from '@/components/EnforceModal';
+import type { EnforceSelection } from '@/components/EnforceModal';
+import TaskEditModal from '@/components/TaskEditModal';
+import type { TaskEditUpdate } from '@/components/TaskEditModal';
+import { getMondayOfISOWeek, startTimeToDate, formatTime, formatDate } from '@/lib/calendarUtils';
+import type { BlockedZone } from '@/lib/blockedZones';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 
 interface PendingDrop {
   courseKey: string;
@@ -127,73 +135,62 @@ interface EventDetailPopupProps {
 
 function EventDetailPopup({ detail, onClose, onRemoveEnforced, onEditResources }: EventDetailPopupProps) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-md p-6 mx-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-bold text-black dark:text-white">
-              {detail.code} {detail.type} — {detail.teachers.join(', ')}
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{detail.name}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none"
-            aria-label="Fermer"
-          >
-            ✕
-          </button>
-        </div>
+    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {detail.code} {detail.type} — {detail.teachers.join(', ')}
+          </DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">{detail.name}</p>
+
+        <Separator />
 
         <dl className="space-y-2 text-sm">
           <div className="flex gap-2">
-            <dt className="font-medium text-gray-600 dark:text-gray-400 w-24 shrink-0">Date</dt>
-            <dd className="text-black dark:text-white">{formatDate(detail.start)}</dd>
+            <dt className="font-medium text-muted-foreground w-24 shrink-0">Date</dt>
+            <dd className="text-foreground">{formatDate(detail.start)}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="font-medium text-gray-600 dark:text-gray-400 w-24 shrink-0">Horaire</dt>
-            <dd className="text-black dark:text-white">
+            <dt className="font-medium text-muted-foreground w-24 shrink-0">Horaire</dt>
+            <dd className="text-foreground">
               {formatTime(detail.start)} – {formatTime(detail.end)}
             </dd>
           </div>
           {detail.groups.length > 0 && (
             <div className="flex gap-2">
-              <dt className="font-medium text-gray-600 dark:text-gray-400 w-24 shrink-0">Groupes</dt>
-              <dd className="text-black dark:text-white">{detail.groups.join(', ')}</dd>
+              <dt className="font-medium text-muted-foreground w-24 shrink-0">Groupes</dt>
+              <dd className="text-foreground">{detail.groups.join(', ')}</dd>
             </div>
           )}
           {detail.rooms.length > 0 && (
             <div className="flex gap-2">
-              <dt className="font-medium text-gray-600 dark:text-gray-400 w-24 shrink-0">Salle</dt>
-              <dd className="text-black dark:text-white">{detail.rooms.join(', ')}</dd>
+              <dt className="font-medium text-muted-foreground w-24 shrink-0">Salle</dt>
+              <dd className="text-foreground">{detail.rooms.join(', ')}</dd>
             </div>
           )}
         </dl>
 
         {detail.isEnforced && detail.courseKey && (
-          <button
+          <Button
+            variant="outline"
+            className="w-full border-destructive text-destructive hover:bg-destructive/10"
             onClick={() => { onRemoveEnforced(detail.courseKey!); onClose(); }}
-            className="mt-4 w-full px-4 py-2 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 text-sm font-semibold rounded-lg hover:bg-red-50 dark:hover:bg-red-950 transition"
           >
             Retirer l&apos;imposition
-          </button>
+          </Button>
         )}
         {onEditResources && (
-          <button
+          <Button
+            variant="outline"
+            className="w-full border-blue-300 text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-950"
             onClick={() => { onEditResources(); onClose(); }}
-            className="mt-2 w-full px-4 py-2 border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 text-sm font-semibold rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950 transition"
           >
             ✏️ Modifier les ressources
-          </button>
+          </Button>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -201,11 +198,6 @@ function EventDetailPopup({ detail, onClose, onRemoveEnforced, onEditResources }
 
 type ResourceEventInfo = { id: string; start: Date; end: Date; teachers: string[]; groups: string[]; rooms: string[] };
 
-/**
- * Retourne une map eventId → 'red' | 'orange' basée sur les chevauchements
- * temporels effectifs entre événements partageant des ressources.
- * rouge = conflit enseignant ou groupe ; orange = conflit salle uniquement.
- */
 function computeStaticConflicts(events: ResourceEventInfo[]): Record<string, 'red' | 'orange'> {
   const result: Record<string, 'red' | 'orange'> = {};
   for (let i = 0; i < events.length; i++) {
@@ -231,10 +223,6 @@ function computeStaticConflicts(events: ResourceEventInfo[]): Record<string, 're
   return result;
 }
 
-/**
- * Pendant un glissement, met en évidence tous les événements existants
- * qui partagent des ressources avec l'événement glissé (indépendamment du créneau).
- */
 function computeDragHighlights(events: ResourceEventInfo[], drag: DraggingState): Record<string, 'red' | 'orange'> {
   const result: Record<string, 'red' | 'orange'> = {};
   const dragTeachers = new Set(drag.teachers);
@@ -299,32 +287,23 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
   const [selected, setSelected] = useState<EventDetail | null>(null);
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
   const [pendingEdit, setPendingEdit] = useState<PendingEditData | null>(null);
-  // Événements imposés gérés par état React pour être toujours inclus dans la prop events
   const [enforcedEventsState, setEnforcedEventsState] = useState<CalendarEventData[]>([]);
-  // Overrides de position/ressources pour les tâches planifiées déplacées ou éditées
   const [taskOverrides, setTaskOverrides] = useState<Record<string, PlacedTaskOverride>>({});
-  // Tâches neutralisées placées manuellement sur le calendrier
   const [placedNeutralizedEvents, setPlacedNeutralizedEvents] = useState<CalendarEventData[]>([]);
-  // État du glissement en cours (pour prévisualisation des conflits)
   const [dragging, setDragging] = useState<DraggingState | null>(null);
 
   const calendarRef = useRef<FullCalendar | null>(null);
   const calendarWrapperRef = useRef<HTMLDivElement | null>(null);
-  // Ref vers l'event FullCalendar en cours de traitement (pendant modal)
   const pendingEventRef = useRef<EventApi | null>(null);
-  // Map interne des cours imposés (source de vérité côté ScheduleCalendar)
   const enforcedMapRef = useRef<Record<string, EnforcedData>>({});
 
-  // Quand la solution sélectionnée change, réinitialiser les états locaux de placement
   useEffect(() => {
     setPlacedNeutralizedEvents([]);
     setTaskOverrides({});
     setDragging(null);
-  // solutionKey change = nouvelle solution sélectionnée dans la sidebar
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [solutionKey]);
 
-  // Quand des résultats arrivent, vider les events imposés et les ajustements manuels
   useEffect(() => {
     if (solutions.length > 0) {
       setEnforcedEventsState([]);
@@ -334,18 +313,16 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
     }
   }, [solutions.length]);
 
-  // Quand les cours changent (nouvelle semaine / nouveau CSV), tout réinitialiser
   const prevParsedCoursesRef = useRef<CourseTaskData[]>(parsedCourses);
   useEffect(() => {
     if (prevParsedCoursesRef.current !== parsedCourses) {
       prevParsedCoursesRef.current = parsedCourses;
-      // Vider les events imposés via état
       setEnforcedEventsState([]);
       enforcedMapRef.current = {};
       onEnforceChange?.({});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parsedCourses]); // onEnforceChange intentionnellement exclu : recrée à chaque render
+  }, [parsedCourses]);
 
   function confirmEnforce(courseKey: string, enforced: EnforcedData, event: EventApi) {
     const idx = parseInt(courseKey, 10);
@@ -355,10 +332,8 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
     const startDate = new Date(monday.getTime() + enforced.startTime * 60 * 1000);
     const endDate = new Date(startDate.getTime() + (course?.duration ?? 60) * 60 * 1000);
 
-    // Supprimer l'événement reçu temporairement par FullCalendar
     event.remove();
 
-    // Ajouter via état React (inclus dans la prop events = toujours visible)
     setEnforcedEventsState((prev) => {
       const filtered = prev.filter((e) => e.id !== `enforced-${courseKey}`);
       return [
@@ -439,7 +414,6 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
     });
   }
 
-  // ── Glissement démarré : enregistre les ressources pour la prévisualisation ──
   function handleEventDragStart(info: EventDragStopArg) {
     const ext = info.event.extendedProps as CalendarEventExtProps;
     if (ext.isBlockedZone) return;
@@ -451,7 +425,6 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
     });
   }
 
-  // ── Réception d'une tâche neutralisée glissée depuis la sidebar ────────────
   function handleReceiveNeutralizedTask(info: EventReceiveArg) {
     const ext = info.event.extendedProps as {
       taskId?: string;
@@ -498,7 +471,6 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
   }
 
   function handleEventReceive(info: EventReceiveArg) {
-    // Tâche neutralisée glissée depuis la sidebar droite
     if (info.event.extendedProps.isNeutralizedTask) {
       handleReceiveNeutralizedTask(info);
       return;
@@ -513,17 +485,14 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
 
     const startTime = Math.round((startDate.getTime() - monday.getTime()) / 60000);
 
-    // Vérifier si le cours a des alternatives (salles ou enseignants)
     const hasAlternatives = [...course.teacher, ...course.rooms].some((e) => Array.isArray(e));
 
     if (!hasAlternatives) {
-      // Confirmation directe : ressources sans ambiguïté
       const teacher = course.teacher.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e]));
       const groups = course.groups.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e]));
       const rooms = course.rooms.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e]));
       confirmEnforce(courseKey, { startTime, teacher, groups, rooms }, info.event);
     } else {
-      // Garder l'event visible, afficher le modal de sélection
       pendingEventRef.current = info.event;
       setPendingDrop({ courseKey, startTime, course });
     }
@@ -548,13 +517,10 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
     setPendingDrop(null);
   }
 
-  // ── Édition des ressources d'une tâche placée ──────────────────────────────
-
   function handleEditRequest() {
     if (!selected) return;
     const startTime = Math.round((selected.start.getTime() - monday.getTime()) / 60000);
 
-    // Construire les listes d'options depuis le resources.json complet
     const teacherOptions = resourcesList
       .filter((g) => g.resourceType === 'teacher')
       .flatMap((g) => g.resources.map((r) => r.id));
@@ -682,7 +648,6 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
       return;
     }
 
-    // Tâche planifiée déplacée manuellement
     setTaskOverrides((prev) => ({
       ...prev,
       [taskId]: { startTime: newStartTime, teachers, groups, rooms },
@@ -723,14 +688,13 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
     }
   }
 
-  // Événements calendrier : solutions (avec overrides) + zones vide + imposés + neutralisés placés
-  // + coloration des conflits de ressources (statique) ou prévisualisation pendant glissement
   const calendarEvents = useMemo(() => {
     const blockEvts = blockedZones.map((zone) => ({
       id: `blocked-${zone.id}`,
       start: zone.start,
       end: zone.end,
       backgroundColor: 'rgba(239,68,68)',
+      borderColor: 'rgba(220, 34, 34, 1)',
       classNames: ['fc-blocked-zone'],
       extendedProps: { isBlockedZone: true, blockedZoneId: zone.id },
     }));
@@ -755,7 +719,6 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
       };
     });
 
-    // Ressources de tous les événements positionnés (hors zones vides) pour la détection de conflits
     const resourceEvents: ResourceEventInfo[] = [
       ...solEvts.map((e) => ({
         id: e.id,
@@ -783,8 +746,6 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
       })),
     ];
 
-    // Durant le glissement : prévisualiser les conflits potentiels
-    // Hors glissement : afficher les conflits réels entre événements placés
     const highlights = dragging
       ? computeDragHighlights(resourceEvents, dragging)
       : computeStaticConflicts(resourceEvents);
@@ -809,87 +770,85 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
 
   return (
     <>
-    <div className="flex-1 bg-white dark:bg-zinc-900 rounded-lg shadow overflow-hidden flex flex-col">
-      <div ref={calendarWrapperRef} className="flex-1 min-h-0">
-      <FullCalendar
-        ref={calendarRef}
-        key={week}
-        plugins={[timeGridPlugin, interactionPlugin]}
-        initialView="timeGridWeek"
-        initialDate={monday}
-        locale="fr"
-        dayHeaderFormat={{ weekday: 'short', day: 'numeric', month: 'short' }}
-        headerToolbar={false}
-        slotMinTime="07:00:00"
-        slotMaxTime="21:00:00"
-        allDaySlot={false}
-        businessHours={{
-          daysOfWeek: [1, 2, 3, 4, 5],
-          startTime: '08:00',
-          endTime: '19:30',
-        }}
-        slotDuration="00:30:00"
-        slotLabelInterval="01:00:00"
-        weekends={false}
-        firstDay={1}
-        droppable
-        editable
-        selectable={solutions.length === 0}
-        selectMirror
-        selectMinDistance={5}
-        selectAllow={(info) => {
-          // Interdit la sélection sur plusieurs jours
-          const endAdjusted = new Date(info.end.getTime() - 1);
-          return info.start.toDateString() === endAdjusted.toDateString();
-        }}
-        select={handleSelect}
-        dateClick={handleDateClick}
-        events={calendarEvents}
-        eventContent={renderEventContent}
-        eventClick={handleEventClick}
-        eventReceive={handleEventReceive}
-        eventDrop={handleEventDrop}
-        eventDragStart={handleEventDragStart}
-        eventDragStop={handleEventDragStop}
-        height="100%"
-        expandRows
-      />
+      <div className="flex-1 bg-card rounded-lg shadow overflow-hidden flex flex-col border border-border">
+        <div ref={calendarWrapperRef} className="flex-1 min-h-0">
+          <FullCalendar
+            ref={calendarRef}
+            key={week}
+            plugins={[timeGridPlugin, interactionPlugin]}
+            initialView="timeGridWeek"
+            initialDate={monday}
+            locale="fr"
+            dayHeaderFormat={{ weekday: 'short', day: 'numeric', month: 'short' }}
+            headerToolbar={false}
+            slotMinTime="07:00:00"
+            slotMaxTime="21:00:00"
+            allDaySlot={false}
+            businessHours={{
+              daysOfWeek: [1, 2, 3, 4, 5],
+              startTime: '08:00',
+              endTime: '19:30',
+            }}
+            slotDuration="00:30:00"
+            slotLabelInterval="01:00:00"
+            weekends={false}
+            firstDay={1}
+            droppable
+            editable
+            selectable={solutions.length === 0}
+            selectMirror
+            selectMinDistance={5}
+            selectAllow={(info) => {
+              const endAdjusted = new Date(info.end.getTime() - 1);
+              return info.start.toDateString() === endAdjusted.toDateString();
+            }}
+            select={handleSelect}
+            dateClick={handleDateClick}
+            events={calendarEvents}
+            eventContent={renderEventContent}
+            eventClick={handleEventClick}
+            eventReceive={handleEventReceive}
+            eventDrop={handleEventDrop}
+            eventDragStart={handleEventDragStart}
+            eventDragStop={handleEventDragStop}
+            height="100%"
+            expandRows
+          />
+        </div>
+
+        {selected && (
+          <EventDetailPopup
+            detail={selected}
+            onClose={() => setSelected(null)}
+            onRemoveEnforced={removeEnforced}
+            onEditResources={handleEditRequest}
+          />
+        )}
       </div>
 
-      {selected && (
-        <EventDetailPopup
-          detail={selected}
-          onClose={() => setSelected(null)}
-          onRemoveEnforced={removeEnforced}
-          onEditResources={handleEditRequest}
+      {pendingDrop && (
+        <EnforceModal
+          courseKey={pendingDrop.courseKey}
+          course={pendingDrop.course}
+          startTime={pendingDrop.startTime}
+          onConfirm={handleModalConfirm}
+          onCancel={handleModalCancel}
         />
       )}
-    </div>
 
-    {pendingDrop && (
-      <EnforceModal
-        courseKey={pendingDrop.courseKey}
-        course={pendingDrop.course}
-        startTime={pendingDrop.startTime}
-        onConfirm={handleModalConfirm}
-        onCancel={handleModalCancel}
-      />
-    )}
-
-    {pendingEdit && (
-      <TaskEditModal
-        title={pendingEdit.title}
-        teachers={pendingEdit.teachers}
-        groups={pendingEdit.groups}
-        rooms={pendingEdit.rooms}
-        teacherOptions={pendingEdit.teacherOptions}
-        groupOptions={pendingEdit.groupOptions}
-        roomOptions={pendingEdit.roomOptions}
-        onConfirm={handleEditConfirm}
-        onCancel={() => setPendingEdit(null)}
-      />
-    )}
+      {pendingEdit && (
+        <TaskEditModal
+          title={pendingEdit.title}
+          teachers={pendingEdit.teachers}
+          groups={pendingEdit.groups}
+          rooms={pendingEdit.rooms}
+          teacherOptions={pendingEdit.teacherOptions}
+          groupOptions={pendingEdit.groupOptions}
+          roomOptions={pendingEdit.roomOptions}
+          onConfirm={handleEditConfirm}
+          onCancel={() => setPendingEdit(null)}
+        />
+      )}
     </>
   );
 }
-

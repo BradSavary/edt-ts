@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import type { CourseTaskData, ResourceEntry, EnforcedData } from '@edt-ts/scheduler-common';
-import CourseCard from './CourseCard';
+import { Button } from '@/components/ui/button';
+import CourseCard from '@/components/CourseCard';
 
 export type GroupBy = 'code' | 'teacher';
 
@@ -32,7 +33,6 @@ export default function CourseGroupList({ courses, groupBy, enforcedMap }: Props
 
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
-  // Ferme tous les groupes au changement de tab
   useEffect(() => {
     setOpenGroups(new Set());
   }, [groupBy]);
@@ -50,19 +50,21 @@ export default function CourseGroupList({ courses, groupBy, enforcedMap }: Props
     <div className="flex flex-col gap-1">
       {groups.map(([key, items]) => (
         <div key={key}>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => toggleGroup(key)}
-            className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-left text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-zinc-800 rounded hover:bg-gray-200 dark:hover:bg-zinc-700 transition"
+            className="w-full flex items-center justify-between px-2 py-1.5 h-auto text-xs font-semibold text-left rounded bg-muted hover:bg-muted/80"
           >
             <span className="truncate">{key}</span>
-            <span className="flex items-center gap-1.5 shrink-0 text-gray-400 dark:text-gray-500">
+            <span className="flex items-center gap-1.5 shrink-0 text-muted-foreground">
               <span>{items.length}</span>
               <span className="text-[10px]">{openGroups.has(key) ? '▲' : '▼'}</span>
             </span>
-          </button>
+          </Button>
           {openGroups.has(key) && (
-            <div className="flex flex-col gap-1 mt-1 pl-2 border-l-2 border-gray-200 dark:border-zinc-700">
+            <div className="flex flex-col gap-1 mt-1 pl-2 border-l-2 border-border">
               {items.map(({ index, course }) => (
                 <CourseCard
                   key={index}

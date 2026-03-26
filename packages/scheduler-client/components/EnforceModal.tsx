@@ -2,6 +2,14 @@
 
 import { useState } from 'react';
 import type { CourseTaskData, ResourceEntry } from '@edt-ts/scheduler-common';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 
 export interface EnforceSelection {
   courseKey: string;
@@ -19,7 +27,6 @@ interface Props {
   onCancel: () => void;
 }
 
-/** Sépare les ressources fixes des alternatives dans un tableau ResourceEntry[]. */
 function splitEntries(entries: ResourceEntry[]): { fixed: string[]; alternatives: string[][] } {
   const fixed: string[] = [];
   const alternatives: string[][] = [];
@@ -30,7 +37,6 @@ function splitEntries(entries: ResourceEntry[]): { fixed: string[]; alternatives
   return { fixed, alternatives };
 }
 
-/** Formatte un startTime (minutes depuis lundi) en "Lun 08:00" etc. */
 function formatStartTime(startTime: number): string {
   const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
   const dayIndex = Math.floor(startTime / (24 * 60));
@@ -44,7 +50,6 @@ export default function EnforceModal({ courseKey, course, startTime, onConfirm, 
   const rooms = splitEntries(course.rooms);
   const teachers = splitEntries(course.teacher);
 
-  // For alternatives, maintain selected index per group
   const [selectedRooms, setSelectedRooms] = useState<Record<number, string>>(() =>
     Object.fromEntries(rooms.alternatives.map((alt, i) => [i, alt[0]]))
   );
@@ -77,35 +82,30 @@ export default function EnforceModal({ courseKey, course, startTime, onConfirm, 
   const hasAnyAlternative = rooms.alternatives.length > 0 || teachers.alternatives.length > 0;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={onCancel}
-    >
-      <div
-        className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-sm p-6 mx-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1">
-          Imposer le cours
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+    <Dialog open={true} onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Imposer le cours</DialogTitle>
+        </DialogHeader>
+
+        <p className="text-sm text-muted-foreground">
           {course.code} {course.type} — {course.name}
         </p>
-        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
-          Horaire : <span className="font-bold">{formatStartTime(startTime)}</span> ({course.duration} min)
+        <p className="text-sm font-medium">
+          Horaire : <span className="font-bold">{formatStartTime(startTime)}</span>{' '}
+          ({course.duration} min)
         </p>
 
         {hasAnyAlternative ? (
-          <div className="space-y-4 mb-5">
-            {/* Alternatives d'enseignants */}
+          <div className="space-y-4">
             {teachers.alternatives.map((alt, i) => (
               <div key={`teacher-alt-${i}`}>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Enseignant (choix)
-                </label>
-                <div className="space-y-1">
+                </Label>
+                <div className="space-y-1 mt-1.5">
                   {alt.map((t) => (
-                    <label key={t} className="flex items-center gap-2 cursor-pointer">
+                    <Label key={t} className="flex items-center gap-2 cursor-pointer font-normal">
                       <input
                         type="radio"
                         name={`teacher-alt-${i}`}
@@ -114,22 +114,21 @@ export default function EnforceModal({ courseKey, course, startTime, onConfirm, 
                         onChange={() => setSelectedTeachers((prev) => ({ ...prev, [i]: t }))}
                         className="accent-blue-600"
                       />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{t}</span>
-                    </label>
+                      {t}
+                    </Label>
                   ))}
                 </div>
               </div>
             ))}
 
-            {/* Alternatives de salles */}
             {rooms.alternatives.map((alt, i) => (
               <div key={`room-alt-${i}`}>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Salle (choix)
-                </label>
-                <div className="space-y-1">
+                </Label>
+                <div className="space-y-1 mt-1.5">
                   {alt.map((r) => (
-                    <label key={r} className="flex items-center gap-2 cursor-pointer">
+                    <Label key={r} className="flex items-center gap-2 cursor-pointer font-normal">
                       <input
                         type="radio"
                         name={`room-alt-${i}`}
@@ -138,34 +137,28 @@ export default function EnforceModal({ courseKey, course, startTime, onConfirm, 
                         onChange={() => setSelectedRooms((prev) => ({ ...prev, [i]: r }))}
                         className="accent-blue-600"
                       />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{r}</span>
-                    </label>
+                      {r}
+                    </Label>
                   ))}
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+          <p className="text-sm text-muted-foreground">
             Aucune alternative — toutes les ressources seront imposées telles quelles.
           </p>
         )}
 
-        <div className="flex gap-3">
-          <button
-            onClick={handleConfirm}
-            className="flex-1 px-4 py-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold rounded-lg hover:opacity-90 transition"
-          >
+        <div className="flex gap-3 pt-2">
+          <Button onClick={handleConfirm} className="flex-1">
             Confirmer
-          </button>
-          <button
-            onClick={onCancel}
-            className="flex-1 px-4 py-2 border border-gray-200 dark:border-zinc-600 text-gray-700 dark:text-gray-300 text-sm font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-800 transition"
-          >
+          </Button>
+          <Button variant="outline" onClick={onCancel} className="flex-1">
             Annuler
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

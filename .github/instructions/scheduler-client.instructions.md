@@ -19,31 +19,76 @@ packages/scheduler-client/
   app/                    # Next.js App Router
     layout.tsx            # Layout racine
     page.tsx              # Page principale (formulaire de planification)
-    globals.css           # Styles globaux (Tailwind)
+    globals.css           # Styles globaux (Tailwind + shadcn CSS vars OKLCH)
+    api/                  # Route handlers Next.js (proxy → scheduler-api)
+  components/             # Composants métier de l'application
+    CourseCard.tsx        # Carte draggable d'un cours (sidebar gauche)
+    CourseGroupList.tsx   # Liste groupée de cours (par code ou enseignant)
+    EnforceModal.tsx      # Modal de confirmation de placement imposé
+    ScheduleCalendar.tsx  # Calendrier FullCalendar principal
+    TaskEditModal.tsx     # Modal d'édition des ressources d'une tâche placée
+    ui/                   # Composants shadcn/ui (générés automatiquement)
+      button.tsx
+      card.tsx
+      select.tsx
+      tabs.tsx
+      dialog.tsx
+      badge.tsx
+      input.tsx
+      label.tsx
+      separator.tsx
+      scroll-area.tsx
+      alert.tsx
+  lib/                    # Utilitaires (framework-agnostic)
+    utils.ts              # Fonction cn() (clsx + tailwind-merge)
+    calendarUtils.ts      # Helpers FullCalendar
+    blockedZones.ts       # Logique zones bloquées
+    parseCsvCourses.ts    # Parsing CSV des cours
   __tests__/              # Tests unitaires (Vitest + Testing Library)
-    page.test.tsx
   e2e/                    # Tests E2E (Playwright)
-    schedule.spec.ts
   public/                 # Assets statiques
+  components.json         # Config shadcn/ui
   vitest.config.ts        # Config Vitest
   vitest.setup.ts         # Setup jest-dom
   playwright.config.ts    # Config Playwright
   next.config.ts          # Config Next.js (proxy rewrites)
 ```
 
+## shadcn/ui
+
+- Style : `new-york` (utilise `radix-ui` meta-package)
+- Import des composants ui : `import { Button } from '@/components/ui/button'`
+- Utilitaire CSS : `import { cn } from '@/lib/utils'` (clsx + tailwind-merge)
+- Ajouter un composant : `npx shadcn@latest add <composant>` depuis `packages/scheduler-client/`
+  - ⚠️ Renommer temporairement `pnpm-lock.yaml` et `pnpm-workspace.yaml` avant d'exécuter la commande (conflit npm/pnpm)
+- Composants disponibles : `button`, `card`, `select`, `tabs`, `dialog`, `badge`, `input`, `label`, `separator`, `scroll-area`, `alert`
+- Pattern modal shadcn : `<Dialog open={true} onOpenChange={(open) => !open && onClose()}>`
+
+## Tailwind CSS v4 & thème
+
+- Fichier `globals.css` contient les variables CSS OKLCH shadcn (`--background`, `--foreground`, `--primary`, etc.)
+- `@import "tw-animate-css"` remplace `tailwindcss-animate`
+- `@custom-variant dark (&:is(.dark *))` pour le support du mode sombre
+- `@theme inline` mappe les variables CSS vers les tokens Tailwind
+- Mode sombre activé via la classe `.dark` sur `<html>`
+
 ## Règles d'import
 
 - Importer uniquement depuis `@edt-ts/scheduler-common` pour les types partagés
 - Ne jamais importer depuis `@edt-ts/scheduler-core` ou `@edt-ts/scheduler-api`
 - Utiliser le proxy Next.js (`/api/:path* → http://localhost:3000/api/:path*`) pour toutes les requêtes API
-- Préfixer les imports internes avec `../` ou `./` (pas d'alias `@/` sauf si configuré dans tsconfig)
+- Utiliser l'alias `@/` pour tous les imports internes (résout vers la racine du package)
+  - `@/components/...` pour les composants métier
+  - `@/components/ui/...` pour les composants shadcn
+  - `@/lib/...` pour les utilitaires
 
 ## Conventions de code
 
 - `'use client'` requis sur tous les composants qui utilisent des hooks React (`useState`, `useEffect`, etc.)
 - TypeScript strict : pas de `any` implicite, typer toutes les réponses API avec les interfaces de `@edt-ts/scheduler-common`
-- CSS uniquement via classes Tailwind — pas de styles inline sauf cas exceptional
+- CSS uniquement via classes Tailwind — pas de styles inline sauf cas exceptionnel
 - Composants fonctionnels React uniquement (pas de classes)
+- Préférer les composants shadcn aux éléments HTML bruts pour les formulaires et les modales
 
 ## Proxy API (next.config.ts)
 
@@ -56,7 +101,9 @@ Le proxy est configuré via `rewrites` dans `next.config.ts` :
 
 - Framework : **Vitest** + **@testing-library/react** + **jsdom**
 - Config : `vitest.config.ts` (environment `jsdom`, setup `vitest.setup.ts`)
-- L'alias `@edt-ts/scheduler-common` est résolu directement vers `../scheduler-common/src/index.ts` dans la config Vitest
+- Alias configurés dans `vitest.config.ts` :
+  - `@edt-ts/scheduler-common` → `../scheduler-common/src/index.ts`
+  - `@` → `.` (racine du package, pour `@/components/...`, `@/lib/...`)
 - Dossier : `__tests__/`
 - Convention de nommage : `<nom>.test.tsx` pour les composants, `<nom>.test.ts` pour les utilitaires
 - Les tests doivent importer les matchers via le setup (`@testing-library/jest-dom`)

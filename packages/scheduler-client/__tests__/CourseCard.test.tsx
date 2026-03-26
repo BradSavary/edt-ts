@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import CourseCard from '../app/CourseCard';
+import CourseCard from '@/components/CourseCard';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
 
 const baseCourse: CourseTaskData = {
