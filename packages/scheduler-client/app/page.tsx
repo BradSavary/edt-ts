@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Draggable } from '@fullcalendar/interaction';
-import type { CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
+import type { CourseTaskData, EnforcedData, ConstraintsData } from '@edt-ts/scheduler-common';
 import { parseCsvCourses } from '@/lib/parseCsvCourses';
 import ScheduleCalendar from '@/components/ScheduleCalendar';
 import CourseGroupList, { type GroupBy } from '@/components/CourseGroupList';
@@ -42,9 +42,14 @@ export default function SchedulePage() {
   const [enforcedMap, setEnforcedMap] = useState<Record<string, EnforcedData>>({});
   // Liste complète des ressources chargée depuis le resources.json (pour les selects d'édition)
   const [resourcesData, setResourcesData] = useState<import('@edt-ts/scheduler-common').ResourceGroupData[]>([]);
+  // Contraintes parsées depuis le fichier JSON (pour la mise en évidence des indisponibilités au drag)
+  const [constraintsData, setConstraintsData] = useState<ConstraintsData | null>(null);
+  // Ressources du cours de la sidebar gauche en cours de drag
+  const [sidebarDraggingResources, setSidebarDraggingResources] = useState<{ teachers: string[]; groups: string[]; rooms: string[] } | null>(null);
 
   const cardContainerRef = useRef<HTMLDivElement | null>(null);
   const neutralizedContainerRef = useRef<HTMLDivElement | null>(null);
+  const pendingSidebarDragRef = useRef<{ teachers: string[]; groups: string[]; rooms: string[]; isDragging: boolean } | null>(null);
 
   const calendarWeek = parseInt(week, 10) || 1;
 
@@ -69,6 +74,16 @@ export default function SchedulePage() {
       } catch { setResourcesData([]); }
     });
   }, [resourcesFile]);
+
+  // Parse les contraintes dès que le fichier change
+  useEffect(() => {
+    if (!constraintsFile) { setConstraintsData(null); return; }
+    constraintsFile.text().then((text) => {
+      try {
+        setConstraintsData(JSON.parse(text) as ConstraintsData);
+      } catch { setConstraintsData(null); }
+    });
+  }, [constraintsFile]);
 
   // Parse automatiquement le CSV quand le fichier ou la semaine change
   useEffect(() => {
@@ -108,6 +123,52 @@ export default function SchedulePage() {
     });
 
     return () => draggable.destroy();
+  }, [parsedCourses]);
+
+  // Détecte le drag depuis la sidebar gauche pour la mise en évidence des contraintes
+  useEffect(() => {
+    const container = cardContainerRef.current;
+    if (!container) return;
+
+    const onPointerDown = (e: PointerEvent) => {
+      const card = (e.target as Element).closest('[data-course-key]');
+      if (!card) return;
+      const courseKey = card.getAttribute('data-course-key');
+      if (!courseKey) return;
+      const course = parsedCourses[parseInt(courseKey, 10)];
+      if (!course) return;
+      pendingSidebarDragRef.current = {
+        teachers: course.teacher.flatMap((r) => (Array.isArray(r) ? r : [r])),
+        groups: course.groups.flatMap((r) => (Array.isArray(r) ? r : [r])),
+        rooms: course.rooms.flatMap((r) => (Array.isArray(r) ? r : [r])),
+        isDragging: false,
+      };
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      const pending = pendingSidebarDragRef.current;
+      if (!pending || pending.isDragging) return;
+      if (Math.abs(e.movementX) + Math.abs(e.movementY) > 2) {
+        pending.isDragging = true;
+        setSidebarDraggingResources({ teachers: pending.teachers, groups: pending.groups, rooms: pending.rooms });
+      }
+    };
+
+    const onPointerUp = () => {
+      pendingSidebarDragRef.current = null;
+      setSidebarDraggingResources(null);
+    };
+
+    container.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+    return () => {
+      container.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+    };
   }, [parsedCourses]);
 
   const activeSolution = scheduleResult?.solutions[selectedSolutionIndex];
@@ -425,6 +486,8 @@ export default function SchedulePage() {
             onNeutralizedTaskRemoved={handleNeutralizedTaskRemoved}
             solutionKey={selectedSolutionIndex}
             resourcesList={resourcesData}
+            constraintsData={constraintsData}
+            externalDragging={externalDraggingTask ?? sidebarDraggingResources}
           />
         </main>
 

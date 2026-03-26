@@ -6,14 +6,14 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventContentArg, EventClickArg, EventApi, EventDropArg } from '@fullcalendar/core';
 import type { EventReceiveArg, EventDragStopArg } from '@fullcalendar/interaction';
-import type { TaskSolutionJSON, CourseTaskData, EnforcedData, ResourceGroupData } from '@edt-ts/scheduler-common';
+import type { TaskSolutionJSON, CourseTaskData, EnforcedData, ResourceGroupData, ConstraintsData } from '@edt-ts/scheduler-common';
 import EnforceModal from '@/components/EnforceModal';
 import type { EnforceSelection } from '@/components/EnforceModal';
 import TaskEditModal from '@/components/TaskEditModal';
 import type { TaskEditUpdate } from '@/components/TaskEditModal';
 import { getMondayOfISOWeek, startTimeToDate, formatTime, formatDate, computeStaticConflicts, computeDragHighlights } from '@/lib/calendarUtils';
 import type { ResourceEventInfo } from '@/lib/calendarUtils';
-import type { BlockedZone } from '@/lib/blockedZones';
+import { computeConstraintUnavailableZones, type BlockedZone } from '@/lib/blockedZones';
 import {
   Dialog,
   DialogContent,
@@ -61,6 +61,10 @@ interface Props {
   solutionKey?: number;
   /** Liste complète des ressources (issues du resources.json) pour peupler les selects d'édition. */
   resourcesList?: ResourceGroupData[];
+  /** Données de contraintes pour la mise en évidence des indisponibilités pendant le drag. */
+  constraintsData?: ConstraintsData | null;
+  /** Ressources d'un cours drag depuis l'extérieur (sidebar gauche ou droite). */
+  externalDragging?: { teachers: string[]; groups: string[]; rooms: string[] } | null;
 }
 
 // Typed event stored in React state, compatible with FullCalendar EventInput
@@ -238,7 +242,7 @@ function renderEventContent(info: EventContentArg) {
   );
 }
 
-export default function ScheduleCalendar({ solutions, week, parsedCourses = [], onEnforceChange, blockedZones = [], onBlockedZoneAdd, onBlockedZoneRemove, onBlockedZoneMove, onNeutralizedTaskPlaced, onNeutralizedTaskRemoved, solutionKey, resourcesList = [] }: Props) {
+export default function ScheduleCalendar({ solutions, week, parsedCourses = [], onEnforceChange, blockedZones = [], onBlockedZoneAdd, onBlockedZoneRemove, onBlockedZoneMove, onNeutralizedTaskPlaced, onNeutralizedTaskRemoved, solutionKey, resourcesList = [], constraintsData, externalDragging }: Props) {
   const monday = useMemo(() => getMondayOfISOWeek(week), [week]);
   const [selected, setSelected] = useState<EventDetail | null>(null);
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
@@ -702,9 +706,12 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
       })),
     ];
 
+    const activeDragResources = dragging ?? externalDragging ?? null;
     const highlights = dragging
       ? computeDragHighlights(resourceEvents, dragging)
-      : computeStaticConflicts(resourceEvents);
+      : activeDragResources
+        ? computeDragHighlights(resourceEvents, { id: '', ...activeDragResources })
+        : computeStaticConflicts(resourceEvents);
 
     function applyHighlight(evt: CalendarEventData): CalendarEventData {
       const hl = highlights[evt.id];
@@ -716,13 +723,31 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
       };
     }
 
+    // Zones d'indisponibilité des ressources pendant le drag (background events ambrés)
+    const constraintBgEvents: { id: string; start: Date; end: Date; display: string; backgroundColor: string; classNames: string[] }[] = [];
+    if (activeDragResources && constraintsData) {
+      const resourceIds = [...activeDragResources.teachers, ...activeDragResources.groups, ...activeDragResources.rooms];
+      const zones = computeConstraintUnavailableZones(resourceIds, constraintsData, week, monday);
+      zones.forEach((z, i) => {
+        constraintBgEvents.push({
+          id: `constraint-bg-${i}`,
+          start: z.start,
+          end: z.end,
+          display: 'background',
+          backgroundColor: 'rgba(245, 158, 11, 0.7)',
+          classNames: ['fc-constraint-unavailable'],
+        });
+      });
+    }
+
     return [
       ...solEvts.map(applyHighlight),
       ...blockEvts,
       ...enforcedEventsState.map(applyHighlight),
       ...placedNeutralizedEvents.map(applyHighlight),
+      ...constraintBgEvents,
     ];
-  }, [solutions, blockedZones, monday, enforcedEventsState, taskOverrides, placedNeutralizedEvents, dragging]);
+  }, [solutions, blockedZones, monday, enforcedEventsState, taskOverrides, placedNeutralizedEvents, dragging, externalDragging, constraintsData, week]);
 
   return (
     <>

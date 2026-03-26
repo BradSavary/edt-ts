@@ -53,7 +53,10 @@ export function useNeutralizedDraggable({
     const container = containerRef.current;
     if (!container) return;
 
-    function handleDragStart(e: DragEvent) {
+    let pendingDrag: { id: string; teachers: string[]; groups: string[]; rooms: string[] } | null = null;
+    let isDragging = false;
+
+    function onPointerDown(e: PointerEvent) {
       const el = (e.target as HTMLElement).closest('[data-task-id]') as HTMLElement | null;
       if (!el) return;
       const taskId = el.getAttribute('data-task-id');
@@ -62,15 +65,34 @@ export function useNeutralizedDraggable({
         const teachers = JSON.parse(el.getAttribute('data-teachers') ?? '[]') as string[];
         const groups = JSON.parse(el.getAttribute('data-groups') ?? '[]') as string[];
         const rooms = JSON.parse(el.getAttribute('data-rooms') ?? '[]') as string[];
-        onExternalDragStart({ id: taskId, teachers, groups, rooms });
+        pendingDrag = { id: taskId, teachers, groups, rooms };
+        isDragging = false;
       } catch { /* ignore */ }
     }
 
-    container.addEventListener('dragstart', handleDragStart);
-    document.addEventListener('dragend', onExternalDragEnd);
+    function onPointerMove(e: PointerEvent) {
+      if (!pendingDrag || isDragging) return;
+      if (Math.abs(e.movementX) + Math.abs(e.movementY) > 2) {
+        isDragging = true;
+        onExternalDragStart(pendingDrag);
+      }
+    }
+
+    function onPointerUp() {
+      pendingDrag = null;
+      isDragging = false;
+      onExternalDragEnd();
+    }
+
+    container.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
     return () => {
-      container.removeEventListener('dragstart', handleDragStart);
-      document.removeEventListener('dragend', onExternalDragEnd);
+      container.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
     };
   }, [containerRef, neutralizedTasks, onExternalDragStart, onExternalDragEnd]);
 }

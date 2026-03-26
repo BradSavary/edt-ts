@@ -174,3 +174,83 @@ export function applyBlockedZonesToConstraints(
 
   return result;
 }
+
+/**
+ * Calcule les plages horaires indisponibles (union) pour un ensemble de ressources
+ * pour la semaine affichée. Un créneau est signalé si AU MOINS UNE ressource y est indisponible.
+ * Retourne un tableau de plages en dates absolues, prêt à être affiché comme background events.
+ */
+export function computeConstraintUnavailableZones(
+  resourceIds: string[],
+  constraints: ConstraintsData,
+  weekNumber: number,
+  monday: Date,
+): { start: Date; end: Date }[] {
+  if (resourceIds.length === 0) return [];
+
+  const DAY_START_MIN = 7 * 60;  // 7:00
+  const DAY_END_MIN = 21 * 60;   // 21:00
+  const WEEKDAYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi'];
+  const result: { start: Date; end: Date }[] = [];
+
+  for (let dayOffset = 0; dayOffset < 5; dayOffset++) {
+    const frenchDay = WEEKDAYS[dayOffset]!;
+    const allUnavailable: { from: number; to: number }[] = [];
+
+    for (const resourceId of resourceIds) {
+      const slots = getResourceBaseSlots(resourceId, weekNumber, constraints);
+
+      // Plages disponibles pour ce jour, clampées à [DAY_START_MIN, DAY_END_MIN]
+      const available: { from: number; to: number }[] = [];
+      for (const slot of slots) {
+        if (!parseDayList(slot.days).includes(frenchDay)) continue;
+        const from = Math.max(timeToMinutes(slot.from), DAY_START_MIN);
+        const to = Math.min(timeToMinutes(slot.to), DAY_END_MIN);
+        if (to > from) available.push({ from, to });
+      }
+
+      // Tri + fusion des plages disponibles
+      available.sort((a, b) => a.from - b.from);
+      const mergedAvail: { from: number; to: number }[] = [];
+      for (const iv of available) {
+        const last = mergedAvail.at(-1);
+        if (last && iv.from <= last.to) last.to = Math.max(last.to, iv.to);
+        else mergedAvail.push({ ...iv });
+      }
+
+      // Complément = indisponibilités pour cette ressource ce jour
+      let cursor = DAY_START_MIN;
+      for (const avail of mergedAvail) {
+        if (avail.from > cursor) allUnavailable.push({ from: cursor, to: avail.from });
+        cursor = Math.max(cursor, avail.to);
+      }
+      if (cursor < DAY_END_MIN) allUnavailable.push({ from: cursor, to: DAY_END_MIN });
+    }
+
+    if (allUnavailable.length === 0) continue;
+
+    // Fusion de toutes les indisponibilités du jour (union des ressources)
+    allUnavailable.sort((a, b) => a.from - b.from);
+    const merged: { from: number; to: number }[] = [];
+    for (const iv of allUnavailable) {
+      const last = merged.at(-1);
+      if (last && iv.from <= last.to) last.to = Math.max(last.to, iv.to);
+      else merged.push({ ...iv });
+    }
+
+    // Conversion en dates absolues
+    const dayBase = new Date(monday);
+    dayBase.setDate(dayBase.getDate() + dayOffset);
+    dayBase.setHours(0, 0, 0, 0);
+
+    for (const iv of merged) {
+      const start = new Date(dayBase);
+      start.setHours(Math.floor(iv.from / 60), iv.from % 60, 0, 0);
+      const end = new Date(dayBase);
+      end.setHours(Math.floor(iv.to / 60), iv.to % 60, 0, 0);
+      result.push({ start, end });
+    }
+  }
+
+  return result;
+}
