@@ -193,11 +193,13 @@ export default function SchedulePage() {
     return tasks.filter((task) => {
       const teachers = task.resources.filter((r) => r.type === 'teacher').map((r) => r.id.toLowerCase());
       const rooms = task.resources.filter((r) => r.type === 'room').map((r) => r.id.toLowerCase());
+      const groups = task.resources.filter((r) => r.type === 'group').map((r) => r.id.toLowerCase());
       return (
         task.code.toLowerCase().includes(q) ||
         task.name.toLowerCase().includes(q) ||
         teachers.some((t) => t.includes(q)) ||
-        rooms.some((r) => r.includes(q))
+        rooms.some((r) => r.includes(q)) ||
+        groups.some((g) => g.includes(q))
       );
     });
   }, [activeSolution, searchQuery]);
@@ -308,7 +310,7 @@ export default function SchedulePage() {
               </Label>
               <Input
                 type="search"
-                placeholder="Enseignant, salle, code, cours…"
+                placeholder="Enseignant, salle, groupe, code, cours…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -462,12 +464,7 @@ export default function SchedulePage() {
                   onClick={() => setSelectedSolutionIndex(i)}
                   className="text-xs h-7 px-3"
                 >
-                  Solution {i + 1}{sol.score !== undefined ? ` — ${sol.score} pts` : ''}{sol.isComplete ? ' ✓' : ' ⚠️'}
-                  {sol.neutralizedTasks && sol.neutralizedTasks.length > 0 && (
-                    <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0 bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400">
-                      {sol.neutralizedTasks.length} éliminé{sol.neutralizedTasks.length > 1 ? 's' : ''}
-                    </Badge>
-                  )}
+                  Solution {i + 1}{sol.score !== undefined ? ` — ${sol.score} pts` : ''}
                 </Button>
               ))}
             </div>
