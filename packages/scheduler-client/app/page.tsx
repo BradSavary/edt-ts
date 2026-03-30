@@ -9,6 +9,7 @@ import CourseGroupList, { type GroupBy } from '@/components/CourseGroupList';
 import { type BlockedZone } from '@/lib/blockedZones';
 import { runScheduleRequest } from '@/lib/scheduleApi';
 import type { ScheduleResult } from '@/lib/scheduleApi';
+import { loadConstraints } from '@/lib/constraintsStorage';
 import { useNeutralizedDraggable } from '@/hooks/useNeutralizedDraggable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +23,6 @@ export default function SchedulePage() {
   const [week, setWeek] = useState('1');
   const [resourcesFile, setResourcesFile] = useState<File | null>(null);
   const [coursesCsvFile, setCoursesCsvFile] = useState<File | null>(null);
-  const [constraintsFile, setConstraintsFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<{ message: string; kind: 'ok' | 'err' | 'inf' } | null>(null);
   const [scheduleResult, setScheduleResult] = useState<ScheduleResult | null>(null);
@@ -75,15 +75,10 @@ export default function SchedulePage() {
     });
   }, [resourcesFile]);
 
-  // Parse les contraintes dès que le fichier change
+  // Charge les contraintes depuis localStorage au montage
   useEffect(() => {
-    if (!constraintsFile) { setConstraintsData(null); return; }
-    constraintsFile.text().then((text) => {
-      try {
-        setConstraintsData(JSON.parse(text) as ConstraintsData);
-      } catch { setConstraintsData(null); }
-    });
-  }, [constraintsFile]);
+    setConstraintsData(loadConstraints());
+  }, []);
 
   // Parse automatiquement le CSV quand le fichier ou la semaine change
   useEffect(() => {
@@ -216,7 +211,7 @@ export default function SchedulePage() {
         weekStr: week,
         resourcesFile,
         coursesCsvFile,
-        constraintsFile,
+        constraintsData: loadConstraints(),
         enforcedMap,
         blockedZones,
         mode,
@@ -278,7 +273,7 @@ export default function SchedulePage() {
   const enforcedCount = Object.keys(enforcedMap).length;
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-secondary/30">
+    <div className="h-full flex flex-col overflow-hidden bg-secondary/30">
 
       {/* Bannière de statut */}
       {status && (
@@ -294,7 +289,7 @@ export default function SchedulePage() {
           <AlertDescription className="text-sm font-medium">{status.message}</AlertDescription>
         </Alert>
       )}
-      {!status && <div className="shrink-0 h-[42px] border-b border-border bg-background/50" />}
+      {!status && <div className="shrink-0 h-10.5 border-b border-border bg-background/50" />}
 
       {/* Contenu principal : sidebar + calendrier */}
       <div className="flex flex-1 overflow-hidden">
@@ -376,16 +371,11 @@ export default function SchedulePage() {
                       />
                     </div>
 
-                    <div className="space-y-1.5">
-                      <Label>
-                        Contraintes <span className="text-muted-foreground font-normal">(JSON, optionnel)</span>
-                      </Label>
-                      <input
-                        type="file"
-                        accept=".json"
-                        onChange={(e) => setConstraintsFile(e.target.files?.[0] ?? null)}
-                        className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-secondary file:text-secondary-foreground hover:file:bg-secondary/80"
-                      />
+                    <div className="text-xs text-muted-foreground rounded-md border border-border bg-muted/30 px-3 py-2">
+                      Les contraintes sont gérées dans{' '}
+                      <a href="/constraints" className="underline hover:text-foreground">
+                        le module Contraintes
+                      </a>.
                     </div>
                   </div>
                 )}

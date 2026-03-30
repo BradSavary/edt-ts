@@ -1,4 +1,4 @@
-import type { RawScheduleData, TaskSolutionJSON, CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
+import type { RawScheduleData, TaskSolutionJSON, CourseTaskData, EnforcedData, ConstraintsData } from '@edt-ts/scheduler-common';
 import { parseCsvCourses } from '@/lib/parseCsvCourses';
 import { type BlockedZone, applyBlockedZonesToConstraints } from '@/lib/blockedZones';
 
@@ -18,7 +18,7 @@ export interface RunScheduleParams {
   weekStr: string;
   resourcesFile: File;
   coursesCsvFile: File;
-  constraintsFile: File | null;
+  constraintsData: ConstraintsData | null;
   enforcedMap: Record<string, EnforcedData>;
   blockedZones: BlockedZone[];
   mode: 'standard' | 'elimination';
@@ -34,7 +34,7 @@ async function readJSON<T>(file: File): Promise<T> {
  * Lève une Error en cas de problème (validation, réseau, API).
  */
 export async function runScheduleRequest(params: RunScheduleParams): Promise<ScheduleResult> {
-  const { weekStr, resourcesFile, coursesCsvFile, constraintsFile, enforcedMap, blockedZones, mode } = params;
+  const { weekStr, resourcesFile, coursesCsvFile, constraintsData, enforcedMap, blockedZones, mode } = params;
 
   const weekNum = parseInt(weekStr, 10);
   if (isNaN(weekNum) || weekNum < 1 || weekNum > 53) {
@@ -44,7 +44,6 @@ export async function runScheduleRequest(params: RunScheduleParams): Promise<Sch
   const resources = await readJSON<RawScheduleData['resources']>(resourcesFile);
   const csvText = await coursesCsvFile.text();
   const courses: CourseTaskData[] = parseCsvCourses(csvText, weekNum);
-  const constraints = constraintsFile ? await readJSON<RawScheduleData['constraints']>(constraintsFile) : null;
 
   if (!Array.isArray(resources)) {
     throw new Error('Le fichier resources doit être un tableau JSON.');
@@ -60,11 +59,11 @@ export async function runScheduleRequest(params: RunScheduleParams): Promise<Sch
 
   const effectiveConstraints = applyBlockedZonesToConstraints(
     resources,
-    constraints ?? null,
+    constraintsData,
     blockedZones,
     weekNum,
   );
-  const hasConstraints = !!constraintsFile || blockedZones.length > 0;
+  const hasConstraints = !!constraintsData || blockedZones.length > 0;
 
   const payload: RawScheduleData & { options?: { eliminationCount?: number } } = {
     week: weekNum,
