@@ -734,7 +734,7 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
           start: z.start,
           end: z.end,
           display: 'background',
-          backgroundColor: 'rgba(245, 158, 11, 0.7)',
+          backgroundColor: 'rgb(182, 0, 23, 1)',
           classNames: ['fc-constraint-unavailable'],
         });
       });

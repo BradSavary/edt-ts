@@ -162,7 +162,7 @@ export function SidebarLeft({
               variant="secondary"
               onClick={() => runSchedule('elimination')}
               disabled={isLoading}
-              className="bg-orange-600 hover:bg-orange-700 text-white dark:bg-orange-500 dark:hover:bg-orange-600"
+              className="bg-red-600 hover:bg-red-700 text-white dark:bg-red-500 dark:hover:bg-red-600"
             >
               {isLoading ? 'Traitement…' : 'Avec élimination'}
             </Button>
