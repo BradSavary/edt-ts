@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import EnforceModal from '@/components/EnforceModal';
+import EnforceModal from '@/components/modals/EnforceModal';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
 
 const baseCourse: CourseTaskData = {
