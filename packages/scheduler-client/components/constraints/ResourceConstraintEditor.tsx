@@ -1,6 +1,6 @@
-'use client';
+﻿'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import type { ResourceConstraints } from '@edt-ts/scheduler-common';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ import {
   normalizeWeekKey,
   RESOURCE_TYPE_LABELS,
 } from '@/lib/constraintsStorage';
+import { TimeRangePicker } from './TimeRangePicker';
 
 const DAY_LABELS: Record<DayName, string> = {
   lundi: 'Lundi',
@@ -40,173 +41,125 @@ const TYPE_COLORS: Record<ResourceType, string> = {
 interface DayCellProps {
   slots: DaySlot[];
   inherited?: boolean;
+  defaultSlots?: DaySlot[];
   onChange: (slots: DaySlot[]) => void;
 }
 
-function DayCell({ slots: slotsProp, inherited, onChange }: DayCellProps) {
-  // Local state so new empty slots don't get wiped by parent re-serialization
+function DayCell({ slots: slotsProp, inherited, defaultSlots, onChange }: DayCellProps) {
   const [slots, setSlots] = useState<DaySlot[]>(slotsProp);
 
-  // Sync from parent only when complete-slot count changes (parent saved new data)
   useEffect(() => {
     const extComplete = slotsProp.filter((s) => s.from && s.to).length;
     const localComplete = slots.filter((s) => s.from && s.to).length;
-    if (extComplete !== localComplete || slotsProp.length < slots.filter((s) => s.from && s.to).length) {
+    if (
+      extComplete !== localComplete ||
+      slotsProp.length < slots.filter((s) => s.from && s.to).length
+    ) {
       setSlots(slotsProp);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotsProp]);
 
+  const amIdx = slots.findIndex((s) => parseInt(s.from.split(':')[0] ?? '99', 10) < 12);
+  const pmIdx = slots.findIndex((s) => parseInt(s.from.split(':')[0] ?? '0', 10) >= 12);
+  const amSlot = amIdx >= 0 ? slots[amIdx] : undefined;
+  const pmSlot = pmIdx >= 0 ? slots[pmIdx] : undefined;
+
   if (inherited) {
+    const renderSlot = (s: DaySlot | undefined) =>
+      s ? (
+        <>
+          <div className="flex items-center gap-1">
+            <span className="text-[9px] text-muted-foreground/40 w-3 shrink-0">De</span>
+            <span className="font-mono text-[11px] text-muted-foreground/50 italic">{s.from}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[9px] text-muted-foreground/40 w-3 shrink-0">À</span>
+            <span className="font-mono text-[11px] text-muted-foreground/50 italic">{s.to}</span>
+          </div>
+        </>
+      ) : (
+        <span className="text-muted-foreground/20 text-xs select-none self-center mt-1">—</span>
+      );
+
     return (
-      <div className="flex flex-col gap-0.5 py-0.5">
-        {slots.length === 0 ? (
-          <span className="text-muted-foreground/30 text-xs select-none text-center">—</span>
-        ) : (
-          slots.map((s, i) => (
-            <div key={i} className="text-[11px] text-muted-foreground/50 italic font-mono text-center whitespace-nowrap">
-              {s.from} – {s.to}
-            </div>
-          ))
-        )}
+      <div className="flex py-1 px-0.5">
+        <div className="flex flex-col gap-0.5 flex-1">{renderSlot(amSlot)}</div>
+        <div className="w-px bg-border/50 self-stretch mx-2" />
+        <div className="flex flex-col gap-0.5 flex-1">{renderSlot(pmSlot)}</div>
       </div>
     );
   }
 
-  const canAdd = slots.length < 2;
-  // Snapshot for Escape: saved on focus, keyed by `${i}-${field}`
-  const snapshotRef = useRef<Record<string, string>>({});
+  const amPreset: DaySlot = (() => {
+    const d = defaultSlots?.find((s) => parseInt(s.from.split(':')[0] ?? '99', 10) < 12);
+    return d ?? { from: '08:00', to: '12:00' };
+  })();
+  const pmPreset: DaySlot = (() => {
+    const d = defaultSlots?.find((s) => parseInt(s.from.split(':')[0] ?? '0', 10) >= 12);
+    return d ?? { from: '14:00', to: '17:00' };
+  })();
 
-  function handleUpdate(i: number, field: 'from' | 'to', val: string) {
-    const next = slots.map((s, j) => (j === i ? { ...s, [field]: val } : s));
+  function handleUpdateSlot(i: number, updated: DaySlot) {
+    const next = slots.map((s, j) => (j === i ? updated : s));
     setSlots(next);
     onChange(next);
   }
 
-  function handleRemove(i: number) {
+  function handleRemoveSlot(i: number) {
     const next = slots.filter((_, j) => j !== i);
     setSlots(next);
     onChange(next);
   }
 
-  function handleAdd(prefilledFrom?: string) {
-    const next = [...slots, { from: prefilledFrom ?? '', to: '' }];
+  function handleAddSlot(preset: DaySlot) {
+    const next = [...slots, { ...preset }];
     setSlots(next);
-    // Don't call onChange yet — parent will get updated when user fills the inputs
-  }
-
-  function handleFocus(e: React.FocusEvent<HTMLInputElement>, key: string) {
-    snapshotRef.current[key] = e.currentTarget.value;
-  }
-
-  function handleTimeKeyDown(
-    e: React.KeyboardEvent<HTMLInputElement>,
-    i: number,
-    field: 'from' | 'to',
-  ) {
-    // Tab : 1 Tab = 1 input entier (saute HH/MM/horloge natifs)
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const allInputs = Array.from(
-        document.querySelectorAll<HTMLInputElement>('input[type="time"]'),
-      );
-      const idx = allInputs.indexOf(e.currentTarget);
-      const next = e.shiftKey ? allInputs[idx - 1] : allInputs[idx + 1];
-      if (next) next.focus();
-      return;
-    }
-
-    // Escape : restaurer la valeur prise au moment du focus
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      const key = `${i}-${field}`;
-      const snapshot = snapshotRef.current[key];
-      if (snapshot !== undefined) {
-        handleUpdate(i, field, snapshot);
-        delete snapshotRef.current[key];
-      }
-      return;
-    }
-
-    // Enter sur le champ "to" : ajouter un second créneau pré-rempli à to + 1h30
-    if (e.key === 'Enter' && field === 'to') {
-      e.preventDefault();
-      if (!canAdd) return;
-      const toValue = slots[i]?.to;
-      if (!toValue) { handleAdd(); return; }
-      const [hStr, mStr] = toValue.split(':');
-      const totalMin = parseInt(hStr ?? '0', 10) * 60 + parseInt(mStr ?? '0', 10);
-      const newFromMin = Math.min(23 * 60 + 30, totalMin + 90);
-      const newFromH = Math.floor(newFromMin / 60);
-      const newFromM = newFromMin % 60;
-      handleAdd(`${String(newFromH).padStart(2, '0')}:${String(newFromM).padStart(2, '0')}`);
-      return;
-    }
-
-    // ArrowUp/Down : ±30min (±1h avec Shift)
-    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-    e.preventDefault();
-    const current = field === 'from' ? slots[i].from : slots[i].to;
-    if (!current) return;
-    const [hStr, mStr] = current.split(':');
-    const totalMin = parseInt(hStr ?? '0', 10) * 60 + parseInt(mStr ?? '0', 10);
-    const step = e.shiftKey ? 60 : 30;
-    const delta = e.key === 'ArrowUp' ? step : -step;
-    const clamped = Math.max(0, Math.min(23 * 60 + 30, totalMin + delta));
-    const newH = Math.floor(clamped / 60);
-    const newM = clamped % 60;
-    handleUpdate(i, field, `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`);
+    onChange(next);
   }
 
   return (
-    <div className="flex flex-col gap-1 py-1">
-      {slots.map((slot, i) => (
-        <div key={i} className="flex items-center gap-0.5 group">
-          <input
-            type="time"
-            value={slot.from}
-            tabIndex={0}
-            onChange={(e) => handleUpdate(i, 'from', e.target.value)}
-            onKeyDown={(e) => handleTimeKeyDown(e, i, 'from')}
-            onFocus={(e) => handleFocus(e, `${i}-from`)}
-            className="h-6 w-17 rounded border border-input bg-background px-1 text-[11px] font-mono focus:outline-none focus:ring-1 focus:ring-ring"
-            aria-label={`Début créneau ${i + 1}`}
+    <div className="flex py-1 px-0.5">
+      {/* AM column */}
+      <div className="flex flex-col justify-center items-start flex-1 pr-2">
+        {amSlot !== undefined ? (
+          <TimeRangePicker
+            slot={amSlot}
+            onChange={(u) => handleUpdateSlot(amIdx, u)}
+            onRemove={() => handleRemoveSlot(amIdx)}
           />
-          <span className="text-muted-foreground text-[10px]">–</span>
-          <input
-            type="time"
-            value={slot.to}
-            tabIndex={0}
-            onChange={(e) => handleUpdate(i, 'to', e.target.value)}
-            onKeyDown={(e) => handleTimeKeyDown(e, i, 'to')}
-            onFocus={(e) => handleFocus(e, `${i}-to`)}
-            className="h-6 w-17 rounded border border-input bg-background px-1 text-[11px] font-mono focus:outline-none focus:ring-1 focus:ring-ring"
-            aria-label={`Fin créneau ${i + 1}`}
-          />
+        ) : (
           <button
             type="button"
             tabIndex={-1}
-            onClick={() => handleRemove(i)}
-            className="ml-0.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive text-sm leading-none transition-opacity"
-            aria-label="Supprimer ce créneau"
+            onClick={() => handleAddSlot(amPreset)}
+            className="text-[10px] text-muted-foreground/60 hover:text-primary px-1.5 py-0.5 rounded border border-dashed border-muted-foreground/30 hover:border-primary/60 transition-colors self-center"
           >
-            ×
+            + am
           </button>
-        </div>
-      ))}
-      {slots.length === 0 && (
-        <span className="text-muted-foreground/30 text-xs text-center select-none">—</span>
-      )}
-      {canAdd && (
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={() => handleAdd()}
-          className="text-[10px] text-muted-foreground/60 hover:text-primary text-left leading-none mt-0.5"
-        >
-          + ajouter
-        </button>
-      )}
+        )}
+      </div>
+      {/* Separator */}
+      <div className="w-px bg-border/50 self-stretch mx-0" />
+      {/* PM column */}
+      <div className="flex flex-col justify-center items-start flex-1 pl-2">
+        {pmSlot !== undefined ? (
+          <TimeRangePicker
+            slot={pmSlot}
+            onChange={(u) => handleUpdateSlot(pmIdx, u)}
+            onRemove={() => handleRemoveSlot(pmIdx)}
+          />
+        ) : (
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => handleAddSlot(pmPreset)}
+            className="text-[10px] text-muted-foreground/60 hover:text-primary px-1.5 py-0.5 rounded border border-dashed border-muted-foreground/30 hover:border-primary/60 transition-colors self-center"
+          >
+            + pm
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -216,27 +169,44 @@ function DayCell({ slots: slotsProp, inherited, onChange }: DayCellProps) {
 interface WeekRowProps {
   label: string;
   dayMap: DayMap;
-  defaultDayMap: DayMap; // used for inherited display
+  defaultDayMap: DayMap;
   inherited?: boolean;
+  checked?: boolean;
+  onToggle?: (checked: boolean) => void;
   onDelete?: () => void;
   onChange: (dm: DayMap) => void;
 }
 
-function WeekRow({ label, dayMap, defaultDayMap, inherited, onDelete, onChange }: WeekRowProps) {
+function WeekRow({
+  label,
+  dayMap,
+  defaultDayMap,
+  inherited,
+  checked,
+  onToggle,
+  onDelete,
+  onChange,
+}: WeekRowProps) {
   function updateDay(day: DayName, slots: DaySlot[]) {
     onChange({ ...dayMap, [day]: slots });
   }
 
-  const rowClass = cn(
-    'group',
-    inherited && 'bg-muted/20',
-  );
-
   return (
-    <tr className={rowClass}>
-      <td className="px-2 py-1 text-xs font-medium sticky left-0 bg-inherit z-10 border-r border-border whitespace-nowrap min-w-18">
-        <div className="flex items-center gap-1">
-          {onDelete && (
+    <tr className={cn('group', inherited && 'bg-muted/20')}>
+      <td className="px-2 py-1 text-xs font-medium sticky left-0 bg-inherit z-10 border-r border-border whitespace-nowrap min-w-20">
+        <div className="flex items-center gap-1.5">
+          {onToggle !== undefined ? (
+            <input
+              type="checkbox"
+              checked={checked ?? false}
+              onChange={(e) => onToggle(e.target.checked)}
+              className="h-3.5 w-3.5 cursor-pointer accent-primary"
+              aria-label={`Activer la semaine ${label}`}
+            />
+          ) : (
+            <div className="h-3.5 w-3.5 shrink-0" />
+          )}
+          {onDelete && !onToggle && (
             <button
               type="button"
               onClick={onDelete}
@@ -252,11 +222,15 @@ function WeekRow({ label, dayMap, defaultDayMap, inherited, onDelete, onChange }
       {DAYS.map((day) => (
         <td
           key={day}
-          className={cn('px-1.5 border-r border-border align-top last:border-r-0', inherited && 'bg-muted/10')}
+          className={cn(
+            'px-1.5 border-r border-border align-top last:border-r-0',
+            inherited && 'bg-muted/10',
+          )}
         >
           <DayCell
             slots={inherited ? defaultDayMap[day] : dayMap[day]}
             inherited={inherited}
+            defaultSlots={inherited ? undefined : defaultDayMap[day]}
             onChange={(s) => updateDay(day, s)}
           />
         </td>
@@ -265,7 +239,7 @@ function WeekRow({ label, dayMap, defaultDayMap, inherited, onDelete, onChange }
   );
 }
 
-// --- Main component ---
+// --- ResourceConstraintEditor ---
 
 export interface ResourceConstraintEditorProps {
   id: string;
@@ -273,6 +247,7 @@ export interface ResourceConstraintEditorProps {
   value: ResourceConstraints | null;
   isDefault?: boolean;
   alwaysExpanded?: boolean;
+  csvWeeks?: number[];
   onChange: (newValue: ResourceConstraints | null) => void;
   onDelete?: () => void;
 }
@@ -283,6 +258,7 @@ export function ResourceConstraintEditor({
   value,
   isDefault,
   alwaysExpanded,
+  csvWeeks = [],
   onChange,
   onDelete,
 }: ResourceConstraintEditorProps) {
@@ -291,7 +267,6 @@ export function ResourceConstraintEditor({
   const [newWeekKey, setNewWeekKey] = useState('');
   const [weekError, setWeekError] = useState('');
 
-  // Local DayMap state — decoupled from serialized value so empty slots survive
   const [localDefault, setLocalDefault] = useState<DayMap>(() =>
     value?.default ? slotsToDayMap(value.default) : emptyDayMap(),
   );
@@ -305,6 +280,11 @@ export function ResourceConstraintEditor({
 
   const weekKeys = value ? getWeekKeys(value) : [];
 
+  const csvWeekKeys = csvWeeks.map((w) => `S${w}`);
+  const allDisplayWeekKeys = [...new Set([...csvWeekKeys, ...weekKeys])].sort(
+    (a, b) => parseInt(a.replace(/^S/, ''), 10) - parseInt(b.replace(/^S/, ''), 10),
+  );
+
   function handleDefaultChange(dm: DayMap) {
     setLocalDefault(dm);
     onChange({ ...(value ?? {}), default: dayMapToSlots(dm) });
@@ -317,10 +297,25 @@ export function ResourceConstraintEditor({
 
   function handleWeekDelete(weekKey: string) {
     if (!value) return;
-    setLocalWeeks((prev) => { const n = { ...prev }; delete n[weekKey]; return n; });
+    setLocalWeeks((prev) => {
+      const n = { ...prev };
+      delete n[weekKey];
+      return n;
+    });
     const next = { ...value };
     delete next[weekKey];
     onChange(next);
+  }
+
+  function handleToggleWeek(wk: string, checked: boolean) {
+    if (checked) {
+      const defaultSlots = value?.default ?? [];
+      const newDayMap = slotsToDayMap(defaultSlots);
+      setLocalWeeks((prev) => ({ ...prev, [wk]: newDayMap }));
+      onChange({ ...(value ?? { default: [] }), [wk]: [...defaultSlots] });
+    } else {
+      handleWeekDelete(wk);
+    }
   }
 
   function handleAddWeek() {
@@ -344,7 +339,12 @@ export function ResourceConstraintEditor({
   }
 
   function handleDisable() {
-    if (!window.confirm('Supprimer toutes les contraintes de cette ressource ? Il sera possible d\'en ajouter a nouveau.')) return;
+    if (
+      !window.confirm(
+        "Supprimer toutes les contraintes de cette ressource ? Il sera possible d'en ajouter à nouveau.",
+      )
+    )
+      return;
     onChange(null);
   }
 
@@ -361,12 +361,19 @@ export function ResourceConstraintEditor({
           )}
           aria-expanded={expanded}
         >
-          <span className={cn('text-[11px] font-semibold px-1.5 py-0.5 rounded-full shrink-0', TYPE_COLORS[resourceType])}>
+          <span
+            className={cn(
+              'text-[11px] font-semibold px-1.5 py-0.5 rounded-full shrink-0',
+              TYPE_COLORS[resourceType],
+            )}
+          >
             {RESOURCE_TYPE_LABELS[resourceType]}
           </span>
           <span className="font-medium text-sm truncate">{id}</span>
           {value === null && (
-            <span className="text-[11px] text-muted-foreground italic ml-1 shrink-0">Aucune contrainte</span>
+            <span className="text-[11px] text-muted-foreground italic ml-1 shrink-0">
+              Aucune contrainte
+            </span>
           )}
           {value !== null && weekKeys.length > 0 && (
             <span className="text-[11px] text-muted-foreground shrink-0">
@@ -409,13 +416,13 @@ export function ResourceConstraintEditor({
                 <table className="text-sm border-collapse w-full">
                   <thead>
                     <tr className="bg-muted/50">
-                      <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-muted-foreground sticky left-0 bg-muted/50 z-10 border-b border-r border-border w-18">
+                      <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-muted-foreground sticky left-0 bg-muted/50 z-10 border-b border-r border-border w-20">
                         Semaine
                       </th>
                       {DAYS.map((day) => (
                         <th
                           key={day}
-                          className="px-1.5 py-1.5 text-center text-[11px] font-semibold text-muted-foreground border-b border-r border-border last:border-r-0 min-w-39.5"
+                          className="px-1.5 py-1.5 text-center text-[11px] font-semibold text-muted-foreground border-b border-r border-border last:border-r-0 min-w-35"
                         >
                           {DAY_LABELS[day]}
                         </th>
@@ -423,7 +430,7 @@ export function ResourceConstraintEditor({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {/* Default row */}
+                    {/* Ligne Défaut */}
                     <WeekRow
                       label="Défaut"
                       dayMap={localDefault}
@@ -431,19 +438,28 @@ export function ResourceConstraintEditor({
                       onChange={handleDefaultChange}
                     />
 
-                    {/* Week override rows */}
-                    {weekKeys.map((wk) => (
-                      <WeekRow
-                        key={wk}
-                        label={wk}
-                        dayMap={localWeeks[wk] ?? slotsToDayMap(value[wk] ?? [])}
-                        defaultDayMap={localDefault}
-                        onChange={(dm) => handleWeekChange(wk, dm)}
-                        onDelete={() => handleWeekDelete(wk)}
-                      />
-                    ))}
+                    {/* Toutes les semaines : CSV + overrides, avec checkbox */}
+                    {allDisplayWeekKeys.map((wk) => {
+                      const hasOverride = !!(value && wk in value);
+                      return (
+                        <WeekRow
+                          key={wk}
+                          label={wk}
+                          dayMap={
+                            hasOverride
+                              ? (localWeeks[wk] ?? slotsToDayMap((value ?? {})[wk] ?? []))
+                              : localDefault
+                          }
+                          defaultDayMap={localDefault}
+                          inherited={!hasOverride}
+                          checked={hasOverride}
+                          onToggle={(v) => handleToggleWeek(wk, v)}
+                          onChange={(dm) => handleWeekChange(wk, dm)}
+                        />
+                      );
+                    })}
 
-                    {/* Add week row */}
+                    {/* Ajout manuel (semaines hors CSV) */}
                     {!isDefault && (
                       <tr>
                         <td colSpan={DAYS.length + 1} className="px-3 py-2">
@@ -453,7 +469,10 @@ export function ResourceConstraintEditor({
                                 type="text"
                                 placeholder="ex: 36 ou S36"
                                 value={newWeekKey}
-                                onChange={(e) => { setNewWeekKey(e.target.value); setWeekError(''); }}
+                                onChange={(e) => {
+                                  setNewWeekKey(e.target.value);
+                                  setWeekError('');
+                                }}
                                 onKeyDown={(e) => e.key === 'Enter' && handleAddWeek()}
                                 className="h-7 w-28 text-xs"
                                 autoFocus
@@ -464,12 +483,18 @@ export function ResourceConstraintEditor({
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => { setAddingWeek(false); setNewWeekKey(''); setWeekError(''); }}
+                                onClick={() => {
+                                  setAddingWeek(false);
+                                  setNewWeekKey('');
+                                  setWeekError('');
+                                }}
                                 className="h-7 text-xs"
                               >
                                 Annuler
                               </Button>
-                              {weekError && <span className="text-xs text-destructive">{weekError}</span>}
+                              {weekError && (
+                                <span className="text-xs text-destructive">{weekError}</span>
+                              )}
                             </div>
                           ) : (
                             <button

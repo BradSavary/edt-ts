@@ -104,6 +104,73 @@ export function parseCsvCourses(csvText: string, week: number): CourseTaskData[]
 }
 
 /**
+ * Scanne tout le CSV (toutes les semaines) et retourne, pour chaque ressource
+ * (enseignant, groupe, salle), la liste des semaines ISO où elle a des heures.
+ *
+ * Utilisé pour afficher les semaines pertinentes dans le module contraintes.
+ */
+export function extractResourceWeeks(csvText: string): Record<string, number[]> {
+  const lines = csvText.split(/\r?\n/);
+  if (lines.length < 2) return {};
+
+  const headerLine = lines.find((l) => l.trim().length > 0) ?? '';
+  const headers = parseCSVRow(headerLine);
+
+  // Trouver toutes les colonnes semaine (SXX)
+  const weekCols: { index: number; week: number }[] = [];
+  for (let i = 0; i < headers.length; i++) {
+    const m = headers[i].trim().match(/^S(\d+)$/i);
+    if (m) weekCols.push({ index: i, week: parseInt(m[1], 10) });
+  }
+  if (weekCols.length === 0) return {};
+
+  const result: Record<string, Set<number>> = {};
+
+  function addWeek(id: string, week: number) {
+    if (!id) return;
+    if (!result[id]) result[id] = new Set();
+    result[id].add(week);
+  }
+
+  // Ignorer l'en-tête
+  const dataStart = lines.findIndex((l) => l.trim().length > 0) + 1;
+  for (let i = dataStart; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const cols = parseCSVRow(line);
+
+    // Collecter les semaines non nulles pour cette ligne
+    const activeWeeks = weekCols
+      .filter(({ index }) => {
+        const v = parseFloat(cols[index]?.trim() ?? '');
+        return !isNaN(v) && v > 0;
+      })
+      .map(({ week }) => week);
+
+    if (activeWeeks.length === 0) continue;
+
+    // Enseignant (col 4)
+    const teacher = cols[4]?.trim() ?? '';
+    if (teacher) activeWeeks.forEach((w) => addWeek(teacher, w));
+
+    // Groupes (col 6, séparés par virgule)
+    const rawGroups = cols[6]?.trim() ?? '';
+    rawGroups.split(',').map((g) => g.trim()).filter(Boolean)
+      .forEach((g) => activeWeeks.forEach((w) => addWeek(g, w)));
+
+    // Salles (col 7, séparées par virgule)
+    const rawRooms = cols[7]?.trim() ?? '';
+    rawRooms.split(',').map((r) => r.trim()).filter(Boolean)
+      .forEach((r) => activeWeeks.forEach((w) => addWeek(r, w)));
+  }
+
+  // Convertir Set → tableau trié
+  return Object.fromEntries(
+    Object.entries(result).map(([id, weeks]) => [id, [...weeks].sort((a, b) => a - b)])
+  );
+}
+
+/**
  * Parse une ligne CSV en respectant les guillemets (champs pouvant contenir des virgules).
  * Ex: `a,"b,c",d` → `['a', 'b,c', 'd']`
  */

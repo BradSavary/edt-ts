@@ -117,3 +117,25 @@ export function dayMapToSlots(dayMap: DayMap): TimeSlot[] {
 export function exportAsJSON(data: ConstraintsData): string {
   return JSON.stringify(data, null, 2);
 }
+
+// --- Resource weeks (semaines d'activité extraites du CSV) ---
+
+const RESOURCE_WEEKS_KEY = 'edt-resource-weeks';
+
+/** Retourne le mapping resourceId → semaines ISO (lu depuis localStorage). */
+export function loadResourceWeeks(): Record<string, number[]> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(RESOURCE_WEEKS_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, number[]>) : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Sauvegarde le mapping resourceId → semaines ISO dans localStorage. */
+export function saveResourceWeeks(map: Record<string, number[]>): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(RESOURCE_WEEKS_KEY, JSON.stringify(map));
+}
+

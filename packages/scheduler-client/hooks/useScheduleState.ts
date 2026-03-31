@@ -3,9 +3,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { CourseTaskData, EnforcedData, ConstraintsData } from '@edt-ts/scheduler-common';
 import { parseCsvCourses } from '@/lib/parseCsvCourses';
+import { extractResourceWeeks } from '@/lib/parseCsvCourses';
 import { type BlockedZone } from '@/lib/blockedZones';
 import { runScheduleRequest, type ScheduleResult } from '@/lib/scheduleApi';
-import { loadConstraints } from '@/lib/constraintsStorage';
+import { loadConstraints, saveResourceWeeks } from '@/lib/constraintsStorage';
 import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
 
 interface Status {
@@ -98,6 +99,8 @@ export function useScheduleState(): ScheduleState {
         setEnforcedMap({});
         setScheduleResult(null);
         setSelectedSolutionIndex(0);
+        // Stocker les semaines par ressource pour le module contraintes
+        saveResourceWeeks(extractResourceWeeks(text));
       } catch { setParsedCourses([]); }
     });
   }, [coursesCsvFile, week]);

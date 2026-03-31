@@ -13,6 +13,7 @@ import {
   exportAsJSON,
   detectResourceType,
   normalizeToRC,
+  loadResourceWeeks,
   type ResourceType,
   RESOURCE_TYPE_LABELS,
 } from '@/lib/constraintsStorage';
@@ -33,6 +34,7 @@ const RESOURCE_TABS: { value: ResourceType; label: string }[] = [
 export function ConstraintsManager() {
   const [constraints, setConstraints] = useState<ConstraintsStore>({});
   const [initialized, setInitialized] = useState(false);
+  const [resourceWeeks, setResourceWeeks] = useState<Record<string, number[]>>({});
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<ResourceType>('teacher');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -46,6 +48,7 @@ export function ConstraintsManager() {
   useEffect(() => {
     const stored = loadConstraints();
     setConstraints((stored as ConstraintsStore | null) ?? {});
+    setResourceWeeks(loadResourceWeeks());
     setInitialized(true);
   }, []);
 
@@ -324,6 +327,7 @@ export function ConstraintsManager() {
                 resourceType={detectResourceType(selectedId)}
                 value={selectedValue}
                 alwaysExpanded
+                csvWeeks={resourceWeeks[selectedId] ?? []}
                 onChange={(v) => handleResourceChange(selectedId, v)}
                 onDelete={() => handleResourceDelete(selectedId)}
               />
