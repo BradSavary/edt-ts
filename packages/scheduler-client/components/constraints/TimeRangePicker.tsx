@@ -42,9 +42,10 @@ interface TimeScrollerProps {
   label: string;
   value: string; // "HH:MM"
   onChange: (v: string) => void;
+  open?: boolean;
 }
 
-function TimeScroller({ label, value, onChange }: TimeScrollerProps) {
+function TimeScroller({ label, value, onChange, open }: TimeScrollerProps) {
   const [hStr, mStr] = value.split(':');
   const h = parseInt(hStr ?? '0', 10);
   const m = parseInt(mStr ?? '0', 10);
@@ -65,8 +66,8 @@ function TimeScroller({ label, value, onChange }: TimeScrollerProps) {
     el.scrollTop = item.offsetTop - el.clientHeight / 2 + item.clientHeight / 2;
   }
 
-  useEffect(() => { scrollToSelected(hourRef, h); }, [h]);
-  useEffect(() => { scrollToSelected(minRef, MINUTES.indexOf(mSnapped)); }, [mSnapped]);
+  useEffect(() => { setTimeout(() => scrollToSelected(hourRef, h), 50); }, [h, open]);
+  useEffect(() => { setTimeout(() => scrollToSelected(minRef, MINUTES.indexOf(mSnapped)), 50); }, [mSnapped, open]);
 
   return (
     <div className="flex flex-col items-center gap-1 min-w-16">
@@ -77,14 +78,14 @@ function TimeScroller({ label, value, onChange }: TimeScrollerProps) {
         <div
           ref={hourRef}
           className="h-36 w-10 overflow-y-auto scroll-smooth rounded border border-input bg-background"
-          style={{ scrollbarWidth: 'none' }}
+          style={{ scrollbarWidth: 'none', paddingTop: '56px', paddingBottom: '56px' }}
         >
           {HOURS.map((hv) => (
             <div
               key={hv}
               onClick={() => onChange(`${pad(hv)}:${pad(mSnapped)}`)}
               className={cn(
-                'h-8 flex items-center justify-center text-xs cursor-pointer select-none rounded transition-colors',
+                'h-8 flex items-center justify-center text-xs font-mono cursor-pointer select-none rounded transition-colors',
                 hv === h
                   ? 'bg-primary text-primary-foreground font-semibold'
                   : 'hover:bg-muted text-foreground',
@@ -98,14 +99,14 @@ function TimeScroller({ label, value, onChange }: TimeScrollerProps) {
         <div
           ref={minRef}
           className="h-36 w-10 overflow-y-auto scroll-smooth rounded border border-input bg-background"
-          style={{ scrollbarWidth: 'none' }}
+          style={{ scrollbarWidth: 'none', paddingTop: '56px', paddingBottom: '56px' }}
         >
           {MINUTES.map((mv) => (
             <div
               key={mv}
               onClick={() => onChange(`${pad(h)}:${pad(mv)}`)}
               className={cn(
-                'h-8 flex items-center justify-center text-xs cursor-pointer select-none rounded transition-colors',
+                'h-8 flex items-center justify-center text-xs font-mono cursor-pointer select-none rounded transition-colors',
                 mv === mSnapped
                   ? 'bg-primary text-primary-foreground font-semibold'
                   : 'hover:bg-muted text-foreground',
@@ -173,33 +174,58 @@ export function TimeRangePicker({ slot, onChange, onRemove, className }: TimeRan
     };
   }
 
+  function parseTimeInput(raw: string): string | null {
+    const digits = raw.trim().replace(':', '');
+    if (!/^\d{1,4}$/.test(digits)) return null;
+    let h: number, m: number;
+    if (digits.length <= 2) { h = parseInt(digits, 10); m = 0; }
+    else if (digits.length === 3) { h = parseInt(digits.slice(0, 1), 10); m = parseInt(digits.slice(1), 10); }
+    else { h = parseInt(digits.slice(0, 2), 10); m = parseInt(digits.slice(2), 10); }
+    if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+    return `${pad(h)}:${pad(m)}`;
+  }
+
   function commitText() {
     if (!textMode) return;
-    const val = textVal.trim();
-    if (/^\d{1,2}:\d{2}$/.test(val)) {
-      const [hStr, mStr] = val.split(':');
-      const hv = parseInt(hStr!, 10);
-      const mv = parseInt(mStr!, 10);
-      if (hv >= 0 && hv <= 23 && mv >= 0 && mv <= 59) {
-        onChange({ ...slot, [textMode]: `${pad(hv)}:${pad(mv)}` });
-      }
-    }
-    const refToFocus = textMode === 'from' ? fromRef : toRef;
+    const parsed = parseTimeInput(textVal);
+    if (parsed) onChange({ ...slot, [textMode]: parsed });
     setTextMode(null);
-    setTimeout(() => refToFocus.current?.focus(), 0);
   }
 
   function handleTextKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') { e.preventDefault(); commitText(); return; }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const field = textMode;
+      commitText();
+      const ref = field === 'from' ? fromRef : toRef;
+      setTimeout(() => ref.current?.focus(), 0);
+      return;
+    }
     if (e.key === 'Escape') {
       e.preventDefault();
+      const field = textMode;
       setTextVal(snapshotRef.current);
       setTextMode(null);
+      const ref = field === 'from' ? fromRef : toRef;
+      setTimeout(() => ref.current?.focus(), 0);
+      return;
+    }
+    if (e.key === 'Tab') {
+      if (textMode === 'from' && !e.shiftKey) {
+        e.preventDefault();
+        commitText();
+        snapshotRef.current = slot.to;
+        setTextVal(slot.to);
+        setTextMode('to');
+      }
+      // Autres cas (Tab depuis 'to', Shift+Tab) : laisser le browser procéder
+      // onBlur appelera commitText sans voler le focus
       return;
     }
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault();
-      const total = toMinutes(textVal);
+      const parsed = parseTimeInput(textVal);
+      const total = parsed ? toMinutes(parsed) : null;
       if (total === null) return;
       const step = e.shiftKey ? 60 : 30;
       const delta = e.key === 'ArrowUp' ? step : -step;
@@ -220,72 +246,88 @@ export function TimeRangePicker({ slot, onChange, onRemove, className }: TimeRan
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverAnchor asChild>
-        <div className={cn('flex flex-col gap-0.5 group/slot', className)}>
-          {/* De */}
-          <div className="flex items-center gap-1">
-            <span className="text-[9px] text-muted-foreground/70 w-3 shrink-0 select-none">De</span>
-            {textMode === 'from' ? (
-              <input
-                ref={textRef}
-                type="text"
-                value={textVal}
-                onChange={(e) => setTextVal(e.target.value)}
-                onBlur={commitText}
-                onKeyDown={handleTextKeyDown}
-                placeholder="HH:MM"
-                className={textInputClass}
-              />
-            ) : (
-              <button
-                ref={fromRef}
-                type="button"
-                onClick={handleFieldClick}
-                onDoubleClick={() => handleFieldDoubleClick('from')}
-                onKeyDown={makeFieldKeyDown('from')}
-                className={fieldClass}
-                title="Clic pour modifier • Double-clic pour saisir • ↑↓ ±30min"
-              >
-                {slot.from || '--:--'}
-              </button>
-            )}
-            <button
-              type="button"
-              tabIndex={-1}
-              onClick={onRemove}
-              className="opacity-0 group-hover/slot:opacity-100 text-muted-foreground hover:text-destructive text-sm leading-none transition-opacity ml-0.5"
-              aria-label="Supprimer ce créneau"
-            >
-              ×
-            </button>
+        <div className={cn('flex items-center gap-1 group/slot', className)}>
+          <div className="flex flex-col gap-0.5">
+            {/* De */}
+            <div className="flex items-center gap-1">
+              <span className="text-[9px] text-muted-foreground/70 w-3 shrink-0 select-none">De</span>
+              {textMode === 'from' ? (
+                <input
+                  ref={textRef}
+                  type="text"
+                  value={textVal}
+                  onChange={(e) => setTextVal(e.target.value)}
+                  onBlur={commitText}
+                  onKeyDown={handleTextKeyDown}
+                  placeholder="HH:MM"
+                  className={textInputClass}
+                />
+              ) : (
+                <button
+                  ref={fromRef}
+                  type="button"
+                  onClick={handleFieldClick}
+                  onDoubleClick={() => handleFieldDoubleClick('from')}
+                  onKeyDown={makeFieldKeyDown('from')}
+                  onFocus={(e) => {
+                    if (e.currentTarget.matches(':focus-visible')) {
+                      snapshotRef.current = slot.from;
+                      setTextVal(slot.from);
+                      setTextMode('from');
+                    }
+                  }}
+                  className={fieldClass}
+                  title="Clic pour modifier • Double-clic pour saisir • ↑↓ ±30min"
+                >
+                  {slot.from || '--:--'}
+                </button>
+              )}
+            </div>
+            {/* À */}
+            <div className="flex items-center gap-1">
+              <span className="text-[9px] text-muted-foreground/70 w-3 shrink-0 select-none">À</span>
+              {textMode === 'to' ? (
+                <input
+                  ref={textRef}
+                  type="text"
+                  value={textVal}
+                  onChange={(e) => setTextVal(e.target.value)}
+                  onBlur={commitText}
+                  onKeyDown={handleTextKeyDown}
+                  placeholder="HH:MM"
+                  className={textInputClass}
+                />
+              ) : (
+                <button
+                  ref={toRef}
+                  type="button"
+                  onClick={handleFieldClick}
+                  onDoubleClick={() => handleFieldDoubleClick('to')}
+                  onKeyDown={makeFieldKeyDown('to')}
+                  onFocus={(e) => {
+                    if (e.currentTarget.matches(':focus-visible')) {
+                      snapshotRef.current = slot.to;
+                      setTextVal(slot.to);
+                      setTextMode('to');
+                    }
+                  }}
+                  className={fieldClass}
+                  title="Clic pour modifier • Double-clic pour saisir • ↑↓ ±30min"
+                >
+                  {slot.to || '--:--'}
+                </button>
+              )}
+            </div>
           </div>
-          {/* À */}
-          <div className="flex items-center gap-1">
-            <span className="text-[9px] text-muted-foreground/70 w-3 shrink-0 select-none">À</span>
-            {textMode === 'to' ? (
-              <input
-                ref={textRef}
-                type="text"
-                value={textVal}
-                onChange={(e) => setTextVal(e.target.value)}
-                onBlur={commitText}
-                onKeyDown={handleTextKeyDown}
-                placeholder="HH:MM"
-                className={textInputClass}
-              />
-            ) : (
-              <button
-                ref={toRef}
-                type="button"
-                onClick={handleFieldClick}
-                onDoubleClick={() => handleFieldDoubleClick('to')}
-                onKeyDown={makeFieldKeyDown('to')}
-                className={fieldClass}
-                title="Clic pour modifier • Double-clic pour saisir • ↑↓ ±30min"
-              >
-                {slot.to || '--:--'}
-              </button>
-            )}
-          </div>
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={onRemove}
+            className="opacity-0 group-hover/slot:opacity-100 text-muted-foreground hover:text-destructive text-sm leading-none transition-opacity self-center"
+            aria-label="Supprimer ce créneau"
+          >
+            ×
+          </button>
         </div>
       </PopoverAnchor>
 
@@ -295,12 +337,14 @@ export function TimeRangePicker({ slot, onChange, onRemove, className }: TimeRan
             label="De"
             value={slot.from || '08:00'}
             onChange={(v) => onChange({ ...slot, from: v })}
+            open={open}
           />
           <div className="w-px bg-border self-stretch mx-1" />
           <TimeScroller
             label="À"
             value={slot.to || '12:00'}
             onChange={(v) => onChange({ ...slot, to: v })}
+            open={open}
           />
         </div>
       </PopoverContent>

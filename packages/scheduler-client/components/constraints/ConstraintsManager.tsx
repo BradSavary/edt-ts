@@ -138,18 +138,11 @@ export function ConstraintsManager() {
   }
 
   function getStatusBadge(id: string) {
-    const v = constraints[id];
-    if (v == null) return { label: 'Aucune', className: 'text-muted-foreground/60 italic' };
-    if (typeof v === 'object' && !Array.isArray(v)) {
-      const weeks = Object.keys(v).filter((k) => k !== 'default').length;
-      if (weeks > 0)
-        return {
-          label: `${weeks} sem.`,
-          className: 'text-emerald-600 dark:text-emerald-400',
-        };
-      return { label: 'Défaut', className: 'text-blue-600 dark:text-blue-400' };
+    const count = resourceWeeks[id]?.length ?? 0;
+    if (count > 0) {
+      return { label: `${count} sem.`, className: 'text-emerald-600 dark:text-emerald-400' };
     }
-    return { label: 'Défini', className: 'text-blue-600 dark:text-blue-400' };
+    return { label: '—', className: 'text-muted-foreground/40' };
   }
 
   const isDefaultSelected = selectedId === 'Default';
@@ -220,7 +213,7 @@ export function ConstraintsManager() {
             )}
           >
             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 shrink-0">
-              Établissement
+              Ressources
             </span>
             <span className="text-sm font-medium">Default</span>
           </button>
