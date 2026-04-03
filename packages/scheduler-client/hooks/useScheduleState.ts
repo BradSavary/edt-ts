@@ -6,7 +6,8 @@ import { parseCsvCourses } from '@/lib/parseCsvCourses';
 import { extractResourceWeeks } from '@/lib/parseCsvCourses';
 import { type BlockedZone } from '@/lib/blockedZones';
 import { runScheduleRequest, type ScheduleResult } from '@/lib/scheduleApi';
-import { loadConstraints, saveResourceWeeks } from '@/lib/constraintsStorage';
+import { loadConstraints } from '@/lib/constraintsStorage';
+import { useSchedulerStore } from '@/store/useSchedulerStore';
 import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
 
 interface Status {
@@ -99,8 +100,8 @@ export function useScheduleState(): ScheduleState {
         setEnforcedMap({});
         setScheduleResult(null);
         setSelectedSolutionIndex(0);
-        // Stocker les semaines par ressource pour le module contraintes
-        saveResourceWeeks(extractResourceWeeks(text));
+        // Mettre à jour resourceWeeks dans le store (persist vers edt-scheduler)
+        useSchedulerStore.getState().setResourceWeeks(extractResourceWeeks(text));
       } catch { setParsedCourses([]); }
     });
   }, [coursesCsvFile, week]);

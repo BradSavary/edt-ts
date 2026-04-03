@@ -1,28 +1,21 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import type { ConstraintsData, ResourceConstraints, TimeSlot } from '@edt-ts/scheduler-common';
+import type { ResourceConstraints } from '@edt-ts/scheduler-common';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import {
-  loadConstraints,
-  saveConstraints,
-  exportAsJSON,
   detectResourceType,
   normalizeToRC,
-  loadResourceWeeks,
   type ResourceType,
   RESOURCE_TYPE_LABELS,
 } from '@/lib/constraintsStorage';
+import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { ResourceConstraintEditor } from './ResourceConstraintEditor';
 import { AddResourceModal } from './AddResourceModal';
-
-// Internal type that accepts null values (matching the actual JSON format)
-type ConstraintValue = ResourceConstraints | TimeSlot[] | null | undefined;
-type ConstraintsStore = Record<string, ConstraintValue> & { Default?: TimeSlot[] };
 
 const RESOURCE_TABS: { value: ResourceType; label: string }[] = [
   { value: 'teacher', label: 'Enseignants' },
@@ -32,63 +25,50 @@ const RESOURCE_TABS: { value: ResourceType; label: string }[] = [
 ];
 
 export function ConstraintsManager() {
-  const [constraints, setConstraints] = useState<ConstraintsStore>({});
-  const [initialized, setInitialized] = useState(false);
-  const [resourceWeeks, setResourceWeeks] = useState<Record<string, number[]>>({});
-  const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<ResourceType>('teacher');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // --- Store Zustand (données partagées) ---
+  const constraints        = useSchedulerStore((s) => s.constraints);
+  const resourceWeeks      = useSchedulerStore((s) => s.resourceWeeks);
+  const saveNotice         = useSchedulerStore((s) => s.saveNotice);
+  const initConstraints    = useSchedulerStore((s) => s.initConstraints);
+  const setConstraint      = useSchedulerStore((s) => s.setConstraint);
+  const deleteConstraint   = useSchedulerStore((s) => s.deleteConstraint);
+  const addResource        = useSchedulerStore((s) => s.addResource);
+  const setDefaultConstraint = useSchedulerStore((s) => s.setDefaultConstraint);
+  const importConstraints  = useSchedulerStore((s) => s.importConstraints);
+  const exportConstraints  = useSchedulerStore((s) => s.exportConstraints);
+
+  // --- État local UI uniquement ---
+  const [search, setSearch]           = useState('');
+  const [activeTab, setActiveTab]     = useState<ResourceType>('teacher');
+  const [selectedId, setSelectedId]   = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [importError, setImportError] = useState('');
-  const [saveNotice, setSaveNotice] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    const stored = loadConstraints();
-    setConstraints((stored as ConstraintsStore | null) ?? {});
-    setResourceWeeks(loadResourceWeeks());
-    setInitialized(true);
-  }, []);
-
-  // Save to localStorage whenever constraints change (not on initial empty load)
-  useEffect(() => {
-    if (!initialized) return;
-    saveConstraints(constraints as ConstraintsData);
-    setSaveNotice(true);
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => setSaveNotice(false), 2000);
-  }, [constraints, initialized]);
+  // Chargement initial depuis localStorage
+  useEffect(() => { initConstraints(); }, [initConstraints]);
 
   function handleResourceChange(id: string, newValue: ResourceConstraints | null) {
-    setConstraints((prev) => ({ ...prev, [id]: newValue }));
+    setConstraint(id, newValue);
   }
 
   function handleResourceDelete(id: string) {
-    setConstraints((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+    deleteConstraint(id);
     if (selectedId === id) setSelectedId(null);
   }
 
   function handleAddResource(id: string) {
-    setConstraints((prev) => ({ ...prev, [id]: null }));
+    addResource(id);
     setSelectedId(id);
     setActiveTab(detectResourceType(id));
   }
 
   function handleDefaultChange(newValue: ResourceConstraints | null) {
-    setConstraints((prev) => ({
-      ...prev,
-      Default: newValue?.default ?? [],
-    }));
+    setDefaultConstraint(newValue);
   }
 
   function handleExport() {
-    const json = exportAsJSON(constraints as ConstraintsData);
+    const json = exportConstraints();
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -104,8 +84,8 @@ export function ConstraintsManager() {
     setImportError('');
     file.text().then((text) => {
       try {
-        const parsed = JSON.parse(text) as ConstraintsStore;
-        setConstraints(parsed);
+        const parsed = JSON.parse(text) as typeof constraints;
+        importConstraints(parsed);
         setSelectedId(null);
       } catch {
         setImportError('Fichier JSON invalide ou format non reconnu.');
