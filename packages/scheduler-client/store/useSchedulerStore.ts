@@ -10,8 +10,10 @@ import type { CourseTaskData, ResourceGroupData } from '@edt-ts/scheduler-common
 interface SchedulerDataSlice {
   allCourses: CourseTaskData[];
   resources: ResourceGroupData[];
-  setCourses: (courses: CourseTaskData[]) => void;
-  setResources: (resources: ResourceGroupData[]) => void;
+  coursesFileName: string | null;
+  resourcesFileName: string | null;
+  setCourses: (courses: CourseTaskData[], fileName?: string) => void;
+  setResources: (resources: ResourceGroupData[], fileName?: string) => void;
 }
 
 // ── Store combiné ──────────────────────────────────────────────────────────
@@ -28,8 +30,10 @@ export const useSchedulerStore = create<SchedulerStore>()(
       // Scheduler data slice
       allCourses: [],
       resources: [],
-      setCourses: (allCourses) => set({ allCourses }),
-      setResources: (resources) => set({ resources }),
+      coursesFileName: null,
+      resourcesFileName: null,
+      setCourses: (allCourses, fileName) => set({ allCourses, ...(fileName !== undefined ? { coursesFileName: fileName } : {}) }),
+      setResources: (resources, fileName) => set({ resources, ...(fileName !== undefined ? { resourcesFileName: fileName } : {}) }),
     }),
     {
       name: 'edt-scheduler',
@@ -39,6 +43,8 @@ export const useSchedulerStore = create<SchedulerStore>()(
         resourceWeeks: state.resourceWeeks,
         allCourses: state.allCourses,
         resources: state.resources,
+        coursesFileName: state.coursesFileName,
+        resourcesFileName: state.resourcesFileName,
       }),
     },
   ),

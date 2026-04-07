@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
-import type { ResourceGroupData, ConstraintsData } from '@edt-ts/scheduler-common';
-import { parseCsvCoursesAll, extractResourceWeeks } from '@/lib/parseCsvCourses';
+import type { ConstraintsData } from '@edt-ts/scheduler-common';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useNeutralizedDraggable } from '@/hooks/useNeutralizedDraggable';
@@ -14,7 +13,7 @@ import { type GroupBy } from '@/components/CourseGroupList';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
-export default function SchedulePage() {
+export default function PlanningPage() {
   // ── Stores ──────────────────────────────────────────────────────────────
   const allCourses = useSchedulerStore((s) => s.allCourses);
   const resources = useSchedulerStore((s) => s.resources);
@@ -38,32 +37,6 @@ export default function SchedulePage() {
   const handleBlockedZoneAdd = usePlanningStore((s) => s.handleBlockedZoneAdd);
   const handleBlockedZoneRemove = usePlanningStore((s) => s.handleBlockedZoneRemove);
   const handleBlockedZoneMove = usePlanningStore((s) => s.handleBlockedZoneMove);
-
-  // ── Fichiers locaux (non persistés) ─────────────────────────────────────
-  const [resourcesFile, setResourcesFile] = useState<File | null>(null);
-  const [coursesCsvFile, setCoursesCsvFile] = useState<File | null>(null);
-
-  useEffect(() => {
-    if (!resourcesFile) { useSchedulerStore.getState().setResources([]); return; }
-    resourcesFile.text().then((text) => {
-      try {
-        const data = JSON.parse(text) as ResourceGroupData[];
-        if (Array.isArray(data)) useSchedulerStore.getState().setResources(data);
-      } catch { useSchedulerStore.getState().setResources([]); }
-    });
-  }, [resourcesFile]);
-
-  useEffect(() => {
-    if (!coursesCsvFile) { useSchedulerStore.getState().setCourses([]); return; }
-    coursesCsvFile.text().then((text) => {
-      try {
-        const allParsed = parseCsvCoursesAll(text);
-        useSchedulerStore.getState().setCourses(allParsed);
-        useSchedulerStore.getState().setResourceWeeks(extractResourceWeeks(text));
-        usePlanningStore.getState().handleEnforceChange({});
-      } catch { useSchedulerStore.getState().setCourses([]); }
-    });
-  }, [coursesCsvFile]);
 
   // ── Semaine ──────────────────────────────────────────────────────────────
   const weekStr = selectedWeek !== null ? String(selectedWeek) : '1';
@@ -100,7 +73,6 @@ export default function SchedulePage() {
 
   // ── UI local ─────────────────────────────────────────────────────────────
   const [groupBy, setGroupBy] = useState<GroupBy>('code');
-  const [isImportOpen, setIsImportOpen] = useState(true);
   const [sidebarDraggingResources, setSidebarDraggingResources] = useState<{
     teachers: string[]; groups: string[]; rooms: string[];
   } | null>(null);
@@ -136,8 +108,6 @@ export default function SchedulePage() {
         <SidebarLeft
           week={weekStr}
           setWeek={handleSetWeek}
-          setResourcesFile={setResourcesFile}
-          setCoursesCsvFile={setCoursesCsvFile}
           parsedCourses={parsedCourses}
           enforcedMap={enforcedMap}
           groupBy={groupBy}
@@ -148,8 +118,6 @@ export default function SchedulePage() {
           isLoading={isLoading}
           enforcedCount={enforcedCount}
           runSchedule={runSchedule}
-          isImportOpen={isImportOpen}
-          setIsImportOpen={setIsImportOpen}
           onDragStart={setSidebarDraggingResources}
           onDragEnd={() => setSidebarDraggingResources(null)}
         />
@@ -216,4 +184,3 @@ export default function SchedulePage() {
     </div>
   );
 }
-

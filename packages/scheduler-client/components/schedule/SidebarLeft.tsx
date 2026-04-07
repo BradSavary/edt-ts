@@ -14,11 +14,9 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
 interface SidebarLeftProps {
-  // Week / files
+  // Week
   week: string;
   setWeek: (v: string) => void;
-  setResourcesFile: (f: File | null) => void;
-  setCoursesCsvFile: (f: File | null) => void;
 
   // Courses
   parsedCourses: CourseTaskData[];
@@ -33,8 +31,6 @@ interface SidebarLeftProps {
   isLoading: boolean;
   enforcedCount: number;
   runSchedule: (mode: 'standard' | 'elimination') => void;
-  isImportOpen: boolean;
-  setIsImportOpen: (v: boolean | ((prev: boolean) => boolean)) => void;
 
   // Drag callbacks for constraint highlighting
   onDragStart: (resources: { teachers: string[]; groups: string[]; rooms: string[] }) => void;
@@ -43,11 +39,9 @@ interface SidebarLeftProps {
 
 export function SidebarLeft({
   week, setWeek,
-  setResourcesFile, setCoursesCsvFile,
   parsedCourses, enforcedMap, groupBy, setGroupBy,
   scheduleResult, searchQuery, setSearchQuery,
   isLoading, enforcedCount, runSchedule,
-  isImportOpen, setIsImportOpen,
   onDragStart, onDragEnd,
 }: SidebarLeftProps) {
   const cardContainerRef = useRef<HTMLDivElement | null>(null);
@@ -94,55 +88,6 @@ export function SidebarLeft({
               onChange={(e) => setWeek(e.target.value)}
               required
             />
-          </div>
-
-          <div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsImportOpen((v) => !v)}
-              className="w-full justify-between px-0 mb-1.5 h-auto font-medium text-foreground hover:bg-transparent"
-            >
-              <span>Fichiers d&apos;import</span>
-              <span className="text-muted-foreground text-[11px]">{isImportOpen ? '▲' : '▼'}</span>
-            </Button>
-            {isImportOpen && (
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label>
-                    Resources <span className="text-muted-foreground font-normal">(JSON)</span>
-                  </Label>
-                  <input
-                    type="file"
-                    accept=".json"
-                    onChange={(e) => setResourcesFile(e.target.files?.[0] ?? null)}
-                    required
-                    className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-secondary file:text-secondary-foreground hover:file:bg-secondary/80"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>
-                    Cours <span className="text-muted-foreground font-normal">(CSV)</span>
-                  </Label>
-                  <input
-                    type="file"
-                    accept=".csv"
-                    onChange={(e) => setCoursesCsvFile(e.target.files?.[0] ?? null)}
-                    required
-                    className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-secondary file:text-secondary-foreground hover:file:bg-secondary/80"
-                  />
-                </div>
-
-                <div className="text-xs text-muted-foreground rounded-md border border-border bg-muted/30 px-3 py-2">
-                  Les contraintes sont gérées dans{' '}
-                  <a href="/constraints" className="underline hover:text-foreground">
-                    le module Contraintes
-                  </a>.
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-2 gap-2">

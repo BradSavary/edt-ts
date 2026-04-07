@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import type { EnforcedData, TaskSolutionJSON, ConstraintsData } from '@edt-ts/scheduler-common';
-import { SchedulerData } from '@edt-ts/scheduler-common';
 import type { BlockedZone } from '@/lib/blockedZones';
 import { runScheduleRequestFromData, buildScheduleStatus, type ScheduleResult, type ScheduleStatus } from '@/lib/scheduleApi';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
@@ -36,25 +35,11 @@ export interface PlacedNeutralizedTask {
 
 // ── Interface ──────────────────────────────────────────────────────────────
 // Contient les données "de travail" de la session : non persistées.
-// Correspond à la colonne droite de l'archi.md (usePlanningStore).
 
 export interface PlanningStore {
   // Sélection de la semaine
   selectedWeek: number | null;
   setSelectedWeek: (week: number | null) => void;
-
-  /**
-   * Instance SchedulerData construite depuis useSchedulerStore (allCourses + resources + constraints).
-   * Non persistée — reconstruit à chaque changement de semaine via buildSchedulerData().
-   * Donne accès à ResourcesManager, AvailabilityManager, TasksManager côté client
-   * (ex: détection de collision, validation de placement).
-   */
-  schedulerData: SchedulerData | null;
-  /**
-   * Reconstruit schedulerData depuis le store persisté pour la semaine donnée.
-   * Appeler après setSelectedWeek ou après un changement de fichiers/contraintes.
-   */
-  buildSchedulerData: (week: number) => void;
 
   // Résultat de planification (immuable, vient de l'API)
   scheduleResult: ScheduleResult | null;
@@ -124,21 +109,6 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
       blockedZones: [],
       status: null,
     });
-    if (week !== null) get().buildSchedulerData(week);
-  },
-
-  schedulerData: null,
-  buildSchedulerData: (week) => {
-    const { allCourses, resources, constraints } = useSchedulerStore.getState();
-    if (!allCourses.length || !resources.length) {
-      set({ schedulerData: null });
-      return;
-    }
-    const sd = new SchedulerData();
-    sd.initResources(resources);
-    sd.initConstraints(constraints as ConstraintsData);
-    sd.initTasks({ weeks: week, courses: allCourses });
-    set({ schedulerData: sd });
   },
 
   scheduleResult: null,
@@ -288,7 +258,6 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
 
   reset: () => set({
     selectedWeek: null,
-    schedulerData: null,
     scheduleResult: null,
     selectedSolutionIndex: 0,
     activeSolution: [],

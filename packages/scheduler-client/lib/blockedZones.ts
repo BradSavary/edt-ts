@@ -1,4 +1,5 @@
 import type { ConstraintsData, ResourceGroupData, TimeSlot, ResourceConstraints } from '@edt-ts/scheduler-common';
+import { AvailabilityManager } from '@edt-ts/scheduler-common';
 
 export interface BlockedZone {
   id: string;
@@ -183,6 +184,7 @@ export function applyBlockedZonesToConstraints(
 /**
  * Calcule les plages horaires indisponibles (union) pour un ensemble de ressources
  * pour la semaine affichée. Un créneau est signalé si AU MOINS UNE ressource y est indisponible.
+ * Délègue la lecture des contraintes à AvailabilityManager (@edt-ts/scheduler-common).
  * Retourne un tableau de plages en dates absolues, prêt à être affiché comme background events.
  */
 export function computeConstraintUnavailableZones(
@@ -193,25 +195,30 @@ export function computeConstraintUnavailableZones(
 ): { start: Date; end: Date }[] {
   if (resourceIds.length === 0) return [];
 
-  const DAY_START_MIN = 7 * 60;  // 7:00
-  const DAY_END_MIN = 21 * 60;   // 21:00
-  const WEEKDAYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi'];
+  const DAY_START_MIN = 7 * 60;   // 7:00
+  const DAY_END_MIN = 21 * 60;    // 21:00
+  const manager = new AvailabilityManager(constraints);
   const result: { start: Date; end: Date }[] = [];
 
   for (let dayOffset = 0; dayOffset < 5; dayOffset++) {
-    const frenchDay = WEEKDAYS[dayOffset]!;
+    // L'AvailabilityManager encode les minutes depuis lundi 0h : lundi=0, mardi=1440, etc.
+    const dayStartAbs = dayOffset * 24 * 60;
     const allUnavailable: { from: number; to: number }[] = [];
 
     for (const resourceId of resourceIds) {
-      const slots = getResourceBaseSlots(resourceId, weekNumber, constraints);
-
-      // Plages disponibles pour ce jour, clampées à [DAY_START_MIN, DAY_END_MIN]
+      const avail = manager.getAvailability(resourceId, weekNumber);
+      // Plages disponibles ce jour, clampées à [DAY_START_MIN, DAY_END_MIN] (relatif au jour)
       const available: { from: number; to: number }[] = [];
-      for (const slot of slots) {
-        if (!parseDayList(slot.days).includes(frenchDay)) continue;
-        const from = Math.max(timeToMinutes(slot.from), DAY_START_MIN);
-        const to = Math.min(timeToMinutes(slot.to), DAY_END_MIN);
-        if (to > from) available.push({ from, to });
+
+      if (avail) {
+        for (const iv of avail.getAvailableIntervals()) {
+          // Convertir minutes absolues → minutes relatives au jour
+          const ivFromAbs = iv.start - dayStartAbs;
+          const ivToAbs = iv.end - dayStartAbs;
+          const from = Math.max(ivFromAbs, DAY_START_MIN);
+          const to = Math.min(ivToAbs, DAY_END_MIN);
+          if (to > from) available.push({ from, to });
+        }
       }
 
       // Tri + fusion des plages disponibles

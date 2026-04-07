@@ -5,7 +5,8 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const NAV_LINKS = [
-  { href: '/', label: 'Planification' },
+  { href: '/', label: 'Config' },
+  { href: '/planning', label: 'Planification' },
   { href: '/constraints', label: 'Contraintes' },
 ];
 

@@ -8,9 +8,6 @@ import {
 type ConstraintValue = ResourceConstraints | TimeSlot[] | null | undefined;
 export type ConstraintsRecord = Record<string, ConstraintValue> & { Default?: TimeSlot[] };
 
-// Timer module-level — détail d'implémentation, pas dans l'état
-let saveNoticeTimer: ReturnType<typeof setTimeout> | null = null;
-
 export interface ConstraintsSlice {
   constraints: ConstraintsRecord;
   resourceWeeks: Record<string, number[]>;
@@ -29,60 +26,66 @@ export interface ConstraintsSlice {
   setResourceWeeks: (weeks: Record<string, number[]>) => void;
 }
 
-export const createConstraintsSlice: StateCreator<ConstraintsSlice> = (set, get) => ({
-  constraints: {},
-  resourceWeeks: {},
-  constraintsInitialized: false,
-  saveNotice: false,
+export const createConstraintsSlice: StateCreator<ConstraintsSlice> = (set, get) => {
+  // Timer dans la closure : chaque instance du store a son propre timer,
+  // évite le partage d'état entre instances (hot-reload, tests).
+  let saveNoticeTimer: ReturnType<typeof setTimeout> | null = null;
 
-  initConstraints: () => {
-    // `constraints` et `resourceWeeks` sont déjà restaurés par le middleware `persist`
-    // avant ce premier rendu côté client. On se contente de marquer l'initialisation.
-    set({ constraintsInitialized: true });
-  },
+  function triggerSaveNotice() {
+    set({ saveNotice: true });
+    if (saveNoticeTimer) clearTimeout(saveNoticeTimer);
+    saveNoticeTimer = setTimeout(() => set({ saveNotice: false }), 2000);
+  }
 
-  setConstraint: (id, value) => {
-    const next = { ...get().constraints, [id]: value };
-    set({ constraints: next });
-    _triggerSaveNotice(set);
-  },
+  return {
+    constraints: {},
+    resourceWeeks: {},
+    constraintsInitialized: false,
+    saveNotice: false,
 
-  deleteConstraint: (id) => {
-    const next = { ...get().constraints };
-    delete next[id];
-    set({ constraints: next });
-    _triggerSaveNotice(set);
-  },
+    initConstraints: () => {
+      // `constraints` et `resourceWeeks` sont déjà restaurés par le middleware `persist`
+      // avant ce premier rendu côté client. On se contente de marquer l'initialisation.
+      set({ constraintsInitialized: true });
+    },
 
-  addResource: (id) => {
-    const next = { ...get().constraints, [id]: null };
-    set({ constraints: next });
-    _triggerSaveNotice(set);
-  },
+    setConstraint: (id, value) => {
+      const next = { ...get().constraints, [id]: value };
+      set({ constraints: next });
+      triggerSaveNotice();
+    },
 
-  setDefaultConstraint: (value) => {
-    const next = { ...get().constraints, Default: value?.default ?? [] };
-    set({ constraints: next });
-    _triggerSaveNotice(set);
-  },
+    deleteConstraint: (id) => {
+      const next = { ...get().constraints };
+      delete next[id];
+      set({ constraints: next });
+      triggerSaveNotice();
+    },
 
-  importConstraints: (data) => {
-    set({ constraints: data });
-    _triggerSaveNotice(set);
-  },
+    addResource: (id) => {
+      const next = { ...get().constraints, [id]: null };
+      set({ constraints: next });
+      triggerSaveNotice();
+    },
 
-  exportConstraints: () => {
-    // exportAsJSON formate les données pour le téléchargement — pas de localStorage
-    return exportAsJSON(get().constraints as ConstraintsData);
-  },
+    setDefaultConstraint: (value) => {
+      const next = { ...get().constraints, Default: value?.default ?? [] };
+      set({ constraints: next });
+      triggerSaveNotice();
+    },
 
-  setResourceWeeks: (weeks) => {
-    set({ resourceWeeks: weeks });
-  },
-});
+    importConstraints: (data) => {
+      set({ constraints: data });
+      triggerSaveNotice();
+    },
 
-function _triggerSaveNotice(set: (partial: Partial<ConstraintsSlice>) => void) {
-  set({ saveNotice: true });
-  if (saveNoticeTimer) clearTimeout(saveNoticeTimer);
-  saveNoticeTimer = setTimeout(() => set({ saveNotice: false }), 2000);
-}
+    exportConstraints: () => {
+      // exportAsJSON formate les données pour le téléchargement — pas de localStorage
+      return exportAsJSON(get().constraints as ConstraintsData);
+    },
+
+    setResourceWeeks: (weeks) => {
+      set({ resourceWeeks: weeks });
+    },
+  };
+};

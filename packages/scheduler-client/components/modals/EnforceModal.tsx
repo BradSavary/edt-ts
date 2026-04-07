@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { formatStartTime } from '@/lib/calendarUtils';
 
 export interface EnforceSelection {
   courseKey: string;
@@ -35,15 +36,6 @@ function splitEntries(entries: ResourceEntry[]): { fixed: string[]; alternatives
     else fixed.push(e);
   }
   return { fixed, alternatives };
-}
-
-function formatStartTime(startTime: number): string {
-  const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-  const dayIndex = Math.floor(startTime / (24 * 60));
-  const minutesInDay = startTime % (24 * 60);
-  const h = Math.floor(minutesInDay / 60).toString().padStart(2, '0');
-  const m = (minutesInDay % 60).toString().padStart(2, '0');
-  return `${days[dayIndex] ?? '?'} ${h}:${m}`;
 }
 
 export default function EnforceModal({ courseKey, course, startTime, onConfirm, onCancel }: Props) {
