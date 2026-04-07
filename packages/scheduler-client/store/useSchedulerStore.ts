@@ -11,9 +11,8 @@ interface SchedulerDataSlice {
   allCourses: CourseTaskData[];
   resources: ResourceGroupData[];
   coursesFileName: string | null;
-  resourcesFileName: string | null;
   setCourses: (courses: CourseTaskData[], fileName?: string) => void;
-  setResources: (resources: ResourceGroupData[], fileName?: string) => void;
+  setResources: (resources: ResourceGroupData[]) => void;
 }
 
 // ── Store combiné ──────────────────────────────────────────────────────────
@@ -31,9 +30,8 @@ export const useSchedulerStore = create<SchedulerStore>()(
       allCourses: [],
       resources: [],
       coursesFileName: null,
-      resourcesFileName: null,
       setCourses: (allCourses, fileName) => set({ allCourses, ...(fileName !== undefined ? { coursesFileName: fileName } : {}) }),
-      setResources: (resources, fileName) => set({ resources, ...(fileName !== undefined ? { resourcesFileName: fileName } : {}) }),
+      setResources: (resources) => set({ resources }),
     }),
     {
       name: 'edt-scheduler',
@@ -44,7 +42,6 @@ export const useSchedulerStore = create<SchedulerStore>()(
         allCourses: state.allCourses,
         resources: state.resources,
         coursesFileName: state.coursesFileName,
-        resourcesFileName: state.resourcesFileName,
       }),
     },
   ),

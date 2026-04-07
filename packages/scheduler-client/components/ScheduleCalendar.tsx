@@ -287,10 +287,6 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
       };
     });
   }, [storeEnforcedMap, parsedCourses, monday]);
-  useEffect(() => {
-    usePlanningStore.getState().reset();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [solutionKey]);
 
   const prevParsedCoursesRef = useRef<CourseTaskData[]>(parsedCourses);
   useEffect(() => {

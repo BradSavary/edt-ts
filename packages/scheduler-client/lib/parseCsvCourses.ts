@@ -1,4 +1,4 @@
-import type { CourseTaskData } from '@edt-ts/scheduler-common';
+import type { CourseTaskData, ResourceGroupData } from '@edt-ts/scheduler-common';
 
 /** Convertit un semestre textuel ("S1"…"S6") en numéro entier. */
 function parseSemester(raw: string): number {
@@ -194,6 +194,58 @@ export function parseCsvCoursesAll(csvText: string): CourseTaskData[] {
     }
   }
   return result;
+}
+
+/**
+ * Extrait les ressources uniques (enseignants, groupes, salles) depuis le CSV.
+ * Retourne un `ResourceGroupData[]` sans champ `info` (statut à gérer ultérieurement
+ * dans le module de gestion des ressources).
+ */
+export function extractResourcesFromCsv(csvText: string): ResourceGroupData[] {
+  const lines = csvText.split(/\r?\n/);
+  if (lines.length < 2) return [];
+
+  const headerLine = lines.find((l) => l.trim().length > 0) ?? '';
+  const headers = parseCSVRow(headerLine);
+  const dataStart = lines.findIndex((l) => l.trim().length > 0) + 1;
+
+  // Trouver au moins une colonne semaine pour filtrer les lignes non vides
+  const hasWeekCols = headers.some((h) => /^S\d+$/i.test(h.trim()));
+
+  const teachers = new Set<string>();
+  const groups = new Set<string>();
+  const rooms = new Set<string>();
+
+  for (let i = dataStart; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const cols = parseCSVRow(line);
+
+    // Si des colonnes semaines existent, ignorer les lignes sans aucune heure
+    if (hasWeekCols) {
+      const weekCols = headers.reduce<number[]>((acc, h, idx) => {
+        if (/^S\d+$/i.test(h.trim())) acc.push(idx);
+        return acc;
+      }, []);
+      const hasHours = weekCols.some((idx) => {
+        const v = parseFloat(cols[idx]?.trim() ?? '');
+        return !isNaN(v) && v > 0;
+      });
+      if (!hasHours) continue;
+    }
+
+    const teacher = cols[4]?.trim();
+    if (teacher) teachers.add(teacher);
+
+    (cols[6]?.trim() ?? '').split(',').map((g) => g.trim()).filter(Boolean).forEach((g) => groups.add(g));
+    (cols[7]?.trim() ?? '').split(',').map((r) => r.trim()).filter(Boolean).forEach((r) => rooms.add(r));
+  }
+
+  return [
+    { resourceType: 'teacher', resources: [...teachers].sort().map((id) => ({ id })) },
+    { resourceType: 'group',   resources: [...groups].sort().map((id) => ({ id })) },
+    { resourceType: 'room',    resources: [...rooms].sort().map((id) => ({ id })) },
+  ];
 }
 
 /**
