@@ -1,10 +1,8 @@
 import type { ConstraintsData, ResourceConstraints, TimeSlot } from '@edt-ts/scheduler-common';
 import type { StateCreator } from 'zustand';
 import {
-  loadResourceWeeks, // conservé temporairement : resourceWeeks est encore alimenté par
-  //   useScheduleState.ts via saveResourceWeeks() jusqu'à la migration complète.
-  exportAsJSON,
-} from '@/lib/constraintsStorage';
+  exportAsJSON, // utilisé uniquement pour l'export/import JSON (pas de localStorage)
+} from '@/lib/constraintsUtils';
 
 // Type interne correspondant au format JSON réel des contraintes
 type ConstraintValue = ResourceConstraints | TimeSlot[] | null | undefined;
@@ -28,7 +26,6 @@ export interface ConstraintsSlice {
   setDefaultConstraint: (value: ResourceConstraints | null) => void;
   importConstraints: (data: ConstraintsRecord) => void;
   exportConstraints: () => string;
-  /** Appelé par useScheduleState lors du parsing CSV — alimente les semaines disponibles par ressource */
   setResourceWeeks: (weeks: Record<string, number[]>) => void;
 }
 
@@ -80,8 +77,6 @@ export const createConstraintsSlice: StateCreator<ConstraintsSlice> = (set, get)
   },
 
   setResourceWeeks: (weeks) => {
-    // Appelé depuis useScheduleState.ts lors du parsing du CSV.
-    // persist écrit automatiquement dans edt-scheduler.
     set({ resourceWeeks: weeks });
   },
 });

@@ -1,15 +1,16 @@
 'use client';
 
 import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
+import { usePlanningStore } from '@/store/usePlanningStore';
 
 interface NeutralizedPanelProps {
   tasks: TaskSolutionJSON[];
-  placedNeutralizedIds: Set<string>;
   containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
-export function NeutralizedPanel({ tasks, placedNeutralizedIds, containerRef }: NeutralizedPanelProps) {
-  const unplacedCount = tasks.filter((t) => !placedNeutralizedIds.has(t.taskId)).length;
+export function NeutralizedPanel({ tasks, containerRef }: NeutralizedPanelProps) {
+  const placedNeutralizedTasks = usePlanningStore((s) => s.placedNeutralizedTasks);
+  const unplacedCount = tasks.filter((t) => !placedNeutralizedTasks.some((p) => p.taskId === t.taskId)).length;
 
   return (
     <aside className="w-64 shrink-0 bg-red-50 dark:bg-red-950/20 border-l border-red-200 dark:border-red-900 p-3 overflow-y-auto flex flex-col gap-2">
@@ -24,7 +25,7 @@ export function NeutralizedPanel({ tasks, placedNeutralizedIds, containerRef }: 
           const teachers = task.resources.filter((r) => r.type === 'teacher').map((r) => r.id);
           const groups = task.resources.filter((r) => r.type === 'group').map((r) => r.id);
           const rooms = task.resources.filter((r) => r.type === 'room').map((r) => r.id);
-          const isPlaced = placedNeutralizedIds.has(task.taskId);
+          const isPlaced = placedNeutralizedTasks.some((p) => p.taskId === task.taskId);
           return (
             <div
               key={task.taskId}

@@ -13,7 +13,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import type { DaySlot } from '@/lib/constraintsStorage';
+import type { DaySlot } from '@/lib/constraintsUtils';
 
 // ---- helpers ----
 

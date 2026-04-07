@@ -10,14 +10,14 @@ import {
   type DayName,
   type DaySlot,
   type DayMap,
-  type ResourceType,
+  type ResourceTypeUI,
   getWeekKeys,
   emptyDayMap,
   slotsToDayMap,
   dayMapToSlots,
   normalizeWeekKey,
   RESOURCE_TYPE_LABELS,
-} from '@/lib/constraintsStorage';
+} from '@/lib/constraintsUtils';
 import { TimeRangePicker } from './TimeRangePicker';
 
 const DAY_LABELS: Record<DayName, string> = {
@@ -29,7 +29,7 @@ const DAY_LABELS: Record<DayName, string> = {
   samedi: 'Samedi',
 };
 
-const TYPE_COLORS: Record<ResourceType, string> = {
+const TYPE_COLORS: Record<ResourceTypeUI, string> = {
   teacher: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
   room: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
   group: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
@@ -243,7 +243,7 @@ function WeekRow({
 
 export interface ResourceConstraintEditorProps {
   id: string;
-  resourceType: ResourceType;
+  resourceType: ResourceTypeUI;
   value: ResourceConstraints | null;
   isDefault?: boolean;
   alwaysExpanded?: boolean;

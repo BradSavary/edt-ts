@@ -1,5 +1,4 @@
-import type { RawScheduleData, TaskSolutionJSON, CourseTaskData, EnforcedData, ConstraintsData } from '@edt-ts/scheduler-common';
-import { parseCsvCourses } from '@/lib/parseCsvCourses';
+import type { RawScheduleData, TaskSolutionJSON, CourseTaskData, EnforcedData, ConstraintsData, ResourceGroupData } from '@edt-ts/scheduler-common';
 import { type BlockedZone, applyBlockedZonesToConstraints } from '@/lib/blockedZones';
 
 export interface NormalizedSolution {
@@ -14,44 +13,29 @@ export interface ScheduleResult {
   week: number;
 }
 
-export interface RunScheduleParams {
-  weekStr: string;
-  resourcesFile: File;
-  coursesCsvFile: File;
+export interface RunScheduleParamsFromData {
+  week: number;
+  courses: CourseTaskData[];
+  resources: ResourceGroupData[];
   constraintsData: ConstraintsData | null;
   enforcedMap: Record<string, EnforcedData>;
   blockedZones: BlockedZone[];
   mode: 'standard' | 'elimination';
 }
 
-async function readJSON<T>(file: File): Promise<T> {
-  const text = await file.text();
-  return JSON.parse(text) as T;
-}
-
 /**
- * Construit le payload, appelle l'API et normalise la réponse.
- * Lève une Error en cas de problème (validation, réseau, API).
+ * Logique commune : applique enforcedMap + blockedZones, construit le payload,
+ * appelle l'API et normalise la réponse.
  */
-export async function runScheduleRequest(params: RunScheduleParams): Promise<ScheduleResult> {
-  const { weekStr, resourcesFile, coursesCsvFile, constraintsData, enforcedMap, blockedZones, mode } = params;
-
-  const weekNum = parseInt(weekStr, 10);
-  if (isNaN(weekNum) || weekNum < 1 || weekNum > 53) {
-    throw new Error('"week" doit être un entier entre 1 et 53.');
-  }
-
-  const resources = await readJSON<RawScheduleData['resources']>(resourcesFile);
-  const csvText = await coursesCsvFile.text();
-  const courses: CourseTaskData[] = parseCsvCourses(csvText, weekNum);
-
-  if (!Array.isArray(resources)) {
-    throw new Error('Le fichier resources doit être un tableau JSON.');
-  }
-  if (courses.length === 0) {
-    throw new Error(`Aucun cours trouvé pour la semaine ${weekNum} dans le CSV.`);
-  }
-
+async function _callScheduleApi(
+  weekNum: number,
+  resources: ResourceGroupData[],
+  courses: CourseTaskData[],
+  constraintsData: ConstraintsData | null,
+  enforcedMap: Record<string, EnforcedData>,
+  blockedZones: BlockedZone[],
+  mode: 'standard' | 'elimination',
+): Promise<ScheduleResult> {
   const coursesWithEnforced = courses.map((course, i) => {
     const enforced = enforcedMap[String(i)];
     return enforced ? { ...course, enforced } : course;
@@ -126,4 +110,42 @@ export async function runScheduleRequest(params: RunScheduleParams): Promise<Sch
   }
 
   return { solutions: normalized, week: weekNum };
+}
+
+/**
+ * Variante données pré-parsées : utilise les données déjà en mémoire (store).
+ * Préférer cette fonction quand les données sont disponibles dans useSchedulerStore.
+ */
+export async function runScheduleRequestFromData(params: RunScheduleParamsFromData): Promise<ScheduleResult> {
+  const { week, courses, resources, constraintsData, enforcedMap, blockedZones, mode } = params;
+
+  if (week < 1 || week > 53) {
+    throw new Error('"week" doit être un entier entre 1 et 53.');
+  }
+  if (!Array.isArray(resources) || resources.length === 0) {
+    throw new Error('resources est requis et ne peut pas être vide.');
+  }
+  if (courses.length === 0) {
+    throw new Error(`Aucun cours trouvé pour la semaine ${week}.`);
+  }
+
+  return _callScheduleApi(week, resources, courses, constraintsData, enforcedMap, blockedZones, mode);
+}
+
+export interface ScheduleStatus {
+  message: string;
+  kind: 'ok' | 'err' | 'inf';
+}
+
+/**
+ * Construit le message de statut UI à partir d'un résultat de planification.
+ */
+export function buildScheduleStatus(result: ScheduleResult): ScheduleStatus {
+  const best = result.solutions[0];
+  const neutralizedMsg = best.neutralizedTasks?.length
+    ? ` — ${best.neutralizedTasks.length} cours non placé(s)` : '';
+  return {
+    message: `${best.isComplete ? '✅ Planification complète' : '⚠️ Incomplète'} — ${result.solutions.length} solution(s)${neutralizedMsg}`,
+    kind: best.isComplete ? 'ok' : 'err',
+  };
 }

@@ -14,6 +14,8 @@ import type { TaskEditUpdate } from '@/components/modals/TaskEditModal';
 import { getMondayOfISOWeek, startTimeToDate, formatTime, formatDate, computeStaticConflicts, computeDragHighlights } from '@/lib/calendarUtils';
 import type { ResourceEventInfo } from '@/lib/calendarUtils';
 import { computeConstraintUnavailableZones, type BlockedZone } from '@/lib/blockedZones';
+import { usePlanningStore } from '@/store/usePlanningStore';
+import type { PlacedNeutralizedTask } from '@/store/usePlanningStore';
 import {
   Dialog,
   DialogContent,
@@ -55,8 +57,6 @@ interface Props {
   onBlockedZoneAdd?: (start: Date, end: Date) => void;
   onBlockedZoneRemove?: (id: string) => void;
   onBlockedZoneMove?: (id: string, start: Date, end: Date) => void;
-  onNeutralizedTaskPlaced?: (taskId: string) => void;
-  onNeutralizedTaskRemoved?: (taskId: string) => void;
   /** Clé de solution courante : quand elle change, les états locaux de placement sont réinitialisés. */
   solutionKey?: number;
   /** Liste complète des ressources (issues du resources.json) pour peupler les selects d'édition. */
@@ -94,14 +94,6 @@ interface CalendarEventData {
   textColor?: string;
   classNames?: string[];
   extendedProps: CalendarEventExtProps;
-}
-
-// Override position/resources for a moved or edited solution task
-interface PlacedTaskOverride {
-  startTime: number;
-  teachers: string[];
-  groups: string[];
-  rooms: string[];
 }
 
 // Resources of the event being dragged (for live conflict preview)
@@ -242,98 +234,83 @@ function renderEventContent(info: EventContentArg) {
   );
 }
 
-export default function ScheduleCalendar({ solutions, week, parsedCourses = [], onEnforceChange, blockedZones = [], onBlockedZoneAdd, onBlockedZoneRemove, onBlockedZoneMove, onNeutralizedTaskPlaced, onNeutralizedTaskRemoved, solutionKey, resourcesList = [], constraintsData, externalDragging }: Props) {
+export default function ScheduleCalendar({ solutions, week, parsedCourses = [], onEnforceChange, blockedZones = [], onBlockedZoneAdd, onBlockedZoneRemove, onBlockedZoneMove, solutionKey, resourcesList = [], constraintsData, externalDragging }: Props) {
   const monday = useMemo(() => getMondayOfISOWeek(week), [week]);
+
+  // ── Store ──────────────────────────────────────────────────────────────
+  const taskOverrides = usePlanningStore((s) => s.taskOverrides);
+  const placedNeutralizedTasks = usePlanningStore((s) => s.placedNeutralizedTasks);
+  const setTaskOverride = usePlanningStore((s) => s.setTaskOverride);
+  const moveTaskOverride = usePlanningStore((s) => s.moveTaskOverride);
+  const addPlacedNeutralizedTask = usePlanningStore((s) => s.addPlacedNeutralizedTask);
+  const updatePlacedNeutralizedTask = usePlanningStore((s) => s.updatePlacedNeutralizedTask);
+  const removePlacedNeutralizedTask = usePlanningStore((s) => s.removePlacedNeutralizedTask);
+  const storeEnforcedMap = usePlanningStore((s) => s.enforcedMap);
+
+  // ── État local UI (non partagé entre sessions) ─────────────────────────
   const [selected, setSelected] = useState<EventDetail | null>(null);
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
   const [pendingEdit, setPendingEdit] = useState<PendingEditData | null>(null);
-  const [enforcedEventsState, setEnforcedEventsState] = useState<CalendarEventData[]>([]);
-  const [taskOverrides, setTaskOverrides] = useState<Record<string, PlacedTaskOverride>>({});
-  const [placedNeutralizedEvents, setPlacedNeutralizedEvents] = useState<CalendarEventData[]>([]);
   const [dragging, setDragging] = useState<DraggingState | null>(null);
 
   const calendarRef = useRef<FullCalendar | null>(null);
   const calendarWrapperRef = useRef<HTMLDivElement | null>(null);
   const pendingEventRef = useRef<EventApi | null>(null);
-  const enforcedMapRef = useRef<Record<string, EnforcedData>>({});
 
+  // ── Vues dérivées des événements imposés (depuis enforcedMap du store) ─
+  const enforcedEventsState = useMemo<CalendarEventData[]>(() => {
+    return Object.entries(storeEnforcedMap).map(([courseKey, enforced]) => {
+      const course = parsedCourses[parseInt(courseKey, 10)];
+      const teacherStr = enforced.teacher.join(', ');
+      const title = [course?.code ?? '?', course?.type ?? '', teacherStr].filter(Boolean).join(' • ');
+      const startDate = new Date(monday.getTime() + enforced.startTime * 60 * 1000);
+      const endDate = new Date(startDate.getTime() + (course?.duration ?? 60) * 60 * 1000);
+      return {
+        id: `enforced-${courseKey}`,
+        title,
+        start: startDate,
+        end: endDate,
+        backgroundColor: '#22c55e',
+        borderColor: '#16a34a',
+        textColor: '#fff',
+        extendedProps: {
+          name: course?.name ?? '',
+          code: course?.code ?? '',
+          type: course?.type ?? '',
+          teachers: enforced.teacher,
+          groups: enforced.groups,
+          rooms: enforced.rooms,
+          durationMin: course?.duration ?? 0,
+          isEnforced: true,
+          courseKey,
+        },
+      };
+    });
+  }, [storeEnforcedMap, parsedCourses, monday]);
   useEffect(() => {
-    setPlacedNeutralizedEvents([]);
-    setTaskOverrides({});
-    setDragging(null);
+    usePlanningStore.getState().reset();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [solutionKey]);
-
-  useEffect(() => {
-    if (solutions.length > 0) {
-      setEnforcedEventsState([]);
-      enforcedMapRef.current = {};
-      setTaskOverrides({});
-      setPlacedNeutralizedEvents([]);
-    }
-  }, [solutions.length]);
 
   const prevParsedCoursesRef = useRef<CourseTaskData[]>(parsedCourses);
   useEffect(() => {
     if (prevParsedCoursesRef.current !== parsedCourses) {
       prevParsedCoursesRef.current = parsedCourses;
-      setEnforcedEventsState([]);
-      enforcedMapRef.current = {};
       onEnforceChange?.({});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parsedCourses]);
 
   function confirmEnforce(courseKey: string, enforced: EnforcedData, event: EventApi) {
-    const idx = parseInt(courseKey, 10);
-    const course = parsedCourses[idx];
-    const teacherStr = enforced.teacher.join(', ');
-    const title = [course?.code ?? '?', course?.type ?? '', teacherStr].filter(Boolean).join(' • ');
-    const startDate = new Date(monday.getTime() + enforced.startTime * 60 * 1000);
-    const endDate = new Date(startDate.getTime() + (course?.duration ?? 60) * 60 * 1000);
-
     event.remove();
-
-    setEnforcedEventsState((prev) => {
-      const filtered = prev.filter((e) => e.id !== `enforced-${courseKey}`);
-      return [
-        ...filtered,
-        {
-          id: `enforced-${courseKey}`,
-          title,
-          start: startDate,
-          end: endDate,
-          backgroundColor: '#22c55e',
-          borderColor: '#16a34a',
-          textColor: '#fff',
-          extendedProps: {
-            name: course?.name ?? '',
-            code: course?.code ?? '',
-            type: course?.type ?? '',
-            teachers: enforced.teacher,
-            groups: enforced.groups,
-            rooms: enforced.rooms,
-            durationMin: course?.duration ?? 0,
-            isEnforced: true,
-            courseKey,
-          },
-        },
-      ];
-    });
-
-    const newMap = { ...enforcedMapRef.current, [courseKey]: enforced };
-    enforcedMapRef.current = newMap;
-    onEnforceChange?.({ ...newMap });
+    const newMap = { ...usePlanningStore.getState().enforcedMap, [courseKey]: enforced };
+    onEnforceChange?.(newMap);
   }
 
   function removeEnforced(courseKey: string) {
-    setEnforcedEventsState((prev) =>
-      prev.filter((e) => e.id !== `enforced-${courseKey}`)
-    );
-    const newMap = { ...enforcedMapRef.current };
+    const newMap = { ...usePlanningStore.getState().enforcedMap };
     delete newMap[courseKey];
-    enforcedMapRef.current = newMap;
-    onEnforceChange?.({ ...newMap });
+    onEnforceChange?.(newMap);
   }
 
   function handleSelect(selectInfo: { start: Date; end: Date }) {
@@ -407,27 +384,10 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
     const code = ext.code ?? '';
     const name = ext.name ?? '';
     const type = ext.type ?? '';
-    const title = [code, type, ...teachers].filter(Boolean).join(' • ');
-    const endDate = new Date(startDate.getTime() + durationMin * 60 * 1000);
+    const startTime = Math.round((startDate.getTime() - monday.getTime()) / 60000);
 
     info.event.remove();
-    setPlacedNeutralizedEvents((prev) => {
-      const filtered = prev.filter((e) => e.id !== taskId);
-      return [
-        ...filtered,
-        {
-          id: taskId,
-          title,
-          start: startDate,
-          end: endDate,
-          backgroundColor: '#22c55e',
-          borderColor: '#16a34a',
-          textColor: '#fff',
-          extendedProps: { name, code, type, teachers, groups, rooms, durationMin, isNeutralizedPlaced: true, taskId },
-        },
-      ];
-    });
-    onNeutralizedTaskPlaced?.(taskId);
+    addPlacedNeutralizedTask({ taskId, code, name, type, startTime, duration: durationMin, teachers, groups, rooms });
   }
 
   function handleEventReceive(info: EventReceiveArg) {
@@ -513,42 +473,27 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
 
     if (pendingEdit.isEnforced && pendingEdit.courseKey) {
       const courseKey = pendingEdit.courseKey;
-      const existing = enforcedMapRef.current[courseKey];
+      const existing = usePlanningStore.getState().enforcedMap[courseKey];
       if (existing) {
         const updated: EnforcedData = { ...existing, teacher: update.teachers, groups: update.groups, rooms: update.rooms };
-        const newMap = { ...enforcedMapRef.current, [courseKey]: updated };
-        enforcedMapRef.current = newMap;
+        const newMap = { ...usePlanningStore.getState().enforcedMap, [courseKey]: updated };
         onEnforceChange?.({ ...newMap });
-        const course = parsedCourses[parseInt(courseKey, 10)];
-        const newTitle = [course?.code ?? '?', course?.type ?? '', update.teachers.join(', ')].filter(Boolean).join(' • ');
-        setEnforcedEventsState((prev) =>
-          prev.map((e) => {
-            if (e.id !== `enforced-${courseKey}`) return e;
-            return { ...e, title: newTitle, extendedProps: { ...e.extendedProps, teachers: update.teachers, groups: update.groups, rooms: update.rooms } };
-          })
-        );
       }
     } else if (pendingEdit.isNeutralizedPlaced) {
-      const taskId = pendingEdit.taskId;
-      setPlacedNeutralizedEvents((prev) =>
-        prev.map((e) => {
-          if (e.id !== taskId) return e;
-          const newTitle = [e.extendedProps.code ?? '', e.extendedProps.type ?? '', ...update.teachers].filter(Boolean).join(' • ');
-          return { ...e, title: newTitle, extendedProps: { ...e.extendedProps, teachers: update.teachers, groups: update.groups, rooms: update.rooms } };
-        })
-      );
+      updatePlacedNeutralizedTask(pendingEdit.taskId, {
+        teachers: update.teachers,
+        groups: update.groups,
+        rooms: update.rooms,
+      });
     } else {
       const taskId = pendingEdit.taskId;
       const existingOverride = taskOverrides[taskId];
-      setTaskOverrides((prev) => ({
-        ...prev,
-        [taskId]: {
-          startTime: existingOverride?.startTime ?? pendingEdit.startTime,
-          teachers: update.teachers,
-          groups: update.groups,
-          rooms: update.rooms,
-        },
-      }));
+      setTaskOverride(taskId, {
+        startTime: existingOverride?.startTime ?? pendingEdit.startTime,
+        teachers: update.teachers,
+        groups: update.groups,
+        rooms: update.rooms,
+      });
     }
 
     setPendingEdit(null);
@@ -572,22 +517,12 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
       if (!startDate || !courseKey) return;
 
       const newStartTime = Math.round((startDate.getTime() - monday.getTime()) / 60000);
-      const existing = enforcedMapRef.current[courseKey];
+      const existing = usePlanningStore.getState().enforcedMap[courseKey];
       if (!existing) return;
 
       const updated: EnforcedData = { ...existing, startTime: newStartTime };
-      const newMap = { ...enforcedMapRef.current, [courseKey]: updated };
-      enforcedMapRef.current = newMap;
+      const newMap = { ...usePlanningStore.getState().enforcedMap, [courseKey]: updated };
       onEnforceChange?.({ ...newMap });
-
-      const course = parsedCourses[parseInt(courseKey, 10)];
-      const newEnd = new Date(startDate.getTime() + (course?.duration ?? 60) * 60 * 1000);
-      setEnforcedEventsState((prev) =>
-        prev.map((e) => {
-          if (e.id !== `enforced-${courseKey}`) return e;
-          return { ...e, start: startDate, end: newEnd };
-        })
-      );
       return;
     }
 
@@ -601,17 +536,18 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
     const durationMin = ext.durationMin ?? 60;
 
     if (ext.isNeutralizedPlaced) {
-      const newEnd = new Date(startDate.getTime() + durationMin * 60 * 1000);
-      setPlacedNeutralizedEvents((prev) =>
-        prev.map((e) => e.id !== taskId ? e : { ...e, start: startDate, end: newEnd })
-      );
+      updatePlacedNeutralizedTask(taskId, { startTime: newStartTime });
       return;
     }
 
-    setTaskOverrides((prev) => ({
-      ...prev,
-      [taskId]: { startTime: newStartTime, teachers, groups, rooms },
-    }));
+    const existing = taskOverrides[taskId];
+    setTaskOverride(taskId, {
+      startTime: newStartTime,
+      teachers: existing?.teachers ?? teachers,
+      groups: existing?.groups ?? groups,
+      rooms: existing?.rooms ?? rooms,
+    });
+    void durationMin;
   }
 
   function handleEventDragStop(info: EventDragStopArg) {
@@ -631,20 +567,13 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
 
     if (ext.isEnforced && ext.courseKey) {
       const courseKey = ext.courseKey;
-      setEnforcedEventsState((prev) =>
-        prev.filter((e) => e.id !== `enforced-${courseKey}`)
-      );
-      const newMap = { ...enforcedMapRef.current };
+      const newMap = { ...usePlanningStore.getState().enforcedMap };
       delete newMap[courseKey];
-      enforcedMapRef.current = newMap;
       onEnforceChange?.({ ...newMap });
     }
 
     if (ext.isNeutralizedPlaced && info.event.id) {
-      setPlacedNeutralizedEvents((prev) =>
-        prev.filter((e) => e.id !== info.event.id)
-      );
-      onNeutralizedTaskRemoved?.(info.event.id);
+      removePlacedNeutralizedTask(info.event.id);
     }
   }
 
@@ -679,6 +608,32 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
       };
     });
 
+    const placedNeutralizedEvts: CalendarEventData[] = placedNeutralizedTasks.map((task) => {
+      const start = startTimeToDate(monday, task.startTime);
+      const end = new Date(start.getTime() + task.duration * 60 * 1000);
+      const title = [task.code, task.type, ...task.teachers].filter(Boolean).join(' • ');
+      return {
+        id: task.taskId,
+        title,
+        start,
+        end,
+        backgroundColor: '#22c55e',
+        borderColor: '#16a34a',
+        textColor: '#fff',
+        extendedProps: {
+          name: task.name,
+          code: task.code,
+          type: task.type,
+          teachers: task.teachers,
+          groups: task.groups,
+          rooms: task.rooms,
+          durationMin: task.duration,
+          isNeutralizedPlaced: true,
+          taskId: task.taskId,
+        },
+      };
+    });
+
     const resourceEvents: ResourceEventInfo[] = [
       ...solEvts.map((e) => ({
         id: e.id,
@@ -696,7 +651,7 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
         groups: e.extendedProps.groups ?? [],
         rooms: e.extendedProps.rooms ?? [],
       })),
-      ...placedNeutralizedEvents.map((e) => ({
+      ...placedNeutralizedEvts.map((e) => ({
         id: e.id,
         start: e.start,
         end: e.end,
@@ -744,10 +699,10 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
       ...solEvts.map(applyHighlight),
       ...blockEvts,
       ...enforcedEventsState.map(applyHighlight),
-      ...placedNeutralizedEvents.map(applyHighlight),
+      ...placedNeutralizedEvts.map(applyHighlight),
       ...constraintBgEvents,
     ];
-  }, [solutions, blockedZones, monday, enforcedEventsState, taskOverrides, placedNeutralizedEvents, dragging, externalDragging, constraintsData, week]);
+  }, [solutions, blockedZones, monday, enforcedEventsState, taskOverrides, placedNeutralizedTasks, dragging, externalDragging, constraintsData, week]);
 
   return (
     <>

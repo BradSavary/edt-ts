@@ -5,18 +5,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { type ResourceType, RESOURCE_TYPE_LABELS } from '@/lib/constraintsStorage';
+import { type ResourceTypeUI, RESOURCE_TYPE_LABELS } from '@/lib/constraintsUtils';
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  onAdd: (id: string, type: ResourceType) => void;
+  onAdd: (id: string, type: ResourceTypeUI) => void;
   existingIds: string[];
 }
 
 export function AddResourceModal({ open, onClose, onAdd, existingIds }: Props) {
   const [name, setName] = useState('');
-  const [type, setType] = useState<ResourceType>('teacher');
+  const [type, setType] = useState<ResourceTypeUI>('teacher');
   const [error, setError] = useState('');
 
   function handleSubmit() {
@@ -60,10 +60,10 @@ export function AddResourceModal({ open, onClose, onAdd, existingIds }: Props) {
             <select
               id="resource-type"
               value={type}
-              onChange={(e) => setType(e.target.value as ResourceType)}
+              onChange={(e) => setType(e.target.value as ResourceTypeUI)}
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
-              {(Object.keys(RESOURCE_TYPE_LABELS) as ResourceType[]).map((t) => (
+              {(Object.keys(RESOURCE_TYPE_LABELS) as ResourceTypeUI[]).map((t) => (
                 <option key={t} value={t}>{RESOURCE_TYPE_LABELS[t]}</option>
               ))}
             </select>

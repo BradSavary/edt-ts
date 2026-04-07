@@ -171,6 +171,32 @@ export function extractResourceWeeks(csvText: string): Record<string, number[]> 
 }
 
 /**
+ * Parse le CSV pour TOUTES les semaines disponibles dans l'en-tête.
+ * Retourne la concaténation des tâches de chaque semaine.
+ * Utiliser avec useSchedulerStore.getState().setCourses() pour populer le store.
+ */
+export function parseCsvCoursesAll(csvText: string): CourseTaskData[] {
+  const lines = csvText.split(/\r?\n/);
+  if (lines.length < 2) return [];
+  const headerLine = lines.find((l) => l.trim().length > 0) ?? '';
+  const headers = parseCSVRow(headerLine);
+  const weeks: number[] = [];
+  for (const h of headers) {
+    const m = h.trim().match(/^S(\d+)$/i);
+    if (m) weeks.push(parseInt(m[1], 10));
+  }
+  const result: CourseTaskData[] = [];
+  for (const week of weeks) {
+    try {
+      result.push(...parseCsvCourses(csvText, week));
+    } catch {
+      // semaine sans cours dans ce CSV, on ignore
+    }
+  }
+  return result;
+}
+
+/**
  * Parse une ligne CSV en respectant les guillemets (champs pouvant contenir des virgules).
  * Ex: `a,"b,c",d` → `['a', 'b,c', 'd']`
  */

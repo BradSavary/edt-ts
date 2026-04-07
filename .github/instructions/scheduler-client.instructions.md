@@ -4,7 +4,7 @@ applyTo: "packages/scheduler-client/**"
 
 # Copilot Instructions — scheduler-client
 
-Le package `scheduler-client` est l'application web de test du planificateur. C'est un projet **Next.js 16 (App Router)** avec TypeScript strict, Tailwind CSS, et un proxy vers l'API Express.
+Le package `scheduler-client` est l'application web de planification. C'est un projet **Next.js (App Router)** avec TypeScript strict, Tailwind CSS v4, shadcn/ui, et un proxy vers l'API Express.
 
 ## Objectif du package
 
@@ -16,43 +16,118 @@ Le package `scheduler-client` est l'application web de test du planificateur. C'
 
 ```
 packages/scheduler-client/
-  app/                    # Next.js App Router
-    layout.tsx            # Layout racine
-    page.tsx              # Page principale (formulaire de planification)
-    globals.css           # Styles globaux (Tailwind + shadcn CSS vars OKLCH)
-    api/                  # Route handlers Next.js (proxy → scheduler-api)
-  components/             # Composants métier de l'application
-    CourseCard.tsx        # Carte draggable d'un cours (sidebar gauche)
-    CourseGroupList.tsx   # Liste groupée de cours (par code ou enseignant)
-    EnforceModal.tsx      # Modal de confirmation de placement imposé
-    ScheduleCalendar.tsx  # Calendrier FullCalendar principal
-    TaskEditModal.tsx     # Modal d'édition des ressources d'une tâche placée
-    ui/                   # Composants shadcn/ui (générés automatiquement)
-      button.tsx
-      card.tsx
-      select.tsx
-      tabs.tsx
-      dialog.tsx
-      badge.tsx
-      input.tsx
-      label.tsx
-      separator.tsx
-      scroll-area.tsx
-      alert.tsx
-  lib/                    # Utilitaires (framework-agnostic)
-    utils.ts              # Fonction cn() (clsx + tailwind-merge)
-    calendarUtils.ts      # Helpers FullCalendar
-    blockedZones.ts       # Logique zones bloquées
-    parseCsvCourses.ts    # Parsing CSV des cours
-  __tests__/              # Tests unitaires (Vitest + Testing Library)
-  e2e/                    # Tests E2E (Playwright)
-  public/                 # Assets statiques
-  components.json         # Config shadcn/ui
-  vitest.config.ts        # Config Vitest
-  vitest.setup.ts         # Setup jest-dom
-  playwright.config.ts    # Config Playwright
-  next.config.ts          # Config Next.js (proxy rewrites)
+  app/                          # Next.js App Router
+    layout.tsx                  # Layout racine
+    page.tsx                    # Page principale (planning)
+    globals.css                 # Styles globaux (Tailwind + shadcn CSS vars OKLCH)
+    constraints/
+      page.tsx                  # Page gestion des contraintes
+    api/
+      schedule/
+        route.ts                # Route handler POST /api/schedule (proxy → Express, 5min timeout)
+        elimination/
+          route.ts              # Route handler POST /api/schedule/elimination
+  components/                   # Composants métier
+    CourseCard.tsx              # Carte draggable d'un cours (sidebar gauche)
+    CourseGroupList.tsx         # Liste groupée de cours (par code ou enseignant)
+    ScheduleCalendar.tsx        # Calendrier FullCalendar principal
+    modals/
+      EnforceModal.tsx          # Modal de confirmation de placement imposé
+      TaskEditModal.tsx         # Modal d'édition des ressources d'une tâche placée
+    schedule/
+      SidebarLeft.tsx           # Sidebar gauche (cours à placer + filtres)
+      NeutralizedPanel.tsx      # Panel des cours neutralisés (drag externe)
+    constraints/
+      ConstraintsManager.tsx    # Gestionnaire complet des contraintes
+      ResourceConstraintEditor.tsx  # Éditeur de contraintes par ressource
+      TimeRangePicker.tsx       # Sélecteur plage horaire (AM/PM)
+      AddResourceModal.tsx      # Modal ajout d'une ressource dans les contraintes
+    ui/                         # Composants shadcn/ui (générés automatiquement)
+  lib/                          # Utilitaires (framework-agnostic)
+    utils.ts                    # Fonction cn() (clsx + tailwind-merge)
+    calendarUtils.ts            # Helpers FullCalendar + détection conflits ressources
+    blockedZones.ts             # Logique zones bloquées (soustraction de créneaux)
+    parseCsvCourses.ts          # Parsing CSV des cours → CourseTaskData[]
+    scheduleApi.ts              # Client API (runScheduleRequestFromData → POST /api/schedule)
+    constraintsStorage.ts       # Utilitaires UI contraintes (DayMap, normalisation, export JSON)
+  hooks/
+    useNeutralizedDraggable.ts  # FullCalendar Draggable pour les tâches neutralisées
+    useSidebarCourseDrag.ts     # FullCalendar Draggable + conflits pour la sidebar cours
+  store/
+    useSchedulerStore.ts        # Store persisté (allCourses, resources, constraints, availabilityManager)
+    usePlanningStore.ts         # Store session (semaine, résultat, solution active, enforced, blockedZones)
+    slices/
+      constraintsSlice.ts       # Slice Zustand pour les contraintes (avec persist)
+  __tests__/                    # Tests unitaires (Vitest + Testing Library)
+  e2e/                          # Tests E2E (Playwright)
+  public/                       # Assets statiques
 ```
+
+## Architecture des stores Zustand
+
+L'état global est **séparé en deux stores** :
+
+### `useSchedulerStore` — données persistées (localStorage `edt-scheduler`)
+- `allCourses: CourseTaskData[]` — tous les cours parsés du CSV (toutes semaines)
+- `resources: ResourceGroupData[]` — ressources chargées depuis resources.json
+- `constraints: ConstraintsRecord` — contraintes de disponibilité (Zustand persist)
+- `resourceWeeks: Record<string, number[]>` — semaines actives par ressource (du CSV)
+- `availabilityManager: AvailabilityManager | null` — **non persisté**, reconstruit automatiquement quand `constraints` change (côté client uniquement via `subscribe`)
+
+### `usePlanningStore` — état de session (non persisté)
+- `selectedWeek`, `setSelectedWeek` — semaine ISO courante (déclenche `buildSchedulerData`)
+- `schedulerData: SchedulerData | null` — instance `SchedulerData` de `@edt-ts/scheduler-common` (reconstruit à chaque changement de semaine)
+- `scheduleResult`, `activeSolution`, `activeNeutralizedTasks` — résultat et vue courante
+- `enforcedMap` — placements imposés (courseKey → EnforcedData)
+- `blockedZones` — zones bloquées (plages indisponibles créées manuellement)
+- `isLoading`, `status` — feedback UI
+- `runSchedule(mode)` — déclenche l'appel API via `runScheduleRequestFromData`
+
+**Ne jamais ajouter de logique métier** directement dans les stores. Les stores orchestrent ; la logique reste dans `lib/`.
+
+## Flux de données principal
+
+```
+CSV (coursesCsvFile)  →  parseCsvCoursesAll()  →  useSchedulerStore.allCourses
+JSON (resourcesFile)  →  JSON.parse()           →  useSchedulerStore.resources
+Contraintes UI        →  constraintsSlice        →  useSchedulerStore.constraints
+                                                        ↓
+                                              AvailabilityManager (auto-reconstruit)
+                                              SchedulerData (via buildSchedulerData)
+                                                        ↓
+usePlanningStore.runSchedule()  →  runScheduleRequestFromData()  →  POST /api/schedule
+                                                        ↓
+                                               scheduleResult → activeSolution → ScheduleCalendar
+```
+
+## Utilisation de `@edt-ts/scheduler-common` côté client
+
+- `CourseTaskData`, `ResourceGroupData`, `ConstraintsData`, `TimeSlot`, `ResourceConstraints` : types de données, imports directs
+- `TaskSolutionJSON`, `ScheduleSolutionJSON` : types des réponses API
+- `SchedulerData` : utilisé dans `usePlanningStore.buildSchedulerData()` pour construire l'instance locale (collision detection, validation)
+- `AvailabilityManager` : utilisé dans `useSchedulerStore` pour calculer les zones d'indisponibilité côté client
+- `EnforcedData` : type pour les placements imposés
+
+## `lib/constraintsStorage.ts`
+
+Ce fichier contient les utilitaires **UI** pour la gestion des contraintes. Il n'est **pas** responsable du stockage (géré par Zustand persist).
+
+Types UI spécifiques au client :
+- `ResourceTypeUI` (`'teacher' | 'room' | 'group' | 'other'`) — distinct de `ResourceType` de `common` (ajoute `'other'`)
+- `DayMap`, `DayName`, `DaySlot`, `DAYS` — format par-jour pour l'éditeur de contraintes
+
+## `lib/scheduleApi.ts`
+
+Une seule fonction publique : **`runScheduleRequestFromData(params)`**.  
+Elle prend les données déjà en mémoire (depuis les stores), construit le payload et appelle `POST /api/schedule` ou `/api/schedule/elimination`.
+
+> Ne pas recréer une variante File-based (ex-`runScheduleRequest`) — les fichiers sont lus dans `page.tsx` et stockés dans le store avant l'appel.
+
+## Route handlers (`app/api/`)
+
+Les routes handler Next.js sont de simples **proxies HTTP** vers l'API Express (port 3000).  
+Elles existent car le proxy `rewrites` de Next.js applique un timeout court incompatible avec les longues computations.  
+Timeout : 5 minutes (`AbortSignal.timeout(300_000)`).
 
 ## shadcn/ui
 
@@ -76,11 +151,13 @@ packages/scheduler-client/
 
 - Importer uniquement depuis `@edt-ts/scheduler-common` pour les types partagés
 - Ne jamais importer depuis `@edt-ts/scheduler-core` ou `@edt-ts/scheduler-api`
-- Utiliser le proxy Next.js (`/api/:path* → http://localhost:3000/api/:path*`) pour toutes les requêtes API
+- Utiliser le proxy Next.js route handlers (`app/api/`) pour toutes les requêtes vers l'API Express
 - Utiliser l'alias `@/` pour tous les imports internes (résout vers la racine du package)
   - `@/components/...` pour les composants métier
   - `@/components/ui/...` pour les composants shadcn
   - `@/lib/...` pour les utilitaires
+  - `@/store/...` pour les stores Zustand
+  - `@/hooks/...` pour les hooks
 
 ## Conventions de code
 
@@ -89,13 +166,6 @@ packages/scheduler-client/
 - CSS uniquement via classes Tailwind — pas de styles inline sauf cas exceptionnel
 - Composants fonctionnels React uniquement (pas de classes)
 - Préférer les composants shadcn aux éléments HTML bruts pour les formulaires et les modales
-
-## Proxy API (next.config.ts)
-
-Le proxy est configuré via `rewrites` dans `next.config.ts` :
-- `GET/POST /api/:path*` → `http://localhost:3000/api/:path*`
-- L'API Express doit tourner sur le port 3000 (`npm run api:dev`)
-- Le client tourne sur le port 5173 (`npm run client:dev`)
 
 ## Tests unitaires (Vitest)
 
@@ -138,21 +208,3 @@ Le proxy est configuré via `rewrites` dans `next.config.ts` :
 - Tests unitaires : `npm run test --workspace=packages/scheduler-client`
 - Tests unitaires watch : `npm run test:watch --workspace=packages/scheduler-client`
 - Tests E2E : `npm run test:e2e --workspace=packages/scheduler-client`
-
-## CI (GitHub Actions)
-
-Le workflow `scheduler-client-pr.yml` se déclenche sur toute PR touchant `packages/scheduler-client/**` ou `packages/scheduler-common/**`. Jobs :
-
-1. **Lint** (non-bloquant) — `eslint`
-2. **Typecheck** — `tsc --noEmit`
-3. **Build** — `next build`
-4. **Unit Tests** — `vitest run`
-5. **E2E Tests** — `playwright test` (avec `npx playwright install --with-deps chromium`)
-
-## Gestion des versions de dépendances
-
-- Next.js : `16.x` (App Router)
-- React : `19.x`
-- Vitest : `^3.x`
-- Playwright : `^1.50`
-- @testing-library/react : `^16.x`

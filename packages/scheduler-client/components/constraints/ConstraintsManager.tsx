@@ -10,14 +10,14 @@ import { cn } from '@/lib/utils';
 import {
   detectResourceType,
   normalizeToRC,
-  type ResourceType,
+  type ResourceTypeUI,
   RESOURCE_TYPE_LABELS,
-} from '@/lib/constraintsStorage';
+} from '@/lib/constraintsUtils';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { ResourceConstraintEditor } from './ResourceConstraintEditor';
 import { AddResourceModal } from './AddResourceModal';
 
-const RESOURCE_TABS: { value: ResourceType; label: string }[] = [
+const RESOURCE_TABS: { value: ResourceTypeUI; label: string }[] = [
   { value: 'teacher', label: 'Enseignants' },
   { value: 'room', label: 'Salles' },
   { value: 'group', label: 'Groupes' },
@@ -39,7 +39,7 @@ export function ConstraintsManager() {
 
   // --- État local UI uniquement ---
   const [search, setSearch]           = useState('');
-  const [activeTab, setActiveTab]     = useState<ResourceType>('teacher');
+  const [activeTab, setActiveTab]     = useState<ResourceTypeUI>('teacher');
   const [selectedId, setSelectedId]   = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [importError, setImportError] = useState('');
@@ -96,7 +96,7 @@ export function ConstraintsManager() {
 
   // Group resource keys by detected type (excluding "Default")
   const allIds = Object.keys(constraints).filter((k) => k !== 'Default');
-  const byType: Record<ResourceType, string[]> = {
+  const byType: Record<ResourceTypeUI, string[]> = {
     teacher: [],
     room: [],
     group: [],
@@ -105,7 +105,7 @@ export function ConstraintsManager() {
   for (const id of allIds) {
     byType[detectResourceType(id)].push(id);
   }
-  for (const t of Object.keys(byType) as ResourceType[]) {
+  for (const t of Object.keys(byType) as ResourceTypeUI[]) {
     byType[t].sort((a, b) => a.localeCompare(b, 'fr'));
   }
 
@@ -201,7 +201,7 @@ export function ConstraintsManager() {
           {/* Tabs by type */}
           <Tabs
             value={activeTab}
-            onValueChange={(v) => setActiveTab(v as ResourceType)}
+            onValueChange={(v) => setActiveTab(v as ResourceTypeUI)}
             className="flex flex-col flex-1 overflow-hidden"
           >
             <TabsList className="shrink-0 w-full rounded-none border-b border-border bg-transparent h-9 px-1 gap-0.5 justify-start">
