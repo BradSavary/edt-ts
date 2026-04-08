@@ -18,6 +18,10 @@ store/
 - `constraints: ConstraintsRecord` — contraintes de disponibilité (Zustand persist)
 - `resourceWeeks: Record<string, number[]>` — semaines actives par ressource
 
+**Champs non persistés** (reconstruits automatiquement côté client via `subscribe`) :
+- `availabilityManager: AvailabilityManager | null` — reconstruit quand `constraints` change (côté client uniquement)
+- `clientSchedulerData: ClientSchedulerData | null` — instance de `lib/clientSchedulerData.ts`, reconstruit quand `allCourses` ou `resources` change ; expose `getTasksForWeek(week)` → `Task[]` (objets riches avec `Resource` instances et dépendances CM→TD→TP)
+
 ### `usePlanningStore` — session (non persisté)
 - `selectedWeek`, `setSelectedWeek` — semaine ISO courante
 - `scheduleResult`, `activeSolution`, `activeNeutralizedTasks` — résultat et vue courante

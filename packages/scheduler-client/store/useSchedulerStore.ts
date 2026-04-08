@@ -4,6 +4,7 @@ import type { StateCreator } from 'zustand';
 import { createConstraintsSlice, type ConstraintsSlice } from './slices/constraintsSlice';
 import type { CourseTaskData, ResourceGroupData, ConstraintsData } from '@edt-ts/scheduler-common';
 import { AvailabilityManager } from '@edt-ts/scheduler-common';
+import { ClientSchedulerData } from '../lib/clientSchedulerData';
 
 // ── Slice : données brutes du planificateur ────────────────────────────────
 // allCourses, resources, constraints sont persistés (localStorage "edt-scheduler").
@@ -16,6 +17,8 @@ interface SchedulerDataSlice {
   coursesFileName: string | null;
   /** Instance reconstruite depuis constraints — non persistée, jamais null si constraints non vide */
   availabilityManager: AvailabilityManager | null;
+  /** Instance ClientSchedulerData — non persistée, reconstruite quand allCourses ou resources change */
+  clientSchedulerData: ClientSchedulerData | null;
   setCourses: (courses: CourseTaskData[], fileName?: string) => void;
   setResources: (resources: ResourceGroupData[]) => void;
 }
@@ -36,6 +39,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
       resources: [],
       coursesFileName: null,
       availabilityManager: null, // Reconstruit par subscribe ci-dessous
+      clientSchedulerData: null, // Reconstruit par subscribe ci-dessous
       setCourses: (allCourses, fileName) => set({ allCourses, ...(fileName !== undefined ? { coursesFileName: fileName } : {}) }),
       setResources: (resources) => set({ resources }),
     }),
@@ -59,22 +63,37 @@ export const useSchedulerStore = create<SchedulerStore>()(
 // ce qui provoque le subscribe et construit le premier AvailabilityManager.
 // Ensuite, chaque modification de constraints via constraintsSlice le reconstruit.
 
+function buildClientSchedulerData(state: SchedulerStore): ClientSchedulerData | null {
+  if (state.allCourses.length === 0 || state.resources.length === 0) return null;
+  const data = new ClientSchedulerData();
+  data.initResources(state.resources);
+  data.initAllTasks(state.allCourses);
+  return data;
+}
+
 if (typeof window !== 'undefined') {
   // Reconstruit l'AvailabilityManager à chaque changement de constraints.
   // Toujours créé (même avec constraints vides) pour que computeConstraintUnavailableZones
   // fonctionne dès le premier drag — les ressources sans contrainte définie seront ignorées.
+  // Reconstruit le ClientSchedulerData à chaque changement de allCourses ou resources.
   useSchedulerStore.subscribe((state, prevState) => {
+    const updates: Record<string, unknown> = {};
     if (state.constraints !== prevState.constraints) {
-      useSchedulerStore.setState({
-        availabilityManager: new AvailabilityManager(state.constraints as ConstraintsData),
-      });
+      updates.availabilityManager = new AvailabilityManager(state.constraints as ConstraintsData);
+    }
+    if (state.allCourses !== prevState.allCourses || state.resources !== prevState.resources) {
+      updates.clientSchedulerData = buildClientSchedulerData(state);
+    }
+    if (Object.keys(updates).length > 0) {
+      useSchedulerStore.setState(updates as Partial<SchedulerStore>);
     }
   });
 
   // Initialisation immédiate : gère le cas où persist a déjà hydraté le store
   // avant que le subscribe soit installé (navigation SPA, hot-reload).
-  const initialConstraints = useSchedulerStore.getState().constraints;
+  const initialState = useSchedulerStore.getState();
   useSchedulerStore.setState({
-    availabilityManager: new AvailabilityManager(initialConstraints as ConstraintsData),
+    availabilityManager: new AvailabilityManager(initialState.constraints as ConstraintsData),
+    clientSchedulerData: buildClientSchedulerData(initialState),
   });
 }

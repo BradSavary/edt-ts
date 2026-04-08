@@ -16,10 +16,10 @@ import type { ResourceGroupData, CoursesData, ConstraintsData, ResourceEntry } f
  * `isReady` passe à `true` quand les trois étapes sont complètes.
  */
 export class SchedulerData {
-  private _resourcesManager: ResourcesManager | null = null;
-  private _tasksManager: TasksManager | null = null;
-  private _availabilityManager: AvailabilityManager | null = null;
-  private _taskCounter: number = 0;
+  protected _resourcesManager: ResourcesManager | null = null;
+  protected _tasksManager: TasksManager | null = null;
+  protected _availabilityManager: AvailabilityManager | null = null;
+  protected _taskCounter: number = 0;
 
   get isReady(): boolean {
     return (

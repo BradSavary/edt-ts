@@ -49,12 +49,13 @@ packages/scheduler-client/
     blockedZones.ts             # Logique zones bloquées (soustraction de créneaux)
     parseCsvCourses.ts          # Parsing CSV des cours → CourseTaskData[]
     scheduleApi.ts              # Client API (runScheduleRequestFromData → POST /api/schedule)
-    constraintsStorage.ts       # Utilitaires UI contraintes (DayMap, normalisation, export JSON)
+    constraintsUtils.ts         # Utilitaires UI contraintes (DayMap, normalisation, export JSON)
+    clientSchedulerData.ts      # Sous-classe ClientSchedulerData extends SchedulerData (toutes semaines, sans contraintes hebdomadaires)
   hooks/
     useNeutralizedDraggable.ts  # FullCalendar Draggable pour les tâches neutralisées
     useSidebarCourseDrag.ts     # FullCalendar Draggable + conflits pour la sidebar cours
   store/
-    useSchedulerStore.ts        # Store persisté (allCourses, resources, constraints, availabilityManager)
+    useSchedulerStore.ts        # Store persisté (allCourses, resources, constraints, availabilityManager, clientSchedulerData)
     usePlanningStore.ts         # Store session (semaine, résultat, solution active, enforced, blockedZones)
     slices/
       constraintsSlice.ts       # Slice Zustand pour les contraintes (avec persist)
@@ -72,14 +73,18 @@ L'état global est **séparé en deux stores** :
 - `resources: ResourceGroupData[]` — ressources chargées depuis resources.json
 - `constraints: ConstraintsRecord` — contraintes de disponibilité (Zustand persist)
 - `resourceWeeks: Record<string, number[]>` — semaines actives par ressource (du CSV)
-- `availabilityManager: AvailabilityManager | null` — **non persisté**, reconstruit automatiquement quand `constraints` change (côté client uniquement via `subscribe`)
+
+**Champs non persistés** (reconstruits côté client uniquement via `subscribe` + initialisation immédiate) :
+- `availabilityManager: AvailabilityManager | null` — reconstruit quand `constraints` change ; utilisé par `computeConstraintUnavailableZones` pour les zones de drag
+- `clientSchedulerData: ClientSchedulerData | null` — instance `lib/clientSchedulerData.ts`, reconstruit quand `allCourses` ou `resources` change ; expose `getTasksForWeek(week) → Task[]` (objets riches avec `Resource` instances et dépendances CM→TD→TP) ; pertinent pour validation côté client et planification future hors réseau
 
 ### `usePlanningStore` — état de session (non persisté)
-- `selectedWeek`, `setSelectedWeek` — semaine ISO courante (déclenche `buildSchedulerData`)
-- `schedulerData: SchedulerData | null` — instance `SchedulerData` de `@edt-ts/scheduler-common` (reconstruit à chaque changement de semaine)
+- `selectedWeek`, `setSelectedWeek` — semaine ISO courante
 - `scheduleResult`, `activeSolution`, `activeNeutralizedTasks` — résultat et vue courante
 - `enforcedMap` — placements imposés (courseKey → EnforcedData)
 - `blockedZones` — zones bloquées (plages indisponibles créées manuellement)
+- `taskOverrides` — overrides de position/ressources pour les tâches déplacées manuellement
+- `placedNeutralizedTasks` — tâches neutralisées replacées sur le calendrier via drag
 - `isLoading`, `status` — feedback UI
 - `runSchedule(mode)` — déclenche l'appel API via `runScheduleRequestFromData`
 
@@ -92,8 +97,9 @@ CSV (coursesCsvFile)  →  parseCsvCoursesAll()  →  useSchedulerStore.allCours
 JSON (resourcesFile)  →  JSON.parse()           →  useSchedulerStore.resources
 Contraintes UI        →  constraintsSlice        →  useSchedulerStore.constraints
                                                         ↓
-                                              AvailabilityManager (auto-reconstruit)
-                                              SchedulerData (via buildSchedulerData)
+                                              AvailabilityManager (auto-reconstruit si constraints change)
+                                              ClientSchedulerData  (auto-reconstruit si allCourses/resources change)
+                                                └→ getTasksForWeek(week) → Task[] (validation client, futur hors-réseau)
                                                         ↓
 usePlanningStore.runSchedule()  →  runScheduleRequestFromData()  →  POST /api/schedule
                                                         ↓
@@ -104,13 +110,29 @@ usePlanningStore.runSchedule()  →  runScheduleRequestFromData()  →  POST /ap
 
 - `CourseTaskData`, `ResourceGroupData`, `ConstraintsData`, `TimeSlot`, `ResourceConstraints` : types de données, imports directs
 - `TaskSolutionJSON`, `ScheduleSolutionJSON` : types des réponses API
-- `SchedulerData` : utilisé dans `usePlanningStore.buildSchedulerData()` pour construire l'instance locale (collision detection, validation)
+- `SchedulerData` : classe de base étendue par `ClientSchedulerData` (local, `lib/clientSchedulerData.ts`)
+- `Task` : type de retour de `ClientSchedulerData.getTasksForWeek()` ; utile pour accéder aux `Resource` instances et dépendances
 - `AvailabilityManager` : utilisé dans `useSchedulerStore` pour calculer les zones d'indisponibilité côté client
 - `EnforcedData` : type pour les placements imposés
 
-## `lib/constraintsStorage.ts`
+## `lib/clientSchedulerData.ts`
 
-Ce fichier contient les utilitaires **UI** pour la gestion des contraintes. Il n'est **pas** responsable du stockage (géré par Zustand persist).
+Sous-classe de `SchedulerData` pour le client. Permet de charger **l'ensemble des cours** (toutes semaines) sans appliquer de contraintes hebdomadaires sur les ressources.
+
+- `initAllTasks(courses: CourseTaskData[])` — charge toutes les tâches sans `applyConstraintsForWeek` ; **requiert `initResources()` au préalable**
+- `getTasksForWeek(week: number): Task[]` — filtre les tâches par semaine ISO
+
+L'instance est maintenue dans `useSchedulerStore.clientSchedulerData`, reconstruit automatiquement quand `allCourses` ou `resources` change. Les consommateurs la lisent via :
+```ts
+const csd = useSchedulerStore(s => s.clientSchedulerData);
+const tasks = csd?.getTasksForWeek(47) ?? [];
+```
+
+> Note : retourne `Task[]` (objets riches), pas `CourseTaskData[]`. À ne pas confondre avec `allCourses.filter(c => c.week === w)` qui retourne des données brutes.
+
+## `lib/constraintsUtils.ts`
+
+Utilitaires **UI** pour la gestion des contraintes. N'est **pas** responsable du stockage (géré par Zustand persist).
 
 Types UI spécifiques au client :
 - `ResourceTypeUI` (`'teacher' | 'room' | 'group' | 'other'`) — distinct de `ResourceType` de `common` (ajoute `'other'`)
