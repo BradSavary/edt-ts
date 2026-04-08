@@ -60,14 +60,21 @@ export const useSchedulerStore = create<SchedulerStore>()(
 // Ensuite, chaque modification de constraints via constraintsSlice le reconstruit.
 
 if (typeof window !== 'undefined') {
+  // Reconstruit l'AvailabilityManager à chaque changement de constraints.
+  // Toujours créé (même avec constraints vides) pour que computeConstraintUnavailableZones
+  // fonctionne dès le premier drag — les ressources sans contrainte définie seront ignorées.
   useSchedulerStore.subscribe((state, prevState) => {
     if (state.constraints !== prevState.constraints) {
-      const hasConstraints = Object.keys(state.constraints).length > 0;
       useSchedulerStore.setState({
-        availabilityManager: hasConstraints
-          ? new AvailabilityManager(state.constraints as ConstraintsData)
-          : null,
+        availabilityManager: new AvailabilityManager(state.constraints as ConstraintsData),
       });
     }
+  });
+
+  // Initialisation immédiate : gère le cas où persist a déjà hydraté le store
+  // avant que le subscribe soit installé (navigation SPA, hot-reload).
+  const initialConstraints = useSchedulerStore.getState().constraints;
+  useSchedulerStore.setState({
+    availabilityManager: new AvailabilityManager(initialConstraints as ConstraintsData),
   });
 }

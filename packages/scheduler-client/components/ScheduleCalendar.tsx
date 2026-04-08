@@ -640,7 +640,9 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
         groups: e.extendedProps.groups ?? [],
         rooms: e.extendedProps.rooms ?? [],
       })),
-      ...enforcedEventsState.map((e) => ({
+      // Même condition que pour l'affichage : inclure les enforced seulement avant planification.
+      // Après, les tasks de la solution les représentent déjà et les doubler causerait de fausses collisions.
+      ...(solutions.length === 0 ? enforcedEventsState : []).map((e) => ({
         id: e.id,
         start: e.start,
         end: e.end,
@@ -695,7 +697,9 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
     return [
       ...solEvts.map(applyHighlight),
       ...blockEvts,
-      ...enforcedEventsState.map(applyHighlight),
+      // Avant planification : affiche les cours imposés comme prévisualisation (📌).
+      // Après planification : la solution les contient déjà ; ne pas les doubler.
+      ...(solutions.length === 0 ? enforcedEventsState.map(applyHighlight) : []),
       ...placedNeutralizedEvts.map(applyHighlight),
       ...constraintBgEvents,
     ];

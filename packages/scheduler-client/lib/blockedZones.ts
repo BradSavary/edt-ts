@@ -205,18 +205,21 @@ export function computeConstraintUnavailableZones(
 
     for (const resourceId of resourceIds) {
       const avail = availabilityManager.getAvailability(resourceId, weekNumber);
+
+      // Si aucun créneau n'est défini pour cette ressource (contrainte absente ou Default non défini),
+      // on considère qu'elle est entièrement disponible → aucune indisponibilité à afficher.
+      if (!avail || avail.getAvailableIntervals().length === 0) continue;
+
       // Plages disponibles ce jour, clampées à [DAY_START_MIN, DAY_END_MIN] (relatif au jour)
       const available: { from: number; to: number }[] = [];
 
-      if (avail) {
-        for (const iv of avail.getAvailableIntervals()) {
-          // Convertir minutes absolues → minutes relatives au jour
-          const ivFromAbs = iv.start - dayStartAbs;
-          const ivToAbs = iv.end - dayStartAbs;
-          const from = Math.max(ivFromAbs, DAY_START_MIN);
-          const to = Math.min(ivToAbs, DAY_END_MIN);
-          if (to > from) available.push({ from, to });
-        }
+      for (const iv of avail.getAvailableIntervals()) {
+        // Convertir minutes absolues → minutes relatives au jour
+        const ivFromAbs = iv.start - dayStartAbs;
+        const ivToAbs = iv.end - dayStartAbs;
+        const from = Math.max(ivFromAbs, DAY_START_MIN);
+        const to = Math.min(ivToAbs, DAY_END_MIN);
+        if (to > from) available.push({ from, to });
       }
 
       // Tri + fusion des plages disponibles
