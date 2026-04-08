@@ -6,7 +6,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventContentArg, EventClickArg, EventApi, EventDropArg } from '@fullcalendar/core';
 import type { EventReceiveArg, EventDragStopArg } from '@fullcalendar/interaction';
-import type { TaskSolutionJSON, CourseTaskData, EnforcedData, ResourceGroupData, ConstraintsData } from '@edt-ts/scheduler-common';
+import type { TaskSolutionJSON, CourseTaskData, EnforcedData, ResourceGroupData } from '@edt-ts/scheduler-common';
 import EnforceModal from '@/components/modals/EnforceModal';
 import type { EnforceSelection } from '@/components/modals/EnforceModal';
 import TaskEditModal from '@/components/modals/TaskEditModal';
@@ -15,6 +15,7 @@ import { getMondayOfISOWeek, startTimeToDate, formatTime, formatDate, computeSta
 import type { ResourceEventInfo } from '@/lib/calendarUtils';
 import { computeConstraintUnavailableZones, type BlockedZone } from '@/lib/blockedZones';
 import { usePlanningStore } from '@/store/usePlanningStore';
+import { useSchedulerStore } from '@/store/useSchedulerStore';
 import type { PlacedNeutralizedTask } from '@/store/usePlanningStore';
 import {
   Dialog,
@@ -61,8 +62,6 @@ interface Props {
   solutionKey?: number;
   /** Liste complète des ressources (issues du resources.json) pour peupler les selects d'édition. */
   resourcesList?: ResourceGroupData[];
-  /** Données de contraintes pour la mise en évidence des indisponibilités pendant le drag. */
-  constraintsData?: ConstraintsData | null;
   /** Ressources d'un cours drag depuis l'extérieur (sidebar gauche ou droite). */
   externalDragging?: { teachers: string[]; groups: string[]; rooms: string[] } | null;
 }
@@ -234,7 +233,7 @@ function renderEventContent(info: EventContentArg) {
   );
 }
 
-export default function ScheduleCalendar({ solutions, week, parsedCourses = [], onEnforceChange, blockedZones = [], onBlockedZoneAdd, onBlockedZoneRemove, onBlockedZoneMove, solutionKey, resourcesList = [], constraintsData, externalDragging }: Props) {
+export default function ScheduleCalendar({ solutions, week, parsedCourses = [], onEnforceChange, blockedZones = [], onBlockedZoneAdd, onBlockedZoneRemove, onBlockedZoneMove, solutionKey, resourcesList = [], externalDragging }: Props) {
   const monday = useMemo(() => getMondayOfISOWeek(week), [week]);
 
   // ── Store ──────────────────────────────────────────────────────────────
@@ -246,6 +245,8 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
   const updatePlacedNeutralizedTask = usePlanningStore((s) => s.updatePlacedNeutralizedTask);
   const removePlacedNeutralizedTask = usePlanningStore((s) => s.removePlacedNeutralizedTask);
   const storeEnforcedMap = usePlanningStore((s) => s.enforcedMap);
+  // AvailabilityManager reconstruit automatiquement quand constraints change dans useSchedulerStore
+  const availabilityManager = useSchedulerStore((s) => s.availabilityManager);
 
   // ── État local UI (non partagé entre sessions) ─────────────────────────
   const [selected, setSelected] = useState<EventDetail | null>(null);
@@ -676,9 +677,9 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
 
     // Zones d'indisponibilité des ressources pendant le drag (background events ambrés)
     const constraintBgEvents: { id: string; start: Date; end: Date; display: string; backgroundColor: string; classNames: string[] }[] = [];
-    if (activeDragResources && constraintsData) {
+    if (activeDragResources && availabilityManager) {
       const resourceIds = [...activeDragResources.teachers, ...activeDragResources.groups, ...activeDragResources.rooms];
-      const zones = computeConstraintUnavailableZones(resourceIds, constraintsData, week, monday);
+      const zones = computeConstraintUnavailableZones(resourceIds, availabilityManager, week, monday);
       zones.forEach((z, i) => {
         constraintBgEvents.push({
           id: `constraint-bg-${i}`,
@@ -698,7 +699,7 @@ export default function ScheduleCalendar({ solutions, week, parsedCourses = [], 
       ...placedNeutralizedEvts.map(applyHighlight),
       ...constraintBgEvents,
     ];
-  }, [solutions, blockedZones, monday, enforcedEventsState, taskOverrides, placedNeutralizedTasks, dragging, externalDragging, constraintsData, week]);
+  }, [solutions, blockedZones, monday, enforcedEventsState, taskOverrides, placedNeutralizedTasks, dragging, externalDragging, availabilityManager, week]);
 
   return (
     <>

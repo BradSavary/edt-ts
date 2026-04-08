@@ -23,7 +23,7 @@ const JS_DAY_TO_FRENCH: Record<number, string> = {
   6: 'samedi',
 };
 
-export function dateToFrenchDay(date: Date): string {
+function dateToFrenchDay(date: Date): string {
   return JS_DAY_TO_FRENCH[date.getDay()] ?? 'lundi';
 }
 
@@ -184,20 +184,18 @@ export function applyBlockedZonesToConstraints(
 /**
  * Calcule les plages horaires indisponibles (union) pour un ensemble de ressources
  * pour la semaine affichée. Un créneau est signalé si AU MOINS UNE ressource y est indisponible.
- * Délègue la lecture des contraintes à AvailabilityManager (@edt-ts/scheduler-common).
- * Retourne un tableau de plages en dates absolues, prêt à être affiché comme background events.
+ * Accepte un AvailabilityManager déjà construit (depuis useSchedulerStore) pour éviter
+ * de le recréer à chaque appel. Retourne [] si availabilityManager est null.
  */
 export function computeConstraintUnavailableZones(
   resourceIds: string[],
-  constraints: ConstraintsData,
+  availabilityManager: AvailabilityManager | null,
   weekNumber: number,
   monday: Date,
 ): { start: Date; end: Date }[] {
-  if (resourceIds.length === 0) return [];
-
+  if (resourceIds.length === 0 || !availabilityManager) return [];
   const DAY_START_MIN = 7 * 60;   // 7:00
   const DAY_END_MIN = 21 * 60;    // 21:00
-  const manager = new AvailabilityManager(constraints);
   const result: { start: Date; end: Date }[] = [];
 
   for (let dayOffset = 0; dayOffset < 5; dayOffset++) {
@@ -206,7 +204,7 @@ export function computeConstraintUnavailableZones(
     const allUnavailable: { from: number; to: number }[] = [];
 
     for (const resourceId of resourceIds) {
-      const avail = manager.getAvailability(resourceId, weekNumber);
+      const avail = availabilityManager.getAvailability(resourceId, weekNumber);
       // Plages disponibles ce jour, clampées à [DAY_START_MIN, DAY_END_MIN] (relatif au jour)
       const available: { from: number; to: number }[] = [];
 

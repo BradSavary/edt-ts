@@ -148,7 +148,7 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
     }
     const { allCourses, resources, constraints } = useSchedulerStore.getState();
     if (!resources.length) {
-      set({ status: { message: '❌ Ressources non chargées. Importez le fichier resources.json.', kind: 'err' } });
+      set({ status: { message: '❌ Ressources non chargées.', kind: 'err' } });
       return;
     }
     const coursesForWeek = allCourses.filter((c) => c.week === selectedWeek);

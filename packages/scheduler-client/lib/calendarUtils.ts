@@ -30,13 +30,14 @@ export function startTimeToDate(monday: Date, startTimeMinutes: number): Date {
 }
 
 const DAY_LABELS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+// Indexed by startTime dayIndex (0=Lundi … 5=Samedi)
+const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
 /**
  * Formate un startTime (minutes depuis lundi minuit) en chaîne lisible.
  * Ex : 570 → "Lun 09:30"
  */
 export function formatStartTime(startTime: number): string {
-  const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
   const dayIndex = Math.floor(startTime / (24 * 60));
   const minutesInDay = startTime % (24 * 60);
   const h = Math.floor(minutesInDay / 60).toString().padStart(2, '0');

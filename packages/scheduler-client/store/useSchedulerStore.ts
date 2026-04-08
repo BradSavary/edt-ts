@@ -2,15 +2,20 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { StateCreator } from 'zustand';
 import { createConstraintsSlice, type ConstraintsSlice } from './slices/constraintsSlice';
-import type { CourseTaskData, ResourceGroupData } from '@edt-ts/scheduler-common';
+import type { CourseTaskData, ResourceGroupData, ConstraintsData } from '@edt-ts/scheduler-common';
+import { AvailabilityManager } from '@edt-ts/scheduler-common';
 
 // ── Slice : données brutes du planificateur ────────────────────────────────
 // allCourses, resources, constraints sont persistés (localStorage "edt-scheduler").
+// availabilityManager est NON persisté : reconstruit automatiquement via subscribe
+// dès que constraints change, côté client uniquement.
 
 interface SchedulerDataSlice {
   allCourses: CourseTaskData[];
   resources: ResourceGroupData[];
   coursesFileName: string | null;
+  /** Instance reconstruite depuis constraints — non persistée, jamais null si constraints non vide */
+  availabilityManager: AvailabilityManager | null;
   setCourses: (courses: CourseTaskData[], fileName?: string) => void;
   setResources: (resources: ResourceGroupData[]) => void;
 }
@@ -30,6 +35,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
       allCourses: [],
       resources: [],
       coursesFileName: null,
+      availabilityManager: null, // Reconstruit par subscribe ci-dessous
       setCourses: (allCourses, fileName) => set({ allCourses, ...(fileName !== undefined ? { coursesFileName: fileName } : {}) }),
       setResources: (resources) => set({ resources }),
     }),
@@ -46,3 +52,22 @@ export const useSchedulerStore = create<SchedulerStore>()(
     },
   ),
 );
+
+// ── Rebuild availabilityManager côté client uniquement ────────────────────
+// Exécuté seulement dans le browser : le serveur Next.js (SSR) n'a pas window.
+// Le middleware persist hydrate depuis localStorage puis déclenche setState,
+// ce qui provoque le subscribe et construit le premier AvailabilityManager.
+// Ensuite, chaque modification de constraints via constraintsSlice le reconstruit.
+
+if (typeof window !== 'undefined') {
+  useSchedulerStore.subscribe((state, prevState) => {
+    if (state.constraints !== prevState.constraints) {
+      const hasConstraints = Object.keys(state.constraints).length > 0;
+      useSchedulerStore.setState({
+        availabilityManager: hasConstraints
+          ? new AvailabilityManager(state.constraints as ConstraintsData)
+          : null,
+      });
+    }
+  });
+}

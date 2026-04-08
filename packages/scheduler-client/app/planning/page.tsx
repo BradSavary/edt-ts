@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useRef, useCallback } from 'react';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
-import type { ConstraintsData } from '@edt-ts/scheduler-common';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useNeutralizedDraggable } from '@/hooks/useNeutralizedDraggable';
@@ -17,7 +16,6 @@ export default function PlanningPage() {
   // ── Stores ──────────────────────────────────────────────────────────────
   const allCourses = useSchedulerStore((s) => s.allCourses);
   const resources = useSchedulerStore((s) => s.resources);
-  const constraintsData = useSchedulerStore((s) => s.constraints) as ConstraintsData | null;
 
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
   const setSelectedWeek = usePlanningStore((s) => s.setSelectedWeek);
@@ -151,7 +149,6 @@ export default function PlanningPage() {
             onBlockedZoneMove={handleBlockedZoneMove}
             solutionKey={selectedSolutionIndex}
             resourcesList={resources}
-            constraintsData={constraintsData}
             externalDragging={externalDraggingTask ?? sidebarDraggingResources}
           />
         </main>
