@@ -1,5 +1,6 @@
 import { Loader } from './loader.js';
 import { Task, Resource, ResourceType } from '@edt-ts/scheduler-common';
+import type { SchedulerConfig } from '@edt-ts/scheduler-common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -44,6 +45,15 @@ export class Schedule {
 
     constructor() {
         // Les données seront chargées via Loader lors de la résolution
+    }
+
+    /**
+     * Applique un objet de configuration au solver.
+     * Peut être appelé avant initSolver(). Les options non fournies conservent leur valeur par défaut.
+     */
+    configure(config: SchedulerConfig): this {
+        if (config.maxIterations !== undefined) this.maxIterations = config.maxIterations;
+        return this;
     }
 
     /**

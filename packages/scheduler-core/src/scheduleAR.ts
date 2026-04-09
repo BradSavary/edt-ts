@@ -15,7 +15,7 @@
 import { Loader } from './loader.js';
 import { Schedule } from './schedule.js';
 import type { ScheduleSolution, TaskSolution } from './schedule.js';
-import type { Task, Resource } from '@edt-ts/scheduler-common';
+import type { Task, Resource, SchedulerConfig } from '@edt-ts/scheduler-common';
 
 export class ScheduleAR extends Schedule {
     private solutionsFound: number = 0;
@@ -57,6 +57,17 @@ export class ScheduleAR extends Schedule {
      */
     setTimeoutSeconds(seconds: number): void {
         this.maxTimeMs = seconds * 1000;
+    }
+
+    /**
+     * Applique un objet de configuration au solver.
+     * Override de Schedule.configure() : prend en charge les options spécifiques à ScheduleAR.
+     */
+    override configure(config: SchedulerConfig): this {
+        super.configure(config);
+        if (config.maxSolutions !== undefined) this.maxSolutions = config.maxSolutions;
+        if (config.timeoutSeconds !== undefined) this.maxTimeMs = config.timeoutSeconds * 1000;
+        return this;
     }
     
     /**

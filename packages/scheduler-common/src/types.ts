@@ -100,3 +100,18 @@ export interface ScheduleSolutionJSON {
   score?: number;
   neutralizedTasks?: TaskSolutionJSON[];
 }
+
+/**
+ * Options de configuration du solver, transmissibles de l'API vers le moteur.
+ * Tous les champs sont optionnels — les valeurs par défaut sont appliquées dans Schedule/ScheduleAR.
+ */
+export interface SchedulerConfig {
+  /** Nombre maximum de solutions complètes à trouver (ScheduleAR uniquement, défaut : 6) */
+  maxSolutions?: number;
+  /** Timeout en secondes avant arrêt du backtracking (ScheduleAR uniquement, défaut : 180) */
+  timeoutSeconds?: number;
+  /** Limite de sécurité sur le nombre d'itérations (défaut : 1 000 000) */
+  maxIterations?: number;
+  /** Nombre de tâches à remonter/éliminer dans les stratégies priority-retry / elimination (défaut : 3) */
+  retryCount?: number;
+}

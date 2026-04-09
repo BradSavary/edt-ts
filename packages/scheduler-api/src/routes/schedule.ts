@@ -19,7 +19,11 @@ router.get('/health', healthHandler);
  *   "resources": [{ "resourceType": "teacher"|"room"|"group", "resources": [{ "id": string, "info"?: string }] }],
  *   "courses":  [CourseTaskData],
  *   "constraints": ConstraintsData,   // optionnel
- *   "options": { "maxSolutions": number, "timeoutSeconds": number } // optionnel
+ *   "options": {                       // optionnel
+ *     "maxSolutions":  number,         // nombre de solutions complètes recherchées (défaut: 6)
+ *     "timeoutSeconds": number,        // timeout du backtracking en secondes (défaut: 180)
+ *     "maxIterations": number          // limite de sécurité sur les itérations (défaut: 1 000 000)
+ *   }
  * }
  */
 router.post('/', scheduleHandler);
@@ -30,7 +34,12 @@ router.post('/', scheduleHandler);
  *
  * Corps JSON : identique à POST /api/schedule, plus :
  * {
- *   "options": { "eliminationCount": 3 }   // nombre max de tâches neutralisables (défaut: 3)
+ *   "options": {
+ *     "maxSolutions":  number,         // nombre de solutions complètes recherchées (défaut: 6)
+ *     "timeoutSeconds": number,        // timeout du backtracking en secondes (défaut: 180)
+ *     "maxIterations": number,         // limite de sécurité sur les itérations (défaut: 1 000 000)
+ *     "retryCount": number             // nombre max de tâches neutralisables (défaut: 3)
+ *   }
  * }
  *
  * Retourne un tableau de ScheduleSolutionJSON.
