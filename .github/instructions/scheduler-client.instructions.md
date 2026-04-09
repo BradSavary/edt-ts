@@ -6,6 +6,23 @@ applyTo: "packages/scheduler-client/**"
 
 Le package `scheduler-client` est l'application web de planification. C'est un projet **Next.js (App Router)** avec TypeScript strict, Tailwind CSS v4, shadcn/ui, et un proxy vers l'API Express.
 
+## Versions des frameworks et bibliothèques
+
+| Bibliothèque | Version |
+|---|---|
+| Next.js | 16.2.0 |
+| React | 19.2.4 |
+| TypeScript | ^5 |
+| Tailwind CSS | ^4 |
+| shadcn/ui | style `new-york` (via `radix-ui` ^1.4.3) |
+| FullCalendar | ^6.1.20 |
+| Zustand | ^5.0.12 |
+| Vitest | ^3.0.0 |
+| Playwright | ^1.50.0 |
+| ESLint | ^9 (flat config) |
+| lucide-react | ^1.7.0 |
+| clsx + tailwind-merge | ^2.1.1 / ^3.5.0 |
+
 ## Objectif du package
 
 - Fournir une interface utilisateur pour soumettre des données de planification (resources, cours, contraintes) et visualiser les résultats

@@ -104,9 +104,9 @@ function getResourceBaseSlots(
   const entry = (constraints as Record<string, unknown>)[resourceId];
   const weekKey = `S${weekNumber}`;
 
-  // null explicite = "pas de contrainte pour cette ressource" → toujours disponible
+  // null explicite = "pas de contrainte pour cette ressource" → utiliser le Default de l'établissement
   if (entry === null) {
-    return BASE_SLOTS;
+    return constraints.Default ?? BASE_SLOTS;
   }
   // undefined = ressource absente du fichier → utiliser le Default de l'établissement
   if (entry === undefined) {

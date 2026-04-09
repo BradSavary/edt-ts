@@ -3,8 +3,7 @@
 import { useRef } from 'react';
 import type { CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
 import { type ScheduleResult } from '@/lib/scheduleApi';
-import { type GroupBy } from '@/components/CourseGroupList';
-import CourseGroupList from '@/components/planning/CourseGroupList';
+import CourseGroupList, { type GroupBy } from '@/components/planning/CourseGroupList';
 import { useSidebarCourseDrag } from '@/hooks/useSidebarCourseDrag';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
