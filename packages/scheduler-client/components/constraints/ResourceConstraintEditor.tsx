@@ -4,6 +4,13 @@ import { useState, useEffect } from 'react';
 import type { ResourceConstraints } from '@edt-ts/scheduler-common';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import {
   DAYS,
@@ -48,17 +55,7 @@ interface DayCellProps {
 function DayCell({ slots: slotsProp, inherited, defaultSlots, onChange }: DayCellProps) {
   const [slots, setSlots] = useState<DaySlot[]>(slotsProp);
 
-  useEffect(() => {
-    const extComplete = slotsProp.filter((s) => s.from && s.to).length;
-    const localComplete = slots.filter((s) => s.from && s.to).length;
-    if (
-      extComplete !== localComplete ||
-      slotsProp.length < slots.filter((s) => s.from && s.to).length
-    ) {
-      setSlots(slotsProp);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slotsProp]);
+  useEffect(() => { setSlots(slotsProp); }, [slotsProp]);
 
   const amIdx = slots.findIndex((s) => parseInt(s.from.split(':')[0] ?? '99', 10) < 12);
   const pmIdx = slots.findIndex((s) => parseInt(s.from.split(':')[0] ?? '0', 10) >= 12);
@@ -266,6 +263,7 @@ export function ResourceConstraintEditor({
   const [addingWeek, setAddingWeek] = useState(false);
   const [newWeekKey, setNewWeekKey] = useState('');
   const [weekError, setWeekError] = useState('');
+  const [confirmDisableOpen, setConfirmDisableOpen] = useState(false);
 
   const [localDefault, setLocalDefault] = useState<DayMap>(() =>
     value?.default ? slotsToDayMap(value.default) : emptyDayMap(),
@@ -339,16 +337,16 @@ export function ResourceConstraintEditor({
   }
 
   function handleDisable() {
-    if (
-      !window.confirm(
-        "Supprimer toutes les contraintes de cette ressource ? Il sera possible d'en ajouter à nouveau.",
-      )
-    )
-      return;
+    setConfirmDisableOpen(true);
+  }
+
+  function confirmDisable() {
+    setConfirmDisableOpen(false);
     onChange(null);
   }
 
   return (
+    <>
     <div className="border border-border rounded-lg overflow-hidden">
       {/* Header */}
       <div className="flex items-center bg-card">
@@ -528,5 +526,25 @@ export function ResourceConstraintEditor({
         </div>
       )}
     </div>
+
+    <Dialog open={confirmDisableOpen} onOpenChange={(open) => !open && setConfirmDisableOpen(false)}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Supprimer les contraintes</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Supprimer toutes les contraintes de cette ressource ? Il sera possible d&apos;en ajouter à nouveau.
+        </p>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => setConfirmDisableOpen(false)}>
+            Annuler
+          </Button>
+          <Button variant="destructive" onClick={confirmDisable}>
+            Supprimer
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

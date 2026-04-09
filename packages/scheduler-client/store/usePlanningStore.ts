@@ -100,6 +100,7 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
   setSelectedWeek: (week) => {
     set({
       selectedWeek: week,
+      searchQuery: '',
       scheduleResult: null,
       selectedSolutionIndex: 0,
       activeSolution: [],

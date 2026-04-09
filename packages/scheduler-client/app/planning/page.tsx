@@ -5,10 +5,10 @@ import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useNeutralizedDraggable } from '@/hooks/useNeutralizedDraggable';
-import { SidebarLeft } from '@/components/schedule/SidebarLeft';
-import { NeutralizedPanel } from '@/components/schedule/NeutralizedPanel';
-import ScheduleCalendar from '@/components/ScheduleCalendar';
-import { type GroupBy } from '@/components/CourseGroupList';
+import { SidebarLeft } from '@/components/planning/SidebarLeft';
+import { NeutralizedPanel } from '@/components/planning/NeutralizedPanel';
+import ScheduleCalendar from '@/components/planning/ScheduleCalendar';
+import { type GroupBy } from '@/components/planning/CourseGroupList';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
