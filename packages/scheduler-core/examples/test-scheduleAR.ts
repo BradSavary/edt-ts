@@ -3,7 +3,7 @@
  * Explore toutes les combinaisons de ressources en cours de backtracking
  */
 
-import { ScheduleAR } from '../src/scheduleAR.js';
+import { Schedule } from '../src/schedule.js';
 import { Loader } from '../src/loader.js';
 import { exec } from 'child_process';
 import { ScheduleAnalysis } from '../src/scheduleAnalysis.js';
@@ -98,7 +98,7 @@ function displayPerformanceMetrics(executionTime: number, result: any): void {
  * Affiche le top 10 des tâches ayant le plus souvent bloqué le backtracking
  * (aucun créneau disponible pour aucune combinaison de ressources)
  */
-function displayTopBlockingTasks(scheduler: ScheduleAR, tasks: ReturnType<typeof Loader.tasksManager.getAllTasks>): void {
+function displayTopBlockingTasks(scheduler: Schedule, tasks: ReturnType<typeof Loader.tasksManager.getAllTasks>): void {
     const failureCounts = scheduler.getTaskFailureCounts();
     if (failureCounts.size === 0) {
         console.log(`\n🎯 TOP 10 DES TÂCHES BLOQUANTES`);
@@ -159,7 +159,7 @@ async function testScheduleAR(): Promise<any> {
         console.log('\n🚀 Lancement de la planification avec ScheduleAR...\n');
         
         // Créer et configurer le planificateur AR
-        const scheduler = new ScheduleAR();
+        const scheduler = new Schedule();
         
         // Configuration : chercher 26 solutions complètes avec timeout de 3 minutes
         scheduler.setMaxCompleteSolutions(10);

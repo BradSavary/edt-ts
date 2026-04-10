@@ -1,9 +1,9 @@
 import type { Request, Response } from 'express';
 import {
   Loader,
-  ScheduleAR,
+  Schedule,
 } from '@edt-ts/scheduler-core';
-import type { RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON } from '@edt-ts/scheduler-common';
+import type { RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON, SchedulerConfig } from '@edt-ts/scheduler-common';
 import type { Task } from '@edt-ts/scheduler-common';
 import type {
   TaskSolution,
@@ -134,9 +134,7 @@ function serializeScheduleSolution(result: ScheduleSolution): ScheduleSolutionJS
  */
 export async function scheduleHandler(req: Request, res: Response): Promise<void> {
   try {
-    const body = req.body as RawScheduleData & {
-      options?: { maxSolutions?: number; timeoutSeconds?: number };
-    };
+    const body = req.body as RawScheduleData & { options?: SchedulerConfig };
 
     // ── Validation minimale ──────────────────────────────────────────────
     if (!body.week || !body.courses || !Array.isArray(body.courses)) {
@@ -158,13 +156,8 @@ export async function scheduleHandler(req: Request, res: Response): Promise<void
     });
 
     // ── Configuration du planificateur ───────────────────────────────────
-    const scheduler = new ScheduleAR();
-    if (body.options?.maxSolutions !== undefined) {
-      scheduler.setMaxCompleteSolutions(body.options.maxSolutions);
-    }
-    if (body.options?.timeoutSeconds !== undefined) {
-      scheduler.setTimeoutSeconds(body.options.timeoutSeconds);
-    }
+    const scheduler = new Schedule();
+    if (body.options) scheduler.configure(body.options);
 
     // ── Résolution ───────────────────────────────────────────────────────
     scheduler.initSolver();
@@ -202,9 +195,7 @@ export async function scheduleHandler(req: Request, res: Response): Promise<void
  */
 export async function solveWithEliminationHandler(req: Request, res: Response): Promise<void> {
   try {
-    const body = req.body as RawScheduleData & {
-      options?: { maxSolutions?: number; timeoutSeconds?: number; eliminationCount?: number };
-    };
+    const body = req.body as RawScheduleData & { options?: SchedulerConfig };
 
     if (!body.week || !body.courses || !Array.isArray(body.courses)) {
       res.status(400).json({
@@ -222,16 +213,10 @@ export async function solveWithEliminationHandler(req: Request, res: Response): 
       constraints: body.constraints,
     });
 
-    const scheduler = new ScheduleAR();
-    if (body.options?.maxSolutions !== undefined) {
-      scheduler.setMaxCompleteSolutions(body.options.maxSolutions);
-    }
-    if (body.options?.timeoutSeconds !== undefined) {
-      scheduler.setTimeoutSeconds(body.options.timeoutSeconds);
-    }
+    const scheduler = new Schedule();
+    if (body.options) scheduler.configure(body.options);
 
-    const eliminationCount = body.options?.eliminationCount ?? 3;
-    const results: ScheduleSolution[] = scheduler.solveWithTaskElimination(eliminationCount);
+    const results: ScheduleSolution[] = scheduler.solveWithTaskElimination();
 
     const response: ScheduleSolutionJSON[] = results.map(serializeScheduleSolution);
     res.status(200).json(response);

@@ -7,7 +7,6 @@
 
 // --- Planificateurs ---
 export { Schedule } from './schedule.js';
-export { ScheduleAR } from './scheduleAR.js';
 export type { ScheduleSolution, TaskSolution } from './schedule.js';
 
 // --- Modèles de données ---
