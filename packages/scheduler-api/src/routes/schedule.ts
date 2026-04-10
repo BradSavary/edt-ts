@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { scheduleHandler, healthHandler, solveWithEliminationHandler } from '../controllers/scheduleController.js';
+import { scheduleHandler, healthHandler, solveWithEliminationHandler, defaultConfigHandler } from '../controllers/scheduleController.js';
 
 const router = Router();
 
@@ -8,6 +8,12 @@ const router = Router();
  * Vérifie que l'API est opérationnelle.
  */
 router.get('/health', healthHandler);
+
+/**
+ * GET /api/schedule/config
+ * Retourne la configuration par défaut du solver.
+ */
+router.get('/config', defaultConfigHandler);
 
 /**
  * POST /api/schedule

@@ -4,6 +4,7 @@ import {
   Schedule,
 } from '@edt-ts/scheduler-core';
 import type { RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON, SchedulerConfig } from '@edt-ts/scheduler-common';
+import { DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
 import type { Task } from '@edt-ts/scheduler-common';
 import type {
   TaskSolution,
@@ -233,4 +234,12 @@ export async function solveWithEliminationHandler(req: Request, res: Response): 
 
 export function healthHandler(_req: Request, res: Response): void {
   res.status(200).json({ status: 'ok', package: '@edt-ts/scheduler-api' });
+}
+
+// --------------------------------------------------------------------------
+// GET /api/schedule/config
+// --------------------------------------------------------------------------
+
+export function defaultConfigHandler(_req: Request, res: Response): void {
+  res.status(200).json(DEFAULT_SCHEDULER_CONFIG);
 }
