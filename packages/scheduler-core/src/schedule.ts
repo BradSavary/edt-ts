@@ -48,6 +48,7 @@ export class Schedule {
         maxIterations: 1_000_000,
         maxEliminations: 3,
         resourceSelection: 'deterministic',
+        lunchBreak: { type: 'none' },
     };
 
     private _solutionsFound: number = 0;
@@ -204,6 +205,41 @@ export class Schedule {
         return lastResults;
     }
 
+    /**
+     * Applique la pause méridienne fixe en retirant la plage horaire des disponibilités
+     * des ressources de type GROUP, sur chacun des 5 jours.
+     * Sans effet si lunchBreak.type !== 'fixed'.
+     */
+    private _applyLunchBreakConstraint(): void {
+        const lb = this._config.lunchBreak;
+        if (lb.type !== 'fixed') return;
+
+        const fromMinutes = this._parseTimeToMinutes(lb.from);
+        const toMinutes = this._parseTimeToMinutes(lb.to);
+        const MINUTES_PER_DAY = 24 * 60;
+
+        for (const resource of this.resources) {
+            if (resource.type !== ResourceType.GROUP) continue;
+            for (let day = 0; day < 5; day++) {
+                const start = day * MINUTES_PER_DAY + fromMinutes;
+                const end   = day * MINUTES_PER_DAY + toMinutes;
+                resource.availability.removeAvailability(start, end);
+            }
+        }
+
+        for (const task of this.tasks) {
+            task.invalidateSchedulable();
+        }
+
+        console.log(`🍽️ Pause méridienne fixe appliquée : ${lb.from} – ${lb.to} (groupes, 5 jours)`);
+    }
+
+    /** Convertit une chaîne "HH:MM" en nombre de minutes depuis minuit. */
+    private _parseTimeToMinutes(time: string): number {
+        const [h, m] = time.split(':').map(Number);
+        return h * 60 + m;
+    }
+
     private _restoreTaskResourcesFromSolution(solution: TaskSolution[]): void {
         for (const sol of solution) {
             sol.task.appliedResources = sol.appliedResources;
@@ -284,6 +320,8 @@ export class Schedule {
             }
             console.log('✅ Créneaux enforced réservés.\n');
         }
+
+        this._applyLunchBreakConstraint();
 
         // Vérification préalable : chaque tâche non-enforced doit avoir au moins 1 créneau schedulable
         for (const task of this.tasks) {
@@ -441,56 +479,86 @@ export class Schedule {
      */
     protected generatePossibleSlots(task: Task): Array<{startTime: number}> {
         const slots: Array<{startTime: number}> = [];
-        const SLOT_STEP = 30; // Pas de 30 minutes entre les slots
-        
-        // SUPPORT DES DÉPENDANCES: Calculer le moment le plus tôt possible
+        const SLOT_STEP = 30;
+        const MINUTES_PER_DAY = 24 * 60;
+
         let earliestStartTime = 0;
         const dependency = task.getDependsOn();
-        
         if (dependency) {
-            // Trouver quand la dépendance se termine dans la solution actuelle
             const dependencyScheduled = this.solution.find(sol => sol.task === dependency);
-            
-            if (!dependencyScheduled) {
-                // La dépendance n'est pas planifiée, aucun créneau possible
-                return [];
-            }
-            
-            // La tâche ne peut commencer qu'après la fin de sa dépendance
+            if (!dependencyScheduled) return [];
             earliestStartTime = dependencyScheduled.startTime + dependency.duration;
         }
-        
-        // CORRECTION: Utiliser les vrais créneaux disponibles de la tâche
+
+        // Pré-calcul de la contrainte flottante (si active)
+        const lb = this._config.lunchBreak;
+        const floatingLB = lb.type === 'floating' ? lb : null;
+        let floatingEarliestMin = 0, floatingLatestMin = 0;
+        let groupResources: Resource[] = [];
+        if (floatingLB) {
+            floatingEarliestMin = this._parseTimeToMinutes(floatingLB.earliest);
+            floatingLatestMin   = this._parseTimeToMinutes(floatingLB.latest);
+            groupResources = task.appliedResources.filter(r => r.type === ResourceType.GROUP);
+        }
+
         const availableIntervals = task.schedulable.getAvailableIntervals();
-        
+
         for (const interval of availableIntervals) {
-            // Ajuster l'intervalle pour respecter la contrainte de dépendance
             const adjustedStart = Math.max(interval.start, earliestStartTime);
-            
-            if (adjustedStart >= interval.end) {
-                continue; // L'intervalle est entièrement avant le moment autorisé
-            }
-            
-            const intervalDuration = interval.end - adjustedStart;
-            
-            // Vérifier si l'intervalle ajusté est assez grand pour la tâche
-            if (intervalDuration >= task.duration) {
-                // Générer tous les slots possibles dans cet intervalle ajusté
-                // avec un pas de SLOT_STEP minutes
-                for (let startTime = adjustedStart; 
-                     startTime + task.duration <= interval.end; 
+            if (adjustedStart >= interval.end) continue;
+
+            if (interval.end - adjustedStart >= task.duration) {
+                for (let startTime = adjustedStart;
+                     startTime + task.duration <= interval.end;
                      startTime += SLOT_STEP) {
-                    
-                    const slot = {
-                        startTime: startTime
-                    };
-                    
-                    slots.push(slot);
+
+                    // Filtre pause méridienne flottante sur les ressources GROUP
+                    if (floatingLB && groupResources.length > 0) {
+                        const dayIndex = Math.floor(startTime / MINUTES_PER_DAY);
+                        const winStart = dayIndex * MINUTES_PER_DAY + floatingEarliestMin;
+                        const winEnd   = dayIndex * MINUTES_PER_DAY + floatingLatestMin;
+                        const slotEnd  = startTime + task.duration;
+                        if (groupResources.some(r =>
+                            !this._resourceKeepsFloatingBreak(r, startTime, slotEnd, winStart, winEnd, floatingLB.duration)
+                        )) continue;
+                    }
+
+                    slots.push({ startTime });
                 }
             }
         }
-        
+
         return slots;
+    }
+
+    /**
+     * Vérifie qu'après booking hypothétique [slotStart, slotEnd], la ressource
+     * conserve un bloc libre d'au moins `duration` minutes dans [winStart, winEnd].
+     * Opération en lecture seule — ne modifie pas l'état de la ressource.
+     */
+    private _resourceKeepsFloatingBreak(
+        resource: Resource,
+        slotStart: number,
+        slotEnd: number,
+        winStart: number,
+        winEnd: number,
+        duration: number,
+    ): boolean {
+        const intervals = resource.availability.getAvailableIntervals();
+        for (const interval of intervals) {
+            const clipStart = Math.max(interval.start, winStart);
+            const clipEnd   = Math.min(interval.end,   winEnd);
+            if (clipStart >= clipEnd) continue;
+
+            // Sous-intervalle gauche (avant le slot)
+            const leftEnd = Math.min(clipEnd, slotStart);
+            if (leftEnd > clipStart && leftEnd - clipStart >= duration) return true;
+
+            // Sous-intervalle droit (après le slot)
+            const rightStart = Math.max(clipStart, slotEnd);
+            if (rightStart < clipEnd && clipEnd - rightStart >= duration) return true;
+        }
+        return false;
     }
 
     /**
