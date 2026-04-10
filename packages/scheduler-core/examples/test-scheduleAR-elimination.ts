@@ -6,7 +6,7 @@
  * Les tâches éliminées sont reportées dans result.neutralizedTasks.
  */
 
-import { ScheduleAR } from '../src/scheduleAR.js';
+import { Schedule } from '../src/schedule.js';
 import { Loader } from '../src/loader.js';
 import { exec } from 'child_process';
 import { ScheduleAnalysis } from '../src/scheduleAnalysis.js';
@@ -15,7 +15,7 @@ if (process.platform === 'win32') {
     exec('chcp 65001', () => {});
 }
 
-function displayTopBlockingTasks(scheduler: ScheduleAR, tasks: ReturnType<typeof Loader.tasksManager.getAllTasks>): void {
+function displayTopBlockingTasks(scheduler: Schedule, tasks: ReturnType<typeof Loader.tasksManager.getAllTasks>): void {
     const failureCounts = scheduler.getTaskFailureCounts();
     console.log(`\n🎯 TOP 10 DES TÂCHES BLOQUANTES`);
     console.log(`================================`);
@@ -44,13 +44,13 @@ async function testTaskElimination(): Promise<void> {
         const tasks = Loader.tasksManager.getAllTasks();
         console.log(`📚 Données chargées: ${tasks.length} tâches, ${Loader.resourcesManager.getAllResources().length} ressources`);
 
-        const scheduler = new ScheduleAR();
+        const scheduler = new Schedule();
         scheduler.setMaxCompleteSolutions(10);
         scheduler.setTimeoutSeconds(180);
 
         console.log('\n🚀 Lancement de solveWithTaskElimination(3)...\n');
         const startTime = Date.now();
-        const results = scheduler.solveWithTaskElimination(3);
+        const results = scheduler.solveWithTaskElimination();
         const executionTime = Date.now() - startTime;
 
         const result = results[0] ?? { solutions: [], isComplete: false, conflictCount: 0, score: undefined, neutralizedTasks: [] };

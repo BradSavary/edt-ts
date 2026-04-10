@@ -38,7 +38,7 @@ router.post('/', scheduleHandler);
  *     "maxSolutions":  number,         // nombre de solutions complètes recherchées (défaut: 6)
  *     "timeoutSeconds": number,        // timeout du backtracking en secondes (défaut: 180)
  *     "maxIterations": number,         // limite de sécurité sur les itérations (défaut: 1 000 000)
- *     "retryCount": number             // nombre max de tâches neutralisables (défaut: 3)
+ *     "maxEliminations": number        // nombre max de tâches neutralisables (défaut: 3)
  *   }
  * }
  *

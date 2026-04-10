@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import {
   Loader,
-  ScheduleAR,
+  Schedule,
 } from '@edt-ts/scheduler-core';
 import type { RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON, SchedulerConfig } from '@edt-ts/scheduler-common';
 import type { Task } from '@edt-ts/scheduler-common';
@@ -156,7 +156,7 @@ export async function scheduleHandler(req: Request, res: Response): Promise<void
     });
 
     // ── Configuration du planificateur ───────────────────────────────────
-    const scheduler = new ScheduleAR();
+    const scheduler = new Schedule();
     if (body.options) scheduler.configure(body.options);
 
     // ── Résolution ───────────────────────────────────────────────────────
@@ -213,11 +213,10 @@ export async function solveWithEliminationHandler(req: Request, res: Response): 
       constraints: body.constraints,
     });
 
-    const scheduler = new ScheduleAR();
+    const scheduler = new Schedule();
     if (body.options) scheduler.configure(body.options);
 
-    const eliminationCount = body.options?.retryCount ?? 3;
-    const results: ScheduleSolution[] = scheduler.solveWithTaskElimination(eliminationCount);
+    const results: ScheduleSolution[] = scheduler.solveWithTaskElimination();
 
     const response: ScheduleSolutionJSON[] = results.map(serializeScheduleSolution);
     res.status(200).json(response);
