@@ -116,10 +116,20 @@ function serializeScheduleSolution(result: ScheduleSolution): ScheduleSolutionJS
  *   },
  *   "options": {
  *     "maxSolutions": 10,
- *     "timeoutSeconds": 60
+ *     "timeoutSeconds": 60,
+ *     "lunchBreak": { "type": "none" }
  *   }
  * }
  * ```
+ *
+ * Exemples de valeurs pour `options.lunchBreak` :
+ * - Aucune contrainte (défaut) : `{ "type": "none" }`
+ * - Pause fixe            : `{ "type": "fixed", "from": "12:00", "to": "13:30" }`
+ * - Pause flottante        : `{ "type": "floating", "duration": 90, "earliest": "12:00", "latest": "14:00" }`
+ *
+ * La contrainte `fixed` bloque la plage horaire dans les disponibilités des groupes (avant le backtracking).
+ * La contrainte `floating` filtre les créneaux : elle garantit qu'un bloc libre d'au moins `duration`
+ * minutes reste disponible dans `[earliest, latest]` pour chaque groupe impliqué dans la tâche.
  *
  * Notes :
  * - `resources` : obligatoire en pratique. Si absent ou vide, aucune ressource n'est chargée
