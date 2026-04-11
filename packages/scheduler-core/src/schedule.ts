@@ -503,6 +503,7 @@ export class Schedule {
 
         const availableIntervals = task.schedulable.getAvailableIntervals();
 
+        outer:
         for (const interval of availableIntervals) {
             const adjustedStart = Math.max(interval.start, earliestStartTime);
             if (adjustedStart >= interval.end) continue;
@@ -512,16 +513,23 @@ export class Schedule {
                      startTime + task.duration <= interval.end;
                      startTime += SLOT_STEP) {
 
+                    const slotEnd = startTime + task.duration;
+
                     // Filtre pause méridienne flottante sur les ressources GROUP
                     if (floatingLB && groupResources.length > 0) {
                         const dayIndex = Math.floor(startTime / MINUTES_PER_DAY);
                         const winStart = dayIndex * MINUTES_PER_DAY + floatingEarliestMin;
                         const winEnd   = dayIndex * MINUTES_PER_DAY + floatingLatestMin;
-                        const slotEnd  = startTime + task.duration;
                         if (groupResources.some(r =>
                             !this._resourceKeepsFloatingBreak(r, startTime, slotEnd, winStart, winEnd, floatingLB.duration)
                         )) continue;
                     }
+
+                    // Filtre look-ahead : chaque dépendant direct doit avoir un créneau
+                    // disponible (avec ses ressources courantes) après la fin de ce slot.
+                    // Comme slotEnd croît strictement et que _dependantsHaveSlotAfter est
+                    // monotone décroissante, un échec ici invalide tous les slots suivants.
+                    if (!this._dependantsHaveSlotAfter(task, slotEnd)) break outer;
 
                     slots.push({ startTime });
                 }
@@ -529,6 +537,39 @@ export class Schedule {
         }
 
         return slots;
+    }
+
+    /**
+     * Vérifie récursivement que toute la chaîne de dépendance aval de `task`
+     * peut être planifiée après `earliestStart`.
+     *
+     * Pour chaque dépendant direct `dep` :
+     *   1. Cherche le début effectif le plus tôt possible pour `dep` (≥ earliestStart)
+     *      dans son schedulable courant — hypothèse optimiste.
+     *   2. Si aucun intervalle ne peut accueillir `dep`, le slot est invalide.
+     *   3. Sinon, vérifie récursivement les dépendants de `dep` à partir de
+     *      `depEarliestStart + dep.duration` (fin au plus tôt de `dep`).
+     *
+     * Opération en lecture seule — ne modifie pas l'état du solveur.
+     */
+    private _dependantsHaveSlotAfter(task: Task, earliestStart: number): boolean {
+        for (const dep of task.getDependentTasks()) {
+            // Trouver le début effectif le plus tôt pour dep (optimiste)
+            const intervals = dep.schedulable.getAvailableIntervals();
+            let depEarliestStart: number | null = null;
+            for (const interval of intervals) {
+                const effectiveStart = Math.max(interval.start, earliestStart);
+                if (interval.end - effectiveStart >= dep.duration) {
+                    depEarliestStart = effectiveStart;
+                    break; // intervalles triés croissants → premier match = plus tôt
+                }
+            }
+            if (depEarliestStart === null) return false;
+
+            // Vérifier récursivement la chaîne aval de dep
+            if (!this._dependantsHaveSlotAfter(dep, depEarliestStart + dep.duration)) return false;
+        }
+        return true;
     }
 
     /**
