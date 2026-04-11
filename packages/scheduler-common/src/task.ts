@@ -107,28 +107,6 @@ class Task {
     return cartesian(allGroups);
   }
 
-  getRandomApplicableResources(): Resource[] | null {
-    const allCombinations = this.getApplicableResources();
-    if (allCombinations.length === 0) {
-      return null;
-    }
-    const randomIndex = Math.floor(Math.random() * allCombinations.length);
-    return allCombinations[randomIndex];
-  }
-
-  isSchedulableConsistentWithResources(): boolean {
-    const schedulable = this.schedulable;
-    for (const resource of this.getAllResources()) {
-      if (!schedulable.isFullyContainedIn(resource.availability)) {
-        schedulable.displaySchedule();
-        resource.availability.displaySchedule();
-        console.log(`⚠️ Incohérence détectée pour la tâche '${this.name}' (${this.code}) avec la ressource '${resource.id}' (${resource.type})`);
-        return false;
-      }
-    }
-    return true;
-  }
-
   private _computeSchedulable(): Availability {
     const allResources = this.getAllResources();
     if (allResources.length === 0) {
@@ -166,13 +144,6 @@ class Task {
     this.dependsOn = task;
     task.addDependentTask(this);
   } 
-
-  removeDependency(): void {
-    if (this.dependsOn) {
-      this.dependsOn.removeDependentTask(this);
-      this.dependsOn = null;
-    }
-  }
 
   getDependsOn(): Task | null {
     return this.dependsOn;
@@ -225,36 +196,6 @@ class Task {
     return checkDependency(task);
   }
 
-  getAllDependentTasks(): Task[] {
-    const allDependents = new Set<Task>();
-    const visited = new Set<Task>();
-
-    const collectDependents = (task: Task) => {
-      if (visited.has(task)) return;
-      visited.add(task);
-
-      for (const dependent of task.dependentTasks) {
-        allDependents.add(dependent);
-        collectDependents(dependent);
-      }
-    };
-
-    collectDependents(this);
-    return Array.from(allDependents);
-  }
-
-  getDependencyChain(): Task[] {
-    const chain: Task[] = [];
-    let current = this.dependsOn;
-
-    while (current) {
-      chain.unshift(current);
-      current = current.dependsOn;
-    }
-
-    return chain;
-  }
-
   getTeacherResource(): Resource | null {
     return this.appliedResources.find(r => r.type === ResourceType.TEACHER) || null;
   }
@@ -267,14 +208,6 @@ class Task {
     return this.schedulable.hasSlotOfDuration(this.duration);
   }
 
-  toString(): string {
-    const resourceIds = this.appliedResources.map(r => r.id).join(', ');
-    const dependsOnInfo = this.dependsOn ? ` dépend de: ${this.dependsOn.id}` : '';
-    const dependentsInfo = this.dependentTasks.length > 0 
-      ? ` bloque: [${this.dependentTasks.map(t => t.id).join(', ')}]` 
-      : '';
-    return `Task(${this.id}: ${this.name}, durée: ${this.duration}, ressources: [${resourceIds}])${dependsOnInfo}${dependentsInfo}`;
-  }
 }
 
 export { Task };
