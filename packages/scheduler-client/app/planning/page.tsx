@@ -15,34 +15,15 @@ import { Button } from '@/components/ui/button';
 export default function PlanningPage() {
   // ── Stores ──────────────────────────────────────────────────────────────
   const allCourses = useSchedulerStore((s) => s.allCourses);
-  const resources = useSchedulerStore((s) => s.resources);
 
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
-  const setSelectedWeek = usePlanningStore((s) => s.setSelectedWeek);
   const scheduleResult = usePlanningStore((s) => s.scheduleResult);
   const selectedSolutionIndex = usePlanningStore((s) => s.selectedSolutionIndex);
   const setSelectedSolutionIndex = usePlanningStore((s) => s.setSelectedSolutionIndex);
   const activeSolution = usePlanningStore((s) => s.activeSolution);
   const activeNeutralizedTasks = usePlanningStore((s) => s.activeNeutralizedTasks);
   const searchQuery = usePlanningStore((s) => s.searchQuery);
-  const setSearchQuery = usePlanningStore((s) => s.setSearchQuery);
-  const isLoading = usePlanningStore((s) => s.isLoading);
   const status = usePlanningStore((s) => s.status);
-  const enforcedMap = usePlanningStore((s) => s.enforcedMap);
-  const blockedZones = usePlanningStore((s) => s.blockedZones);
-  const runSchedule = usePlanningStore((s) => s.runSchedule);
-  const handleEnforceChange = usePlanningStore((s) => s.handleEnforceChange);
-  const handleBlockedZoneAdd = usePlanningStore((s) => s.handleBlockedZoneAdd);
-  const handleBlockedZoneRemove = usePlanningStore((s) => s.handleBlockedZoneRemove);
-  const handleBlockedZoneMove = usePlanningStore((s) => s.handleBlockedZoneMove);
-
-  // ── Semaine ──────────────────────────────────────────────────────────────
-  const weekStr = selectedWeek !== null ? String(selectedWeek) : '1';
-
-  const handleSetWeek = useCallback((v: string) => {
-    const n = parseInt(v, 10);
-    if (!isNaN(n) && n >= 1 && n <= 53) setSelectedWeek(n);
-  }, [setSelectedWeek]);
 
   // ── Cours dérivés pour la semaine courante ───────────────────────────────
   const parsedCourses: CourseTaskData[] = useMemo(
@@ -94,8 +75,6 @@ export default function PlanningPage() {
     onExternalDragEnd: handleExternalDragEnd,
   });
 
-  const calendarWeek = selectedWeek ?? 1;
-
   return (
     <div className="h-full flex flex-col overflow-hidden bg-secondary/30">
 
@@ -103,18 +82,9 @@ export default function PlanningPage() {
       <div className="flex flex-1 overflow-hidden">
 
         <SidebarLeft
-          week={weekStr}
-          setWeek={handleSetWeek}
           parsedCourses={parsedCourses}
-          enforcedMap={enforcedMap}
           groupBy={groupBy}
           setGroupBy={setGroupBy}
-          scheduleResult={scheduleResult}
-          activeSolution={activeSolution}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          isLoading={isLoading}
-          runSchedule={runSchedule}
           onDragStart={setSidebarDraggingResources}
           onDragEnd={() => setSidebarDraggingResources(null)}
         />
@@ -139,22 +109,13 @@ export default function PlanningPage() {
 
           <ScheduleCalendar
             solutions={filteredSolutions}
-            week={calendarWeek}
             parsedCourses={parsedCourses}
-            onEnforceChange={handleEnforceChange}
-            blockedZones={blockedZones}
-            onBlockedZoneAdd={handleBlockedZoneAdd}
-            onBlockedZoneRemove={handleBlockedZoneRemove}
-            onBlockedZoneMove={handleBlockedZoneMove}
-            solutionKey={selectedSolutionIndex}
-            resourcesList={resources}
             externalDragging={externalDraggingTask ?? sidebarDraggingResources}
           />
         </main>
 
         {activeNeutralizedTasks.length > 0 && (
           <NeutralizedPanel
-            tasks={activeNeutralizedTasks}
             containerRef={neutralizedContainerRef}
           />
         )}

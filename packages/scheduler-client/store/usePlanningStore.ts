@@ -147,7 +147,7 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
       set({ status: { message: '❌ Semaine non sélectionnée.', kind: 'err' } });
       return;
     }
-    const { allCourses, resources, constraints } = useSchedulerStore.getState();
+    const { allCourses, resources, constraints, schedulerConfig } = useSchedulerStore.getState();
     if (!resources.length) {
       set({ status: { message: '❌ Ressources non chargées.', kind: 'err' } });
       return;
@@ -167,6 +167,7 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
         enforcedMap,
         blockedZones,
         mode,
+        schedulerConfig,
       });
       const best = result.solutions[0];
       set({

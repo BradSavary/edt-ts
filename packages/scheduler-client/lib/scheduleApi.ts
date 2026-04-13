@@ -1,4 +1,4 @@
-import type { RawScheduleData, TaskSolutionJSON, CourseTaskData, EnforcedData, ConstraintsData, ResourceGroupData } from '@edt-ts/scheduler-common';
+import type { RawScheduleData, TaskSolutionJSON, CourseTaskData, EnforcedData, ConstraintsData, ResourceGroupData, SchedulerConfig } from '@edt-ts/scheduler-common';
 import { type BlockedZone, applyBlockedZonesToConstraints } from '@/lib/blockedZones';
 
 export interface NormalizedSolution {
@@ -21,6 +21,7 @@ export interface RunScheduleParamsFromData {
   enforcedMap: Record<string, EnforcedData>;
   blockedZones: BlockedZone[];
   mode: 'standard' | 'elimination';
+  schedulerConfig?: SchedulerConfig;
 }
 
 /**
@@ -35,6 +36,7 @@ async function _callScheduleApi(
   enforcedMap: Record<string, EnforcedData>,
   blockedZones: BlockedZone[],
   mode: 'standard' | 'elimination',
+  schedulerConfig?: SchedulerConfig,
 ): Promise<ScheduleResult> {
   const coursesWithEnforced = courses.map((course, i) => {
     const enforced = enforcedMap[String(i)];
@@ -49,12 +51,17 @@ async function _callScheduleApi(
   );
   const hasConstraints = !!constraintsData || blockedZones.length > 0;
 
-  const payload: RawScheduleData & { options?: { eliminationCount?: number } } = {
+  const options: Record<string, unknown> = { ...schedulerConfig };
+  if (mode === 'elimination' && schedulerConfig?.maxEliminations === undefined) {
+    // maxEliminations déjà dans schedulerConfig si défini, sinon on laisse l'API appliquer son défaut
+  }
+
+  const payload: RawScheduleData & { options?: Record<string, unknown> } = {
     week: weekNum,
     resources,
     courses: coursesWithEnforced,
     ...(hasConstraints ? { constraints: effectiveConstraints } : {}),
-    ...(mode === 'elimination' ? { options: { eliminationCount: 5 } } : {}),
+    ...(Object.keys(options).length > 0 ? { options } : {}),
   };
 
   const endpoint = mode === 'elimination' ? '/api/schedule/elimination' : '/api/schedule';
@@ -117,7 +124,7 @@ async function _callScheduleApi(
  * Préférer cette fonction quand les données sont disponibles dans useSchedulerStore.
  */
 export async function runScheduleRequestFromData(params: RunScheduleParamsFromData): Promise<ScheduleResult> {
-  const { week, courses, resources, constraintsData, enforcedMap, blockedZones, mode } = params;
+  const { week, courses, resources, constraintsData, enforcedMap, blockedZones, mode, schedulerConfig } = params;
 
   if (week < 1 || week > 53) {
     throw new Error('"week" doit être un entier entre 1 et 53.');
@@ -129,7 +136,7 @@ export async function runScheduleRequestFromData(params: RunScheduleParamsFromDa
     throw new Error(`Aucun cours trouvé pour la semaine ${week}.`);
   }
 
-  return _callScheduleApi(week, resources, courses, constraintsData, enforcedMap, blockedZones, mode);
+  return _callScheduleApi(week, resources, courses, constraintsData, enforcedMap, blockedZones, mode, schedulerConfig);
 }
 
 export interface ScheduleStatus {

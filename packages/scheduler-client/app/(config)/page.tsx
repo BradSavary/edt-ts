@@ -16,8 +16,10 @@ export default function ConfigPage() {
 
   useEffect(() => {
     if (!coursesCsvFile) return;
-    setImportStatus('loading');
+    let cancelled = false;
     coursesCsvFile.text().then((text) => {
+      if (cancelled) return;
+      setImportStatus('loading');
       try {
         const allParsed = parseCsvCoursesAll(text);
         const extractedResources = extractResourcesFromCsv(text);
@@ -32,6 +34,7 @@ export default function ConfigPage() {
         setImportStatus('error');
       }
     });
+    return () => { cancelled = true; };
   }, [coursesCsvFile]);
 
   const resourceCount = resources.reduce((acc, g) => acc + g.resources.length, 0);

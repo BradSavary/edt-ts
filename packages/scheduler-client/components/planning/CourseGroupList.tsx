@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import type { CourseTaskData, ResourceEntry, EnforcedData } from '@edt-ts/scheduler-common';
 import { Button } from '@/components/ui/button';
 import CourseCard from '@/components/planning/CourseCard';
@@ -32,10 +32,13 @@ export default function CourseGroupList({ courses, groupBy, enforcedMap }: Props
   }, [courses, groupBy]);
 
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const [prevGroupBy, setPrevGroupBy] = useState<GroupBy>(groupBy);
 
-  useEffect(() => {
+  // Reset openGroups quand groupBy change
+  if (groupBy !== prevGroupBy) {
+    setPrevGroupBy(groupBy);
     setOpenGroups(new Set());
-  }, [groupBy]);
+  }
 
   const toggleGroup = (key: string) => {
     setOpenGroups((prev) => {

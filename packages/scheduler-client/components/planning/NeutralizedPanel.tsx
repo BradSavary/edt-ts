@@ -1,14 +1,13 @@
 'use client';
 
-import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
 import { usePlanningStore } from '@/store/usePlanningStore';
 
 interface NeutralizedPanelProps {
-  tasks: TaskSolutionJSON[];
   containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
-export function NeutralizedPanel({ tasks, containerRef }: NeutralizedPanelProps) {
+export function NeutralizedPanel({ containerRef }: NeutralizedPanelProps) {
+  const tasks = usePlanningStore((s) => s.activeNeutralizedTasks);
   const placedNeutralizedTasks = usePlanningStore((s) => s.placedNeutralizedTasks);
   const unplacedCount = tasks.filter((t) => !placedNeutralizedTasks.some((p) => p.taskId === t.taskId)).length;
 

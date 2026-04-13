@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { StateCreator } from 'zustand';
 import { createConstraintsSlice, type ConstraintsSlice } from './slices/constraintsSlice';
-import type { CourseTaskData, ResourceGroupData, ConstraintsData } from '@edt-ts/scheduler-common';
-import { AvailabilityManager } from '@edt-ts/scheduler-common';
+import type { CourseTaskData, ResourceGroupData, ConstraintsData, SchedulerConfig } from '@edt-ts/scheduler-common';
+import { AvailabilityManager, DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
 import { ClientSchedulerData } from '../lib/clientSchedulerData';
 
 // ── Slice : données brutes du planificateur ────────────────────────────────
@@ -15,12 +15,14 @@ interface SchedulerDataSlice {
   allCourses: CourseTaskData[];
   resources: ResourceGroupData[];
   coursesFileName: string | null;
+  schedulerConfig: SchedulerConfig;
   /** Instance reconstruite depuis constraints — non persistée, jamais null si constraints non vide */
   availabilityManager: AvailabilityManager | null;
   /** Instance ClientSchedulerData — non persistée, reconstruite quand allCourses ou resources change */
   clientSchedulerData: ClientSchedulerData | null;
   setCourses: (courses: CourseTaskData[], fileName?: string) => void;
   setResources: (resources: ResourceGroupData[]) => void;
+  setSchedulerConfig: (config: SchedulerConfig) => void;
 }
 
 // ── Store combiné ──────────────────────────────────────────────────────────
@@ -38,10 +40,12 @@ export const useSchedulerStore = create<SchedulerStore>()(
       allCourses: [],
       resources: [],
       coursesFileName: null,
+      schedulerConfig: DEFAULT_SCHEDULER_CONFIG,
       availabilityManager: null, // Reconstruit par subscribe ci-dessous
       clientSchedulerData: null, // Reconstruit par subscribe ci-dessous
       setCourses: (allCourses, fileName) => set({ allCourses, ...(fileName !== undefined ? { coursesFileName: fileName } : {}) }),
       setResources: (resources) => set({ resources }),
+      setSchedulerConfig: (schedulerConfig) => set({ schedulerConfig }),
     }),
     {
       name: 'edt-scheduler',
@@ -52,6 +56,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
         allCourses: state.allCourses,
         resources: state.resources,
         coursesFileName: state.coursesFileName,
+        schedulerConfig: state.schedulerConfig,
       }),
     },
   ),
