@@ -1,5 +1,6 @@
 import { Loader } from './loader.js';
 import { Task, Resource, ResourceType } from '@edt-ts/scheduler-common';
+import type { SchedulerConfig } from '@edt-ts/scheduler-common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -30,78 +31,219 @@ export interface ScheduleSolution {
  * Utilise un algorithme de programmation par contraintes avec backtracking
  */
 export class Schedule {
-    
+
     protected tasks: Task[] = [];
     protected resources: Resource[] = [];
     protected solution: TaskSolution[] = [];
     protected bestSolution: TaskSolution[] = [];
     protected bestScore: number = -Infinity;
-    protected maxIterations: number = 1000000; // Limite de sécurité augmentée
     protected currentIterations: number = 0;
     protected limitWarningShown: boolean = false;
     protected firstNonEnforcedIndex: number = 0;
     protected _initialized: boolean = false;
+
+    protected _config: Required<SchedulerConfig> = {
+        maxSolutions: 6,
+        timeoutSeconds: 180,
+        maxIterations: 1_000_000,
+        maxEliminations: 3,
+        resourceSelection: 'deterministic',
+        lunchBreak: { type: 'none' },
+    };
+
+    private _solutionsFound: number = 0;
+    private _solveStartTime: number = 0;
+    private _taskFailureCount = new Map<string, number>();
+    private _lastAttemptHadSlots = false;
+    private _allSolutions: ScheduleSolution[] = [];
 
     constructor() {
         // Les données seront chargées via Loader lors de la résolution
     }
 
     /**
-     * Résout le problème de planification en utilisant un algorithme de backtracking
-     * avec propagation de contraintes
+     * Applique un objet de configuration au solver (chainable).
+     * Les options non fournies conservent leur valeur par défaut.
+     */
+    configure(config: SchedulerConfig): this {
+        Object.assign(this._config, config);
+        return this;
+    }
+
+    /**
+     * Résolution multi-solutions avec exploration des ressources alternatives.
+     * Retourne jusqu'à _config.maxSolutions solutions complètes triées par score décroissant.
      */
     solve(): ScheduleSolution[] {
         if (!this._initialized) {
             throw new Error('Appelez initSolver() avant solve().');
         }
-        console.log('🚀 Début de la résolution du planning...');
-        
-        // Initialisation
+        console.log('🔄 Début de la résolution (multi-solutions, ressources alternatives)...');
+
         this.solution = [];
         this.bestSolution = [];
         this.bestScore = -Infinity;
         this.currentIterations = 0;
-        
-        // Tri initial par disponibilité des ressources (en préservant les enforced en tête)
+        this.limitWarningShown = false;
+        this._solutionsFound = 0;
+        this._solveStartTime = Date.now();
+        this._taskFailureCount.clear();
+        this._allSolutions = [];
+
         this.tasks.sort((a, b) => {
             if (a.isEnforced && !b.isEnforced) return -1;
             if (!a.isEnforced && b.isEnforced) return 1;
             return this.getCurrentConstraintScore(b) - this.getCurrentConstraintScore(a);
         });
 
-        // Pré-peupler la solution avec les tâches enforced (déjà bookées dans loadData)
         for (let i = 0; i < this.firstNonEnforcedIndex; i++) {
             const task = this.tasks[i];
-            this.solution.push({ task, startTime: task.enforced!.startTime, appliedResources: [...task.getAllResources()] });
+            this.solution.push({
+                task,
+                startTime: task.enforced!.startTime,
+                appliedResources: [...task.appliedResources],
+            });
         }
-     
+
         console.log(`📋 ${this.tasks.length} tâches à planifier`);
         console.log(`🏢 ${this.resources.length} ressources disponibles`);
-        console.log(`⏱️ Limite: ${this.maxIterations} itérations, pas de limite de temps`);
-        
-        // Lancement de l'algorithme de backtracking (depuis la première tâche non-enforced)
-        const startTime = Date.now();
+        console.log(`⏱️ Limite: ${this._config.maxIterations} itérations`);
+        console.log(`🎯 Objectif: ${this._config.maxSolutions} solutions complètes`);
+        console.log(`⏰ Timeout: ${this._config.timeoutSeconds}s`);
+        console.log(`🔄 Mode multi-solutions: exploration de toutes les combinaisons\n`);
+
+        const startMs = Date.now();
         this.backtrack(this.firstNonEnforcedIndex);
-        const endTime = Date.now();
-        
-        console.log(`⏱️ Résolution terminée en ${endTime - startTime}ms`);
+        const endMs = Date.now();
+
+        console.log(`\n⏱️ Résolution terminée en ${endMs - startMs}ms`);
         console.log(`🔄 Itérations effectuées: ${this.currentIterations}`);
-        
-        // Vérification finale de la solution
-        if (this.bestSolution.length > 0) {
-            const verification = this.verifySolution(this.bestSolution);
+        console.log(`🎯 Solutions complètes trouvées: ${this._solutionsFound}`);
+
+        if (this._allSolutions.length > 0) {
+            console.log(`✅ ${this._allSolutions.length} solution(s) complète(s) trouvée(s), meilleur score: ${this.bestScore}`);
+        } else {
+            console.log(`❌ Aucune solution complète trouvée`);
+        }
+
+        this._allSolutions.sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
+
+        if (this._allSolutions.length > 0) {
+            const best = this._allSolutions[0];
+            this._restoreTaskResourcesFromSolution(best.solutions);
+            const verification = this.verifySolution(best.solutions);
             if (!verification.isValid) {
                 console.warn(`⚠️ ATTENTION: La solution contient ${verification.conflicts.length} conflit(s)`);
                 verification.conflicts.forEach(conflict => console.warn(`   ${conflict}`));
             }
         }
-        
-        return [{
-            solutions: [...this.bestSolution],
-            isComplete: this.bestSolution.length === this.tasks.length,
-            conflictCount: 0, // L'algorithme de backtracking garantit l'absence de conflits
-            score: this.bestScore === -Infinity ? undefined : this.bestScore,
-        }];
+
+        return this._allSolutions;
+    }
+
+    /** Retourne une copie du compteur d'échecs par tâche (taskId → count) */
+    getTaskFailureCounts(): Map<string, number> {
+        return new Map(this._taskFailureCount);
+    }
+
+    /** Configure le nombre de solutions complètes à trouver avant d'arrêter (défaut: 6) */
+    setMaxCompleteSolutions(count: number): void {
+        this._config.maxSolutions = count;
+    }
+
+    /** Configure le timeout en secondes (défaut: 180) */
+    setTimeoutSeconds(seconds: number): void {
+        this._config.timeoutSeconds = seconds;
+    }
+
+
+    /**
+     * Stratégie d'élimination : élimine progressivement les tâches les plus bloquantes
+     * (jusqu'à N fois) jusqu'à trouver au moins une solution complète.
+     * Nombre maximum de tâches à éliminer configurable via configure({ maxEliminations: N }).
+     */
+    solveWithTaskElimination(): ScheduleSolution[] {
+        const count = this._config.maxEliminations;
+        this.initSolver();
+        const neutralized: Task[] = [];
+        let lastResults = this.solve();
+
+        for (let i = 0; i < count && lastResults.length === 0; i++) {
+            const failureCounts = this.getTaskFailureCounts();
+            let maxFailures = 0;
+            let targetIndex = -1;
+            for (let j = this.firstNonEnforcedIndex; j < this.tasks.length; j++) {
+                const cnt = failureCounts.get(this.tasks[j].id) ?? 0;
+                if (cnt > maxFailures) {
+                    maxFailures = cnt;
+                    targetIndex = j;
+                }
+            }
+
+            if (targetIndex === -1) {
+                console.log(`⚠️ Aucune tâche bloquante identifiable — arrêt de l'élimination.`);
+                break;
+            }
+
+            const eliminated = this.tasks[targetIndex];
+            neutralized.push(eliminated);
+            console.log(`🗑️ Élimination #${i + 1}: "${eliminated.name}" (${maxFailures} échec(s) sans créneau)`);
+            this.tasks.splice(targetIndex, 1);
+            lastResults = this.solve();
+        }
+
+        if (neutralized.length > 0) {
+            const penalty = neutralized.length * 1000;
+            for (const result of lastResults) {
+                result.neutralizedTasks = [...neutralized];
+                if (result.score !== undefined) {
+                    result.score = Math.round(result.score - penalty);
+                }
+            }
+        }
+
+        return lastResults;
+    }
+
+    /**
+     * Applique la pause méridienne fixe en retirant la plage horaire des disponibilités
+     * des ressources de type GROUP, sur chacun des 5 jours.
+     * Sans effet si lunchBreak.type !== 'fixed'.
+     */
+    private _applyLunchBreakConstraint(): void {
+        const lb = this._config.lunchBreak;
+        if (lb.type !== 'fixed') return;
+
+        const fromMinutes = this._parseTimeToMinutes(lb.from);
+        const toMinutes = this._parseTimeToMinutes(lb.to);
+        const MINUTES_PER_DAY = 24 * 60;
+
+        for (const resource of this.resources) {
+            if (resource.type !== ResourceType.GROUP) continue;
+            for (let day = 0; day < 5; day++) {
+                const start = day * MINUTES_PER_DAY + fromMinutes;
+                const end   = day * MINUTES_PER_DAY + toMinutes;
+                resource.availability.removeAvailability(start, end);
+            }
+        }
+
+        for (const task of this.tasks) {
+            task.invalidateSchedulable();
+        }
+
+        console.log(`🍽️ Pause méridienne fixe appliquée : ${lb.from} – ${lb.to} (groupes, 5 jours)`);
+    }
+
+    /** Convertit une chaîne "HH:MM" en nombre de minutes depuis minuit. */
+    private _parseTimeToMinutes(time: string): number {
+        const [h, m] = time.split(':').map(Number);
+        return h * 60 + m;
+    }
+
+    private _restoreTaskResourcesFromSolution(solution: TaskSolution[]): void {
+        for (const sol of solution) {
+            sol.task.appliedResources = sol.appliedResources;
+        }
     }
 
     /**
@@ -111,42 +253,42 @@ export class Schedule {
      */
     initSolver(): void {
         this.tasks = Loader.tasksManager.getAllTasks();
-      //  this.resources = Array.from(Loader.resourcesManager.getAllResources());
-        
+        this.resources = Array.from(Loader.resourcesManager.getAllResources());
+
         if (this.tasks.length === 0) {
             throw new Error('Aucune tâche à planifier. Vérifiez que les données sont chargées.');
         }
-     /*   
         if (this.resources.length === 0) {
             throw new Error('Aucune ressource disponible. Vérifiez que les ressources sont chargées.');
         }
-       */ 
-        // SÉLECTION DES RESSOURCES: ressources aléatoires pour les tâches non-enforced
-        console.log('🎲 Sélection des jeux de ressources pour chaque tâche...');
+
+        // Initialisation des ressources : première combinaison disponible pour chaque tâche.
+        // L'ordre d'exploration effectif est contrôlé par _config.resourceSelection
+        // dans _tryAllResourceCombinations pendant le backtracking.
         let tasksWithoutResources = 0;
         for (const task of this.tasks) {
-            if (task.isEnforced) continue; // géré plus bas
-            const selectedResources = task.getRandomApplicableResources();
-            if (!selectedResources) {
+            if (task.isEnforced) continue;
+            const allCombinations = task.getApplicableResources();
+            if (allCombinations.length === 0) {
                 console.warn(`⚠️  Aucune combinaison de ressources disponible pour ${task.name}`);
                 tasksWithoutResources++;
             } else {
-                task.appliedResources = selectedResources;
+                task.appliedResources = allCombinations[0];
             }
         }
         if (tasksWithoutResources > 0) {
             console.warn(`⚠️  ${tasksWithoutResources} tâche(s) sans ressources disponibles`);
         }
-        console.log('✅ Jeux de ressources appliqués\n');
-        
-        // Trier : enforced en tête, puis par score de contrainte croissant
-        console.log('🎯 Application de la priorisation par contraintes...');
+        console.log('✅ Ressources initialisées\n');
+
+        // Trier : enforced en tête uniquement.
+        // L'ordre des tâches non-enforced est géré dynamiquement par dynamicTaskSort()
+        // à chaque niveau du backtracking (heuristique MCV sur état courant).
         this.tasks.sort((a, b) => {
             if (a.isEnforced && !b.isEnforced) return -1;
             if (!a.isEnforced && b.isEnforced) return 1;
-            return this.getTaskConstraintScore(a) - this.getTaskConstraintScore(b);
+            return 0;
         });
-        console.log('✅ Tâches triées par ordre de difficulté\n');
 
         // Calculer l'index de la première tâche non-enforced
         const idx = this.tasks.findIndex(t => !t.isEnforced);
@@ -174,81 +316,135 @@ export class Schedule {
                     }
                 }
 
-                this.applyConstraints({ task, startTime: enforced.startTime, appliedResources: [...task.getAllResources()] });
+                this.applyConstraints({ task, startTime: enforced.startTime, appliedResources: enforcedResources });
             }
             console.log('✅ Créneaux enforced réservés.\n');
         }
+
+        this._applyLunchBreakConstraint();
+
+        // Vérification préalable : chaque tâche non-enforced doit avoir au moins 1 créneau schedulable
+        for (const task of this.tasks) {
+            if (task.isEnforced) continue;
+            if (!task.hasSchedulableSlot()) {
+                console.warn(`⚠️ Aucun créneau suffisant pour la tâche "${task.name}" (${task.code}, durée: ${task.duration} min) avec les ressources initiales.`);
+            }
+        }
+
         this._initialized = true;
     }
 
     /**
-     * Algorithme de backtracking principal
+     * Algorithme de backtracking avec exploration de toutes les combinaisons de ressources.
      */
     protected backtrack(taskIndex: number): boolean {
-        // Vérifications de sécurité
         this.currentIterations++;
-        
-        if (this.currentIterations > this.maxIterations) {
+
+        const elapsedTime = Date.now() - this._solveStartTime;
+        if (elapsedTime > this._config.timeoutSeconds * 1000) {
+            if (!this.limitWarningShown) {
+                console.log(`⏰ Timeout atteint (${(elapsedTime / 1000).toFixed(1)}s)`);
+                this.limitWarningShown = true;
+            }
+            return false;
+        }
+
+        if (this.currentIterations > this._config.maxIterations) {
             if (!this.limitWarningShown) {
                 console.log('⚠️ Limite d\'itérations atteinte');
                 this.limitWarningShown = true;
             }
             return false;
         }
-        
-        // Pas de limite de temps - commenté
-        // if (Date.now() - this.startTime > this.timeoutMs) {
-        //     console.log('⚠️ Timeout atteint');
-        //     return false;
-        // }
-        
-        // Condition d'arrêt : toutes les tâches sont planifiées
+
         if (taskIndex >= this.tasks.length) {
-            const score = this.evaluateSolution(this.solution);
+            this._solutionsFound++;
+            const score = Math.round(this.evaluateSolution(this.solution));
+
+            const solutionSnapshot: TaskSolution[] = this.solution.map(sol => ({
+                task: sol.task,
+                startTime: sol.startTime,
+                appliedResources: [...sol.appliedResources],
+            }));
+
+            this._allSolutions.push({ solutions: solutionSnapshot, isComplete: true, conflictCount: 0, score });
+
             if (score > this.bestScore) {
                 this.bestScore = score;
-                this.bestSolution = [...this.solution];
-                console.log(`✅ Nouvelle meilleure solution trouvée (score: ${score}, tâches: ${this.solution.length})`);
+                this.bestSolution = solutionSnapshot;
             }
-            return true;
+            console.log(`✅ Solution COMPLÈTE ${this._solutionsFound}/${this._config.maxSolutions} (score: ${score}, meilleur: ${this.bestScore})`);
+
+            if (this._solutionsFound >= this._config.maxSolutions) {
+                console.log(`🎯 Objectif atteint: ${this._solutionsFound} solutions complètes trouvées`);
+                return true;
+            }
+            return false;
         }
 
-        
-        // TRI DYNAMIQUE: Réorganiser les tâches restantes selon l'état actuel
-        // Applique l'heuristique Most Constrained Variable de manière optimisée
-        // (seulement tous les 5 niveaux pour éviter le surcoût)
-      
-        if (taskIndex < this.tasks.length - 1 && taskIndex % 5 === 0) {
-            this.dynamicTaskSort(taskIndex);
-        }
-        
+        this.dynamicTaskSort(taskIndex);
+
         const task = this.tasks[taskIndex];
-       
-        // SUPPORT DES DÉPENDANCES: Vérifier si la tâche peut être planifiée maintenant
+
         if (!this.canTaskBeScheduledNow(task)) {
-            // l'algorithme ne permet pas (normalement) le traitement d'une tâche avant celle dont elle dépend
-            throw new Error(`Erreur logique: La tâche ${task.name} (index ${taskIndex}) ne peut pas être planifiée maintenant car elle dépend d'une tâche non encore planifiée.`);
-            // La tâche ne peut pas être planifiée maintenant à cause des dépendances
-            // Passer à la tâche suivante
-            return this.backtrack(taskIndex + 1);
-        }
-        
-        // Affichage de progression réduit (moins verbeux)
-        if (this.currentIterations % 10000 === 0) {
-            console.log(`🔍 Itération ${this.currentIterations}, tâche ${taskIndex}/${this.tasks.length}: ${task.name}`);
+            throw new Error(`Erreur: La tâche '${task.name}' ne peut pas être planifiée (dépendances non satisfaites)`);
         }
 
-        // Génération des créneaux possibles pour cette tâche (limité pour éviter l'explosion)
-        const possibleSlots = this.generatePossibleSlots(task);//.slice(0, 10); // Limiter à 10 créneaux max
-        
-        if (possibleSlots.length === 0) {
-            // Aucun créneau possible, passer à la tâche suivante (planification partielle)
-            return this.backtrack(taskIndex + 1);
+        if (this.currentIterations % 10000 === 0) {
+            console.log(`🔄 Itération ${this.currentIterations}, tâche ${taskIndex}/${this.tasks.length}: ${task.name}`);
         }
-        
+
+        return this._tryAllResourceCombinations(task, taskIndex);
+    }
+
+    private _tryAllResourceCombinations(task: Task, taskIndex: number): boolean {
+        const raw = task.getApplicableResources();
+
+        if (raw.length === 0) {
+            console.warn(`⚠️ Aucune combinaison de ressources pour ${task.name}`);
+            return false;
+        }
+
+        // resourceSelection contrôle l'ordre d'exploration des combinaisons :
+        // - 'deterministic' : ordre stable (tel que retourné par getApplicableResources)
+        // - 'random'        : ordre aléatoire à chaque nœud du backtracking
+        const allCombinations = this._config.resourceSelection === 'random'
+            ? [...raw].sort(() => Math.random() - 0.5)
+            : raw;
+
+        const previousResources = task.appliedResources;
+        let someHadSlots = false;
+        for (const resourceCombination of allCombinations) {
+            task.appliedResources = resourceCombination;
+            task.invalidateSchedulable();
+            if (this._tryTaskWithCurrentResources(task, taskIndex)) {
+                return true;
+            }
+            someHadSlots ||= this._lastAttemptHadSlots;
+        }
+
+        // Restaurer les ressources d'avant l'exploration après échec de toutes les combinaisons
+        task.appliedResources = previousResources;
+        task.invalidateSchedulable();
+
+        if (!someHadSlots) {
+            const cnt = (this._taskFailureCount.get(task.id) ?? 0) + 1;
+            this._taskFailureCount.set(task.id, cnt);
+        }
+
+        return false;
+    }
+
+    private _tryTaskWithCurrentResources(task: Task, taskIndex: number): boolean {
+        const possibleSlots = this.generatePossibleSlots(task);
+
+        if (possibleSlots.length === 0) {
+            this._lastAttemptHadSlots = false;
+            return false;
+        }
+        this._lastAttemptHadSlots = true;
+
         for (const slot of possibleSlots) {
-            // Assignation de la tâche au créneau
-            // Les slots sont déjà valides grâce à task.schedulable (intersection des ressources)
             const taskSolution: TaskSolution = {
                 task,
                 startTime: slot.startTime,
@@ -257,39 +453,23 @@ export class Schedule {
 
             this.solution.push(taskSolution);
 
-            // Application des contraintes (propagation)
             try {
                 this.applyConstraints(taskSolution);
-            } catch (error) {
-                // Si les contraintes ne peuvent pas être appliquées (ex: pause méridienne),
-                // annuler l'ajout et essayer le créneau suivant
+            } catch {
                 this.solution.pop();
                 continue;
             }
 
-            // Récursion sur la tâche suivante
             const result = this.backtrack(taskIndex + 1);
-
-            // Backtrack : annulation des modifications
             this.undoConstraints(taskSolution);
             this.solution.pop();
 
-            // TRI DYNAMIQUE: Réorganiser les tâches restantes selon l'état actuel
-            // Applique l'heuristique Most Constrained Variable après le pop
-            // (seulement tous les 5 niveaux pour éviter le surcoût)
-            // if (taskIndex < this.tasks.length - 1 && taskIndex % 5 === 0) {
-            //    this.dynamicTaskSort(taskIndex);
-            //}
-
-            // Si on a trouvé une solution complète, on peut arrêter
-            if (result && this.bestSolution.length === this.tasks.length) {
+            if (result) {
                 return true;
             }
         }
-        
-        // Si aucun créneau n'a fonctionné, essayer sans cette tâche (planification partielle)
-    
-        return this.backtrack(taskIndex + 1);
+
+        return false;
     }
 
     /**
@@ -299,56 +479,127 @@ export class Schedule {
      */
     protected generatePossibleSlots(task: Task): Array<{startTime: number}> {
         const slots: Array<{startTime: number}> = [];
-        const SLOT_STEP = 30; // Pas de 30 minutes entre les slots
-        
-        // SUPPORT DES DÉPENDANCES: Calculer le moment le plus tôt possible
+        const SLOT_STEP = 30;
+        const MINUTES_PER_DAY = 24 * 60;
+
         let earliestStartTime = 0;
         const dependency = task.getDependsOn();
-        
         if (dependency) {
-            // Trouver quand la dépendance se termine dans la solution actuelle
             const dependencyScheduled = this.solution.find(sol => sol.task === dependency);
-            
-            if (!dependencyScheduled) {
-                // La dépendance n'est pas planifiée, aucun créneau possible
-                return [];
-            }
-            
-            // La tâche ne peut commencer qu'après la fin de sa dépendance
+            if (!dependencyScheduled) return [];
             earliestStartTime = dependencyScheduled.startTime + dependency.duration;
         }
-        
-        // CORRECTION: Utiliser les vrais créneaux disponibles de la tâche
+
+        // Pré-calcul de la contrainte flottante (si active)
+        const lb = this._config.lunchBreak;
+        const floatingLB = lb.type === 'floating' ? lb : null;
+        let floatingEarliestMin = 0, floatingLatestMin = 0;
+        let groupResources: Resource[] = [];
+        if (floatingLB) {
+            floatingEarliestMin = this._parseTimeToMinutes(floatingLB.earliest);
+            floatingLatestMin   = this._parseTimeToMinutes(floatingLB.latest);
+            groupResources = task.appliedResources.filter(r => r.type === ResourceType.GROUP);
+        }
+
         const availableIntervals = task.schedulable.getAvailableIntervals();
-        
+
+        outer:
         for (const interval of availableIntervals) {
-            // Ajuster l'intervalle pour respecter la contrainte de dépendance
             const adjustedStart = Math.max(interval.start, earliestStartTime);
-            
-            if (adjustedStart >= interval.end) {
-                continue; // L'intervalle est entièrement avant le moment autorisé
-            }
-            
-            const intervalDuration = interval.end - adjustedStart;
-            
-            // Vérifier si l'intervalle ajusté est assez grand pour la tâche
-            if (intervalDuration >= task.duration) {
-                // Générer tous les slots possibles dans cet intervalle ajusté
-                // avec un pas de SLOT_STEP minutes
-                for (let startTime = adjustedStart; 
-                     startTime + task.duration <= interval.end; 
+            if (adjustedStart >= interval.end) continue;
+
+            if (interval.end - adjustedStart >= task.duration) {
+                for (let startTime = adjustedStart;
+                     startTime + task.duration <= interval.end;
                      startTime += SLOT_STEP) {
-                    
-                    const slot = {
-                        startTime: startTime
-                    };
-                    
-                    slots.push(slot);
+
+                    const slotEnd = startTime + task.duration;
+
+                    // Filtre pause méridienne flottante sur les ressources GROUP
+                    if (floatingLB && groupResources.length > 0) {
+                        const dayIndex = Math.floor(startTime / MINUTES_PER_DAY);
+                        const winStart = dayIndex * MINUTES_PER_DAY + floatingEarliestMin;
+                        const winEnd   = dayIndex * MINUTES_PER_DAY + floatingLatestMin;
+                        if (groupResources.some(r =>
+                            !this._resourceKeepsFloatingBreak(r, startTime, slotEnd, winStart, winEnd, floatingLB.duration)
+                        )) continue;
+                    }
+
+                    // Filtre look-ahead : chaque dépendant direct doit avoir un créneau
+                    // disponible (avec ses ressources courantes) après la fin de ce slot.
+                    // Comme slotEnd croît strictement et que _dependantsHaveSlotAfter est
+                    // monotone décroissante, un échec ici invalide tous les slots suivants.
+                    if (!this._dependantsHaveSlotAfter(task, slotEnd)) break outer;
+
+                    slots.push({ startTime });
                 }
             }
         }
-        
+
         return slots;
+    }
+
+    /**
+     * Vérifie récursivement que toute la chaîne de dépendance aval de `task`
+     * peut être planifiée après `earliestStart`.
+     *
+     * Pour chaque dépendant direct `dep` :
+     *   1. Cherche le début effectif le plus tôt possible pour `dep` (≥ earliestStart)
+     *      dans son schedulable courant — hypothèse optimiste.
+     *   2. Si aucun intervalle ne peut accueillir `dep`, le slot est invalide.
+     *   3. Sinon, vérifie récursivement les dépendants de `dep` à partir de
+     *      `depEarliestStart + dep.duration` (fin au plus tôt de `dep`).
+     *
+     * Opération en lecture seule — ne modifie pas l'état du solveur.
+     */
+    private _dependantsHaveSlotAfter(task: Task, earliestStart: number): boolean {
+        for (const dep of task.getDependentTasks()) {
+            // Trouver le début effectif le plus tôt pour dep (optimiste)
+            const intervals = dep.schedulable.getAvailableIntervals();
+            let depEarliestStart: number | null = null;
+            for (const interval of intervals) {
+                const effectiveStart = Math.max(interval.start, earliestStart);
+                if (interval.end - effectiveStart >= dep.duration) {
+                    depEarliestStart = effectiveStart;
+                    break; // intervalles triés croissants → premier match = plus tôt
+                }
+            }
+            if (depEarliestStart === null) return false;
+
+            // Vérifier récursivement la chaîne aval de dep
+            if (!this._dependantsHaveSlotAfter(dep, depEarliestStart + dep.duration)) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Vérifie qu'après booking hypothétique [slotStart, slotEnd], la ressource
+     * conserve un bloc libre d'au moins `duration` minutes dans [winStart, winEnd].
+     * Opération en lecture seule — ne modifie pas l'état de la ressource.
+     */
+    private _resourceKeepsFloatingBreak(
+        resource: Resource,
+        slotStart: number,
+        slotEnd: number,
+        winStart: number,
+        winEnd: number,
+        duration: number,
+    ): boolean {
+        const intervals = resource.availability.getAvailableIntervals();
+        for (const interval of intervals) {
+            const clipStart = Math.max(interval.start, winStart);
+            const clipEnd   = Math.min(interval.end,   winEnd);
+            if (clipStart >= clipEnd) continue;
+
+            // Sous-intervalle gauche (avant le slot)
+            const leftEnd = Math.min(clipEnd, slotStart);
+            if (leftEnd > clipStart && leftEnd - clipStart >= duration) return true;
+
+            // Sous-intervalle droit (après le slot)
+            const rightStart = Math.max(clipStart, slotEnd);
+            if (rightStart < clipEnd && clipEnd - rightStart >= duration) return true;
+        }
+        return false;
     }
 
     /**
@@ -400,22 +651,6 @@ export class Schedule {
         for (const task of tasksToInvalidate) {
             task.invalidateSchedulable();
         }
-    }
-
-    /**
-     * Calcule un score de contrainte pour une tâche (état initial des ressources)
-     * Le score est égal à la durée totale des créneaux où elle peut être planifiée
-     */
-    protected getTaskConstraintScore(task: Task): number {
-        // Le score est basé sur la disponibilité totale initiale des ressources de la tâche
-        // Si la tâche a une dépendance, ajouter le score de la dépendance
-        const baseScore = task.schedulable.getTotalAvailableTime();
-        const dependency = task.getDependsOn();
-        if (dependency) {
-            // Appel récursif pour la dépendance
-            return baseScore + this.getTaskConstraintScore(dependency);
-        }
-        return baseScore;
     }
 
     /**

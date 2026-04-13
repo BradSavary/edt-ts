@@ -100,3 +100,69 @@ export interface ScheduleSolutionJSON {
   score?: number;
   neutralizedTasks?: TaskSolutionJSON[];
 }
+
+/**
+/**
+ * Aucune gestion particulière de la pause méridienne.
+ */
+export interface LunchBreakNone {
+  type: 'none';
+}
+
+/**
+ * Pause méridienne fixe : même tranche horaire chaque jour.
+ * Les heures sont exprimées en format "HH:MM" (ex : "12:30", "14:00").
+ */
+export interface LunchBreakFixed {
+  type: 'fixed';
+  /** Heure de début de la pause (ex : "12:30") */
+  from: string;
+  /** Heure de fin de la pause (ex : "14:00") */
+  to: string;
+}
+
+/**
+ * Pause méridienne flottante : durée fixe à placer dans une fenêtre horaire.
+ * Les heures sont exprimées en format "HH:MM".
+ */
+export interface LunchBreakFloating {
+  type: 'floating';
+  /** Durée de la pause en minutes (ex : 60) */
+  duration: number;
+  /** Début de la fenêtre dans laquelle la pause doit avoir lieu (ex : "12:00") */
+  earliest: string;
+  /** Fin de la fenêtre dans laquelle la pause doit avoir lieu (ex : "14:00") */
+  latest: string;
+}
+
+/** Union discriminée des modes de gestion de la pause méridienne. */
+export type LunchBreakConfig = LunchBreakNone | LunchBreakFixed | LunchBreakFloating;
+
+/**
+ * Options de configuration du solver, transmissibles de l'API vers le moteur.
+ * Tous les champs sont optionnels — les valeurs par défaut sont appliquées dans Schedule.
+ */
+export interface SchedulerConfig {
+  /** Nombre maximum de solutions complètes à trouver (défaut : 6) */
+  maxSolutions?: number;
+  /** Timeout en secondes avant arrêt du backtracking (défaut : 180) */
+  timeoutSeconds?: number;
+  /** Limite de sécurité sur le nombre d'itérations (défaut : 1 000 000) */
+  maxIterations?: number;
+  /** Nombre de tâches à remonter/éliminer dans les stratégies priority-retry / elimination (défaut : 3) */
+  maxEliminations?: number;
+  /** Stratégie de sélection initiale des ressources pour les tâches non-enforced (défaut : 'deterministic') */
+  resourceSelection?: 'random' | 'deterministic';
+  /** Gestion de la pause méridienne (défaut : aucune) */
+  lunchBreak?: LunchBreakConfig;
+}
+
+/** Valeurs par défaut appliquées par le solver lorsqu'une option n'est pas fournie. */
+export const DEFAULT_SCHEDULER_CONFIG: Required<SchedulerConfig> = {
+  maxSolutions: 6,
+  timeoutSeconds: 180,
+  maxIterations: 1_000_000,
+  maxEliminations: 3,
+  resourceSelection: 'deterministic',
+  lunchBreak: { type: 'none' },
+};

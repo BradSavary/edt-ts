@@ -1,9 +1,10 @@
 import type { Request, Response } from 'express';
 import {
   Loader,
-  ScheduleAR,
+  Schedule,
 } from '@edt-ts/scheduler-core';
-import type { RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON } from '@edt-ts/scheduler-common';
+import type { RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON, SchedulerConfig } from '@edt-ts/scheduler-common';
+import { DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
 import type { Task } from '@edt-ts/scheduler-common';
 import type {
   TaskSolution,
@@ -115,10 +116,20 @@ function serializeScheduleSolution(result: ScheduleSolution): ScheduleSolutionJS
  *   },
  *   "options": {
  *     "maxSolutions": 10,
- *     "timeoutSeconds": 60
+ *     "timeoutSeconds": 60,
+ *     "lunchBreak": { "type": "none" }
  *   }
  * }
  * ```
+ *
+ * Exemples de valeurs pour `options.lunchBreak` :
+ * - Aucune contrainte (défaut) : `{ "type": "none" }`
+ * - Pause fixe            : `{ "type": "fixed", "from": "12:00", "to": "13:30" }`
+ * - Pause flottante        : `{ "type": "floating", "duration": 90, "earliest": "12:00", "latest": "14:00" }`
+ *
+ * La contrainte `fixed` bloque la plage horaire dans les disponibilités des groupes (avant le backtracking).
+ * La contrainte `floating` filtre les créneaux : elle garantit qu'un bloc libre d'au moins `duration`
+ * minutes reste disponible dans `[earliest, latest]` pour chaque groupe impliqué dans la tâche.
  *
  * Notes :
  * - `resources` : obligatoire en pratique. Si absent ou vide, aucune ressource n'est chargée
@@ -134,9 +145,7 @@ function serializeScheduleSolution(result: ScheduleSolution): ScheduleSolutionJS
  */
 export async function scheduleHandler(req: Request, res: Response): Promise<void> {
   try {
-    const body = req.body as RawScheduleData & {
-      options?: { maxSolutions?: number; timeoutSeconds?: number };
-    };
+    const body = req.body as RawScheduleData & { options?: SchedulerConfig };
 
     // ── Validation minimale ──────────────────────────────────────────────
     if (!body.week || !body.courses || !Array.isArray(body.courses)) {
@@ -158,13 +167,8 @@ export async function scheduleHandler(req: Request, res: Response): Promise<void
     });
 
     // ── Configuration du planificateur ───────────────────────────────────
-    const scheduler = new ScheduleAR();
-    if (body.options?.maxSolutions !== undefined) {
-      scheduler.setMaxCompleteSolutions(body.options.maxSolutions);
-    }
-    if (body.options?.timeoutSeconds !== undefined) {
-      scheduler.setTimeoutSeconds(body.options.timeoutSeconds);
-    }
+    const scheduler = new Schedule();
+    if (body.options) scheduler.configure(body.options);
 
     // ── Résolution ───────────────────────────────────────────────────────
     scheduler.initSolver();
@@ -202,9 +206,7 @@ export async function scheduleHandler(req: Request, res: Response): Promise<void
  */
 export async function solveWithEliminationHandler(req: Request, res: Response): Promise<void> {
   try {
-    const body = req.body as RawScheduleData & {
-      options?: { maxSolutions?: number; timeoutSeconds?: number; eliminationCount?: number };
-    };
+    const body = req.body as RawScheduleData & { options?: SchedulerConfig };
 
     if (!body.week || !body.courses || !Array.isArray(body.courses)) {
       res.status(400).json({
@@ -222,16 +224,10 @@ export async function solveWithEliminationHandler(req: Request, res: Response): 
       constraints: body.constraints,
     });
 
-    const scheduler = new ScheduleAR();
-    if (body.options?.maxSolutions !== undefined) {
-      scheduler.setMaxCompleteSolutions(body.options.maxSolutions);
-    }
-    if (body.options?.timeoutSeconds !== undefined) {
-      scheduler.setTimeoutSeconds(body.options.timeoutSeconds);
-    }
+    const scheduler = new Schedule();
+    if (body.options) scheduler.configure(body.options);
 
-    const eliminationCount = body.options?.eliminationCount ?? 3;
-    const results: ScheduleSolution[] = scheduler.solveWithTaskElimination(eliminationCount);
+    const results: ScheduleSolution[] = scheduler.solveWithTaskElimination();
 
     const response: ScheduleSolutionJSON[] = results.map(serializeScheduleSolution);
     res.status(200).json(response);
@@ -248,4 +244,12 @@ export async function solveWithEliminationHandler(req: Request, res: Response): 
 
 export function healthHandler(_req: Request, res: Response): void {
   res.status(200).json({ status: 'ok', package: '@edt-ts/scheduler-api' });
+}
+
+// --------------------------------------------------------------------------
+// GET /api/schedule/config
+// --------------------------------------------------------------------------
+
+export function defaultConfigHandler(_req: Request, res: Response): void {
+  res.status(200).json(DEFAULT_SCHEDULER_CONFIG);
 }
