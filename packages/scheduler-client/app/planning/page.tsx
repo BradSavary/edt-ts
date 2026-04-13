@@ -95,7 +95,6 @@ export default function PlanningPage() {
   });
 
   const calendarWeek = selectedWeek ?? 1;
-  const enforcedCount = Object.keys(enforcedMap).length;
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-secondary/30">
@@ -111,10 +110,10 @@ export default function PlanningPage() {
           groupBy={groupBy}
           setGroupBy={setGroupBy}
           scheduleResult={scheduleResult}
+          activeSolution={activeSolution}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           isLoading={isLoading}
-          enforcedCount={enforcedCount}
           runSchedule={runSchedule}
           onDragStart={setSidebarDraggingResources}
           onDragEnd={() => setSidebarDraggingResources(null)}

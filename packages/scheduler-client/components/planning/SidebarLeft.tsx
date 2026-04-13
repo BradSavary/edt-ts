@@ -1,7 +1,8 @@
 'use client';
 
 import { useRef } from 'react';
-import type { CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
+import type { CourseTaskData, EnforcedData, TaskSolutionJSON } from '@edt-ts/scheduler-common';
+import { downloadIcalSolution } from '@/lib/icalExport';
 import { type ScheduleResult } from '@/lib/scheduleApi';
 import CourseGroupList, { type GroupBy } from '@/components/planning/CourseGroupList';
 import { useSidebarCourseDrag } from '@/hooks/useSidebarCourseDrag';
@@ -25,10 +26,10 @@ interface SidebarLeftProps {
 
   // Results
   scheduleResult: ScheduleResult | null;
+  activeSolution: TaskSolutionJSON[] | null;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   isLoading: boolean;
-  enforcedCount: number;
   runSchedule: (mode: 'standard' | 'elimination') => void;
 
   // Drag callbacks for constraint highlighting
@@ -39,8 +40,8 @@ interface SidebarLeftProps {
 export function SidebarLeft({
   week, setWeek,
   parsedCourses, enforcedMap, groupBy, setGroupBy,
-  scheduleResult, searchQuery, setSearchQuery,
-  isLoading, enforcedCount, runSchedule,
+  scheduleResult, activeSolution, searchQuery, setSearchQuery,
+  isLoading, runSchedule,
   onDragStart, onDragEnd,
 }: SidebarLeftProps) {
   const cardContainerRef = useRef<HTMLDivElement | null>(null);
@@ -89,28 +90,24 @@ export function SidebarLeft({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            onClick={() => runSchedule('elimination')}
+            disabled={isLoading}
+            className="w-full bg-black hover:bg-zinc-800 text-white dark:bg-zinc-900 dark:hover:bg-zinc-700"
+          >
+            {isLoading ? 'Traitement…' : 'Planifier'}
+          </Button>
+          {activeSolution && activeSolution.length > 0 && (
             <Button
               type="button"
-              onClick={() => runSchedule('standard')}
-              disabled={isLoading}
+              variant="outline"
+              className="w-full"
+              onClick={() => downloadIcalSolution(activeSolution, parseInt(week, 10))}
             >
-              {isLoading
-                ? 'Traitement…'
-                : enforcedCount > 0
-                ? `Planifier (${enforcedCount} imposé${enforcedCount > 1 ? 's' : ''})`
-                : 'Planifier'}
+              Exporter en iCal
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => runSchedule('elimination')}
-              disabled={isLoading}
-              className="bg-red-600 hover:bg-red-700 text-white dark:bg-red-500 dark:hover:bg-red-600"
-            >
-              {isLoading ? 'Traitement…' : 'Avec élimination'}
-            </Button>
-          </div>
+          )}
         </form>
       </div>
 
