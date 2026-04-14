@@ -525,11 +525,13 @@ export class Schedule {
                         )) continue;
                     }
 
-                    // Filtre look-ahead : chaque dépendant direct doit avoir un créneau
-                    // disponible (avec ses ressources courantes) après la fin de ce slot.
-                    // Comme slotEnd croît strictement et que _dependantsHaveSlotAfter est
-                    // monotone décroissante, un échec ici invalide tous les slots suivants.
-                    if (!this._dependantsHaveSlotAfter(task, slotEnd)) break outer;
+                    // Filtre look-ahead : tous les dépendants directs doivent pouvoir être
+                    // placés de façon mutuellement compatible après la fin de ce slot.
+                    // Si des dépendants partagent des ressources, un mini-backtrack glouton
+                    // vérifie la compatibilité collective.
+                    // Comme slotEnd croît strictement et que la vérification est monotone
+                    // décroissante, un échec invalide tous les slots suivants.
+                    if (!this._dependantsCanAllFitAfter(task, slotEnd)) break outer;
 
                     slots.push({ startTime });
                 }
@@ -570,6 +572,103 @@ export class Schedule {
             if (!this._dependantsHaveSlotAfter(dep, depEarliestStart + dep.duration)) return false;
         }
         return true;
+    }
+
+    /**
+     * Point d'entrée du look-ahead : remplace `_dependantsHaveSlotAfter` dans
+     * `generatePossibleSlots`. Si les dépendants directs partagent des ressources,
+     * délègue au mini-backtrack glouton `_siblingDepsCompatibleAfter` pour vérifier
+     * qu'ils peuvent être placés *simultanément* sans conflit mutuel.
+     * Sinon, délègue à `_dependantsHaveSlotAfter` (comportement inchangé).
+     */
+    private _dependantsCanAllFitAfter(task: Task, earliestStart: number): boolean {
+        const deps = task.getDependentTasks();
+        if (deps.length <= 1) {
+            return this._dependantsHaveSlotAfter(task, earliestStart);
+        }
+        if (!this._depsShareAnyResource(deps)) {
+            return this._dependantsHaveSlotAfter(task, earliestStart);
+        }
+        return this._siblingDepsCompatibleAfter(deps, earliestStart);
+    }
+
+    /** Retourne true si au moins deux tâches de la liste partagent une ressource. */
+    private _depsShareAnyResource(deps: Task[]): boolean {
+        const seen = new Set<string>();
+        for (const dep of deps) {
+            for (const r of dep.appliedResources) {
+                if (seen.has(r.id)) return true;
+                seen.add(r.id);
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Mini-backtrack glouton : vérifie que tous les `deps` peuvent être placés
+     * ≥ earliestStart sans conflit de ressources partagées entre eux.
+     *
+     * Stratégie :
+     *   1. Trier les dépendants par score MCV décroissant (plus contraint d'abord).
+     *   2. Pour chaque dep, trouver le premier créneau disponible ≥ earliestStart
+     *      (en tenant compte des bookings temporaires des deps précédents).
+     *   3. Réserver temporairement les ressources, puis vérifier récursivement
+     *      les sous-dépendances de ce dep via `_dependantsCanAllFitAfter`.
+     *   4. Restaurer toutes les disponibilités avant de retourner (lecture seule nette).
+     */
+    private _siblingDepsCompatibleAfter(deps: Task[], earliestStart: number): boolean {
+        const sorted = [...deps].sort(
+            (a, b) => this.getCurrentConstraintScore(b) - this.getCurrentConstraintScore(a),
+        );
+
+        const booked: Array<{ resource: Resource; start: number; end: number }> = [];
+        let success = true;
+
+        for (const dep of sorted) {
+            const slotStart = this._findFirstAvailableSlot(dep, earliestStart);
+            if (slotStart === null) {
+                success = false;
+                break;
+            }
+            const slotEnd = slotStart + dep.duration;
+
+            // Booking temporaire : retirer la disponibilité des ressources de dep
+            for (const r of dep.appliedResources) {
+                r.availability.removeAvailability(slotStart, slotEnd);
+                booked.push({ resource: r, start: slotStart, end: slotEnd });
+            }
+            this.invalidateSchedulableForResources(dep.appliedResources);
+
+            // Vérification récursive des sous-dépendances de dep (avec état mis à jour)
+            if (!this._dependantsCanAllFitAfter(dep, slotEnd)) {
+                success = false;
+                break;
+            }
+        }
+
+        // Restauration de toutes les disponibilités temporaires
+        const bookedResources = new Set<Resource>(booked.map(b => b.resource));
+        for (const b of booked) {
+            b.resource.availability.addAvailability(b.start, b.end);
+        }
+        this.invalidateSchedulableForResources([...bookedResources]);
+
+        return success;
+    }
+
+    /**
+     * Retourne le premier startTime ≥ earliestStart dans le schedulable courant de `dep`
+     * où `dep.duration` minutes consécutives sont disponibles, ou null si aucun.
+     * Opération en lecture seule.
+     */
+    private _findFirstAvailableSlot(dep: Task, earliestStart: number): number | null {
+        for (const interval of dep.schedulable.getAvailableIntervals()) {
+            const effectiveStart = Math.max(interval.start, earliestStart);
+            if (interval.end - effectiveStart >= dep.duration) {
+                return effectiveStart;
+            }
+        }
+        return null;
     }
 
     /**

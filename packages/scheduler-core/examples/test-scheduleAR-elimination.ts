@@ -29,7 +29,7 @@ function displayTopBlockingTasks(scheduler: Schedule, tasks: ReturnType<typeof L
         .sort((a, b) => b.count - a.count)
         .slice(0, 10)
         .forEach(({ task, id, count }, index) => {
-            const label = task ? `${task.name} (${task.code})` : id;
+            const label = task ? `${task.name} (${task.code}) [${id}]` : id;
             console.log(`   ${index + 1}. ${label} — ${count} blocage(s)`);
         });
 }
@@ -47,6 +47,8 @@ async function testTaskElimination(): Promise<void> {
         const scheduler = new Schedule();
         scheduler.setMaxCompleteSolutions(10);
         scheduler.setTimeoutSeconds(180);
+     //  scheduler.configure({ resourceSelection: 'random' });
+
 
         console.log('\n🚀 Lancement de solveWithTaskElimination(3)...\n');
         const startTime = Date.now();
@@ -67,15 +69,20 @@ async function testTaskElimination(): Promise<void> {
             });
         }
 
-        console.log(`\n🏆 CLASSEMENT DES ${results.length} SOLUTION(S) COMPLÈTE(S)`);
+        const completeCount = results.filter(s => (s.neutralizedTasks ?? []).length === 0).length;
+        const partialCount  = results.length - completeCount;
+        const heading = completeCount > 0
+            ? `🏆 CLASSEMENT DES ${results.length} SOLUTION(S) (${completeCount} complète(s), ${partialCount} partielle(s))`
+            : `🏆 CLASSEMENT DES ${results.length} SOLUTION(S) PARTIELLE(S)`;
+        console.log(`\n${heading}`);
         console.log(`================================================`);
         if (results.length === 0) {
-            console.log(`   Aucune solution complète trouvée.`);
+            console.log(`   Aucune solution trouvée.`);
         } else {
             results.forEach((sol, i) => {
                 const neutralCount = (sol.neutralizedTasks ?? []).length;
-                const neutralLabel = neutralCount > 0 ? ` [${neutralCount} tâche(s) neutralisée(s)]` : '';
-                console.log(`   ${i + 1}. score: ${sol.score ?? 'N/A'} — ${sol.solutions.length} tâches planifiées${neutralLabel}`);
+                const status = neutralCount > 0 ? `⚠️  PARTIELLE [${neutralCount} tâche(s) neutralisée(s)]` : `✅ COMPLÈTE`;
+                console.log(`   ${i + 1}. ${status} — score: ${sol.score ?? 'N/A'} — ${sol.solutions.length} tâches planifiées`);
             });
         }
 
@@ -84,7 +91,7 @@ async function testTaskElimination(): Promise<void> {
         console.log(`⏱️  Temps total: ${executionTime}ms`);
         console.log(`📊 Tâches planifiées: ${result.solutions.length}/${tasks.length}`);
         console.log(`🗑️  Tâches neutralisées: ${neutralized.length}`);
-        console.log(`✅ Complète (hors neutralisées): ${result.isComplete ? 'Oui' : 'Non'}`);
+        console.log(`✅ Statut: ${neutralized.length === 0 ? 'Complète' : 'Partielle'}`);
         console.log(`🔢 Score: ${result.score ?? 'N/A'}`);
         console.log(`📈 Taux (toutes tâches): ${(result.solutions.length / tasks.length * 100).toFixed(1)}%`);
 
@@ -95,6 +102,28 @@ async function testTaskElimination(): Promise<void> {
             console.log(`   Tâches planifiées: ${scores.plannedTasks}`);
             console.log(`   Score vacataires:  ${scores.vacataireCompactnessScore.toFixed(2)}`);
             console.log(`   Score permanents:  ${scores.permanentCompactnessScore.toFixed(2)}`);
+        }
+
+        // Comparaison des solutions par rapport à la solution de référence (S1)
+        if (results.length > 1) {
+            console.log(`\n🔀 COMPARAISON DES SOLUTIONS (référence : S1)`);
+            console.log(`=============================================`);
+            const ref = results[0].solutions;
+            const refMap = new Map(ref.map(s => [s.task.id, s.startTime]));
+            for (let i = 1; i < results.length; i++) {
+                const other = results[i].solutions;
+                let diffCount = 0;
+                for (const sol of other) {
+                    const refStart = refMap.get(sol.task.id);
+                    if (refStart === undefined || refStart !== sol.startTime) diffCount++;
+                }
+                // Tâches présentes dans ref mais absentes de other (neutralisées différemment)
+                const otherIds = new Set(other.map(s => s.task.id));
+                for (const id of refMap.keys()) {
+                    if (!otherIds.has(id)) diffCount++;
+                }
+                console.log(`   S${i + 1} vs S1 : ${diffCount} tâche(s) placée(s) différemment`);
+            }
         }
 
         displayTopBlockingTasks(scheduler, tasks);

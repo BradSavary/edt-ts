@@ -8,15 +8,12 @@
   ],
   "scripts": {
     "test-ar": "npm run test-ar --workspace=packages/scheduler-core",
-    "test-ar-priority": "npm run test-ar-priority --workspace=packages/scheduler-core",
     "test-ar-elimination": "npm run test-ar-elimination --workspace=packages/scheduler-core",
-    "test-standard": "npm run test-standard --workspace=packages/scheduler-core",
     "api:dev": "npm run dev --workspace=packages/scheduler-api",
     "api:start": "npm run start --workspace=packages/scheduler-api",
     "client:dev": "npm run dev --workspace=packages/scheduler-client",
     "client:build": "npm run build --workspace=packages/scheduler-client",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "build": "tsc --noEmit"
+    "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "devDependencies": {
     "@types/node": "^22.18.3",
