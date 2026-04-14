@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import type { ResourceConstraints } from '@edt-ts/scheduler-common';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +29,7 @@ export function ConstraintsManager() {
   const constraints        = useSchedulerStore((s) => s.constraints);
   const resourceWeeks      = useSchedulerStore((s) => s.resourceWeeks);
   const saveNotice         = useSchedulerStore((s) => s.saveNotice);
-  const initConstraints    = useSchedulerStore((s) => s.initConstraints);
+  const storeResources     = useSchedulerStore((s) => s.resources);
   const setConstraint      = useSchedulerStore((s) => s.setConstraint);
   const deleteConstraint   = useSchedulerStore((s) => s.deleteConstraint);
   const addResource        = useSchedulerStore((s) => s.addResource);
@@ -45,8 +45,16 @@ export function ConstraintsManager() {
   const [importError, setImportError] = useState('');
   const importInputRef = useRef<HTMLInputElement>(null);
 
-  // Chargement initial depuis localStorage
-  useEffect(() => { initConstraints(); }, [initConstraints]);
+  // Lookup exact depuis les ressources chargées (plus fiable que les regex heuristiques).
+  // Fallback sur detectResourceType pour les ressources ajoutées manuellement hors CSV.
+  function getResourceType(id: string): ResourceTypeUI {
+    for (const group of storeResources) {
+      if (group.resources.some((r) => r.id === id)) {
+        return group.resourceType as ResourceTypeUI;
+      }
+    }
+    return detectResourceType(id);
+  }
 
   function handleResourceChange(id: string, newValue: ResourceConstraints | null) {
     setConstraint(id, newValue);
@@ -60,7 +68,7 @@ export function ConstraintsManager() {
   function handleAddResource(id: string) {
     addResource(id);
     setSelectedId(id);
-    setActiveTab(detectResourceType(id));
+    setActiveTab(getResourceType(id));
   }
 
   function handleDefaultChange(newValue: ResourceConstraints | null) {
@@ -103,7 +111,7 @@ export function ConstraintsManager() {
     other: [],
   };
   for (const id of allIds) {
-    byType[detectResourceType(id)].push(id);
+    byType[getResourceType(id)].push(id);
   }
   for (const t of Object.keys(byType) as ResourceTypeUI[]) {
     byType[t].sort((a, b) => a.localeCompare(b, 'fr'));

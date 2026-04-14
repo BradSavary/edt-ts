@@ -11,12 +11,9 @@ export type ConstraintsRecord = Record<string, ConstraintValue> & { Default?: Ti
 export interface ConstraintsSlice {
   constraints: ConstraintsRecord;
   resourceWeeks: Record<string, number[]>;
-  /** true dès que le middleware persist a hydraté le state côté client */
-  constraintsInitialized: boolean;
   /** true pendant 2s après une modification (feedback UI) */
   saveNotice: boolean;
 
-  initConstraints: () => void;
   setConstraint: (id: string, value: ResourceConstraints | null) => void;
   deleteConstraint: (id: string) => void;
   addResource: (id: string) => void;
@@ -40,14 +37,7 @@ export const createConstraintsSlice: StateCreator<ConstraintsSlice> = (set, get)
   return {
     constraints: {},
     resourceWeeks: {},
-    constraintsInitialized: false,
     saveNotice: false,
-
-    initConstraints: () => {
-      // `constraints` et `resourceWeeks` sont déjà restaurés par le middleware `persist`
-      // avant ce premier rendu côté client. On se contente de marquer l'initialisation.
-      set({ constraintsInitialized: true });
-    },
 
     setConstraint: (id, value) => {
       const next = { ...get().constraints, [id]: value };

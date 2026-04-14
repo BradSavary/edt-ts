@@ -3,31 +3,23 @@
 import { useEffect, useRef } from 'react';
 import { Draggable } from '@fullcalendar/interaction';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
-
-interface DraggingResources {
-  teachers: string[];
-  groups: string[];
-  rooms: string[];
-}
+import { usePlanningStore } from '@/store/usePlanningStore';
 
 interface UseSidebarCourseDragOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
   courses: CourseTaskData[];
-  onDragStart: (resources: DraggingResources) => void;
-  onDragEnd: () => void;
 }
 
 /**
  * Initialise le FullCalendar Draggable sur le conteneur de cards de cours
- * et expose les callbacks de début/fin de drag pour la mise en évidence des contraintes.
+ * et met à jour draggingExternal dans usePlanningStore pour la mise en évidence des contraintes.
  */
 export function useSidebarCourseDrag({
   containerRef,
   courses,
-  onDragStart,
-  onDragEnd,
 }: UseSidebarCourseDragOptions): void {
-  const pendingRef = useRef<(DraggingResources & { isDragging: boolean }) | null>(null);
+  const setDraggingExternal = usePlanningStore((s) => s.setDraggingExternal);
+  const pendingRef = useRef<({ teachers: string[]; groups: string[]; rooms: string[] } & { isDragging: boolean }) | null>(null);
 
   // FullCalendar Draggable pour les cards de cours
   useEffect(() => {
@@ -46,7 +38,7 @@ export function useSidebarCourseDrag({
     return () => draggable.destroy();
   }, [containerRef, courses]);
 
-  // Détecte le drag pour la mise en évidence des contraintes
+  // Détecte le drag pour mettre à jour le store (conflit highlighting)
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -71,13 +63,13 @@ export function useSidebarCourseDrag({
       if (!pending || pending.isDragging) return;
       if (Math.abs(e.movementX) + Math.abs(e.movementY) > 2) {
         pending.isDragging = true;
-        onDragStart({ teachers: pending.teachers, groups: pending.groups, rooms: pending.rooms });
+        setDraggingExternal({ teachers: pending.teachers, groups: pending.groups, rooms: pending.rooms });
       }
     };
 
     const onPointerUp = () => {
       pendingRef.current = null;
-      onDragEnd();
+      setDraggingExternal(null);
     };
 
     container.addEventListener('pointerdown', onPointerDown);
@@ -90,5 +82,5 @@ export function useSidebarCourseDrag({
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('pointercancel', onPointerUp);
     };
-  }, [containerRef, courses, onDragStart, onDragEnd]);
+  }, [containerRef, courses, setDraggingExternal]);
 }

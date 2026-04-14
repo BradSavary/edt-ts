@@ -1,32 +1,5 @@
 import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
-
-/**
- * Déduit l'année calendaire à partir du numéro de semaine ISO.
- * Heuristique académique (Sept–Juin sur 2 années) :
- *   - semaines 32–53 → automne : utilise l'année précédente si on est avant août
- *   - semaines  1–31 → printemps : utilise l'année courante si on est avant août
- */
-function inferYear(week: number): number {
-  const now = new Date();
-  const month = now.getMonth(); // 0-indexed, 7 = août
-  if (week >= 32) {
-    return month < 7 ? now.getFullYear() - 1 : now.getFullYear();
-  }
-  return month < 7 ? now.getFullYear() : now.getFullYear() + 1;
-}
-
-/**
- * Retourne le lundi 00:00 (heure locale) de la semaine ISO donnée.
- * RFC 5545 §3.3.5 — le 4 janvier est toujours en semaine 1 (ISO 8601).
- */
-function getMondayOfISOWeek(week: number, year: number): Date {
-  const jan4 = new Date(year, 0, 4);
-  const dayOfJan4 = jan4.getDay() || 7; // lundi=1 … dimanche=7
-  const monday = new Date(jan4);
-  monday.setDate(jan4.getDate() - (dayOfJan4 - 1) + (week - 1) * 7);
-  monday.setHours(0, 0, 0, 0);
-  return monday;
-}
+import { getMondayOfISOWeek } from '@/lib/calendarUtils';
 
 /** Formatage iCal YYYYMMDDTHHMMSS (sans Z → heure locale). */
 function formatICalDate(date: Date): string {
@@ -156,8 +129,8 @@ function buildVEvent(task: TaskSolutionJSON, monday: Date, dtstamp: string): str
  * @param week   Numéro de semaine ISO (1–53)
  */
 export function generateIcalContent(tasks: TaskSolutionJSON[], week: number): string {
-  const year = inferYear(week);
-  const monday = getMondayOfISOWeek(week, year);
+  const monday = getMondayOfISOWeek(week);
+  monday.setHours(0, 0, 0, 0);
   const dtstamp = formatICalDateUTC(new Date());
 
   const header = [
@@ -180,7 +153,8 @@ export function generateIcalContent(tasks: TaskSolutionJSON[], week: number): st
  * @param week   Numéro de semaine ISO
  */
 export function downloadIcalSolution(tasks: TaskSolutionJSON[], week: number): void {
-  const year = inferYear(week);
+  const now = new Date();
+  const year = now.getMonth() < 8 && week >= 35 ? now.getFullYear() - 1 : now.getFullYear();
   const content = generateIcalContent(tasks, week);
   const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
   const url = URL.createObjectURL(blob);

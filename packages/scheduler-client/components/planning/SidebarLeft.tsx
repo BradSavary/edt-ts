@@ -20,15 +20,11 @@ interface SidebarLeftProps {
   // UI local
   groupBy: GroupBy;
   setGroupBy: (v: GroupBy) => void;
-  // Drag callbacks (bridge vers ScheduleCalendar)
-  onDragStart: (resources: { teachers: string[]; groups: string[]; rooms: string[] }) => void;
-  onDragEnd: () => void;
 }
 
 export function SidebarLeft({
   parsedCourses,
   groupBy, setGroupBy,
-  onDragStart, onDragEnd,
 }: SidebarLeftProps) {
   // ── Store planning ────────────────────────────────────────────────────────
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
@@ -54,8 +50,6 @@ export function SidebarLeft({
   useSidebarCourseDrag({
     containerRef: cardContainerRef,
     courses: parsedCourses,
-    onDragStart,
-    onDragEnd,
   });
 
   // iCal : on passe l'activeSolution uniquement si la semaine est connue

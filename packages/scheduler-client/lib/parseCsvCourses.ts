@@ -248,6 +248,117 @@ export function extractResourcesFromCsv(csvText: string): ResourceGroupData[] {
   ];
 }
 
+export interface ParseCsvFullResult {
+  courses: CourseTaskData[];
+  resources: ResourceGroupData[];
+  resourceWeeks: Record<string, number[]>;
+}
+
+/**
+ * Parse le CSV en une seule passe et retourne simultanément :
+ * - tous les cours (toutes semaines confondues)
+ * - les ressources uniques (enseignants, groupes, salles)
+ * - les semaines actives par ressource
+ *
+ * Remplace l'appel triple à parseCsvCoursesAll + extractResourcesFromCsv + extractResourceWeeks.
+ */
+export function parseCsvFull(csvText: string): ParseCsvFullResult {
+  const lines = csvText.split(/\r?\n/);
+  if (lines.length < 2) return { courses: [], resources: [], resourceWeeks: {} };
+
+  const headerLine = lines.find((l) => l.trim().length > 0) ?? '';
+  const headers = parseCSVRow(headerLine);
+
+  const weekCols: { index: number; week: number }[] = [];
+  for (let i = 0; i < headers.length; i++) {
+    const m = headers[i].trim().match(/^S(\d+)$/i);
+    if (m) weekCols.push({ index: i, week: parseInt(m[1], 10) });
+  }
+
+  const courses: CourseTaskData[] = [];
+  const teachers = new Set<string>();
+  const groups = new Set<string>();
+  const rooms = new Set<string>();
+  const resourceWeeksSets: Record<string, Set<number>> = {};
+
+  function addWeek(id: string, week: number) {
+    if (!id) return;
+    if (!resourceWeeksSets[id]) resourceWeeksSets[id] = new Set();
+    resourceWeeksSets[id].add(week);
+  }
+
+  const dataStart = lines.findIndex((l) => l.trim().length > 0) + 1;
+
+  for (let i = dataStart; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const cols = parseCSVRow(line);
+
+    const rawSemester = cols[0]?.trim() ?? '';
+    const semester = parseSemester(rawSemester);
+    const level = levelFromSemester(semester);
+    const code = cols[2]?.trim() ?? '';
+    const name = cols[3]?.trim() ?? '';
+    const teacher = cols[4]?.trim() ?? '';
+    const type = cols[5]?.trim() ?? '';
+    const rawGroups = cols[6]?.trim() ?? '';
+    const rawRooms = cols[7]?.trim() ?? '';
+
+    const groupList = rawGroups.split(',').map((g) => g.trim()).filter(Boolean);
+    const roomList = rawRooms.split(',').map((r) => r.trim()).filter(Boolean);
+    const rooms_entry: (string | string[])[] = roomList.length > 1 ? [roomList] : roomList;
+
+    // Collecte des ressources une fois par ligne (indépendamment des semaines)
+    if (weekCols.some(({ index }) => {
+      const v = parseFloat(cols[index]?.trim() ?? '');
+      return !isNaN(v) && v > 0;
+    })) {
+      if (teacher) teachers.add(teacher);
+      groupList.forEach((g) => groups.add(g));
+      roomList.forEach((r) => rooms.add(r));
+    }
+
+    // Génération des cours + resourceWeeks par semaine active
+    for (const { index, week } of weekCols) {
+      const rawHours = cols[index]?.trim() ?? '';
+      if (!rawHours) continue;
+      const hours = parseFloat(rawHours);
+      if (isNaN(hours) || hours <= 0) continue;
+
+      courses.push({
+        week,
+        semester,
+        level,
+        code,
+        name,
+        type,
+        teacher: teacher ? [teacher] : [],
+        groups: groupList,
+        rooms: rooms_entry,
+        duration: Math.round(hours * 60),
+      });
+
+      if (teacher) addWeek(teacher, week);
+      groupList.forEach((g) => addWeek(g, week));
+      roomList.forEach((r) => addWeek(r, week));
+    }
+  }
+
+  const resourceWeeks = Object.fromEntries(
+    Object.entries(resourceWeeksSets).map(([id, set]) => [id, [...set].sort((a, b) => a - b)])
+  );
+
+  return {
+    courses,
+    resources: [
+      { resourceType: 'teacher', resources: [...teachers].sort().map((id) => ({ id })) },
+      { resourceType: 'group',   resources: [...groups].sort().map((id) => ({ id })) },
+      { resourceType: 'room',    resources: [...rooms].sort().map((id) => ({ id })) },
+    ],
+    resourceWeeks,
+  };
+}
+
 /**
  * Parse une ligne CSV en respectant les guillemets (champs pouvant contenir des virgules).
  * Ex: `a,"b,c",d` → `['a', 'b,c', 'd']`

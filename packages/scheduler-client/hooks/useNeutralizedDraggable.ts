@@ -3,24 +3,23 @@
 import { useEffect } from 'react';
 import { Draggable } from '@fullcalendar/interaction';
 import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
+import { usePlanningStore } from '@/store/usePlanningStore';
 
 interface UseNeutralizedDraggableOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
   neutralizedTasks: TaskSolutionJSON[] | undefined;
-  onExternalDragStart: (task: { id: string; teachers: string[]; groups: string[]; rooms: string[] }) => void;
-  onExternalDragEnd: () => void;
 }
 
 /**
  * Initialise le FullCalendar Draggable sur le conteneur des tâches neutralisées
- * et expose les callbacks de début/fin de drag externe pour la détection de conflits.
+ * et met à jour draggingExternal dans usePlanningStore pour la détection de conflits.
  */
 export function useNeutralizedDraggable({
   containerRef,
   neutralizedTasks,
-  onExternalDragStart,
-  onExternalDragEnd,
 }: UseNeutralizedDraggableOptions): void {
+  const setDraggingExternal = usePlanningStore((s) => s.setDraggingExternal);
+
   // FullCalendar Draggable
   useEffect(() => {
     const container = containerRef.current;
@@ -53,19 +52,18 @@ export function useNeutralizedDraggable({
     const container = containerRef.current;
     if (!container) return;
 
-    let pendingDrag: { id: string; teachers: string[]; groups: string[]; rooms: string[] } | null = null;
+    let pendingDrag: { teachers: string[]; groups: string[]; rooms: string[] } | null = null;
     let isDragging = false;
 
     function onPointerDown(e: PointerEvent) {
       const el = (e.target as HTMLElement).closest('[data-task-id]') as HTMLElement | null;
       if (!el) return;
-      const taskId = el.getAttribute('data-task-id');
-      if (!taskId) return;
+      if (!el.getAttribute('data-task-id')) return;
       try {
         const teachers = JSON.parse(el.getAttribute('data-teachers') ?? '[]') as string[];
         const groups = JSON.parse(el.getAttribute('data-groups') ?? '[]') as string[];
         const rooms = JSON.parse(el.getAttribute('data-rooms') ?? '[]') as string[];
-        pendingDrag = { id: taskId, teachers, groups, rooms };
+        pendingDrag = { teachers, groups, rooms };
         isDragging = false;
       } catch { /* ignore */ }
     }
@@ -74,14 +72,14 @@ export function useNeutralizedDraggable({
       if (!pendingDrag || isDragging) return;
       if (Math.abs(e.movementX) + Math.abs(e.movementY) > 2) {
         isDragging = true;
-        onExternalDragStart(pendingDrag);
+        setDraggingExternal(pendingDrag);
       }
     }
 
     function onPointerUp() {
       pendingDrag = null;
       isDragging = false;
-      onExternalDragEnd();
+      setDraggingExternal(null);
     }
 
     container.addEventListener('pointerdown', onPointerDown);
@@ -94,5 +92,5 @@ export function useNeutralizedDraggable({
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('pointercancel', onPointerUp);
     };
-  }, [containerRef, neutralizedTasks, onExternalDragStart, onExternalDragEnd]);
+  }, [containerRef, neutralizedTasks, setDraggingExternal]);
 }

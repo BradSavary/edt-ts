@@ -4,13 +4,16 @@
 
 /**
  * Calcule le lundi de la semaine ISO donnée.
- * Gestion de l'année universitaire : semaines >= 35 = année N-1 si on est en Jan-Août.
+ * @param isoWeek Numéro de semaine ISO (1–53)
+ * @param year Année cible. Si absent, déduit via heuristique académique (sept–juin).
  */
-export function getMondayOfISOWeek(isoWeek: number): Date {
-  const now = new Date();
-  const year = now.getMonth() < 8 && isoWeek >= 35 ? now.getFullYear() - 1 : now.getFullYear();
+export function getMondayOfISOWeek(isoWeek: number, year?: number): Date {
+  const resolvedYear = year ?? (() => {
+    const now = new Date();
+    return now.getMonth() < 8 && isoWeek >= 35 ? now.getFullYear() - 1 : now.getFullYear();
+  })();
   // Le 4 janvier est toujours dans la semaine ISO 1
-  const jan4 = new Date(year, 0, 4);
+  const jan4 = new Date(resolvedYear, 0, 4);
   const jan4DayOfWeek = jan4.getDay() === 0 ? 7 : jan4.getDay(); // 1=Lun … 7=Dim
   const monday = new Date(jan4);
   monday.setDate(jan4.getDate() - (jan4DayOfWeek - 1) + (isoWeek - 1) * 7);

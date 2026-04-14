@@ -67,6 +67,10 @@ export interface PlanningStore {
   isLoading: boolean;
   status: Status | null;
 
+  /** Ressources du cours en cours de drag depuis une source externe (sidebar ou panel neutralisé). */
+  draggingExternal: { teachers: string[]; groups: string[]; rooms: string[] } | null;
+  setDraggingExternal: (r: { teachers: string[]; groups: string[]; rooms: string[] } | null) => void;
+
   // ── Actions ──────────────────────────────────────────────────────────────
 
   // Planification
@@ -92,6 +96,9 @@ export interface PlanningStore {
   // Reset (ex: changement de semaine ou de fichiers)
   reset: () => void;
 }
+
+// ── Type export pour les hooks ──────────────────────────────────────────────
+export type DraggingResources = NonNullable<PlanningStore['draggingExternal']>;
 
 // ── Store ──────────────────────────────────────────────────────────────────
 
@@ -140,6 +147,8 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
 
   isLoading: false,
   status: null,
+  draggingExternal: null,
+  setDraggingExternal: (r) => set({ draggingExternal: r }),
 
   runSchedule: async (mode) => {
     const { selectedWeek, enforcedMap, blockedZones } = get();

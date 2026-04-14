@@ -52,9 +52,6 @@ async function _callScheduleApi(
   const hasConstraints = !!constraintsData || blockedZones.length > 0;
 
   const options: Record<string, unknown> = { ...schedulerConfig };
-  if (mode === 'elimination' && schedulerConfig?.maxEliminations === undefined) {
-    // maxEliminations déjà dans schedulerConfig si défini, sinon on laisse l'API appliquer son défaut
-  }
 
   const payload: RawScheduleData & { options?: Record<string, unknown> } = {
     week: weekNum,

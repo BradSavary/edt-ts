@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { parseCsvCoursesAll, extractResourceWeeks, extractResourcesFromCsv } from '@/lib/parseCsvCourses';
+import { parseCsvFull } from '@/lib/parseCsvCourses';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { Label } from '@/components/ui/label';
@@ -21,11 +21,10 @@ export default function ConfigPage() {
       if (cancelled) return;
       setImportStatus('loading');
       try {
-        const allParsed = parseCsvCoursesAll(text);
-        const extractedResources = extractResourcesFromCsv(text);
-        useSchedulerStore.getState().setCourses(allParsed, coursesCsvFile.name);
+        const { courses, resources: extractedResources, resourceWeeks } = parseCsvFull(text);
+        useSchedulerStore.getState().setCourses(courses, coursesCsvFile.name);
         useSchedulerStore.getState().setResources(extractedResources);
-        useSchedulerStore.getState().setResourceWeeks(extractResourceWeeks(text));
+        useSchedulerStore.getState().setResourceWeeks(resourceWeeks);
         usePlanningStore.getState().handleEnforceChange({});
         setImportStatus('success');
       } catch {

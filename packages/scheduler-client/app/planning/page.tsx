@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { usePlanningStore } from '@/store/usePlanningStore';
@@ -52,27 +52,11 @@ export default function PlanningPage() {
 
   // ── UI local ─────────────────────────────────────────────────────────────
   const [groupBy, setGroupBy] = useState<GroupBy>('code');
-  const [sidebarDraggingResources, setSidebarDraggingResources] = useState<{
-    teachers: string[]; groups: string[]; rooms: string[];
-  } | null>(null);
-  const [externalDraggingTask, setExternalDraggingTask] = useState<{
-    id: string; teachers: string[]; groups: string[]; rooms: string[];
-  } | null>(null);
-
   const neutralizedContainerRef = useRef<HTMLDivElement | null>(null);
-
-  const handleExternalDragStart = useCallback(
-    (task: { id: string; teachers: string[]; groups: string[]; rooms: string[] }) =>
-      setExternalDraggingTask(task),
-    [],
-  );
-  const handleExternalDragEnd = useCallback(() => setExternalDraggingTask(null), []);
 
   useNeutralizedDraggable({
     containerRef: neutralizedContainerRef,
     neutralizedTasks: activeNeutralizedTasks.length > 0 ? activeNeutralizedTasks : undefined,
-    onExternalDragStart: handleExternalDragStart,
-    onExternalDragEnd: handleExternalDragEnd,
   });
 
   return (
@@ -85,8 +69,6 @@ export default function PlanningPage() {
           parsedCourses={parsedCourses}
           groupBy={groupBy}
           setGroupBy={setGroupBy}
-          onDragStart={setSidebarDraggingResources}
-          onDragEnd={() => setSidebarDraggingResources(null)}
         />
 
         <main className="flex-1 overflow-hidden p-4 flex flex-col">
@@ -110,7 +92,6 @@ export default function PlanningPage() {
           <ScheduleCalendar
             solutions={filteredSolutions}
             parsedCourses={parsedCourses}
-            externalDragging={externalDraggingTask ?? sidebarDraggingResources}
           />
         </main>
 
@@ -141,3 +122,4 @@ export default function PlanningPage() {
     </div>
   );
 }
+
