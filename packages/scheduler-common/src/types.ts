@@ -94,11 +94,27 @@ export interface TaskSolutionJSON {
 }
 
 
+export interface ResourceAvailabilitySnapshotJSON {
+  resourceId: string;
+  resourceType: string;
+  availableMinutes: number;
+}
+
+export interface NeutralizedTaskInfoJSON {
+  task: TaskSolutionJSON;
+  eliminationRound: number;
+  failureCount: number;
+  requiredMinutes: number;
+  schedulableMinutes: number;
+  resourceSnapshots: ResourceAvailabilitySnapshotJSON[];
+  reason: string;
+}
+
 export interface ScheduleSolutionJSON {
   solutions: TaskSolutionJSON[];
   isComplete: boolean;
   score?: number;
-  neutralizedTasks?: TaskSolutionJSON[];
+  neutralizedTasks?: NeutralizedTaskInfoJSON[];
 }
 
 /**

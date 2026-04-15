@@ -7,7 +7,7 @@
 
 // --- Planificateurs ---
 export { Schedule } from './schedule.js';
-export type { ScheduleSolution, TaskSolution } from './schedule.js';
+export type { ScheduleSolution, TaskSolution, NeutralizedTaskInfo, ResourceAvailabilitySnapshot } from './schedule.js';
 
 // --- Modèles de données ---
 export { Task } from '@edt-ts/scheduler-common';

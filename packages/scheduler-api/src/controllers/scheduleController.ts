@@ -3,12 +3,13 @@ import {
   Loader,
   Schedule,
 } from '@edt-ts/scheduler-core';
-import type { RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON, SchedulerConfig } from '@edt-ts/scheduler-common';
+import type { RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON, NeutralizedTaskInfoJSON, SchedulerConfig } from '@edt-ts/scheduler-common';
 import { DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
 import type { Task } from '@edt-ts/scheduler-common';
 import type {
   TaskSolution,
   ScheduleSolution,
+  NeutralizedTaskInfo,
 } from '@edt-ts/scheduler-core';
 
 // --------------------------------------------------------------------------
@@ -53,6 +54,19 @@ function serializeTask(task: Task): TaskSolutionJSON {
   };
 }
 
+/** Sérialise un NeutralizedTaskInfo vers NeutralizedTaskInfoJSON */
+function serializeNeutralizedTaskInfo(info: NeutralizedTaskInfo): NeutralizedTaskInfoJSON {
+  return {
+    task: serializeTask(info.task),
+    eliminationRound: info.eliminationRound,
+    failureCount: info.failureCount,
+    requiredMinutes: info.requiredMinutes,
+    schedulableMinutes: info.schedulableMinutes,
+    resourceSnapshots: info.resourceSnapshots,
+    reason: info.reason,
+  };
+}
+
 /** Sérialise un ScheduleSolution vers ScheduleSolutionJSON */
 function serializeScheduleSolution(result: ScheduleSolution): ScheduleSolutionJSON {
   const out: ScheduleSolutionJSON = {
@@ -61,7 +75,7 @@ function serializeScheduleSolution(result: ScheduleSolution): ScheduleSolutionJS
     score: result.score,
   };
   if (result.neutralizedTasks && result.neutralizedTasks.length > 0) {
-    out.neutralizedTasks = result.neutralizedTasks.map(serializeTask);
+    out.neutralizedTasks = result.neutralizedTasks.map(serializeNeutralizedTaskInfo);
   }
   return out;
 }

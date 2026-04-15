@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
+    "types": ["node"],
     "paths": {
       "@edt-ts/scheduler-core": ["../scheduler-core/src/index.ts"]
     }

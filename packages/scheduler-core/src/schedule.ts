@@ -7,6 +7,28 @@ import { fileURLToPath } from 'url';
 import { ScheduleAnalysis } from './scheduleAnalysis.js';
 
 /**
+ * Snapshot de disponibilité d'une ressource au moment de la neutralisation d'une tâche
+ */
+export interface ResourceAvailabilitySnapshot {
+    resourceId: string;
+    resourceType: string;
+    availableMinutes: number;
+}
+
+/**
+ * Informations de diagnostic sur une tâche neutralisée (non planifiable)
+ */
+export interface NeutralizedTaskInfo {
+    task: Task;
+    eliminationRound: number;
+    failureCount: number;
+    requiredMinutes: number;
+    schedulableMinutes: number;
+    resourceSnapshots: ResourceAvailabilitySnapshot[];
+    reason: string;
+}
+
+/**
  * Représente une solution de planification pour une tâche
  */
 export interface TaskSolution {
@@ -23,7 +45,7 @@ export interface ScheduleSolution {
     isComplete: boolean;
     conflictCount: number;
     score?: number;
-    neutralizedTasks?: Task[];
+    neutralizedTasks?: NeutralizedTaskInfo[];
 }
 
 /**
@@ -165,7 +187,7 @@ export class Schedule {
     solveWithTaskElimination(): ScheduleSolution[] {
         const count = this._config.maxEliminations;
         this.initSolver();
-        const neutralized: Task[] = [];
+        const neutralizedInfoList: NeutralizedTaskInfo[] = [];
         let lastResults = this.solve();
 
         for (let i = 0; i < count && lastResults.length === 0; i++) {
@@ -186,16 +208,17 @@ export class Schedule {
             }
 
             const eliminated = this.tasks[targetIndex];
-            neutralized.push(eliminated);
-            console.log(`🗑️ Élimination #${i + 1}: "${eliminated.name}" (${maxFailures} échec(s) sans créneau)`);
+            const info = this._buildNeutralizedTaskInfo(eliminated, i + 1, maxFailures);
+            neutralizedInfoList.push(info);
+            console.log(`🗑️ Élimination #${i + 1}: "${eliminated.name}" (${maxFailures} échec(s)) — ${info.reason}`);
             this.tasks.splice(targetIndex, 1);
             lastResults = this.solve();
         }
 
-        if (neutralized.length > 0) {
-            const penalty = neutralized.length * 1000;
+        if (neutralizedInfoList.length > 0) {
+            const penalty = neutralizedInfoList.length * 1000;
             for (const result of lastResults) {
-                result.neutralizedTasks = [...neutralized];
+                result.neutralizedTasks = [...neutralizedInfoList];
                 if (result.score !== undefined) {
                     result.score = Math.round(result.score - penalty);
                 }
@@ -203,6 +226,58 @@ export class Schedule {
         }
 
         return lastResults;
+    }
+
+    /**
+     * Construit un NeutralizedTaskInfo au moment de l'élimination d'une tâche.
+     * Appelé après solve(), avant tasks.splice() — l'état des ressources reflète
+     * l'état initial moins les bookings enforced et la pause méridienne.
+     */
+    private _buildNeutralizedTaskInfo(
+        task: Task,
+        eliminationRound: number,
+        failureCount: number,
+    ): NeutralizedTaskInfo {
+        const requiredMinutes = task.duration;
+        const schedulableMinutes = task.schedulable.getTotalAvailableTime();
+
+        // Collecter toutes les ressources uniques sur l'ensemble des combinaisons disponibles
+        const combinations = task.getApplicableResources();
+        const uniqueResources = new Map<string, Resource>();
+        for (const combo of combinations) {
+            for (const r of combo) {
+                uniqueResources.set(r.id, r);
+            }
+        }
+        // Fallback : ressources actuellement affectées si aucune combinaison
+        if (uniqueResources.size === 0) {
+            for (const r of task.appliedResources) {
+                uniqueResources.set(r.id, r);
+            }
+        }
+
+        const resourceSnapshots: ResourceAvailabilitySnapshot[] = Array.from(uniqueResources.values()).map(r => ({
+            resourceId: r.id,
+            resourceType: r.type,
+            availableMinutes: r.availability.getTotalAvailableTime(),
+        }));
+
+        let reason: string;
+        if (combinations.length === 0) {
+            reason = 'Aucune combinaison de ressources disponible';
+        } else {
+            const bottlenecks = resourceSnapshots.filter(s => s.availableMinutes < requiredMinutes);
+            if (bottlenecks.length > 0) {
+                const worst = bottlenecks.reduce((a, b) => a.availableMinutes < b.availableMinutes ? a : b);
+                reason = `Ressource insuffisante : ${worst.resourceId} (${worst.availableMinutes} min disponibles < ${requiredMinutes} min requises)`;
+            } else if (schedulableMinutes < requiredMinutes) {
+                reason = `Intersection des disponibilités insuffisante (${schedulableMinutes} min < ${requiredMinutes} min requises)`;
+            } else {
+                reason = `Conflit de placement persistant — ${failureCount} passage(s) sans créneau disponible`;
+            }
+        }
+
+        return { task, eliminationRound, failureCount, requiredMinutes, schedulableMinutes, resourceSnapshots, reason };
     }
 
     /**
@@ -312,11 +387,11 @@ export class Schedule {
 
                 for (const resource of enforcedResources) {
                     if (!resource.availability.isAvailable(enforced.startTime, enforced.startTime + task.duration)) {
-                        console.warn(`⚠️ Tâche enforced "${task.name}" (${task.code}): ressource "${resource.id}" non disponible au créneau imposé.`);
+                        console.warn(`⚠️ Tâche enforced "${task.name}" (${task.code}): ressource "${resource.id}" non disponible au créneau imposé — booking forcé.`);
                     }
+                    resource.availability.removeAvailability(enforced.startTime, enforced.startTime + task.duration);
                 }
-
-                this.applyConstraints({ task, startTime: enforced.startTime, appliedResources: enforcedResources });
+                this.invalidateSchedulableForResources(enforcedResources);
             }
             console.log('✅ Créneaux enforced réservés.\n');
         }
@@ -525,11 +600,13 @@ export class Schedule {
                         )) continue;
                     }
 
-                    // Filtre look-ahead : chaque dépendant direct doit avoir un créneau
-                    // disponible (avec ses ressources courantes) après la fin de ce slot.
-                    // Comme slotEnd croît strictement et que _dependantsHaveSlotAfter est
-                    // monotone décroissante, un échec ici invalide tous les slots suivants.
-                    if (!this._dependantsHaveSlotAfter(task, slotEnd)) break outer;
+                    // Filtre look-ahead : tous les dépendants directs doivent pouvoir être
+                    // placés de façon mutuellement compatible après la fin de ce slot.
+                    // Si des dépendants partagent des ressources, un mini-backtrack glouton
+                    // vérifie la compatibilité collective.
+                    // Comme slotEnd croît strictement et que la vérification est monotone
+                    // décroissante, un échec invalide tous les slots suivants.
+                    if (!this._dependantsCanAllFitAfter(task, slotEnd)) break outer;
 
                     slots.push({ startTime });
                 }
@@ -570,6 +647,103 @@ export class Schedule {
             if (!this._dependantsHaveSlotAfter(dep, depEarliestStart + dep.duration)) return false;
         }
         return true;
+    }
+
+    /**
+     * Point d'entrée du look-ahead : remplace `_dependantsHaveSlotAfter` dans
+     * `generatePossibleSlots`. Si les dépendants directs partagent des ressources,
+     * délègue au mini-backtrack glouton `_siblingDepsCompatibleAfter` pour vérifier
+     * qu'ils peuvent être placés *simultanément* sans conflit mutuel.
+     * Sinon, délègue à `_dependantsHaveSlotAfter` (comportement inchangé).
+     */
+    private _dependantsCanAllFitAfter(task: Task, earliestStart: number): boolean {
+        const deps = task.getDependentTasks();
+        if (deps.length <= 1) {
+            return this._dependantsHaveSlotAfter(task, earliestStart);
+        }
+        if (!this._depsShareAnyResource(deps)) {
+            return this._dependantsHaveSlotAfter(task, earliestStart);
+        }
+        return this._siblingDepsCompatibleAfter(deps, earliestStart);
+    }
+
+    /** Retourne true si au moins deux tâches de la liste partagent une ressource. */
+    private _depsShareAnyResource(deps: Task[]): boolean {
+        const seen = new Set<string>();
+        for (const dep of deps) {
+            for (const r of dep.appliedResources) {
+                if (seen.has(r.id)) return true;
+                seen.add(r.id);
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Mini-backtrack glouton : vérifie que tous les `deps` peuvent être placés
+     * ≥ earliestStart sans conflit de ressources partagées entre eux.
+     *
+     * Stratégie :
+     *   1. Trier les dépendants par score MCV décroissant (plus contraint d'abord).
+     *   2. Pour chaque dep, trouver le premier créneau disponible ≥ earliestStart
+     *      (en tenant compte des bookings temporaires des deps précédents).
+     *   3. Réserver temporairement les ressources, puis vérifier récursivement
+     *      les sous-dépendances de ce dep via `_dependantsCanAllFitAfter`.
+     *   4. Restaurer toutes les disponibilités avant de retourner (lecture seule nette).
+     */
+    private _siblingDepsCompatibleAfter(deps: Task[], earliestStart: number): boolean {
+        const sorted = [...deps].sort(
+            (a, b) => this.getCurrentConstraintScore(b) - this.getCurrentConstraintScore(a),
+        );
+
+        const booked: Array<{ resource: Resource; start: number; end: number }> = [];
+        let success = true;
+
+        for (const dep of sorted) {
+            const slotStart = this._findFirstAvailableSlot(dep, earliestStart);
+            if (slotStart === null) {
+                success = false;
+                break;
+            }
+            const slotEnd = slotStart + dep.duration;
+
+            // Booking temporaire : retirer la disponibilité des ressources de dep
+            for (const r of dep.appliedResources) {
+                r.availability.removeAvailability(slotStart, slotEnd);
+                booked.push({ resource: r, start: slotStart, end: slotEnd });
+            }
+            this.invalidateSchedulableForResources(dep.appliedResources);
+
+            // Vérification récursive des sous-dépendances de dep (avec état mis à jour)
+            if (!this._dependantsCanAllFitAfter(dep, slotEnd)) {
+                success = false;
+                break;
+            }
+        }
+
+        // Restauration de toutes les disponibilités temporaires
+        const bookedResources = new Set<Resource>(booked.map(b => b.resource));
+        for (const b of booked) {
+            b.resource.availability.addAvailability(b.start, b.end);
+        }
+        this.invalidateSchedulableForResources([...bookedResources]);
+
+        return success;
+    }
+
+    /**
+     * Retourne le premier startTime ≥ earliestStart dans le schedulable courant de `dep`
+     * où `dep.duration` minutes consécutives sont disponibles, ou null si aucun.
+     * Opération en lecture seule.
+     */
+    private _findFirstAvailableSlot(dep: Task, earliestStart: number): number | null {
+        for (const interval of dep.schedulable.getAvailableIntervals()) {
+            const effectiveStart = Math.max(interval.start, earliestStart);
+            if (interval.end - effectiveStart >= dep.duration) {
+                return effectiveStart;
+            }
+        }
+        return null;
     }
 
     /**
