@@ -22,5 +22,5 @@ export { AvailabilityManager } from './availabilityManager.ts';
 export { SchedulerData } from './schedulerData.ts';
 
 // --- Types de données ---
-export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, ResourceEntry, ResourceData, ResourceGroupData, RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON, EnforcedData, SchedulerConfig, LunchBreakConfig, LunchBreakNone, LunchBreakFixed, LunchBreakFloating } from './types.ts';
+export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, ResourceEntry, ResourceData, ResourceGroupData, RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON, NeutralizedTaskInfoJSON, ResourceAvailabilitySnapshotJSON, EnforcedData, SchedulerConfig, LunchBreakConfig, LunchBreakNone, LunchBreakFixed, LunchBreakFloating } from './types.ts';
 export { DEFAULT_SCHEDULER_CONFIG } from './types.ts';

@@ -7,6 +7,28 @@ import { fileURLToPath } from 'url';
 import { ScheduleAnalysis } from './scheduleAnalysis.js';
 
 /**
+ * Snapshot de disponibilité d'une ressource au moment de la neutralisation d'une tâche
+ */
+export interface ResourceAvailabilitySnapshot {
+    resourceId: string;
+    resourceType: string;
+    availableMinutes: number;
+}
+
+/**
+ * Informations de diagnostic sur une tâche neutralisée (non planifiable)
+ */
+export interface NeutralizedTaskInfo {
+    task: Task;
+    eliminationRound: number;
+    failureCount: number;
+    requiredMinutes: number;
+    schedulableMinutes: number;
+    resourceSnapshots: ResourceAvailabilitySnapshot[];
+    reason: string;
+}
+
+/**
  * Représente une solution de planification pour une tâche
  */
 export interface TaskSolution {
@@ -23,7 +45,7 @@ export interface ScheduleSolution {
     isComplete: boolean;
     conflictCount: number;
     score?: number;
-    neutralizedTasks?: Task[];
+    neutralizedTasks?: NeutralizedTaskInfo[];
 }
 
 /**
@@ -165,7 +187,7 @@ export class Schedule {
     solveWithTaskElimination(): ScheduleSolution[] {
         const count = this._config.maxEliminations;
         this.initSolver();
-        const neutralized: Task[] = [];
+        const neutralizedInfoList: NeutralizedTaskInfo[] = [];
         let lastResults = this.solve();
 
         for (let i = 0; i < count && lastResults.length === 0; i++) {
@@ -186,16 +208,17 @@ export class Schedule {
             }
 
             const eliminated = this.tasks[targetIndex];
-            neutralized.push(eliminated);
-            console.log(`🗑️ Élimination #${i + 1}: "${eliminated.name}" (${maxFailures} échec(s) sans créneau)`);
+            const info = this._buildNeutralizedTaskInfo(eliminated, i + 1, maxFailures);
+            neutralizedInfoList.push(info);
+            console.log(`🗑️ Élimination #${i + 1}: "${eliminated.name}" (${maxFailures} échec(s)) — ${info.reason}`);
             this.tasks.splice(targetIndex, 1);
             lastResults = this.solve();
         }
 
-        if (neutralized.length > 0) {
-            const penalty = neutralized.length * 1000;
+        if (neutralizedInfoList.length > 0) {
+            const penalty = neutralizedInfoList.length * 1000;
             for (const result of lastResults) {
-                result.neutralizedTasks = [...neutralized];
+                result.neutralizedTasks = [...neutralizedInfoList];
                 if (result.score !== undefined) {
                     result.score = Math.round(result.score - penalty);
                 }
@@ -203,6 +226,58 @@ export class Schedule {
         }
 
         return lastResults;
+    }
+
+    /**
+     * Construit un NeutralizedTaskInfo au moment de l'élimination d'une tâche.
+     * Appelé après solve(), avant tasks.splice() — l'état des ressources reflète
+     * l'état initial moins les bookings enforced et la pause méridienne.
+     */
+    private _buildNeutralizedTaskInfo(
+        task: Task,
+        eliminationRound: number,
+        failureCount: number,
+    ): NeutralizedTaskInfo {
+        const requiredMinutes = task.duration;
+        const schedulableMinutes = task.schedulable.getTotalAvailableTime();
+
+        // Collecter toutes les ressources uniques sur l'ensemble des combinaisons disponibles
+        const combinations = task.getApplicableResources();
+        const uniqueResources = new Map<string, Resource>();
+        for (const combo of combinations) {
+            for (const r of combo) {
+                uniqueResources.set(r.id, r);
+            }
+        }
+        // Fallback : ressources actuellement affectées si aucune combinaison
+        if (uniqueResources.size === 0) {
+            for (const r of task.appliedResources) {
+                uniqueResources.set(r.id, r);
+            }
+        }
+
+        const resourceSnapshots: ResourceAvailabilitySnapshot[] = Array.from(uniqueResources.values()).map(r => ({
+            resourceId: r.id,
+            resourceType: r.type,
+            availableMinutes: r.availability.getTotalAvailableTime(),
+        }));
+
+        let reason: string;
+        if (combinations.length === 0) {
+            reason = 'Aucune combinaison de ressources disponible';
+        } else {
+            const bottlenecks = resourceSnapshots.filter(s => s.availableMinutes < requiredMinutes);
+            if (bottlenecks.length > 0) {
+                const worst = bottlenecks.reduce((a, b) => a.availableMinutes < b.availableMinutes ? a : b);
+                reason = `Ressource insuffisante : ${worst.resourceId} (${worst.availableMinutes} min disponibles < ${requiredMinutes} min requises)`;
+            } else if (schedulableMinutes < requiredMinutes) {
+                reason = `Intersection des disponibilités insuffisante (${schedulableMinutes} min < ${requiredMinutes} min requises)`;
+            } else {
+                reason = `Conflit de placement persistant — ${failureCount} passage(s) sans créneau disponible`;
+            }
+        }
+
+        return { task, eliminationRound, failureCount, requiredMinutes, schedulableMinutes, resourceSnapshots, reason };
     }
 
     /**
