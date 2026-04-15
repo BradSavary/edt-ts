@@ -88,6 +88,10 @@ export class Loader {
     Loader.validateEnforcedCourses(data.courses);
     console.log(`📚 Chargement des tâches pour la semaine ${data.week}`);
     this._data.initTasks({ weeks: data.week, courses: data.courses });
+    if (data.groups && data.groups.length > 0) {
+      this._data.initGroups(data.groups);
+      console.log(`🔗 ${data.groups.length} groupe(s) de tâches configuré(s)`);
+    }
     this._currentWeek = data.week;
     console.log(`✅ ${this._data.tasksManager!.getTaskCount()} tâches chargées pour la semaine ${data.week}`);
   }

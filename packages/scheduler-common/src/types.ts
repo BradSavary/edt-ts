@@ -71,11 +71,24 @@ export interface ResourceGroupData {
  * Données brutes transmises à Loader.loadFromRawData() (mode API REST).
  * Correspond au corps JSON du POST /api/schedule.
  */
+export interface TaskGroupDeclaration {
+  /** Type du groupe : 'parallel' (même heure de début) ou 'sequential' (tâches consécutives). */
+  type: 'parallel' | 'sequential';
+  /**
+   * IDs des tâches du groupe dans l'ordre.
+   * Le premier est la représentante ; les suivants sont les membres.
+   * Pour 'sequential', l'ordre détermine l'ordre de placement.
+   */
+  taskIds: string[];
+}
+
 export interface RawScheduleData {
   week: number;
   resources: ResourceGroupData[];
   courses: CourseTaskData[];
   constraints?: ConstraintsData;
+  /** Groupes de tâches à co-planifier (parallel ou sequential). Optionnel. */
+  groups?: TaskGroupDeclaration[];
 }
 
 /**

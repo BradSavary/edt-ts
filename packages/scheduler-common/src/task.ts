@@ -2,6 +2,9 @@ import { Resource, ResourceType } from './resource.ts';
 import { Availability } from './availability.ts';
 import type { CourseTaskData, EnforcedData } from './types.ts';
 
+/** Type d'un groupe de tâches */
+export type GroupType = 'parallel' | 'sequential';
+
 /**
  * Classe représentant une tâche à planifier
  * Une tâche a une durée et peut nécessiter plusieurs ressources simultanément
@@ -25,6 +28,13 @@ class Task {
   private _schedulable: Availability | null = null;
   private dependsOn: Task | null = null;
   private dependentTasks: Task[] = [];
+
+  // --- Groupe de tâches ---
+  // Pour la représentante : type du groupe et liste des membres
+  private _groupType: GroupType | null = null;
+  private _groupMembers: Task[] = [];
+  // Pour un membre : pointeur vers sa représentante
+  private _groupRepresentative: Task | null = null;
 
   constructor(id: string, courseData: CourseTaskData, resources: Resource[] = []) {
     if (courseData.duration <= 0) {
@@ -198,6 +208,62 @@ class Task {
 
   getTeacherResource(): Resource | null {
     return this.appliedResources.find(r => r.type === ResourceType.TEACHER) || null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Groupe de tâches
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Déclare cette tâche comme représentante d'un groupe.
+   * Ne peut être appelé qu'une fois (une tâche ne peut pas être représentante de deux groupes).
+   */
+  makeGroupRepresentative(type: GroupType): void {
+    if (this._groupRepresentative !== null) {
+      throw new Error(`La tâche "${this.name}" est déjà membre d'un groupe — elle ne peut pas être représentante.`);
+    }
+    if (this._groupType !== null) {
+      throw new Error(`La tâche "${this.name}" est déjà représentante d'un groupe.`);
+    }
+    this._groupType = type;
+  }
+
+  /**
+   * Ajoute une tâche membre à ce groupe.
+   * La tâche cible devient membre de ce groupe (pointeur vers représentante).
+   */
+  addGroupMember(member: Task): void {
+    if (this._groupType === null) {
+      throw new Error(`La tâche "${this.name}" n'est pas représentante d'un groupe.`);
+    }
+    if (member === this) {
+      throw new Error('Une tâche ne peut pas être membre de son propre groupe.');
+    }
+    if (member._groupRepresentative !== null || member._groupType !== null) {
+      throw new Error(`La tâche "${member.name}" appartient déjà à un groupe.`);
+    }
+    member._groupRepresentative = this;
+    this._groupMembers.push(member);
+  }
+
+  isGroupRepresentative(): boolean {
+    return this._groupType !== null;
+  }
+
+  isGroupMember(): boolean {
+    return this._groupRepresentative !== null;
+  }
+
+  getGroupType(): GroupType | null {
+    return this._groupType;
+  }
+
+  getGroupRepresentative(): Task | null {
+    return this._groupRepresentative;
+  }
+
+  getGroupMembers(): Task[] {
+    return [...this._groupMembers];
   }
 
   /**
