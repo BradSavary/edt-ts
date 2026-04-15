@@ -6,7 +6,7 @@ import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import { usePlanningStore } from '@/store/usePlanningStore';
 
 interface UseSidebarCourseDragOptions {
-  containerRef: React.RefObject<HTMLDivElement | null>;
+  container: HTMLDivElement | null;
   courses: CourseTaskData[];
 }
 
@@ -15,7 +15,7 @@ interface UseSidebarCourseDragOptions {
  * et met à jour draggingExternal dans usePlanningStore pour la mise en évidence des contraintes.
  */
 export function useSidebarCourseDrag({
-  containerRef,
+  container,
   courses,
 }: UseSidebarCourseDragOptions): void {
   const setDraggingExternal = usePlanningStore((s) => s.setDraggingExternal);
@@ -23,7 +23,6 @@ export function useSidebarCourseDrag({
 
   // FullCalendar Draggable pour les cards de cours
   useEffect(() => {
-    const container = containerRef.current;
     if (!container || courses.length === 0) return;
 
     const draggable = new Draggable(container, {
@@ -36,11 +35,10 @@ export function useSidebarCourseDrag({
     });
 
     return () => draggable.destroy();
-  }, [containerRef, courses]);
+  }, [container, courses]);
 
   // Détecte le drag pour mettre à jour le store (conflit highlighting)
   useEffect(() => {
-    const container = containerRef.current;
     if (!container) return;
 
     const onPointerDown = (e: PointerEvent) => {
@@ -82,5 +80,5 @@ export function useSidebarCourseDrag({
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('pointercancel', onPointerUp);
     };
-  }, [containerRef, courses, setDraggingExternal]);
+  }, [container, courses, setDraggingExternal]);
 }

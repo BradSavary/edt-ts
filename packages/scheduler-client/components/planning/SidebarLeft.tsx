@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import { downloadIcalSolution } from '@/lib/icalExport';
 import CourseGroupList, { type GroupBy } from '@/components/planning/CourseGroupList';
@@ -65,11 +65,12 @@ export function SidebarLeft({
   }
 
   // ── Refs pour le drag ─────────────────────────────────────────────────────
-  const cardContainerRef = useRef<HTMLDivElement | null>(null);
+  const [cardContainer, setCardContainer] = useState<HTMLDivElement | null>(null);
+  const cardContainerRef = useCallback((node: HTMLDivElement | null) => setCardContainer(node), []);
   const neutralizedContainerRef = useRef<HTMLDivElement | null>(null);
 
   useSidebarCourseDrag({
-    containerRef: cardContainerRef,
+    container: cardContainer,
     courses: parsedCourses,
   });
 
