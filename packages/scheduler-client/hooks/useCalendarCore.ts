@@ -14,6 +14,32 @@ import { computeConstraintUnavailableZones } from '@/lib/blockedZones';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 
+/** Soustrait les intervalles `subtract` de `base` — retourne base \ subtract (sans chevauchement). */
+function subtractDateZones(
+  base: { start: Date; end: Date }[],
+  subtract: { start: Date; end: Date }[],
+): { start: Date; end: Date }[] {
+  if (subtract.length === 0) return base;
+  const result: { start: Date; end: Date }[] = [];
+  for (const bz of base) {
+    let segs = [{ start: bz.start, end: bz.end }];
+    for (const sz of subtract) {
+      const next: { start: Date; end: Date }[] = [];
+      for (const s of segs) {
+        if (s.end <= sz.start || s.start >= sz.end) {
+          next.push(s);
+        } else {
+          if (s.start < sz.start) next.push({ start: s.start, end: sz.start });
+          if (s.end > sz.end) next.push({ start: sz.end, end: s.end });
+        }
+      }
+      segs = next;
+    }
+    result.push(...segs);
+  }
+  return result;
+}
+
 // ── Types partagés ─────────────────────────────────────────────────────────
 
 export interface PendingDrop {
@@ -541,16 +567,40 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
 
     const constraintBgEvents: { id: string; start: Date; end: Date; display: string; backgroundColor: string; classNames: string[] }[] = [];
     if (activeDragResources && availabilityManager) {
-      const resourceIds = [...activeDragResources.teachers, ...activeDragResources.groups, ...activeDragResources.rooms];
-      const zones = computeConstraintUnavailableZones(resourceIds, availabilityManager, week, monday);
-      zones.forEach((z, i) => {
+      // Rouge : enseignants indisponibles (prioritaire)
+      const teacherIds = activeDragResources.teachers;
+      const teacherZones = teacherIds.length > 0
+        ? computeConstraintUnavailableZones(teacherIds, availabilityManager, week, monday)
+        : [];
+
+      // Orange : salles + groupes indisponibles, SAUF les plages déjà couvertes par le rouge
+      const otherIds = [...activeDragResources.groups, ...activeDragResources.rooms];
+      const otherZones = otherIds.length > 0
+        ? subtractDateZones(
+            computeConstraintUnavailableZones(otherIds, availabilityManager, week, monday),
+            teacherZones,
+          )
+        : [];
+
+      otherZones.forEach((z, i) => {
         constraintBgEvents.push({
-          id: `constraint-bg-${i}`,
+          id: `constraint-bg-other-${i}`,
+          start: z.start,
+          end: z.end,
+          display: 'background',
+          backgroundColor: 'rgb(234, 88, 12, 1)',
+          classNames: ['fc-constraint-unavailable', 'fc-constraint-other'],
+        });
+      });
+
+      teacherZones.forEach((z, i) => {
+        constraintBgEvents.push({
+          id: `constraint-bg-teacher-${i}`,
           start: z.start,
           end: z.end,
           display: 'background',
           backgroundColor: 'rgb(182, 0, 23, 1)',
-          classNames: ['fc-constraint-unavailable'],
+          classNames: ['fc-constraint-unavailable', 'fc-constraint-teacher'],
         });
       });
     }
