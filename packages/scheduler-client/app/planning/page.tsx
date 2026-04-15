@@ -1,12 +1,10 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { usePlanningStore } from '@/store/usePlanningStore';
-import { useNeutralizedDraggable } from '@/hooks/useNeutralizedDraggable';
 import { SidebarLeft } from '@/components/planning/SidebarLeft';
-import { NeutralizedPanel } from '@/components/planning/NeutralizedPanel';
 import ScheduleCalendar from '@/components/planning/ScheduleCalendar';
 import { type GroupBy } from '@/components/planning/CourseGroupList';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -21,7 +19,6 @@ export default function PlanningPage() {
   const selectedSolutionIndex = usePlanningStore((s) => s.selectedSolutionIndex);
   const setSelectedSolutionIndex = usePlanningStore((s) => s.setSelectedSolutionIndex);
   const activeSolution = usePlanningStore((s) => s.activeSolution);
-  const activeNeutralizedTasks = usePlanningStore((s) => s.activeNeutralizedTasks);
   const searchQuery = usePlanningStore((s) => s.searchQuery);
   const status = usePlanningStore((s) => s.status);
 
@@ -52,12 +49,6 @@ export default function PlanningPage() {
 
   // ── UI local ─────────────────────────────────────────────────────────────
   const [groupBy, setGroupBy] = useState<GroupBy>('code');
-  const neutralizedContainerRef = useRef<HTMLDivElement | null>(null);
-
-  useNeutralizedDraggable({
-    containerRef: neutralizedContainerRef,
-    neutralizedTasks: activeNeutralizedTasks.length > 0 ? activeNeutralizedTasks : undefined,
-  });
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-secondary/30">
@@ -94,12 +85,6 @@ export default function PlanningPage() {
             parsedCourses={parsedCourses}
           />
         </main>
-
-        {activeNeutralizedTasks.length > 0 && (
-          <NeutralizedPanel
-            containerRef={neutralizedContainerRef}
-          />
-        )}
 
       </div>
 

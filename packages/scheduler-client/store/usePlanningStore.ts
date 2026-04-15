@@ -95,6 +95,9 @@ export interface PlanningStore {
 
   // Reset (ex: changement de semaine ou de fichiers)
   reset: () => void;
+
+  // Reset uniquement le résultat (retour à l'étape préparation sans perdre la semaine/config)
+  resetScheduleResult: () => void;
 }
 
 // ── Type export pour les hooks ──────────────────────────────────────────────
@@ -266,6 +269,16 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
       placedNeutralizedTasks: state.placedNeutralizedTasks.filter((t) => t.taskId !== taskId),
     }));
   },
+
+  resetScheduleResult: () => set({
+    scheduleResult: null,
+    selectedSolutionIndex: 0,
+    activeSolution: [],
+    activeNeutralizedTasks: [],
+    taskOverrides: {},
+    placedNeutralizedTasks: [],
+    status: null,
+  }),
 
   reset: () => set({
     selectedWeek: null,
