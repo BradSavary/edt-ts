@@ -312,11 +312,11 @@ export class Schedule {
 
                 for (const resource of enforcedResources) {
                     if (!resource.availability.isAvailable(enforced.startTime, enforced.startTime + task.duration)) {
-                        console.warn(`⚠️ Tâche enforced "${task.name}" (${task.code}): ressource "${resource.id}" non disponible au créneau imposé.`);
+                        console.warn(`⚠️ Tâche enforced "${task.name}" (${task.code}): ressource "${resource.id}" non disponible au créneau imposé — booking forcé.`);
                     }
+                    resource.availability.removeAvailability(enforced.startTime, enforced.startTime + task.duration);
                 }
-
-                this.applyConstraints({ task, startTime: enforced.startTime, appliedResources: enforcedResources });
+                this.invalidateSchedulableForResources(enforcedResources);
             }
             console.log('✅ Créneaux enforced réservés.\n');
         }
