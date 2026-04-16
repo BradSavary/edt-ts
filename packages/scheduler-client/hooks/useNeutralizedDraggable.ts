@@ -2,12 +2,12 @@
 
 import { useEffect } from 'react';
 import { Draggable } from '@fullcalendar/interaction';
-import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
+import type { NeutralizedTaskInfoJSON } from '@edt-ts/scheduler-common';
 import { usePlanningStore } from '@/store/usePlanningStore';
 
 interface UseNeutralizedDraggableOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
-  neutralizedTasks: TaskSolutionJSON[] | undefined;
+  neutralizedTasks: NeutralizedTaskInfoJSON[] | undefined;
 }
 
 /**

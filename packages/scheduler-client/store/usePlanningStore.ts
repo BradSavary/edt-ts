@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { EnforcedData, TaskSolutionJSON, ConstraintsData } from '@edt-ts/scheduler-common';
+import type { EnforcedData, TaskSolutionJSON, NeutralizedTaskInfoJSON, ConstraintsData } from '@edt-ts/scheduler-common';
 import type { BlockedZone } from '@/lib/blockedZones';
 import { runScheduleRequestFromData, buildScheduleStatus, type ScheduleResult, type ScheduleStatus } from '@/lib/scheduleApi';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
@@ -48,7 +48,7 @@ export interface PlanningStore {
 
   // Vues dérivées du résultat (mutables via l'UI — drag, édition)
   activeSolution: TaskSolutionJSON[];
-  activeNeutralizedTasks: TaskSolutionJSON[];
+  activeNeutralizedTasks: NeutralizedTaskInfoJSON[];
 
   /** Overrides de position/ressources pour les tâches de activeSolution modifiées manuellement. */
   taskOverrides: Record<string, PlacedTaskOverride>;

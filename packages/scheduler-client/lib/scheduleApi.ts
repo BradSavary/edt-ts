@@ -1,11 +1,11 @@
-import type { RawScheduleData, TaskSolutionJSON, CourseTaskData, EnforcedData, ConstraintsData, ResourceGroupData, SchedulerConfig } from '@edt-ts/scheduler-common';
+import type { RawScheduleData, TaskSolutionJSON, NeutralizedTaskInfoJSON, CourseTaskData, EnforcedData, ConstraintsData, ResourceGroupData, SchedulerConfig } from '@edt-ts/scheduler-common';
 import { type BlockedZone, applyBlockedZonesToConstraints } from '@/lib/blockedZones';
 
 export interface NormalizedSolution {
   isComplete: boolean;
   score?: number;
   tasks: TaskSolutionJSON[];
-  neutralizedTasks?: TaskSolutionJSON[];
+  neutralizedTasks?: NeutralizedTaskInfoJSON[];
 }
 
 export interface ScheduleResult {
@@ -100,7 +100,7 @@ async function _callScheduleApi(
       tasks: s.tasks,
     }));
   } else {
-    const d = data as { solutions: TaskSolutionJSON[]; isComplete: boolean; score?: number; neutralizedTasks?: TaskSolutionJSON[] }[];
+    const d = data as { solutions: TaskSolutionJSON[]; isComplete: boolean; score?: number; neutralizedTasks?: NeutralizedTaskInfoJSON[] }[];
     normalized = d.map((s) => ({
       isComplete: s.isComplete,
       score: s.score,
