@@ -5,6 +5,10 @@ Construite avec **Next.js 16 (App Router)**, TypeScript strict, Tailwind CSS v4 
 
 ---
 
+> **Date de mise à jour :** Avril 2026
+
+---
+
 ## Rôle dans le monorepo
 
 ```
@@ -27,6 +31,7 @@ Toute communication avec le moteur passe par des appels HTTP, proxifiés par Nex
 | Tailwind CSS | v4 | Styles utilitaires |
 | shadcn/ui | new-york | Composants UI (Radix) |
 | FullCalendar | 6.1 | Grille calendrier interactive |
+| Zustand | 5 | State management |
 | Vitest + Testing Library | — | Tests unitaires |
 | Playwright | — | Tests E2E |
 
@@ -37,43 +42,66 @@ Toute communication avec le moteur passe par des appels HTTP, proxifiés par Nex
 ```
 packages/scheduler-client/
 │
-├── app/                          # Next.js App Router
-│   ├── layout.tsx                # Layout racine (HTML, body, Tailwind)
-│   ├── globals.css               # Variables CSS OKLCH shadcn + Tailwind
-│   ├── page.tsx                  # Page principale : formulaire + calendrier
+├── app/                              # Next.js App Router
+│   ├── layout.tsx                    # Layout racine (HTML, body, NavBar)
+│   ├── globals.css                   # Variables CSS OKLCH shadcn + Tailwind
+│   ├── NavBar.tsx                    # Barre de navigation (Config / Planification / Contraintes)
+│   ├── (config)/
+│   │   └── page.tsx                  # Page "/" — import CSV cours
+│   ├── planning/
+│   │   └── page.tsx                  # Page "/planning" — calendrier + sidebar
+│   ├── constraints/
+│   │   └── page.tsx                  # Page "/constraints" — gestion des contraintes
 │   └── api/
 │       └── schedule/
-│           ├── route.ts          # Proxy POST /api/schedule → API Express (timeout 5 min)
+│           ├── route.ts              # Proxy POST /api/schedule → API Express (5 min)
 │           └── elimination/
-│               └── route.ts     # Proxy POST /api/schedule/elimination (timeout 10 min)
+│               └── route.ts         # Proxy POST /api/schedule/elimination (10 min)
 │
-├── components/                   # Composants métier
-│   ├── ScheduleCalendar.tsx     # Calendrier FullCalendar principal
-│   ├── CourseCard.tsx            # Carte draggable d'un cours (sidebar gauche)
-│   ├── CourseGroupList.tsx       # Liste groupée de cours (par code ou enseignant)
-│   ├── EnforceModal.tsx          # Modal de sélection des ressources à l'imposition
-│   ├── TaskEditModal.tsx         # Modal d'édition des ressources d'une tâche placée
-│   └── ui/                       # Composants shadcn/ui (générés)
-│       ├── button.tsx, card.tsx, dialog.tsx, select.tsx
-│       ├── tabs.tsx, badge.tsx, input.tsx, label.tsx
-│       ├── separator.tsx, scroll-area.tsx, alert.tsx
+├── components/
+│   ├── planning/                     # Composants de la page Planning
+│   │   ├── ScheduleCalendar.tsx      # Calendrier FullCalendar principal
+│   │   ├── SidebarLeft.tsx           # Sidebar gauche (modes préparation / analyse)
+│   │   ├── CourseCard.tsx            # Carte draggable d'un cours
+│   │   ├── CourseGroupList.tsx       # Liste groupée de cours (par code ou enseignant)
+│   │   ├── SchedulerConfigDialog.tsx # Dialog configuration du planificateur
+│   │   └── modals/
+│   │       ├── EnforceModal.tsx      # Modal de confirmation de placement imposé
+│   │       └── TaskEditModal.tsx     # Modal d'édition des ressources d'une tâche
+│   ├── constraints/                  # Composants de la page Contraintes
+│   │   ├── ConstraintsManager.tsx    # Gestionnaire complet des contraintes
+│   │   ├── ResourceConstraintEditor.tsx  # Éditeur de contraintes par ressource
+│   │   ├── TimeRangePicker.tsx       # Sélecteur plage horaire (AM/PM)
+│   │   └── AddResourceModal.tsx      # Modal ajout d'une ressource
+│   └── ui/                           # Composants shadcn/ui (générés)
 │
-├── lib/                          # Utilitaires framework-agnostic
-│   ├── utils.ts                  # cn() (clsx + tailwind-merge)
-│   ├── calendarUtils.ts          # Helpers FullCalendar (dates, conflits)
-│   ├── blockedZones.ts           # Logique zones bloquées + contraintes ressources
-│   ├── parseCsvCourses.ts        # Parsing CSV de ventilation horaire
-│   └── scheduleApi.ts            # Appel API (construction payload + normalisation réponse)
+├── lib/                              # Utilitaires framework-agnostic
+│   ├── utils.ts                      # cn() (clsx + tailwind-merge)
+│   ├── calendarUtils.ts              # Helpers FullCalendar + détection conflits
+│   ├── blockedZones.ts               # Logique zones bloquées + indisponibilités ressources
+│   ├── parseCsvCourses.ts            # Parsing CSV → CourseTaskData[] + ressources
+│   ├── scheduleApi.ts                # Client API (runScheduleRequestFromData)
+│   ├── icalExport.ts                 # Export iCal RFC 5545 (.ics)
+│   ├── constraintsUtils.ts           # Utilitaires UI contraintes (DayMap, normalisation)
+│   ├── clientSchedulerData.ts        # Sous-classe ClientSchedulerData extends SchedulerData
+│   └── utils.ts                      # cn() (clsx + tailwind-merge)
 │
 ├── hooks/
-│   └── useNeutralizedDraggable.ts  # Draggable FullCalendar pour tâches non placées
+│   ├── useCalendarCore.ts            # Logique calendrier (drag, drop, conflits, modals)
+│   ├── useNeutralizedDraggable.ts    # Draggable FullCalendar pour tâches neutralisées
+│   └── useSidebarCourseDrag.ts       # Draggable + gestion conflits pour la sidebar
 │
-├── data/                         # Fichiers de données d'exemple
-│   ├── data-ventilation.csv      # CSV de cours (semestre, code, enseignant, groupes, salles…)
-│   ├── resources.json            # Ressources disponibles (enseignants, salles, groupes)
-│   └── contraintes.json          # Disponibilités des ressources par semaine
+├── store/
+│   ├── useSchedulerStore.ts          # Store persisté (allCourses, resources, constraints, config)
+│   ├── usePlanningStore.ts           # Store session (semaine, solutions, enforced, overrides)
+│   └── slices/
+│       └── constraintsSlice.ts       # Slice contraintes (avec persist)
 │
-├── __tests__/                    # Tests unitaires Vitest
+├── data/                             # Fichiers de données d'exemple
+│   ├── cours.csv                     # CSV de cours (semestre, code, enseignant, groupes, salles…)
+│   └── contraintes.json              # Disponibilités exemple
+│
+├── __tests__/                        # Tests unitaires Vitest
 │   ├── calendarUtils.test.ts
 │   ├── CourseCard.test.tsx
 │   ├── EnforceModal.test.tsx
@@ -81,157 +109,269 @@ packages/scheduler-client/
 │   └── parseCsvCourses.test.ts
 │
 ├── e2e/
-│   └── schedule.spec.ts          # Tests E2E Playwright
+│   └── schedule.spec.ts              # Tests E2E Playwright
 │
-├── next.config.ts                # Proxy rewrites /api/* → localhost:3000
+├── next.config.ts                    # Proxy rewrites /api/* → localhost:3000
 ├── vitest.config.ts
 └── playwright.config.ts
 ```
 
 ---
 
+## Navigation (3 pages)
+
+L'application est organisée en trois pages distinctes accessibles depuis la barre de navigation (`NavBar`) :
+
+| Route | Rôle |
+|---|---|
+| `/` | **Config** — import du fichier CSV des cours |
+| `/planning` | **Planification** — calendrier interactif, lancement du planificateur |
+| `/constraints` | **Contraintes** — édition des disponibilités des ressources |
+
+---
+
 ## Fonctionnalités
 
-### 1. Chargement et parsing des données
+### 1. Chargement des données (page Config `/`)
 
-| Fichier | Format | Traitement |
-|---|---|---|
-| Ressources | JSON `ResourceGroupData[]` | Chargé en mémoire dès la sélection du fichier |
-| Cours | CSV colonnes semaines (Sx) | Parsé par `parseCsvCourses(text, week)` à chaque changement de semaine ou de fichier |
-| Contraintes | JSON `ConstraintsData` | Chargé en mémoire, utilisé pour les zones bloquées et la mise en évidence au drag |
+L'utilisateur importe un **unique fichier CSV**. La fonction `parseCsvFull(csvText)` extrait en une passe :
+- Tous les cours de toutes les semaines → `allCourses: CourseTaskData[]`
+- Les ressources uniques (enseignants, groupes, salles) → `resources: ResourceGroupData[]`
+- Les semaines actives par ressource → `resourceWeeks: Record<string, number[]>`
 
-Le parsing CSV détecte la colonne de la semaine demandée (`S35`…`S52`, `S1`…`S28`) et retourne un `CourseTaskData[]`. Les salles multiples (séparées par `, `) sont converties en liste d'alternatives `[["salle1", "salle2"]]`.
+Ces données sont persistées dans `useSchedulerStore` (localStorage `edt-scheduler`).
 
-### 2. Modes de planification
+> **Plus de `resources.json` séparé** — les ressources sont extraites automatiquement depuis le CSV.
 
-Deux boutons déclenchent l'appel API :
+### 2. Planification (page Planning `/planning`)
 
-- **Planifier** → `POST /api/schedule` — mode standard : cherche le maximum de cours placés simultanément
-- **Avec élimination** → `POST /api/schedule/elimination` — élimine itérativement les cours les plus bloquants pour maximiser le placement global
+La sidebar gauche présente deux modes selon l'état :
 
-La réponse contient un tableau de solutions. L'interface affiche des onglets si plusieurs solutions sont disponibles.
+**Mode Préparation** (pas de résultat en cours) :
+- Sélection du numéro de semaine ISO (1–53)
+- Bouton **Planifier** → `POST /api/schedule/elimination` (mode élimination par défaut)
+- Bouton engrenage `⚙` → `SchedulerConfigDialog` (configuration avancée)
+- Liste glissable des cours de la semaine (par code ou par enseignant)
 
-### 3. Imposition manuelle de cours
+**Mode Analyse des solutions** (après planification) :
+- Bouton "← Retour à la préparation" (avec confirmation si résultat non vide)
+- Barre de recherche multi-critères (code, nom, enseignant, salle, groupe)
+- Panel des tâches neutralisées (drag vers le calendrier)
+- Bouton export iCal (`.ics`)
 
-Avant de planifier, l'utilisateur peut **glisser-déposer** une carte de cours depuis la sidebar gauche vers un créneau du calendrier.
+### 3. Configuration du planificateur (`SchedulerConfigDialog`)
 
-- **Sans alternatives** : le cours est directement imposé au créneau cible
-- **Avec alternatives** (enseignants ou salles multiples) : une modal [`EnforceModal`](#enforcemodal) s'ouvre pour sélectionner les ressources
+Accessible via le bouton engrenage dans la sidebar. Permet de configurer :
+- `maxSolutions` — nombre de solutions à générer
+- `timeoutSeconds` — limite de temps en secondes
+- `maxIterations` / `maxEliminations` — paramètres d'élimination
+- `resourceSelection` — `deterministic` ou `random`
+- **Pause déjeuner** : désactivée / fixe (`from`/`to`) / flottante (`duration`, `earliest`, `latest`)
 
-Les cours imposés (`isEnforced: true`) sont transmis dans le payload, ce qui force le moteur à les respecter. Un compteur d'impositions s'affiche sur le bouton Planifier.
+La config est persistée dans `useSchedulerStore.schedulerConfig`.
 
-### 4. Tâches neutralisées
+### 4. Imposition manuelle de cours
 
-Si le moteur renvoie des tâches non placées (`neutralizedTasks`), elles apparaissent dans une **sidebar droite** ambrée. L'utilisateur peut les glisser manuellement sur le calendrier.
+Depuis la sidebar (mode Préparation), l'utilisateur **glisse-dépose** une carte vers un créneau du calendrier.
 
-### 5. Zones bloquées (vides)
+- **Sans alternatives** : placement direct
+- **Avec alternatives** (enseignants ou salles multiples) : `EnforceModal` s'ouvre pour sélectionner les ressources
 
-L'utilisateur peut **sélectionner** un bloc horaire sur le calendrier pour le marquer comme "zone vide". Ces zones sont soustraites aux disponibilités de toutes les ressources avant planification (via `applyBlockedZonesToConstraints`). Un clic sur une zone vide la supprime.
+Les cours imposés sont transmis dans le payload → le moteur les respecte.
 
-### 6. Détection de conflits en temps réel
+### 5. Tâches neutralisées
+
+Les tâches non placées par le moteur (`neutralizedTasks`) apparaissent dans la sidebar (mode Analyse). Elles sont glissables vers le calendrier. Une pastille "Placé" apparaît une fois positionnées.
+
+### 6. Zones bloquées
+
+L'utilisateur sélectionne un bloc horaire sur le calendrier → zone marquée comme vide. Ces zones sont soustraites aux disponibilités avant planification via `applyBlockedZonesToConstraints`. Clic sur une zone vide → suppression.
+
+### 7. Conflits en temps réel
 
 Pendant le drag d'un événement :
-- **Rouge** : enseignant ou groupe en double avec un autre cours du calendrier
+- **Rouge** : enseignant ou groupe en double
 - **Orange** : salle en double
 
-Hors drag, les conflits statiques sont aussi colorisés.
+S'applique aux drags internes, depuis la sidebar gauche (cours) et depuis le panel neutralisé.
 
-Cela s'applique aux trois types de drag :
-- Déplacement d'un événement placé (drag interne au calendrier)
-- Drag depuis la sidebar droite (tâches neutralisées)
-- Drag depuis la sidebar gauche (cours à imposer)
+### 8. Mise en évidence des indisponibilités au drag
 
-### 7. Mise en évidence des contraintes de ressources au drag
+Pendant le drag d'un cours, les créneaux indisponibles pour ses ressources (via `AvailabilityManager` + contraintes Zustand) s'affichent en fond ambre. Calculé par `computeConstraintUnavailableZones`.
 
-Pendant le drag d'un cours, les **créneaux indisponibles** pour au moins l'une de ses ressources (enseignants, salles, groupes) sont affichés en **fond ambre semi-transparent** sur le calendrier.
+### 9. Édition des ressources d'une tâche
 
-- Si aucun fichier de contraintes n'est chargé : rien n'est affiché
-- Les indisponibilités sont calculées par `computeConstraintUnavailableZones` : pour chaque jour lun–ven, complément des créneaux disponibles (selon `contraintes.json` et les overrides hebdomadaires) dans la plage 7h–21h, union de toutes les ressources
+Clic sur un événement → popup de détail → bouton "✏️ Modifier les ressources" → `TaskEditModal`.
 
-### 8. Édition des ressources d'une tâche placée
+### 10. Recherche dans le calendrier
 
-Un clic sur un événement du calendrier ouvre un popup de détail. L'icône **"✏️ Modifier les ressources"** ouvre [`TaskEditModal`](#taskeditmodal), permettant de changer enseignants, groupes ou salles via des selects alimentés par le `resources.json`.
+En mode Analyse, la barre de recherche filtre les événements affichés sur le calendrier en temps réel (code, nom, enseignant, salle, groupe).
 
-### 9. Retrait d'imposition
+### 11. Export iCal
 
-Un cours imposé peut être retiré via le popup de détail (bouton "Retirer l'imposition") ou en glissant l'événement hors du calendrier.
+Bouton "Télécharger .ics" dans la sidebar (mode Analyse). Génère un fichier `.ics` RFC 5545 depuis `lib/icalExport.ts` avec les tâches de la solution active.
+
+### 12. Gestion des contraintes (page Contraintes `/constraints`)
+
+Interface dédiée à l'édition des disponibilités par ressource, persistées dans `useSchedulerStore.constraints` (Zustand persist). Fonctionnalités :
+- Ajout/suppression de ressources
+- Édition des plages horaires par jour via `TimeRangePicker`
+- Contraintes modifiables par semaine via overrides
+- Import/export JSON
 
 ---
 
 ## Composants détaillés
 
-### `ScheduleCalendar`
+### `ScheduleCalendar` (`components/planning/`)
 
-Composant central de l'interface. Gère :
-- Le rendu FullCalendar (`timeGridWeek`, lun–ven, 7h–21h)
-- Les événements placés (solutions API), imposés, neutralisés placés, zones bloquées
-- La détection de drag (interne, externe gauche et droite) via les états `dragging` et `externalDragging`
-- La coloration des conflits et des contraintes en temps réel
-- Les handlers de drop, de clic, de sélection
+Composant-coquille FullCalendar qui délègue toute la logique à `useCalendarCore`. Affiche :
+- Vue `timeGridWeek`, lun–ven, 7h–21h
+- Événements placés, imposés, neutralisés posés, zones bloquées, background events d'indisponibilité
 
-**Props principales :**
+**Props :**
 
 | Prop | Type | Description |
 |---|---|---|
-| `solutions` | `TaskSolutionJSON[]` | Tâches planifiées par l'API |
-| `week` | `number` | Numéro de semaine ISO |
-| `parsedCourses` | `CourseTaskData[]` | Cours parsés (pour les impositions) |
-| `blockedZones` | `BlockedZone[]` | Zones bloquées à afficher |
-| `constraintsData` | `ConstraintsData \| null` | Contraintes pour la mise en évidence au drag |
-| `externalDragging` | `{ teachers, groups, rooms } \| null` | Ressources d'un drag externe |
-| `resourcesList` | `ResourceGroupData[]` | Options pour les selects d'édition |
+| `solutions` | `TaskSolutionJSON[]` | Tâches planifiées (filtrées par la recherche dans `page.tsx`) |
+| `parsedCourses` | `CourseTaskData[]` | Cours de la semaine (pour les impositions) |
 
-### `CourseGroupList`
+### `SidebarLeft` (`components/planning/`)
 
-Liste les cours parsés groupe par groupe (par code ou par enseignant). Chaque groupe est un accordéon qui affiche un `CourseCard` par cours.
+Sidebar gauche avec deux modes (préparation / analyse des solutions). Intègre :
+- Formulaire semaine + bouton Planifier + `SchedulerConfigDialog`
+- Liste draggable des cours (`CourseGroupList` + `useSidebarCourseDrag`)
+- Panel des tâches neutralisées (`useNeutralizedDraggable`)
+- Recherche, export iCal, retour à la préparation (avec confirmation)
 
-### `CourseCard`
+### `SchedulerConfigDialog` (`components/planning/`)
 
-Carte draggable d'un cours. Porte les attributs `data-course-key`, `data-title`, `data-duration` utilisés par le Draggable FullCalendar.
+Dialog de configuration du planificateur via formulaire multi-onglets (General / Pause déjeuner).
 
-### `EnforceModal`
+### `CourseGroupList` / `CourseCard` (`components/planning/`)
 
-Modal ouverte lors du drop d'un cours avec alternatives. Affiche des selects pour chaque groupe d'alternatives (enseignants, salles). Confirme la sélection → `confirmEnforce`.
+Liste groupée des cours (par code ou par enseignant) avec accordéons. `CourseCard` porte les attributs `data-*` utilisés par le Draggable FullCalendar.
 
-### `TaskEditModal`
+### `EnforceModal` / `TaskEditModal` (`components/planning/modals/`)
 
-Modal d'édition des ressources d'une tâche déjà placée. Affiche les enseignants/groupes/salles actuels avec un select par slot, alimenté par la liste complète du `resources.json`.
+- `EnforceModal` : sélection des ressources lors du drop d'un cours avec alternatives
+- `TaskEditModal` : édition des enseignants/groupes/salles d'une tâche déjà placée
+
+### Composants contraintes (`components/constraints/`)
+
+- `ConstraintsManager` : point d'entrée de la page `/constraints`
+- `ResourceConstraintEditor` : éditeur de contraintes par ressource (weekday × créneaux)
+- `TimeRangePicker` : sélecteur AM/PM de plages horaires
+- `AddResourceModal` : modal d'ajout d'une ressource dans les contraintes
 
 ---
 
 ## Utilitaires (`lib/`)
 
+### `parseCsvCourses.ts`
+
+| Fonction | Rôle |
+|---|---|
+| `parseCsvCourses(csv, week)` | Parse une semaine → `CourseTaskData[]` |
+| `parseCsvCoursesAll(csv)` | Parse toutes les semaines → `CourseTaskData[]` |
+| `extractResourcesFromCsv(csv)` | Extrait les ressources uniques → `ResourceGroupData[]` |
+| `parseCsvFull(csv)` | Passe unique → `{ courses, resources, resourceWeeks }` (entrée principale) |
+
 ### `calendarUtils.ts`
 
 | Fonction | Rôle |
 |---|---|
-| `getMondayOfISOWeek(week)` | Calcule le lundi d'une semaine ISO (gestion année universitaire : S≥35 → année N-1) |
-| `startTimeToDate(monday, minutes)` | Convertit un `startTime` (minutes depuis lundi 00:00) en `Date` absolue |
-| `computeStaticConflicts(events)` | Détecte les chevauchements de ressources entre tous les événements |
-| `computeDragHighlights(events, drag)` | Événements en conflit avec la tâche en cours de drag |
+| `getMondayOfISOWeek(week)` | Lundi de la semaine ISO (gestion année universitaire S≥35) |
+| `startTimeToDate(monday, minutes)` | `startTime` (min) → `Date` absolue |
+| `computeStaticConflicts(events)` | Chevauchements statiques entre événements |
+| `computeDragHighlights(events, drag)` | Conflits avec le cours en cours de drag |
 
 ### `blockedZones.ts`
 
 | Fonction | Rôle |
 |---|---|
-| `applyBlockedZonesToConstraints(...)` | Soustrait les zones bloquées des disponibilités de toutes les ressources |
-| `computeConstraintUnavailableZones(resourceIds, constraints, week, monday)` | Calcule les plages indisponibles (union) pour un ensemble de ressources — utilisé pour les background events au drag |
-
-### `parseCsvCourses.ts`
-
-Parse le CSV de ventilation horaire. Colonnes attendues : `Semestre, Parcours, Code, Enseignement, Intervenant, Nature, Groupes, Salles, S35…S28`. Retourne `CourseTaskData[]` pour la semaine demandée.
+| `applyBlockedZonesToConstraints(...)` | Soustrait les zones bloquées des disponibilités |
+| `computeConstraintUnavailableZones(ids, constraints, week, monday)` | Plages indisponibles pour un ensemble de ressources (fond ambre au drag) |
 
 ### `scheduleApi.ts`
 
-Construit le payload `RawScheduleData`, applique les impositions et les zones bloquées aux contraintes, appelle l'API et normalise la réponse en `ScheduleResult` (`{ solutions, week }`).
+Une seule fonction publique : `runScheduleRequestFromData(params)`. Prend les données des stores, construit le payload `RawScheduleData`, applique impositions et zones bloquées, appelle l'API et normalise la réponse en `ScheduleResult`.
+
+### `icalExport.ts`
+
+| Fonction | Rôle |
+|---|---|
+| `generateIcalContent(tasks, week)` | Génère le contenu `.ics` RFC 5545 (VCALENDAR + VEVENTs) |
+| `downloadIcalSolution(tasks, week)` | Déclenche le téléchargement dans le navigateur |
+
+### `constraintsUtils.ts`
+
+Utilitaires UI pour l'éditeur de contraintes : `DayMap`, `DayName`, `DaySlot`, `DAYS`, `detectResourceType`, `normalizeWeekKey`, `exportAsJSON`.
+
+### `clientSchedulerData.ts`
+
+Sous-classe de `SchedulerData` (common). Charge tous les cours sans appliquer de contraintes hebdomadaires. Expose `getTasksForWeek(week): Task[]` pour la validation côté client.
 
 ---
 
 ## Hooks
 
+### `useCalendarCore`
+
+Hook principal extrait de `ScheduleCalendar`. Gère toute la logique complexe du calendrier :
+- Construction des événements FullCalendar depuis `activeSolution` + `taskOverrides` + `placedNeutralizedTasks`
+- Handlers de drag-and-drop (interne, depuis sidebar gauche, depuis panel neutralisé)
+- Gestion des modals (`EnforceModal`, `TaskEditModal`, popup de détail)
+- Coloration des conflits et background events d'indisponibilité
+- Zones bloquées (sélection et suppression)
+
+### `useSidebarCourseDrag`
+
+Initialise le Draggable FullCalendar sur la liste des cours de la sidebar. Gère les conflits potentiels avant le drop.
+
 ### `useNeutralizedDraggable`
 
-Initialise le Draggable FullCalendar sur le conteneur des tâches neutralisées (sidebar droite) et expose les callbacks de drag start/end via des listeners pointer (`pointerdown`, `pointermove`, `pointerup`) pour synchroniser l'état de drag avec `page.tsx`.
+Initialise le Draggable FullCalendar sur les tâches neutralisées. Synchronise `draggingExternal` dans `usePlanningStore` pour la mise en évidence des indisponibilités au drag.
+
+---
+
+## Stores Zustand
+
+### `useSchedulerStore` — persisté (`localStorage "edt-scheduler"`)
+
+| Champ | Type | Description |
+|---|---|---|
+| `allCourses` | `CourseTaskData[]` | Tous les cours parsés (toutes semaines) |
+| `resources` | `ResourceGroupData[]` | Ressources extraites du CSV |
+| `coursesFileName` | `string \| null` | Nom du fichier CSV importé |
+| `constraints` | `ConstraintsRecord` | Contraintes de disponibilité |
+| `resourceWeeks` | `Record<string, number[]>` | Semaines actives par ressource |
+| `schedulerConfig` | `SchedulerConfig` | Config planificateur (persistée) |
+| `availabilityManager` | `AvailabilityManager \| null` | Non persisté — reconstruit quand `constraints` change |
+| `clientSchedulerData` | `ClientSchedulerData \| null` | Non persisté — reconstruit quand `allCourses` ou `resources` change |
+
+### `usePlanningStore` — session (non persisté)
+
+| Champ | Type | Description |
+|---|---|---|
+| `selectedWeek` | `number \| null` | Semaine ISO courante |
+| `scheduleResult` | `ScheduleResult \| null` | Résultat de la dernière planification |
+| `selectedSolutionIndex` | `number` | Index de la solution affichée |
+| `activeSolution` | `TaskSolutionJSON[]` | Tâches de la solution active |
+| `activeNeutralizedTasks` | `NeutralizedTaskInfoJSON[]` | Tâches non placées |
+| `taskOverrides` | `Record<string, PlacedTaskOverride>` | Overrides de position/ressources (drag manuel) |
+| `placedNeutralizedTasks` | `PlacedNeutralizedTask[]` | Tâches neutralisées posées manuellement |
+| `enforcedMap` | `Record<string, EnforcedData>` | Placements imposés |
+| `blockedZones` | `BlockedZone[]` | Zones bloquées |
+| `searchQuery` | `string` | Filtre de recherche calendrier |
+| `draggingExternal` | `{ teachers, groups, rooms } \| null` | Ressources du cours en cours de drag externe |
+| `isLoading` | `boolean` | Feedback UI |
+| `status` | `ScheduleStatus \| null` | Bannière de statut |
+
+**Actions clés :**
+- `runSchedule(mode)` — déclenche l'appel API
+- `resetScheduleResult()` — réinitialise uniquement le résultat (sans changer la semaine)
+- `reset()` — réinitialise tout (changement de semaine)
 
 ---
 
@@ -242,41 +382,24 @@ Initialise le Draggable FullCalendar sur le conteneur des tâches neutralisées 
 | `POST /api/schedule` | 5 min | Planification standard |
 | `POST /api/schedule/elimination` | 10 min | Planification avec élimination itérative |
 
-Ces route handlers proxifient les requêtes vers `http://localhost:3000` en passant le body brut. Ils contournent la limitation de timeout du middleware Next.js pour les longues computations.
-
-> **Note :** `next.config.ts` configure aussi des `rewrites` `/api/:path* → localhost:3000`, mais les route handlers prennent priorité pour les chemins déclarés.
+Ces route handlers proxifient vers `http://localhost:3000` (configurable via `SCHEDULER_API_URL`). Ils contournent la limitation de timeout du proxy `rewrites` Next.js.
 
 ---
 
-## Flux de données complet
+## Flux de données
 
 ```
-[Utilisateur]
-     │  1. Renseigne semaine, ressources.json, cours.csv, contraintes.json (optionnel)
-     │  2. Glisse éventuellement des cours sur le calendrier (imposition)
-     │  3. Clique "Planifier" ou "Avec élimination"
-     ▼
-[page.tsx]
-     │  parseCsvCourses() → CourseTaskData[]
-     │  applyBlockedZonesToConstraints() → ConstraintsData enrichi
-     │  POST /api/schedule  (payload: RawScheduleData)
-     ▼
-[Route Handler → scheduler-api → scheduler-core]
-     │  Réponse: ScheduleSolutionJSON[]
-     ▼
-[page.tsx]
-     │  normalise → ScheduleResult { solutions[], week }
-     ▼
-[ScheduleCalendar]
-     │  convertit startTime → Date
-     │  affiche événements FullCalendar
-     │  détecte conflits (rouge/orange)
-     │  affiche contraintes (fond ambre) pendant le drag
-     ▼
-[Utilisateur]
-     │  Glisse/repositionne des événements
-     │  Ajoute/retire des zones bloquées
-     │  Édite les ressources d'une tâche
+CSV (cours.csv)   →  parseCsvFull()      →  useSchedulerStore.allCourses + resources + resourceWeeks
+                                                        ↓
+Contraintes UI    →  constraintsSlice    →  useSchedulerStore.constraints
+                                                        ↓
+                                              AvailabilityManager (auto-reconstruit)
+                                              ClientSchedulerData  (auto-reconstruit)
+                                                        ↓
+usePlanningStore.runSchedule('elimination')
+  →  runScheduleRequestFromData()
+  →  POST /api/schedule/elimination
+  →  scheduleResult → activeSolution → ScheduleCalendar
 ```
 
 ---
@@ -294,9 +417,9 @@ npm run test:watch --workspace=packages/scheduler-client
 Couvre :
 - `calendarUtils.ts` : `getMondayOfISOWeek`, `startTimeToDate`, `formatTime`, `formatDate`
 - `parseCsvCourses.ts` : parsing CSV, extraction par semaine, salles alternatives
-- `CourseCard` : rendu, attributs data-*
+- `CourseCard` : rendu, attributs `data-*`
 - `EnforceModal` : sélection enseignant/salle, confirmation/annulation
-- `page.tsx` : rendu initial, chargement de fichiers
+- `page.tsx` : rendu initial, chargement de fichier
 
 ### E2E (Playwright)
 
@@ -304,10 +427,8 @@ Couvre :
 npm run test:e2e --workspace=packages/scheduler-client
 ```
 
-Le fichier `e2e/schedule.spec.ts` teste le flux complet :
-- Chargement des fichiers (JSON resources, CSV cours)
-- Déclenchement de la planification
-- Vérification des événements affichés dans le calendrier
+- `e2e/schedule.spec.ts` : flux complet (chargement CSV, planification, vérification calendrier)
+- Appels API interceptés via `page.route('/api/schedule', ...)`
 
 ---
 
@@ -315,7 +436,7 @@ Le fichier `e2e/schedule.spec.ts` teste le flux complet :
 
 ### Tailwind CSS v4
 
-Le thème est défini dans `app/globals.css` avec des variables OKLCH shadcn (`--background`, `--foreground`, `--primary`, etc.). Les tokens Tailwind sont mappés via `@theme inline`. Mode sombre activé par la classe `.dark` sur `<html>`.
+Variables OKLCH shadcn dans `app/globals.css` (`--background`, `--foreground`, `--primary`, etc.). Tokens mappés via `@theme inline`. Mode sombre activé via `.dark` sur `<html>`.
 
 ### shadcn/ui (style `new-york`)
 
@@ -334,21 +455,28 @@ npx shadcn@latest add <composant>
 | `@/` | Racine du package (`packages/scheduler-client/`) |
 | `@edt-ts/scheduler-common` | `packages/scheduler-common/src/index.ts` |
 
+### Variable d'environnement
+
+| Variable | Défaut | Description |
+|---|---|---|
+| `SCHEDULER_API_URL` | `http://localhost:3000` | URL de l'API Express (route handlers) |
+
 ---
 
 ## Commandes
 
 ```bash
 # Développement (port 5173, proxy → API port 3000)
-npm run client:dev          # depuis la racine
-# ou
-npm run dev --workspace=packages/scheduler-client
+npm run client:dev
 
 # Build production
-npm run client:build        # depuis la racine
+npm run client:build
 
 # Typecheck
 npm run typecheck --workspace=packages/scheduler-client
+
+# Lint
+npm run lint --workspace=packages/scheduler-client
 
 # Tests unitaires
 npm run test --workspace=packages/scheduler-client
@@ -357,149 +485,4 @@ npm run test --workspace=packages/scheduler-client
 npm run test:e2e --workspace=packages/scheduler-client
 ```
 
-> L'API Express (`scheduler-api`) doit tourner sur le port 3000 pour que le client fonctionne : `npm run api:dev`
-
-
----
-
-## Rôle dans le monorepo
-
-```
-scheduler-client  →  (HTTP /api/schedule)  →  scheduler-api
-scheduler-client  →  (types partagés)       →  scheduler-common
-```
-
-Le client **ne connaît ni `scheduler-core` ni `scheduler-api`** directement.  
-Toute communication avec le moteur de planification passe par des appels HTTP vers l'API Express, proxifiés par Next.js.
-
----
-
-## Architecture
-
-```
-packages/scheduler-client/
-  app/
-    layout.tsx            # Layout racine Next.js (HTML, body, Tailwind)
-    globals.css           # Import Tailwind
-    page.tsx              # Page principale — formulaire + résultats
-    ScheduleCalendar.tsx  # Composant calendrier (FullCalendar)
-  lib/
-    parseCsvCourses.ts    # Parsing du CSV de ventilation horaire
-  data/
-    data-ventilation.csv  # Exemple de fichier CSV
-  __tests__/
-    page.test.tsx         # Tests unitaires (Vitest + Testing Library)
-  e2e/
-    schedule.spec.ts      # Tests E2E (Playwright)
-  next.config.ts          # Proxy rewrites → API port 3000
-  vitest.config.ts
-  playwright.config.ts
-```
-
----
-
-## Flux de données
-
-### 1. Saisie utilisateur (`page.tsx`)
-
-L'utilisateur renseigne trois entrées via un formulaire :
-
-| Champ | Format | Obligatoire |
-|---|---|---|
-| Numéro de semaine ISO | Entier 1–53 | ✅ |
-| Fichier ressources | JSON (`resources[]`) | ✅ |
-| Fichier cours | CSV (ventilation horaire) | ✅ |
-| Fichier contraintes | JSON (`constraints`) | ❌ |
-
-### 2. Parsing CSV (`lib/parseCsvCourses.ts`)
-
-Le CSV de ventilation horaire est parsé **côté client** par `parseCsvCourses(csvText, week)` :
-- Détecte la colonne de la semaine demandée (`S35`…`S52`, `S1`…`S28`)
-- Extrait pour chaque ligne : semestre, parcours, code, nom, intervenant, nature, groupes, salles, durée
-- Retourne un tableau `CourseTaskData[]` (type issu de `@edt-ts/scheduler-common`)
-- Les salles multiples (séparées par `, `) sont transmises comme liste d'alternatives au planificateur
-
-### 3. Appel à l'API (`POST /api/schedule`)
-
-Le payload `RawScheduleData` (type de `@edt-ts/scheduler-common`) est envoyé via `fetch` :
-
-```ts
-const payload: RawScheduleData = { week, resources, courses, constraints? };
-fetch('/api/schedule', { method: 'POST', body: JSON.stringify(payload) });
-```
-
-Le proxy Next.js (`next.config.ts`) redirige `/api/:path*` → `http://localhost:3000/api/:path*`.  
-L'API Express (`scheduler-api`) reçoit la requête, fait tourner `scheduler-core`, et répond avec :
-
-```ts
-{
-  isComplete: boolean;
-  scheduledCount: number;
-  conflictCount: number;
-  solutions: TaskSolutionJSON[];
-}
-```
-
-### 4. Affichage du calendrier (`ScheduleCalendar.tsx`)
-
-Le composant reçoit `solutions: TaskSolutionJSON[]` et `week: number`.  
-Il convertit chaque solution en événement FullCalendar :
-- Calcule le lundi de la semaine ISO cible (avec gestion de l'année universitaire : semaines ≥ 35 → année N‑1 si janvier–août)
-- Traduit `startTime` (minutes depuis lundi minuit) en `Date` absolue
-- Affiche une vue **grille horaire semaine** (`timeGridWeek`) avec code cours, nom, groupes et salles
-
----
-
-## Proxy API
-
-Configuré dans [next.config.ts](next.config.ts) :
-
-```ts
-rewrites() {
-  return [{ source: '/api/:path*', destination: 'http://localhost:3000/api/:path*' }];
-}
-```
-
-- L'API Express doit tourner sur le **port 3000** (`npm run api:dev` à la racine)
-- Le client Next.js tourne sur le **port 5173** (`npm run client:dev` à la racine)
-
----
-
-## Types partagés
-
-Tous les types métier sont importés depuis **`@edt-ts/scheduler-common`** :
-
-| Type | Usage |
-|---|---|
-| `RawScheduleData` | Payload envoyé à `POST /api/schedule` |
-| `CourseTaskData` | Une tâche cours parsée depuis le CSV |
-| `TaskSolutionJSON` | Une solution retournée par le planificateur |
-
----
-
-## Commandes
-
-| Commande | Description |
-|---|---|
-| `npm run client:dev` | Démarre Next.js en dev (port 5173) |
-| `npm run client:build` | Build de production |
-| `npm run typecheck --workspace=packages/scheduler-client` | Vérification TypeScript |
-| `npm run lint --workspace=packages/scheduler-client` | ESLint |
-| `npm run test --workspace=packages/scheduler-client` | Tests unitaires (Vitest) |
-| `npm run test:e2e --workspace=packages/scheduler-client` | Tests E2E (Playwright) |
-
----
-
-## Tests
-
-### Unitaires (Vitest + Testing Library)
-
-- Environnement `jsdom`, setup `vitest.setup.ts`
-- L'alias `@edt-ts/scheduler-common` est résolu vers `../scheduler-common/src/index.ts`
-- `fetch` est mocké via `vi.fn()` pour isoler les tests des appels réseau
-
-### E2E (Playwright)
-
-- Navigateur : Chromium, `baseURL: http://localhost:5173`
-- Les appels API sont interceptés avec `page.route('/api/schedule', ...)`
-- Le serveur Next.js est démarré automatiquement par Playwright en mode CI
+> L'API Express doit tourner sur le port 3000 : `npm run api:dev`

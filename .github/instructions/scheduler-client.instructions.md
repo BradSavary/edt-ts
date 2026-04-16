@@ -33,53 +33,69 @@ Le package `scheduler-client` est l'application web de planification. C'est un p
 
 ```
 packages/scheduler-client/
-  app/                          # Next.js App Router
-    layout.tsx                  # Layout racine
-    page.tsx                    # Page principale (planning)
-    globals.css                 # Styles globaux (Tailwind + shadcn CSS vars OKLCH)
+  app/                              # Next.js App Router
+    layout.tsx                      # Layout racine (HTML, body, NavBar)
+    globals.css                     # Styles globaux (Tailwind + shadcn CSS vars OKLCH)
+    NavBar.tsx                      # Barre de navigation (3 onglets)
+    (config)/
+      page.tsx                      # Page "/" — import CSV cours (page de config)
+    planning/
+      page.tsx                      # Page "/planning" — calendrier interactif
     constraints/
-      page.tsx                  # Page gestion des contraintes
+      page.tsx                      # Page "/constraints" — gestion des contraintes
     api/
       schedule/
-        route.ts                # Route handler POST /api/schedule (proxy → Express, 5min timeout)
+        route.ts                    # Route handler POST /api/schedule (proxy → Express, 5min)
         elimination/
-          route.ts              # Route handler POST /api/schedule/elimination
-  components/                   # Composants métier
-    CourseCard.tsx              # Carte draggable d'un cours (sidebar gauche)
-    CourseGroupList.tsx         # Liste groupée de cours (par code ou enseignant)
-    ScheduleCalendar.tsx        # Calendrier FullCalendar principal
-    modals/
-      EnforceModal.tsx          # Modal de confirmation de placement imposé
-      TaskEditModal.tsx         # Modal d'édition des ressources d'une tâche placée
-    schedule/
-      SidebarLeft.tsx           # Sidebar gauche (cours à placer + filtres)
-      NeutralizedPanel.tsx      # Panel des cours neutralisés (drag externe)
-    constraints/
-      ConstraintsManager.tsx    # Gestionnaire complet des contraintes
+          route.ts                  # Route handler POST /api/schedule/elimination (10min)
+  components/
+    planning/                       # Composants de la page Planning
+      ScheduleCalendar.tsx          # Calendrier FullCalendar (coquille, logique dans useCalendarCore)
+      SidebarLeft.tsx               # Sidebar gauche (modes préparation / analyse des solutions)
+      CourseCard.tsx                # Carte draggable d'un cours
+      CourseGroupList.tsx           # Liste groupée de cours (par code ou enseignant)
+      SchedulerConfigDialog.tsx     # Dialog configuration avancée du planificateur
+      modals/
+        EnforceModal.tsx            # Modal de confirmation de placement imposé
+        TaskEditModal.tsx           # Modal d'édition des ressources d'une tâche placée
+    constraints/                    # Composants de la page Contraintes
+      ConstraintsManager.tsx        # Gestionnaire complet des contraintes
       ResourceConstraintEditor.tsx  # Éditeur de contraintes par ressource
-      TimeRangePicker.tsx       # Sélecteur plage horaire (AM/PM)
-      AddResourceModal.tsx      # Modal ajout d'une ressource dans les contraintes
-    ui/                         # Composants shadcn/ui (générés automatiquement)
-  lib/                          # Utilitaires (framework-agnostic)
-    utils.ts                    # Fonction cn() (clsx + tailwind-merge)
-    calendarUtils.ts            # Helpers FullCalendar + détection conflits ressources
-    blockedZones.ts             # Logique zones bloquées (soustraction de créneaux)
-    parseCsvCourses.ts          # Parsing CSV des cours → CourseTaskData[]
-    scheduleApi.ts              # Client API (runScheduleRequestFromData → POST /api/schedule)
-    constraintsUtils.ts         # Utilitaires UI contraintes (DayMap, normalisation, export JSON)
-    clientSchedulerData.ts      # Sous-classe ClientSchedulerData extends SchedulerData (toutes semaines, sans contraintes hebdomadaires)
+      TimeRangePicker.tsx           # Sélecteur plage horaire (AM/PM)
+      AddResourceModal.tsx          # Modal ajout d'une ressource dans les contraintes
+    ui/                             # Composants shadcn/ui (générés automatiquement)
+  lib/                              # Utilitaires (framework-agnostic)
+    utils.ts                        # Fonction cn() (clsx + tailwind-merge)
+    calendarUtils.ts                # Helpers FullCalendar + détection conflits ressources
+    blockedZones.ts                 # Logique zones bloquées (soustraction de créneaux)
+    parseCsvCourses.ts              # Parsing CSV des cours → CourseTaskData[] + ressources
+    scheduleApi.ts                  # Client API (runScheduleRequestFromData → POST /api/schedule)
+    icalExport.ts                   # Export iCal RFC 5545 (generateIcalContent, downloadIcalSolution)
+    constraintsUtils.ts             # Utilitaires UI contraintes (DayMap, normalisation, export JSON)
+    clientSchedulerData.ts          # Sous-classe ClientSchedulerData extends SchedulerData
   hooks/
-    useNeutralizedDraggable.ts  # FullCalendar Draggable pour les tâches neutralisées
-    useSidebarCourseDrag.ts     # FullCalendar Draggable + conflits pour la sidebar cours
+    useCalendarCore.ts              # Toute la logique calendrier (drag, drop, conflits, modals)
+    useNeutralizedDraggable.ts      # FullCalendar Draggable pour les tâches neutralisées
+    useSidebarCourseDrag.ts         # FullCalendar Draggable + conflits pour la sidebar cours
   store/
-    useSchedulerStore.ts        # Store persisté (allCourses, resources, constraints, availabilityManager, clientSchedulerData)
-    usePlanningStore.ts         # Store session (semaine, résultat, solution active, enforced, blockedZones)
+    useSchedulerStore.ts            # Store persisté (allCourses, resources, constraints, config)
+    usePlanningStore.ts             # Store session (semaine, résultat, solution active, overrides)
     slices/
-      constraintsSlice.ts       # Slice Zustand pour les contraintes (avec persist)
-  __tests__/                    # Tests unitaires (Vitest + Testing Library)
-  e2e/                          # Tests E2E (Playwright)
-  public/                       # Assets statiques
+      constraintsSlice.ts           # Slice Zustand pour les contraintes (avec persist)
+  __tests__/                        # Tests unitaires (Vitest + Testing Library)
+  e2e/                              # Tests E2E (Playwright)
+  public/                           # Assets statiques
 ```
+
+## Navigation (3 pages)
+
+L'application est organisée en trois pages accessibles via `NavBar` :
+
+| Route | Page | Rôle |
+|---|---|---|
+| `/` | Config | Import du fichier CSV des cours |
+| `/planning` | Planification | Calendrier interactif + lancement planificateur |
+| `/constraints` | Contraintes | Édition des disponibilités des ressources |
 
 ## Architecture des stores Zustand
 
@@ -87,50 +103,62 @@ L'état global est **séparé en deux stores** :
 
 ### `useSchedulerStore` — données persistées (localStorage `edt-scheduler`)
 - `allCourses: CourseTaskData[]` — tous les cours parsés du CSV (toutes semaines)
-- `resources: ResourceGroupData[]` — ressources chargées depuis resources.json
+- `resources: ResourceGroupData[]` — ressources extraites automatiquement du CSV
+- `coursesFileName: string | null` — nom du fichier CSV importé
 - `constraints: ConstraintsRecord` — contraintes de disponibilité (Zustand persist)
 - `resourceWeeks: Record<string, number[]>` — semaines actives par ressource (du CSV)
+- `schedulerConfig: SchedulerConfig` — configuration avancée du planificateur (persistée)
 
 **Champs non persistés** (reconstruits côté client uniquement via `subscribe` + initialisation immédiate) :
 - `availabilityManager: AvailabilityManager | null` — reconstruit quand `constraints` change ; utilisé par `computeConstraintUnavailableZones` pour les zones de drag
-- `clientSchedulerData: ClientSchedulerData | null` — instance `lib/clientSchedulerData.ts`, reconstruit quand `allCourses` ou `resources` change ; expose `getTasksForWeek(week) → Task[]` (objets riches avec `Resource` instances et dépendances CM→TD→TP) ; pertinent pour validation côté client et planification future hors réseau
+- `clientSchedulerData: ClientSchedulerData | null` — reconstruit quand `allCourses` ou `resources` change ; expose `getTasksForWeek(week) → Task[]`
 
 ### `usePlanningStore` — état de session (non persisté)
-- `selectedWeek`, `setSelectedWeek` — semaine ISO courante
+- `selectedWeek`, `setSelectedWeek` — semaine ISO courante (reset complet à chaque changement)
 - `scheduleResult`, `activeSolution`, `activeNeutralizedTasks` — résultat et vue courante
+- `selectedSolutionIndex`, `setSelectedSolutionIndex` — solution affichée
 - `enforcedMap` — placements imposés (courseKey → EnforcedData)
 - `blockedZones` — zones bloquées (plages indisponibles créées manuellement)
 - `taskOverrides` — overrides de position/ressources pour les tâches déplacées manuellement
 - `placedNeutralizedTasks` — tâches neutralisées replacées sur le calendrier via drag
+- `searchQuery`, `setSearchQuery` — filtre de recherche dans le calendrier
+- `draggingExternal` — ressources du cours en drag externe (sidebar → calendrier)
 - `isLoading`, `status` — feedback UI
 - `runSchedule(mode)` — déclenche l'appel API via `runScheduleRequestFromData`
+- `resetScheduleResult()` — réinitialise uniquement le résultat (sans changer la semaine)
+- `reset()` — réinitialise tout
 
 **Ne jamais ajouter de logique métier** directement dans les stores. Les stores orchestrent ; la logique reste dans `lib/`.
 
 ## Flux de données principal
 
 ```
-CSV (coursesCsvFile)  →  parseCsvCoursesAll()  →  useSchedulerStore.allCourses
-JSON (resourcesFile)  →  JSON.parse()           →  useSchedulerStore.resources
-Contraintes UI        →  constraintsSlice        →  useSchedulerStore.constraints
-                                                        ↓
-                                              AvailabilityManager (auto-reconstruit si constraints change)
-                                              ClientSchedulerData  (auto-reconstruit si allCourses/resources change)
-                                                └→ getTasksForWeek(week) → Task[] (validation client, futur hors-réseau)
-                                                        ↓
-usePlanningStore.runSchedule()  →  runScheduleRequestFromData()  →  POST /api/schedule
-                                                        ↓
-                                               scheduleResult → activeSolution → ScheduleCalendar
+CSV (cours.csv)   →  parseCsvFull()      →  useSchedulerStore.allCourses + resources + resourceWeeks
+Contraintes UI    →  constraintsSlice    →  useSchedulerStore.constraints
+                                                      ↓
+                                            AvailabilityManager (auto-reconstruit si constraints change)
+                                            ClientSchedulerData  (auto-reconstruit si allCourses/resources change)
+                                                      ↓
+usePlanningStore.runSchedule('elimination')
+  →  runScheduleRequestFromData()  →  POST /api/schedule/elimination
+  →  scheduleResult → activeSolution → ScheduleCalendar
 ```
 
-## Utilisation de `@edt-ts/scheduler-common` côté client
+> **Pas de `resources.json` séparé** : les ressources sont extraites du CSV via `parseCsvFull()`.
 
-- `CourseTaskData`, `ResourceGroupData`, `ConstraintsData`, `TimeSlot`, `ResourceConstraints` : types de données, imports directs
-- `TaskSolutionJSON`, `ScheduleSolutionJSON` : types des réponses API
-- `SchedulerData` : classe de base étendue par `ClientSchedulerData` (local, `lib/clientSchedulerData.ts`)
-- `Task` : type de retour de `ClientSchedulerData.getTasksForWeek()` ; utile pour accéder aux `Resource` instances et dépendances
-- `AvailabilityManager` : utilisé dans `useSchedulerStore` pour calculer les zones d'indisponibilité côté client
-- `EnforcedData` : type pour les placements imposés
+## `lib/parseCsvCourses.ts`
+
+Fonctions exportées :
+- `parseCsvCourses(csv, week)` — parse une semaine → `CourseTaskData[]`
+- `parseCsvCoursesAll(csv)` — parse toutes les semaines
+- `extractResourcesFromCsv(csv)` — extrait les ressources uniques → `ResourceGroupData[]`
+- **`parseCsvFull(csv)`** — passe unique → `{ courses, resources, resourceWeeks }` (entrée principale)
+
+## `lib/icalExport.ts`
+
+Export iCal RFC 5545 :
+- `generateIcalContent(tasks, week)` — génère le contenu `.ics` (VCALENDAR + VEVENTs)
+- `downloadIcalSolution(tasks, week)` — déclenche le téléchargement dans le navigateur
 
 ## `lib/clientSchedulerData.ts`
 
@@ -139,11 +167,7 @@ Sous-classe de `SchedulerData` pour le client. Permet de charger **l'ensemble de
 - `initAllTasks(courses: CourseTaskData[])` — charge toutes les tâches sans `applyConstraintsForWeek` ; **requiert `initResources()` au préalable**
 - `getTasksForWeek(week: number): Task[]` — filtre les tâches par semaine ISO
 
-L'instance est maintenue dans `useSchedulerStore.clientSchedulerData`, reconstruit automatiquement quand `allCourses` ou `resources` change. Les consommateurs la lisent via :
-```ts
-const csd = useSchedulerStore(s => s.clientSchedulerData);
-const tasks = csd?.getTasksForWeek(47) ?? [];
-```
+L'instance est maintenue dans `useSchedulerStore.clientSchedulerData`, reconstruit automatiquement quand `allCourses` ou `resources` change.
 
 > Note : retourne `Task[]` (objets riches), pas `CourseTaskData[]`. À ne pas confondre avec `allCourses.filter(c => c.week === w)` qui retourne des données brutes.
 
@@ -160,13 +184,59 @@ Types UI spécifiques au client :
 Une seule fonction publique : **`runScheduleRequestFromData(params)`**.  
 Elle prend les données déjà en mémoire (depuis les stores), construit le payload et appelle `POST /api/schedule` ou `/api/schedule/elimination`.
 
-> Ne pas recréer une variante File-based (ex-`runScheduleRequest`) — les fichiers sont lus dans `page.tsx` et stockés dans le store avant l'appel.
+## `hooks/useCalendarCore.ts`
+
+Hook principal extrait de `ScheduleCalendar`. Contient toute la logique complexe :
+- Construction des événements FullCalendar (depuis `activeSolution` + `taskOverrides` + `placedNeutralizedTasks`)
+- Handlers drag-and-drop (interne, sidebar gauche, panel neutralisé)
+- Gestion des modals (`EnforceModal`, `TaskEditModal`, popup de détail)
+- Coloration des conflits et background events d'indisponibilité
+- Zones bloquées (sélection, suppression)
+
+> `ScheduleCalendar` est une coquille : il instancie `useCalendarCore` et passe les résultats à FullCalendar.
+
+## `components/planning/SchedulerConfigDialog.tsx`
+
+Dialog de configuration avancée du planificateur. Paramètres :
+- `maxSolutions`, `timeoutSeconds`, `maxIterations`, `maxEliminations`
+- `resourceSelection` : `'deterministic' | 'random'`
+- **Pause déjeuner** : désactivée / fixe (`LunchBreakFixed`) / flottante (`LunchBreakFloating`)
+
+La configuration est persistée dans `useSchedulerStore.schedulerConfig`.
+
+## `components/planning/SidebarLeft.tsx`
+
+Sidebar gauche avec **deux modes** :
+
+**Mode Préparation** (pas de résultat) :
+- Input semaine + bouton "Planifier" (`runSchedule('elimination')`) + `SchedulerConfigDialog`
+- Liste draggable des cours (`CourseGroupList` + `useSidebarCourseDrag`)
+
+**Mode Analyse** (résultat disponible) :
+- Bouton "← Retour à la préparation" (avec dialog de confirmation)
+- Barre de recherche (filtre calendrier via `searchQuery`)
+- Panel des tâches neutralisées (draggables via `useNeutralizedDraggable`)
+- Bouton export iCal
 
 ## Route handlers (`app/api/`)
 
-Les routes handler Next.js sont de simples **proxies HTTP** vers l'API Express (port 3000).  
-Elles existent car le proxy `rewrites` de Next.js applique un timeout court incompatible avec les longues computations.  
-Timeout : 5 minutes (`AbortSignal.timeout(300_000)`).
+Les routes handler Next.js sont de simples **proxies HTTP** vers l'API Express (port 3000, configurable via `SCHEDULER_API_URL`).  
+Elles existent car le proxy `rewrites` de Next.js applique un timeout court incompatible avec les longues computations.
+
+| Route | Timeout |
+|---|---|
+| `POST /api/schedule` | 5 minutes |
+| `POST /api/schedule/elimination` | 10 minutes |
+
+## Utilisation de `@edt-ts/scheduler-common` côté client
+
+- `CourseTaskData`, `ResourceGroupData`, `ConstraintsData`, `TimeSlot`, `ResourceConstraints` : types de données, imports directs
+- `TaskSolutionJSON`, `NeutralizedTaskInfoJSON` : types des réponses API
+- `SchedulerConfig`, `LunchBreakFixed`, `LunchBreakFloating`, `DEFAULT_SCHEDULER_CONFIG` : configuration du planificateur
+- `SchedulerData` : classe de base étendue par `ClientSchedulerData` (local, `lib/clientSchedulerData.ts`)
+- `Task` : type de retour de `ClientSchedulerData.getTasksForWeek()` ; utile pour accéder aux `Resource` instances et dépendances
+- `AvailabilityManager` : utilisé dans `useSchedulerStore` pour calculer les zones d'indisponibilité côté client
+- `EnforcedData` : type pour les placements imposés
 
 ## shadcn/ui
 
@@ -175,7 +245,7 @@ Timeout : 5 minutes (`AbortSignal.timeout(300_000)`).
 - Utilitaire CSS : `import { cn } from '@/lib/utils'` (clsx + tailwind-merge)
 - Ajouter un composant : `npx shadcn@latest add <composant>` depuis `packages/scheduler-client/`
   - ⚠️ Renommer temporairement `pnpm-lock.yaml` et `pnpm-workspace.yaml` avant d'exécuter la commande (conflit npm/pnpm)
-- Composants disponibles : `button`, `card`, `select`, `tabs`, `dialog`, `badge`, `input`, `label`, `separator`, `scroll-area`, `alert`
+- Composants disponibles : `button`, `card`, `select`, `tabs`, `dialog`, `badge`, `input`, `label`, `separator`, `scroll-area`, `alert`, `tooltip`
 - Pattern modal shadcn : `<Dialog open={true} onOpenChange={(open) => !open && onClose()}>`
 
 ## Tailwind CSS v4 & thème
@@ -192,7 +262,8 @@ Timeout : 5 minutes (`AbortSignal.timeout(300_000)`).
 - Ne jamais importer depuis `@edt-ts/scheduler-core` ou `@edt-ts/scheduler-api`
 - Utiliser le proxy Next.js route handlers (`app/api/`) pour toutes les requêtes vers l'API Express
 - Utiliser l'alias `@/` pour tous les imports internes (résout vers la racine du package)
-  - `@/components/...` pour les composants métier
+  - `@/components/planning/...` pour les composants de la page Planning
+  - `@/components/constraints/...` pour les composants de la page Contraintes
   - `@/components/ui/...` pour les composants shadcn
   - `@/lib/...` pour les utilitaires
   - `@/store/...` pour les stores Zustand
@@ -205,6 +276,9 @@ Timeout : 5 minutes (`AbortSignal.timeout(300_000)`).
 - CSS uniquement via classes Tailwind — pas de styles inline sauf cas exceptionnel
 - Composants fonctionnels React uniquement (pas de classes)
 - Préférer les composants shadcn aux éléments HTML bruts pour les formulaires et les modales
+- Ne pas mettre de logique métier dans les stores — elle va dans `lib/`
+- `SidebarLeft` lit directement depuis `usePlanningStore` et `useSchedulerStore` (pas de props sauf `parsedCourses` et le groupBy UI local)
+- `ScheduleCalendar` reçoit uniquement `solutions` et `parsedCourses` en props ; tout le reste vient des stores via `useCalendarCore`
 
 ## Tests unitaires (Vitest)
 
