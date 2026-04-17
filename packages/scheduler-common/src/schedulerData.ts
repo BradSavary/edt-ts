@@ -3,7 +3,7 @@ import { ResourcesManager } from './resourcesManager.ts';
 import { TasksManager } from './tasksManager.ts';
 import { AvailabilityManager } from './availabilityManager.ts';
 import { Task } from './task.ts';
-import type { ResourceGroupData, CoursesData, ConstraintsData, ResourceEntry } from './types.ts';
+import type { ResourceGroupData, CoursesData, ConstraintsData, ResourceEntry, TaskGroupDeclaration } from './types.ts';
 
 /**
  * Conteneur des données nécessaires à la planification.
@@ -144,6 +144,42 @@ export class SchedulerData {
     this._tasksManager = manager;
   }
 
+  /**
+   * Déclare les groupes de tâches (parallel/sequential) après initTasks().
+   * Identifie les tâches par leur ID et configure les relations représentante/membres.
+   */
+  initGroups(groups: TaskGroupDeclaration[]): void {
+    if (!this._tasksManager) {
+      throw new Error('initTasks() doit être appelé avant initGroups()');
+    }
+    const allTasks = this._tasksManager.getAllTasks();
+    const taskById = new Map<string, Task>();
+    for (const task of allTasks) {
+      taskById.set(task.id, task);
+    }
+
+    for (const decl of groups) {
+      if (decl.taskIds.length < 2) {
+        console.warn(`⚠️ Groupe ${decl.type} ignoré : moins de 2 tâches déclarées.`);
+        continue;
+      }
+      const representative = taskById.get(decl.taskIds[0]);
+      if (!representative) {
+        console.warn(`⚠️ Groupe ${decl.type} : représentante "${decl.taskIds[0]}" introuvable.`);
+        continue;
+      }
+      representative.makeGroupRepresentative(decl.type);
+      for (let i = 1; i < decl.taskIds.length; i++) {
+        const member = taskById.get(decl.taskIds[i]);
+        if (!member) {
+          console.warn(`⚠️ Groupe ${decl.type} : membre "${decl.taskIds[i]}" introuvable.`);
+          continue;
+        }
+        representative.addGroupMember(member);
+      }
+    }
+  }
+
   private _determineDependencies(tasks: Task[]): void {
     const tasksByCode = new Map<string, Task[]>();
     for (const task of tasks) {
@@ -168,7 +204,7 @@ export class SchedulerData {
     }
   }
 
-  private _findDependentTask(task: Task, candidates: Task[]): Task | null {
+  protected _findDependentTask(task: Task, candidates: Task[]): Task | null {
     const taskGroups = task.getGroups();
     for (const candidate of candidates) {
       const candidateGroups = candidate.getGroups();

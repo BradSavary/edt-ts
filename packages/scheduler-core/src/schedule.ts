@@ -195,7 +195,16 @@ export class Schedule {
             let maxFailures = 0;
             let targetIndex = -1;
             for (let j = this.firstNonEnforcedIndex; j < this.tasks.length; j++) {
-                const cnt = failureCounts.get(this.tasks[j].id) ?? 0;
+                const t = this.tasks[j];
+                // Ne considérer que les représentantes et les tâches indépendantes
+                if (t.isGroupMember()) continue;
+                // Agréger les counts de la tâche + ses membres éventuels
+                let cnt = failureCounts.get(t.id) ?? 0;
+                if (t.isGroupRepresentative()) {
+                    for (const m of t.getGroupMembers()) {
+                        cnt += failureCounts.get(m.id) ?? 0;
+                    }
+                }
                 if (cnt > maxFailures) {
                     maxFailures = cnt;
                     targetIndex = j;
@@ -211,7 +220,9 @@ export class Schedule {
             const info = this._buildNeutralizedTaskInfo(eliminated, i + 1, maxFailures);
             neutralizedInfoList.push(info);
             console.log(`🗑️ Élimination #${i + 1}: "${eliminated.name}" (${maxFailures} échec(s)) — ${info.reason}`);
-            this.tasks.splice(targetIndex, 1);
+            // Supprimer la représentante + ses membres consécutifs le cas échéant
+            const groupSize = 1 + (eliminated.isGroupRepresentative() ? eliminated.getGroupMembers().length : 0);
+            this.tasks.splice(targetIndex, groupSize);
             lastResults = this.solve();
         }
 
@@ -406,7 +417,59 @@ export class Schedule {
             }
         }
 
+        // Arrangement consécutif des groupes de tâches.
+        // Pour chaque représentante, les membres sont insérés immédiatement après elle.
+        // Pour les groupes séquentiels, les membres sont triés par disponibilité croissante
+        // (heuristique : le membre le plus contraint est placé en premier).
+        this._arrangeGroupsInTasks();
+
         this._initialized = true;
+    }
+
+    /**
+     * Réorganise this.tasks pour que chaque représentante de groupe soit immédiatement
+     * suivie de ses membres dans l'ordre approprié.
+     * - Parallel : ordre de déclaration conservé
+     * - Sequential : membres triés par schedulable ASC (plus contraint → placé en premier)
+     */
+    private _arrangeGroupsInTasks(): void {
+        // Collecter les IDs des membres à retirer de their position actuelle
+        const memberIds = new Set<string>();
+        for (const task of this.tasks) {
+            if (task.isGroupRepresentative()) {
+                for (const m of task.getGroupMembers()) {
+                    memberIds.add(m.id);
+                }
+            }
+        }
+
+        if (memberIds.size === 0) return; // Aucun groupe déclaré
+
+        // Retirer les membres de this.tasks (ils seront réinsérés après leur représentante)
+        this.tasks = this.tasks.filter(t => !memberIds.has(t.id));
+
+        // Pour les groupes séquentiels, trier les membres par schedulable ASC
+        // (le plus contraint sera placé immédiatement après la représentante)
+        for (const task of this.tasks) {
+            if (!task.isGroupRepresentative()) continue;
+            if (task.getGroupType() === 'sequential') {
+                const members = task.getGroupMembers();
+                members.sort((a, b) => a.schedulable.getTotalAvailableTime() - b.schedulable.getTotalAvailableTime());
+                // Remplacer l'ordre interne : on ne peut pas modifier _groupMembers directement,
+                // mais on utilisera getGroupMembers() + l'ordre de this.tasks pour le placement.
+                // On insère simplement dans cet ordre dans this.tasks.
+                const repIndex = this.tasks.indexOf(task);
+                this.tasks.splice(repIndex + 1, 0, ...members);
+            } else {
+                // Parallel : conserver l'ordre de déclaration
+                const repIndex = this.tasks.indexOf(task);
+                this.tasks.splice(repIndex + 1, 0, ...task.getGroupMembers());
+            }
+        }
+
+        const groupCount = this.tasks.filter(t => t.isGroupRepresentative()).length;
+        const memberCount = memberIds.size;
+        console.log(`🔗 ${groupCount} groupe(s) arrangé(s) — ${memberCount} membre(s) positionné(s) consécutivement.\n`);
     }
 
     /**
@@ -548,11 +611,60 @@ export class Schedule {
     }
 
     /**
-     * SUPPORT DES DÉPENDANCES: Génère tous les créneaux possibles pour une tâche donnée
-     * MODIFIÉ: Utilise maintenant les vrais créneaux disponibles de task.schedulable
-     * et intègre les contraintes de dépendances temporelles
+     * Génère tous les créneaux possibles pour une tâche donnée.
+     * - Pour un membre de groupe : retourne un unique créneau forcé (parallel = même heure
+     *   que la représentante ; sequential = fin de la tâche précédente dans le groupe).
+     * - Pour les autres tâches : explore task.schedulable en tenant compte des dépendances.
      */
     protected generatePossibleSlots(task: Task): Array<{startTime: number}> {
+
+        // --- Cas membre de groupe : slot imposé par la représentante ---
+        const representative = task.getGroupRepresentative();
+        if (representative !== null) {
+            const repSolution = this.solution.find(sol => sol.task === representative);
+            if (!repSolution) return [];
+
+            let forcedStart: number;
+            if (representative.getGroupType() === 'parallel') {
+                forcedStart = repSolution.startTime;
+            } else {
+                // Sequential : accumuler les durées de la représentante + membres précédents
+                let cumul = representative.duration;
+                for (const m of representative.getGroupMembers()) {
+                    if (m === task) break;
+                    cumul += m.duration;
+                }
+                forcedStart = repSolution.startTime + cumul;
+            }
+
+            const forcedEnd = forcedStart + task.duration;
+            if (!task.schedulable.isAvailable(forcedStart, forcedEnd)) {
+                return [];
+            }
+
+            // Vérification pause méridienne flottante pour les ressources GROUP du membre
+            const lb = this._config.lunchBreak;
+            if (lb.type === 'floating') {
+                const MINUTES_PER_DAY = 24 * 60;
+                const floatingEarliestMin = this._parseTimeToMinutes(lb.earliest);
+                const floatingLatestMin   = this._parseTimeToMinutes(lb.latest);
+                const memberGroupResources = task.appliedResources.filter(r => r.type === ResourceType.GROUP);
+                if (memberGroupResources.length > 0) {
+                    const dayIndex = Math.floor(forcedStart / MINUTES_PER_DAY);
+                    const winStart = dayIndex * MINUTES_PER_DAY + floatingEarliestMin;
+                    const winEnd   = dayIndex * MINUTES_PER_DAY + floatingLatestMin;
+                    if (memberGroupResources.some(r =>
+                        !this._resourceKeepsFloatingBreak(r, forcedStart, forcedEnd, winStart, winEnd, lb.duration)
+                    )) {
+                        return [];
+                    }
+                }
+            }
+
+            return [{ startTime: forcedStart }];
+        }
+
+        // --- Cas général ---
         const slots: Array<{startTime: number}> = [];
         const SLOT_STEP = 30;
         const MINUTES_PER_DAY = 24 * 60;
@@ -860,27 +972,58 @@ export class Schedule {
 
         }
 
+        // Si c'est une représentante de groupe, agréger les scores des membres
+        if (task.isGroupRepresentative()) {
+            for (const member of task.getGroupMembers()) {
+                baseScore += this.getCurrentConstraintScore(member);
+            }
+        }
+
         return baseScore;
     }
 
     /**
-     * Trie dynamiquement les tâches restantes selon l'état actuel des ressources
-     * Applique une heuristique Most Constrained Variable (MCV)
+     * Trie dynamiquement les tâches restantes selon l'état actuel des ressources.
+     * Applique une heuristique Most Constrained Variable (MCV).
+     * Les groupes (représentante + membres) sont traités comme des unités atomiques :
+     * le tri porte sur l'unité entière, dont le score est celui de la représentante.
      */
     protected dynamicTaskSort(startIndex: number): void {
-        // Ne trier que les tâches non encore traitées
-        const remainingTasks = this.tasks.slice(startIndex);
-        
-        // Trier par score de contrainte actuel (plus contraint = plus prioritaire)
-        remainingTasks.sort((a, b) => {
-            const scoreA = this.getCurrentConstraintScore(a);
-            const scoreB = this.getCurrentConstraintScore(b);
+        // Construire des unités : tâche indépendante = unité de taille 1,
+        // représentante = unité [rep, m1, m2, ...] (membres déjà consécutifs dans this.tasks)
+        const units: Task[][] = [];
+        let i = startIndex;
+        while (i < this.tasks.length) {
+            const task = this.tasks[i];
+            if (task.isGroupRepresentative()) {
+                const members = task.getGroupMembers();
+                // Les membres sont garantis consécutifs après la représentante dans this.tasks
+                units.push([task, ...members]);
+                i += 1 + members.length;
+            } else if (task.isGroupMember()) {
+                // Ne devrait pas apparaître en dehors d'un bloc représentante,
+                // mais on le traite comme unité indépendante par sécurité
+                units.push([task]);
+                i++;
+            } else {
+                units.push([task]);
+                i++;
+            }
+        }
+
+        // Trier les unités par score MCV décroissant (score de la tâche de tête)
+        units.sort((a, b) => {
+            const scoreA = this.getCurrentConstraintScore(a[0]);
+            const scoreB = this.getCurrentConstraintScore(b[0]);
             return scoreB - scoreA;
         });
-        
-        // Remettre les tâches triées dans le tableau principal
-        for (let i = 0; i < remainingTasks.length; i++) {
-            this.tasks[startIndex + i] = remainingTasks[i];
+
+        // Réécrire this.tasks à partir de startIndex avec les unités triées
+        let idx = startIndex;
+        for (const unit of units) {
+            for (const task of unit) {
+                this.tasks[idx++] = task;
+            }
         }
     }
 
@@ -1417,6 +1560,12 @@ export class Schedule {
      * en tenant compte de ses dépendances
      */
     protected canTaskBeScheduledNow(task: Task): boolean {
+        // Membre de groupe : la représentante doit être déjà dans la solution
+        const representative = task.getGroupRepresentative();
+        if (representative !== null) {
+            return this.solution.some(sol => sol.task === representative);
+        }
+
         const dependency = task.getDependsOn();
         
         if (!dependency) {
