@@ -11,6 +11,7 @@ import type { TaskEditUpdate } from '@/components/planning/modals/TaskEditModal'
 import { getMondayOfISOWeek, startTimeToDate, computeStaticConflicts, computeDragHighlights } from '@/lib/calendarUtils';
 import type { ResourceEventInfo } from '@/lib/calendarUtils';
 import { computeConstraintUnavailableZones } from '@/lib/blockedZones';
+import { levelFromCode, getEventColors } from '@/lib/yearColors';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 
@@ -139,6 +140,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
 
   const availabilityManager = useSchedulerStore((s) => s.availabilityManager);
   const resources = useSchedulerStore((s) => s.resources);
+  const yearColorConfig = useSchedulerStore((s) => s.yearColorConfig);
 
   const monday = useMemo(() => getMondayOfISOWeek(week), [week]);
 
@@ -165,9 +167,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
         title,
         start: startDate,
         end: endDate,
-        backgroundColor: '#22c55e',
-        borderColor: '#16a34a',
-        textColor: '#fff',
+        ...getEventColors(levelFromCode(course?.code ?? ''), course?.type ?? '', yearColorConfig),
         extendedProps: {
           name: course?.name ?? '',
           code: course?.code ?? '',
@@ -181,7 +181,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
         },
       };
     });
-  }, [storeEnforcedMap, parsedCourses, monday]);
+  }, [storeEnforcedMap, parsedCourses, monday, yearColorConfig]);
 
   const prevParsedCoursesRef = useRef<CourseTaskData[]>(parsedCourses);
   useEffect(() => {
@@ -488,9 +488,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
         title: [task.code, task.type, ...teachers].join(' • '),
         start,
         end,
-        backgroundColor: '#22c55e',
-        borderColor: '#16a34a',
-        textColor: '#fff',
+        ...getEventColors(levelFromCode(task.code), task.type, yearColorConfig),
         extendedProps: { name: task.name, code: task.code, type: task.type, teachers, groups, rooms, durationMin: task.duration },
       };
     });
@@ -504,9 +502,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
         title,
         start,
         end,
-        backgroundColor: '#22c55e',
-        borderColor: '#16a34a',
-        textColor: '#fff',
+        ...getEventColors(levelFromCode(task.code), task.type, yearColorConfig),
         extendedProps: {
           name: task.name,
           code: task.code,
@@ -612,7 +608,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       ...placedNeutralizedEvts.map(applyHighlight),
       ...constraintBgEvents,
     ];
-  }, [solutions, blockedZones, monday, enforcedEventsState, taskOverrides, placedNeutralizedTasks, dragging, externalDragging, availabilityManager, week]);
+  }, [solutions, blockedZones, monday, enforcedEventsState, taskOverrides, placedNeutralizedTasks, dragging, externalDragging, availabilityManager, week, yearColorConfig]);
 
   return {
     week,
