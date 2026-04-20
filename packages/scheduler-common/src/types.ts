@@ -50,6 +50,8 @@ export interface CourseTaskData {
   rooms: ResourceEntry[];
   duration: number;
   enforced?: EnforcedData;
+  /** Identifiant du groupe de tâches auquel appartient cette tâche (optionnel). */
+  taskGroupId?: string;
 }
 
 export interface CoursesData {
@@ -72,14 +74,10 @@ export interface ResourceGroupData {
  * Correspond au corps JSON du POST /api/schedule.
  */
 export interface TaskGroupDeclaration {
+  /** Identifiant du groupe, défini par l'utilisateur. Doit correspondre aux `taskGroupId` des CourseTaskData. */
+  id: string;
   /** Type du groupe : 'parallel' (même heure de début) ou 'sequential' (tâches consécutives). */
   type: 'parallel' | 'sequential';
-  /**
-   * IDs des tâches du groupe dans l'ordre.
-   * Le premier est la représentante ; les suivants sont les membres.
-   * Pour 'sequential', l'ordre détermine l'ordre de placement.
-   */
-  taskIds: string[];
 }
 
 export interface RawScheduleData {
