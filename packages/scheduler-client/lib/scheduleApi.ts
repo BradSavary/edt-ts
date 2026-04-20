@@ -1,4 +1,4 @@
-import type { RawScheduleData, TaskSolutionJSON, NeutralizedTaskInfoJSON, CourseTaskData, EnforcedData, ConstraintsData, ResourceGroupData, SchedulerConfig } from '@edt-ts/scheduler-common';
+import type { RawScheduleData, TaskSolutionJSON, NeutralizedTaskInfoJSON, CourseTaskData, EnforcedData, ConstraintsData, ResourceGroupData, SchedulerConfig, TaskGroupDeclaration } from '@edt-ts/scheduler-common';
 import { type BlockedZone, applyBlockedZonesToConstraints } from '@/lib/blockedZones';
 
 export interface NormalizedSolution {
@@ -22,6 +22,7 @@ export interface RunScheduleParamsFromData {
   blockedZones: BlockedZone[];
   mode: 'standard' | 'elimination';
   schedulerConfig?: SchedulerConfig;
+  groups?: TaskGroupDeclaration[];
 }
 
 /**
@@ -37,6 +38,7 @@ async function _callScheduleApi(
   blockedZones: BlockedZone[],
   mode: 'standard' | 'elimination',
   schedulerConfig?: SchedulerConfig,
+  groups?: TaskGroupDeclaration[],
 ): Promise<ScheduleResult> {
   const coursesWithEnforced = courses.map((course, i) => {
     const enforced = enforcedMap[String(i)];
@@ -58,6 +60,7 @@ async function _callScheduleApi(
     resources,
     courses: coursesWithEnforced,
     ...(hasConstraints ? { constraints: effectiveConstraints } : {}),
+    ...(groups && groups.length > 0 ? { groups } : {}),
     ...(Object.keys(options).length > 0 ? { options } : {}),
   };
 
@@ -121,7 +124,7 @@ async function _callScheduleApi(
  * Préférer cette fonction quand les données sont disponibles dans useSchedulerStore.
  */
 export async function runScheduleRequestFromData(params: RunScheduleParamsFromData): Promise<ScheduleResult> {
-  const { week, courses, resources, constraintsData, enforcedMap, blockedZones, mode, schedulerConfig } = params;
+  const { week, courses, resources, constraintsData, enforcedMap, blockedZones, mode, schedulerConfig, groups } = params;
 
   if (week < 1 || week > 53) {
     throw new Error('"week" doit être un entier entre 1 et 53.');
@@ -133,7 +136,7 @@ export async function runScheduleRequestFromData(params: RunScheduleParamsFromDa
     throw new Error(`Aucun cours trouvé pour la semaine ${week}.`);
   }
 
-  return _callScheduleApi(week, resources, courses, constraintsData, enforcedMap, blockedZones, mode, schedulerConfig);
+  return _callScheduleApi(week, resources, courses, constraintsData, enforcedMap, blockedZones, mode, schedulerConfig, groups);
 }
 
 export interface ScheduleStatus {

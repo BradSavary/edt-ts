@@ -196,12 +196,12 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
 
   function confirmEnforce(courseKey: string, enforced: EnforcedData, event: EventApi) {
     event.remove();
-    const newMap = { ...usePlanningStore.getState().enforcedMap, [courseKey]: enforced };
+    const newMap = { ...usePlanningStore.getState().manualEnforcedMap, [courseKey]: enforced };
     handleEnforceChange(newMap);
   }
 
   function removeEnforced(courseKey: string) {
-    const newMap = { ...usePlanningStore.getState().enforcedMap };
+    const newMap = { ...usePlanningStore.getState().manualEnforcedMap };
     delete newMap[courseKey];
     handleEnforceChange(newMap);
   }
@@ -363,10 +363,12 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
 
     if (pendingEdit.isEnforced && pendingEdit.courseKey) {
       const courseKey = pendingEdit.courseKey;
-      const existing = usePlanningStore.getState().enforcedMap[courseKey];
+      const state = usePlanningStore.getState();
+      // Chercher dans manualEnforcedMap d'abord, puis dans enforcedMap (auto-propagé)
+      const existing = state.manualEnforcedMap[courseKey] ?? state.enforcedMap[courseKey];
       if (existing) {
         const updated: EnforcedData = { ...existing, teacher: update.teachers, groups: update.groups, rooms: update.rooms };
-        const newMap = { ...usePlanningStore.getState().enforcedMap, [courseKey]: updated };
+        const newMap = { ...state.manualEnforcedMap, [courseKey]: updated };
         handleEnforceChange({ ...newMap });
       }
     } else if (pendingEdit.isNeutralizedPlaced) {
@@ -407,11 +409,12 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       if (!startDate || !courseKey) return;
 
       const newStartTime = Math.round((startDate.getTime() - monday.getTime()) / 60000);
-      const existing = usePlanningStore.getState().enforcedMap[courseKey];
+      const state = usePlanningStore.getState();
+      const existing = state.manualEnforcedMap[courseKey] ?? state.enforcedMap[courseKey];
       if (!existing) return;
 
       const updated: EnforcedData = { ...existing, startTime: newStartTime };
-      const newMap = { ...usePlanningStore.getState().enforcedMap, [courseKey]: updated };
+      const newMap = { ...state.manualEnforcedMap, [courseKey]: updated };
       handleEnforceChange({ ...newMap });
       return;
     }
@@ -453,7 +456,10 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
 
     if (ext.isEnforced && ext.courseKey) {
       const courseKey = ext.courseKey;
-      const newMap = { ...usePlanningStore.getState().enforcedMap };
+      const state = usePlanningStore.getState();
+      // Si auto-propagé (pas dans manualEnforcedMap), on le retire de la propagation
+      // en l'ajoutant d'abord dans manualEnforcedMap puis en le supprimant
+      const newMap = { ...state.manualEnforcedMap };
       delete newMap[courseKey];
       handleEnforceChange({ ...newMap });
     }

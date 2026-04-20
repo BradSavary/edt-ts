@@ -19,7 +19,7 @@ export function useSidebarCourseDrag({
   courses,
 }: UseSidebarCourseDragOptions): void {
   const setDraggingExternal = usePlanningStore((s) => s.setDraggingExternal);
-  const pendingRef = useRef<({ teachers: string[]; groups: string[]; rooms: string[] } & { isDragging: boolean }) | null>(null);
+  const pendingRef = useRef<({ teachers: string[]; groups: string[]; rooms: string[]; courseKey: string } & { isDragging: boolean }) | null>(null);
 
   // FullCalendar Draggable pour les cards de cours
   useEffect(() => {
@@ -52,6 +52,7 @@ export function useSidebarCourseDrag({
         teachers: course.teacher.flatMap((r) => (Array.isArray(r) ? r : [r])),
         groups: course.groups.flatMap((r) => (Array.isArray(r) ? r : [r])),
         rooms: course.rooms.flatMap((r) => (Array.isArray(r) ? r : [r])),
+        courseKey,
         isDragging: false,
       };
     };
@@ -61,7 +62,7 @@ export function useSidebarCourseDrag({
       if (!pending || pending.isDragging) return;
       if (Math.abs(e.movementX) + Math.abs(e.movementY) > 2) {
         pending.isDragging = true;
-        setDraggingExternal({ teachers: pending.teachers, groups: pending.groups, rooms: pending.rooms });
+        setDraggingExternal({ teachers: pending.teachers, groups: pending.groups, rooms: pending.rooms, courseKey: pending.courseKey });
       }
     };
 

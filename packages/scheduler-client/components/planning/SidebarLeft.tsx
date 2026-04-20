@@ -30,11 +30,15 @@ interface SidebarLeftProps {
   // UI local
   groupBy: GroupBy;
   setGroupBy: (v: GroupBy) => void;
+  // Drawer groupes
+  groupDrawerOpen: boolean;
+  onToggleGroupDrawer: () => void;
 }
 
 export function SidebarLeft({
   parsedCourses,
   groupBy, setGroupBy,
+  groupDrawerOpen, onToggleGroupDrawer,
 }: SidebarLeftProps) {
   // ── Store planning ────────────────────────────────────────────────────────
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
@@ -49,6 +53,7 @@ export function SidebarLeft({
   const isLoading = usePlanningStore((s) => s.isLoading);
   const runSchedule = usePlanningStore((s) => s.runSchedule);
   const enforcedMap = usePlanningStore((s) => s.enforcedMap);
+  const taskGroups = usePlanningStore((s) => s.taskGroups);
 
   // ── Dialog confirmation "Retour à la préparation" ─────────────────────────
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -276,7 +281,26 @@ export function SidebarLeft({
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Cours S{week}
             </p>
-            <Badge variant="secondary">{parsedCourses.length} cours</Badge>
+            <div className="flex items-center gap-1">
+              <Badge variant="secondary">{parsedCourses.length} cours</Badge>
+              <div className="relative inline-flex">
+                <Button
+                  type="button"
+                  variant={groupDrawerOpen ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-6 px-2 text-[10px]"
+                  onClick={onToggleGroupDrawer}
+                  title="Gérer les groupes de tâches"
+                >
+                  ⬡ Groupes
+                </Button>
+                {taskGroups.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-violet-500 text-white text-[9px] font-bold leading-none pointer-events-none">
+                    {taskGroups.length}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
           <p className="text-xs text-muted-foreground italic">
             Glissez un cours sur le calendrier pour l&apos;imposer.
