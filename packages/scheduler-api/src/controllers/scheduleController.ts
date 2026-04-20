@@ -117,8 +117,12 @@ function serializeScheduleSolution(result: ScheduleSolution): ScheduleSolutionJS
  *       "duration": 120,
  *       "teacher": ["John Doe"],
  *       "groups": ["BUT1-G1", "BUT1-G2"],
- *       "rooms": [["Salle101", "Salle102"]]
+ *       "rooms": [["Salle101", "Salle102"]],
+ *       "taskGroupId": "grp-parallel-1"
  *     }
+ *   ],
+ *   "groups": [
+ *     { "id": "grp-parallel-1", "type": "parallel" }
  *   ],
  *   "constraints": {
  *     "Default": [{ "days": "lundi, mardi, jeudi, vendredi", "from": "08:00", "to": "18:00" }],
@@ -178,6 +182,7 @@ export async function scheduleHandler(req: Request, res: Response): Promise<void
       resources: body.resources ?? [],
       courses: body.courses,
       constraints: body.constraints,
+      groups: body.groups,
     });
 
     // ── Configuration du planificateur ───────────────────────────────────
@@ -236,6 +241,7 @@ export async function solveWithEliminationHandler(req: Request, res: Response): 
       resources: body.resources ?? [],
       courses: body.courses,
       constraints: body.constraints,
+      groups: body.groups,
     });
 
     const scheduler = new Schedule();
