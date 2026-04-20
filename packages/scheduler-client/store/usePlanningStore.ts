@@ -74,6 +74,10 @@ export interface PlanningStore {
   draggingExternal: { teachers: string[]; groups: string[]; rooms: string[]; courseKey?: string } | null;
   setDraggingExternal: (r: { teachers: string[]; groups: string[]; rooms: string[]; courseKey?: string } | null) => void;
 
+  /** Visibilité du panneau GroupDrawer (préférence de layout, non persisté). */
+  groupDrawerOpen: boolean;
+  toggleGroupDrawer: () => void;
+
   // ── Groupes de tâches ──────────────────────────────────────────────────
   /** Map des enforcements manuels (sans auto-propagation de groupes). */
   manualEnforcedMap: Record<string, EnforcedData>;
@@ -170,6 +174,9 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
   status: null,
   draggingExternal: null,
   setDraggingExternal: (r) => set({ draggingExternal: r }),
+
+  groupDrawerOpen: false,
+  toggleGroupDrawer: () => set((s) => ({ groupDrawerOpen: !s.groupDrawerOpen })),
 
   manualEnforcedMap: {},
   taskGroups: [],

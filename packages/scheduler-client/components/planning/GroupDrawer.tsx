@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import { usePlanningStore, type TaskGroupConfig } from '@/store/usePlanningStore';
 import { Separator } from '@/components/ui/separator';
 
+type SimpleCourse = { code: string; type: string; name: string; groups?: string[] };
+
 interface GroupDrawerProps {
-  open: boolean;
-  onToggle: () => void;
-  parsedCourses: { code: string; type: string; name: string; groups?: string[] }[];
+  parsedCourses: CourseTaskData[];
 }
 
 // ── GroupDropZone ──────────────────────────────────────────────────────────
@@ -147,7 +148,7 @@ function NewGroupDropZone({ type, label }: NewGroupDropZoneProps) {
 
 interface GroupCardProps {
   group: TaskGroupConfig;
-  parsedCourses: GroupDrawerProps['parsedCourses'];
+  parsedCourses: SimpleCourse[];
 }
 
 function GroupCard({ group, parsedCourses }: GroupCardProps) {
@@ -243,8 +244,22 @@ function GroupCard({ group, parsedCourses }: GroupCardProps) {
 
 // ── GroupDrawer ────────────────────────────────────────────────────────────
 
-export function GroupDrawer({ open, onToggle, parsedCourses }: GroupDrawerProps) {
+export function GroupDrawer({ parsedCourses }: GroupDrawerProps) {
   const taskGroups = usePlanningStore((s) => s.taskGroups);
+  const groupDrawerOpen = usePlanningStore((s) => s.groupDrawerOpen);
+  const toggleGroupDrawer = usePlanningStore((s) => s.toggleGroupDrawer);
+
+  // Transformation interne : CourseTaskData → format simplifié pour GroupCard
+  const simplifiedCourses = useMemo<SimpleCourse[]>(
+    () => parsedCourses.map((c) => ({ code: c.code, type: c.type, name: c.name, groups: c.groups.flat() as string[] })),
+    [parsedCourses],
+  );
+
+  // Déclenche un resize après la transition (200ms) pour que FullCalendar recalcule sa taille
+  useEffect(() => {
+    const timer = setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 210);
+    return () => clearTimeout(timer);
+  }, [groupDrawerOpen]);
 
   const hasCoursesForCurrentWeek = parsedCourses.length > 0;
 
@@ -253,19 +268,19 @@ export function GroupDrawer({ open, onToggle, parsedCourses }: GroupDrawerProps)
       {/* Arrow toggle button on the left edge */}
       <button
         type="button"
-        onClick={onToggle}
+        onClick={toggleGroupDrawer}
         className="self-center h-16 w-5 flex items-center justify-center bg-card border border-border rounded-l text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        title={open ? 'Fermer le panneau groupes' : 'Ouvrir le panneau groupes'}
-        aria-label={open ? 'Fermer' : 'Ouvrir'}
+        title={groupDrawerOpen ? 'Fermer le panneau groupes' : 'Ouvrir le panneau groupes'}
+        aria-label={groupDrawerOpen ? 'Fermer' : 'Ouvrir'}
       >
-        {open ? '›' : '‹'}
+        {groupDrawerOpen ? '›' : '‹'}
       </button>
 
       <aside
         className={`bg-card border-l border-border flex flex-col overflow-hidden transition-all duration-200 ${
-          open ? 'w-72' : 'w-0'
+          groupDrawerOpen ? 'w-72' : 'w-0'
         }`}
-        aria-hidden={!open}
+        aria-hidden={!groupDrawerOpen}
       >
         <div className="flex flex-col gap-3 p-4 overflow-y-auto h-full min-w-72">
           <div>
@@ -307,7 +322,7 @@ export function GroupDrawer({ open, onToggle, parsedCourses }: GroupDrawerProps)
           {taskGroups.length > 0 && (
             <div className="flex flex-col gap-3">
               {taskGroups.map((group) => (
-                <GroupCard key={group.id} group={group} parsedCourses={parsedCourses} />
+                <GroupCard key={group.id} group={group} parsedCourses={simplifiedCourses} />
               ))}
             </div>
           )}

@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { SidebarLeft } from '@/components/planning/SidebarLeft';
 import { GroupDrawer } from '@/components/planning/GroupDrawer';
 import ScheduleCalendar from '@/components/planning/ScheduleCalendar';
-import { type GroupBy } from '@/components/planning/CourseGroupList';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
@@ -48,35 +47,13 @@ export default function PlanningPage() {
     });
   }, [activeSolution, searchQuery]);
 
-  // ── UI local ─────────────────────────────────────────────────────────────
-  const [groupBy, setGroupBy] = useState<GroupBy>('code');
-  const [groupDrawerOpen, setGroupDrawerOpen] = useState(false);
-
-  // Déclencher un resize après la transition du drawer (200ms) pour que FullCalendar recalcule sa taille
-  useEffect(() => {
-    const timer = setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 210);
-    return () => clearTimeout(timer);
-  }, [groupDrawerOpen]);
-
-  // Cours simplifiés pour le drawer (pas besoin de ressources)
-  const parsedCoursesForDrawer = useMemo(
-    () => parsedCourses.map((c) => ({ code: c.code, type: c.type, name: c.name, groups: c.groups.flat() })),
-    [parsedCourses],
-  );
-
   return (
     <div className="h-full flex flex-col overflow-hidden bg-secondary/30">
 
       {/* Contenu principal */}
       <div className="flex flex-1 overflow-hidden">
 
-        <SidebarLeft
-          parsedCourses={parsedCourses}
-          groupBy={groupBy}
-          setGroupBy={setGroupBy}
-          groupDrawerOpen={groupDrawerOpen}
-          onToggleGroupDrawer={() => setGroupDrawerOpen((v) => !v)}
-        />
+        <SidebarLeft parsedCourses={parsedCourses} />
 
         <main className="flex-1 overflow-hidden p-4 flex flex-col">
           {scheduleResult && scheduleResult.solutions.length > 1 && (
@@ -102,7 +79,7 @@ export default function PlanningPage() {
           />
         </main>
 
-        <GroupDrawer open={groupDrawerOpen} onToggle={() => setGroupDrawerOpen((o) => !o)} parsedCourses={parsedCoursesForDrawer} />
+        <GroupDrawer parsedCourses={parsedCourses} />
 
       </div>
 
