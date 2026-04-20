@@ -5,44 +5,57 @@ import type { CourseTaskData, EnforcedData, TaskGroupDeclaration, GroupType } fr
  * Les courseKeys sont des indices dans le tableau parsedCourses de la semaine courante.
  */
 export interface TaskGroupConfig {
-  id: string;           // ID unique pour l'UI (généré côté client)
+  id: string;           // ID unique pour l'UI (généré côté client) — utilisé comme taskGroupId
   type: GroupType;      // 'parallel' | 'sequential'
   courseKeys: string[]; // Indices dans parsedCourses (même que courseKey dans CourseCard)
 }
 
 /**
- * Reproduit la logique de génération d'ID de SchedulerData.initTasks().
- * Doit correspondre exactement : `${code}_${teacherIds}_${groupIds}_${counter}`
- * où counter = index + 1 (1-based dans le moteur).
+ * Injecte le taskGroupId dans les cours appartenant à un groupe,
+ * et retourne les TaskGroupDeclaration[] correspondantes.
+ *
+ * @param courses - tableau original de CourseTaskData (ne sera pas muté)
+ * @param groups  - configuration des groupes (courseKeys = indices dans courses)
+ * @returns { coursesWithGroups, declarations }
  */
-export function computeEngineTaskId(course: CourseTaskData, index: number): string {
-  const teacherIds = course.teacher.flat().join('_');
-  return `${course.code}_${teacherIds}_${course.groups.flat().join('_')}_${index + 1}`;
+export function buildTaskGroupData(
+  courses: CourseTaskData[],
+  groups: TaskGroupConfig[],
+): { coursesWithGroups: CourseTaskData[]; declarations: TaskGroupDeclaration[] } {
+  // Construire une map index → groupId
+  const keyToGroupId = new Map<number, string>();
+  const declarations: TaskGroupDeclaration[] = [];
+
+  for (const group of groups) {
+    if (group.courseKeys.length < 2) continue;
+    declarations.push({ id: group.id, type: group.type });
+    for (const key of group.courseKeys) {
+      const index = parseInt(key, 10);
+      if (!isNaN(index) && index >= 0 && index < courses.length) {
+        keyToGroupId.set(index, group.id);
+      }
+    }
+  }
+
+  // Créer une copie des cours avec taskGroupId injecté là où nécessaire
+  const coursesWithGroups = courses.map((c, i) => {
+    const groupId = keyToGroupId.get(i);
+    if (!groupId) return c;
+    return { ...c, taskGroupId: groupId };
+  });
+
+  return { coursesWithGroups, declarations };
 }
 
 /**
- * Convertit la liste de TaskGroupConfig en TaskGroupDeclaration[] pour l'API.
- * @param courses - tableau de CourseTaskData pour la semaine courante (dans l'ordre d'envoi à l'API)
- * @param groups  - configuration des groupes (courseKeys = indices dans courses)
+ * @deprecated Utiliser buildTaskGroupData à la place.
+ * Conservé pour compatibilité temporaire.
  */
 export function buildTaskGroupDeclarations(
   courses: CourseTaskData[],
   groups: TaskGroupConfig[],
 ): TaskGroupDeclaration[] {
-  const result: TaskGroupDeclaration[] = [];
-  for (const group of groups) {
-    if (group.courseKeys.length < 2) continue;
-    const taskIds: string[] = [];
-    for (const key of group.courseKeys) {
-      const index = parseInt(key, 10);
-      if (isNaN(index) || index < 0 || index >= courses.length) continue;
-      taskIds.push(computeEngineTaskId(courses[index], index));
-    }
-    if (taskIds.length >= 2) {
-      result.push({ type: group.type, taskIds });
-    }
-  }
-  return result;
+  return buildTaskGroupData(courses, groups).declarations;
 }
 
 /**

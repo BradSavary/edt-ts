@@ -3,7 +3,7 @@ import type { EnforcedData, TaskSolutionJSON, NeutralizedTaskInfoJSON, Constrain
 import type { BlockedZone } from '@/lib/blockedZones';
 import { runScheduleRequestFromData, buildScheduleStatus, type ScheduleResult, type ScheduleStatus } from '@/lib/scheduleApi';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
-import { type TaskGroupConfig, buildTaskGroupDeclarations, getCourseGroupInfo, computeGroupEnforcements } from '@/lib/taskGroupUtils';
+import { type TaskGroupConfig, buildTaskGroupData, getCourseGroupInfo, computeGroupEnforcements } from '@/lib/taskGroupUtils';
 
 export type { TaskGroupConfig };
 
@@ -255,19 +255,19 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
       set({ status: { message: `❌ Aucun cours pour la semaine ${selectedWeek}. Importez le fichier CSV.`, kind: 'err' } });
       return;
     }
-    const groups = buildTaskGroupDeclarations(coursesForWeek, taskGroups);
+    const { coursesWithGroups, declarations } = buildTaskGroupData(coursesForWeek, taskGroups);
     set({ isLoading: true, status: { message: 'Planification en cours…', kind: 'inf' } });
     try {
       const result = await runScheduleRequestFromData({
         week: selectedWeek,
-        courses: coursesForWeek,
+        courses: coursesWithGroups,
         resources,
         constraintsData: constraints as ConstraintsData | null,
         enforcedMap,
         blockedZones,
         mode,
         schedulerConfig,
-        groups: groups.length > 0 ? groups : undefined,
+        groups: declarations.length > 0 ? declarations : undefined,
       });
       const best = result.solutions[0];
       set({

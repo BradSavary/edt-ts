@@ -76,70 +76,43 @@ function GroupDropZone({ groupId, label }: GroupDropZoneProps) {
   );
 }
 
-// ── NewGroupDropZone ───────────────────────────────────────────────────────
-// Zone pour créer un nouveau groupe en y déposant un cours.
+// ── NewGroupSection ────────────────────────────────────────────────────────
+// Bouton + pour créer un nouveau groupe vide, avec toggle parallèle/séquentiel.
 
-interface NewGroupDropZoneProps {
-  type: 'parallel' | 'sequential';
-  label: string;
-}
-
-function NewGroupDropZone({ type, label }: NewGroupDropZoneProps) {
-  const zoneRef = useRef<HTMLDivElement | null>(null);
-  const [over, setOver] = useState(false);
+function NewGroupSection() {
+  const [pendingType, setPendingType] = useState<'parallel' | 'sequential'>('parallel');
   const addTaskGroup = usePlanningStore((s) => s.addTaskGroup);
-  const addCourseToGroup = usePlanningStore((s) => s.addCourseToGroup);
-
-  useEffect(() => {
-    const onPointerMove = (e: PointerEvent) => {
-      const el = zoneRef.current;
-      if (!el) return;
-      const dragging = usePlanningStore.getState().draggingExternal;
-      if (!dragging?.courseKey) { setOver(false); return; }
-      const rect = el.getBoundingClientRect();
-      const inside =
-        e.clientX >= rect.left && e.clientX <= rect.right &&
-        e.clientY >= rect.top  && e.clientY <= rect.bottom;
-      setOver(inside);
-    };
-
-    const onPointerUp = (e: PointerEvent) => {
-      const el = zoneRef.current;
-      if (!el) return;
-      const dragging = usePlanningStore.getState().draggingExternal;
-      if (!dragging?.courseKey) return;
-      const rect = el.getBoundingClientRect();
-      const inside =
-        e.clientX >= rect.left && e.clientX <= rect.right &&
-        e.clientY >= rect.top  && e.clientY <= rect.bottom;
-      if (inside) {
-        const newId = addTaskGroup(type, dragging.courseKey);
-        // addTaskGroup retourne l'id, mais comme c'est void dans le store on utilise addCourseToGroup après
-        // En fait addTaskGroup initialise déjà avec courseKey — pas besoin d'addCourseToGroup
-        void newId;
-      }
-      setOver(false);
-    };
-
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp, { capture: true });
-    window.addEventListener('pointercancel', () => setOver(false));
-    return () => {
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp, { capture: true });
-    };
-  }, [type, addTaskGroup, addCourseToGroup]);
 
   return (
-    <div
-      ref={zoneRef}
-      className={`rounded border-2 border-dashed px-3 py-3 text-xs text-center transition-colors cursor-pointer ${
-        over
-          ? 'border-violet-500 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300'
-          : 'border-border text-muted-foreground hover:border-violet-300 hover:text-violet-500'
-      }`}
-    >
-      {label}
+    <div className="flex flex-col gap-2">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+        Nouveau groupe
+      </p>
+      <div className="flex items-center gap-2">
+        {/* Bouton créer */}
+        <button
+          type="button"
+          onClick={() => addTaskGroup(pendingType)}
+          className="shrink-0 w-2/3 text-xs font-semibold px-2 py-1.5 rounded bg-violet-500 hover:bg-violet-600 text-white transition-colors"
+          title="Créer un nouveau groupe (puis glisser des cours dedans)"
+        >
+          + Créer un groupe
+        </button>
+        {/* Toggle type compact */}
+        <button
+          type="button"
+          onClick={() => setPendingType((t) => t === 'parallel' ? 'sequential' : 'parallel')}
+          className="shrink-0 w-1/3 text-[11px] font-semibold px-1.5 py-1.5 rounded border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-800/40 transition-colors"
+          title={pendingType === 'parallel'
+            ? '∥ Parallèle : même créneau. Cliquer pour basculer en Séquentiel.'
+            : '→ Séquentiel : consécutif. Cliquer pour basculer en Parallèle.'}
+        >
+          {pendingType === 'parallel' ? '∥ Parallèle' : '→ Séquentiel'}
+        </button>
+      </div>
+      <p className="text-[10px] text-muted-foreground/70">
+        Choisissez le type, cliquez sur +, puis glissez des cours dans le groupe.
+      </p>
     </div>
   );
 }
@@ -168,12 +141,13 @@ function GroupCard({ group, parsedCourses }: GroupCardProps) {
           <button
             type="button"
             onClick={() => setGroupType(group.id, group.type === 'parallel' ? 'sequential' : 'parallel')}
-            className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 hover:bg-violet-200 transition-colors"
+            className="group/typebtn text-[11px] font-semibold px-1.5 py-0.5 rounded border border-violet-300 dark:border-violet-700 bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 hover:bg-violet-200 transition-colors flex items-center gap-1"
             title={group.type === 'parallel'
               ? '∥ Parallèle : toutes les tâches commencent au même horaire. (Cliquer pour basculer en Séquentiel)'
               : '→ Séquentiel : les tâches s\'enchaînent consécutivement. (Cliquer pour basculer en Parallèle)'}
           >
             {group.type === 'parallel' ? '∥ Parallèle' : '→ Séquentiel'}
+            <span className="opacity-40 group-hover/typebtn:opacity-100 transition-opacity text-[9px]">↺</span>
           </button>
         </div>
         <button
@@ -301,19 +275,7 @@ export function GroupDrawer({ parsedCourses }: GroupDrawerProps) {
           {/* Nouveau groupe — EN HAUT */}
           {hasCoursesForCurrentWeek && (
             <>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                Nouveau groupe
-              </p>
-              <div className="flex flex-col gap-2">
-                <NewGroupDropZone
-                  type="parallel"
-                  label="∥ Déposer ici — Parallèle (même créneau)"
-                />
-                <NewGroupDropZone
-                  type="sequential"
-                  label="→ Déposer ici — Séquentiel (consécutif)"
-                />
-              </div>
+              <NewGroupSection />
               <Separator />
             </>
           )}
