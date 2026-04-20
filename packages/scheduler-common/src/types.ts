@@ -102,6 +102,7 @@ export interface TaskSolutionJSON {
   duration: number;
   startTime: number;
   resources: { id: string; type: string }[];
+  taskGroupId?: string;
 }
 
 
@@ -119,6 +120,7 @@ export interface NeutralizedTaskInfoJSON {
   schedulableMinutes: number;
   resourceSnapshots: ResourceAvailabilitySnapshotJSON[];
   reason: string;
+  taskGroupId?: string;
 }
 
 export interface ScheduleSolutionJSON {

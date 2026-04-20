@@ -219,6 +219,12 @@ export class Schedule {
             const eliminated = this.tasks[targetIndex];
             const info = this._buildNeutralizedTaskInfo(eliminated, i + 1, maxFailures);
             neutralizedInfoList.push(info);
+            // Si la tâche éliminée est une représentante de groupe, reporter aussi les membres
+            if (eliminated.isGroupRepresentative()) {
+                for (const member of eliminated.getGroupMembers()) {
+                    neutralizedInfoList.push(this._buildNeutralizedTaskInfo(member, i + 1, failureCounts.get(member.id) ?? 0));
+                }
+            }
             console.log(`🗑️ Élimination #${i + 1}: "${eliminated.name}" (${maxFailures} échec(s)) — ${info.reason}`);
             // Supprimer la représentante + ses membres consécutifs le cas échéant
             const groupSize = 1 + (eliminated.isGroupRepresentative() ? eliminated.getGroupMembers().length : 0);

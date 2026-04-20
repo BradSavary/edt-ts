@@ -32,6 +32,7 @@ function serializeSolution(solutions: TaskSolution[]): TaskSolutionJSON[] {
         id: r.id,
         type: r.type,
       })),
+      ...(task.taskGroupId !== undefined && { taskGroupId: task.taskGroupId }),
     };
   });
 }
@@ -51,6 +52,7 @@ function serializeTask(task: Task): TaskSolutionJSON {
       id: r.id,
       type: r.type,
     })),
+    ...(task.taskGroupId !== undefined && { taskGroupId: task.taskGroupId }),
   };
 }
 
@@ -64,6 +66,7 @@ function serializeNeutralizedTaskInfo(info: NeutralizedTaskInfo): NeutralizedTas
     schedulableMinutes: info.schedulableMinutes,
     resourceSnapshots: info.resourceSnapshots,
     reason: info.reason,
+    ...(info.task.taskGroupId !== undefined && { taskGroupId: info.task.taskGroupId }),
   };
 }
 
