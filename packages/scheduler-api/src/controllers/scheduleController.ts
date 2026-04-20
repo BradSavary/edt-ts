@@ -32,6 +32,7 @@ function serializeSolution(solutions: TaskSolution[]): TaskSolutionJSON[] {
         id: r.id,
         type: r.type,
       })),
+      ...(task.taskGroupId !== undefined && { taskGroupId: task.taskGroupId }),
     };
   });
 }
@@ -51,6 +52,7 @@ function serializeTask(task: Task): TaskSolutionJSON {
       id: r.id,
       type: r.type,
     })),
+    ...(task.taskGroupId !== undefined && { taskGroupId: task.taskGroupId }),
   };
 }
 
@@ -64,6 +66,7 @@ function serializeNeutralizedTaskInfo(info: NeutralizedTaskInfo): NeutralizedTas
     schedulableMinutes: info.schedulableMinutes,
     resourceSnapshots: info.resourceSnapshots,
     reason: info.reason,
+    ...(info.task.taskGroupId !== undefined && { taskGroupId: info.task.taskGroupId }),
   };
 }
 
@@ -117,8 +120,12 @@ function serializeScheduleSolution(result: ScheduleSolution): ScheduleSolutionJS
  *       "duration": 120,
  *       "teacher": ["John Doe"],
  *       "groups": ["BUT1-G1", "BUT1-G2"],
- *       "rooms": [["Salle101", "Salle102"]]
+ *       "rooms": [["Salle101", "Salle102"]],
+ *       "taskGroupId": "grp-parallel-1"
  *     }
+ *   ],
+ *   "groups": [
+ *     { "id": "grp-parallel-1", "type": "parallel" }
  *   ],
  *   "constraints": {
  *     "Default": [{ "days": "lundi, mardi, jeudi, vendredi", "from": "08:00", "to": "18:00" }],
@@ -178,6 +185,7 @@ export async function scheduleHandler(req: Request, res: Response): Promise<void
       resources: body.resources ?? [],
       courses: body.courses,
       constraints: body.constraints,
+      groups: body.groups,
     });
 
     // ── Configuration du planificateur ───────────────────────────────────
@@ -236,6 +244,7 @@ export async function solveWithEliminationHandler(req: Request, res: Response): 
       resources: body.resources ?? [],
       courses: body.courses,
       constraints: body.constraints,
+      groups: body.groups,
     });
 
     const scheduler = new Schedule();

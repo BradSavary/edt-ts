@@ -21,6 +21,7 @@ class Task {
   public readonly semester: number;
   public readonly level: number;
   public readonly enforced: EnforcedData | undefined;
+  public readonly taskGroupId: string | undefined;
   // Ressources actuellement appliquées à la tâche (une combinaison spécifique)
   private _appliedResources: Resource[] | null = null;
   // Ressources applicables à la tâche (ressources alternatives incluses)
@@ -35,6 +36,8 @@ class Task {
   private _groupMembers: Task[] = [];
   // Pour un membre : pointeur vers sa représentante
   private _groupRepresentative: Task | null = null;
+  // Permet d'ignorer la propriété enforced (ex: groupe mixte enforced/non-enforced)
+  private _enforcedOverridden: boolean = false;
 
   constructor(id: string, courseData: CourseTaskData, resources: Resource[] = []) {
     if (courseData.duration <= 0) {
@@ -48,6 +51,7 @@ class Task {
     this.week = courseData.week;
     this.semester = courseData.semester;
     this.level = courseData.level;
+    this.taskGroupId = courseData.taskGroupId;
  
     this.resources = {
       [ResourceType.TEACHER]: [],
@@ -63,7 +67,28 @@ class Task {
   }
 
   get isEnforced(): boolean {
-    return this.enforced !== undefined;
+    return this.enforced !== undefined && !this._enforcedOverridden;
+  }
+
+  /**
+   * Ignore la propriété `enforced` de cette tâche.
+   * Utilisé quand un groupe contient un mélange de tâches enforced et non-enforced.
+   */
+  overrideEnforced(): void {
+    this._enforcedOverridden = true;
+  }
+
+  /**
+   * Dissout le groupe dont cette tâche est la représentante.
+   * Tous les membres redeviennent des tâches indépendantes.
+   */
+  dissolveGroup(): void {
+    if (this._groupType === null) return;
+    for (const member of this._groupMembers) {
+      member._groupRepresentative = null;
+    }
+    this._groupType = null;
+    this._groupMembers = [];
   }
 
   get schedulable(): Availability {
@@ -264,6 +289,38 @@ class Task {
 
   getGroupMembers(): Task[] {
     return [...this._groupMembers];
+  }
+
+  /**
+   * Transfère le rôle de représentante à une autre tâche du groupe.
+   * `newRepresentative` doit être un membre actuel de ce groupe.
+   * Après l'appel : `newRepresentative` est représentante, `this` devient membre.
+   */
+  transferGroupTo(newRepresentative: Task): void {
+    if (this._groupType === null) {
+      throw new Error(`La tâche "${this.name}" n'est pas représentante d'un groupe.`);
+    }
+    const idx = this._groupMembers.indexOf(newRepresentative);
+    if (idx === -1) {
+      throw new Error(`La tâche "${newRepresentative.name}" n'est pas membre du groupe de "${this.name}".`);
+    }
+    const type = this._groupType;
+    const otherMembers = this._groupMembers.filter(m => m !== newRepresentative);
+
+    // Réinitialiser l'ancienne représentante
+    this._groupType = null;
+    this._groupMembers = [];
+    this._groupRepresentative = newRepresentative;
+
+    // Configurer la nouvelle représentante
+    newRepresentative._groupRepresentative = null;
+    newRepresentative._groupType = type;
+    newRepresentative._groupMembers = [this, ...otherMembers];
+
+    // Mettre à jour le pointeur représentante des autres membres
+    for (const m of otherMembers) {
+      m._groupRepresentative = newRepresentative;
+    }
   }
 
   /**

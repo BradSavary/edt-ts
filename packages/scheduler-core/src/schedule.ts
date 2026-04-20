@@ -219,6 +219,12 @@ export class Schedule {
             const eliminated = this.tasks[targetIndex];
             const info = this._buildNeutralizedTaskInfo(eliminated, i + 1, maxFailures);
             neutralizedInfoList.push(info);
+            // Si la tâche éliminée est une représentante de groupe, reporter aussi les membres
+            if (eliminated.isGroupRepresentative()) {
+                for (const member of eliminated.getGroupMembers()) {
+                    neutralizedInfoList.push(this._buildNeutralizedTaskInfo(member, i + 1, failureCounts.get(member.id) ?? 0));
+                }
+            }
             console.log(`🗑️ Élimination #${i + 1}: "${eliminated.name}" (${maxFailures} échec(s)) — ${info.reason}`);
             // Supprimer la représentante + ses membres consécutifs le cas échéant
             const groupSize = 1 + (eliminated.isGroupRepresentative() ? eliminated.getGroupMembers().length : 0);
@@ -348,6 +354,10 @@ export class Schedule {
             throw new Error('Aucune ressource disponible. Vérifiez que les ressources sont chargées.');
         }
 
+        // Résolution des incohérences groupe + enforced (avant l'init des ressources
+        // et le tri enforced-first, pour que isEnforced() soit stable pour la suite).
+        this._resolveGroupEnforcedConflicts();
+
         // Initialisation des ressources : première combinaison disponible pour chaque tâche.
         // L'ordre d'exploration effectif est contrôlé par _config.resourceSelection
         // dans _tryAllResourceCombinations pendant le backtracking.
@@ -427,10 +437,48 @@ export class Schedule {
     }
 
     /**
+     * Résout les incohérences entre groupes de tâches et propriété `enforced`.
+     *
+     * - Groupe entièrement enforced : le groupe est dissous ; chaque tâche est traitée
+     *   individuellement comme une tâche enforced normale.
+     * - Groupe mixte (certaines enforced, d'autres non) : la propriété `enforced` est ignorée
+     *   sur les tâches concernées et le groupe est traité normalement.
+     *
+     * Doit être appelé AVANT l'initialisation des appliedResources et le tri enforced-first.
+     */
+    private _resolveGroupEnforcedConflicts(): void {
+        for (const task of this.tasks) {
+            if (!task.isGroupRepresentative()) continue;
+
+            const allInGroup = [task, ...task.getGroupMembers()];
+            const enforcedCount = allInGroup.filter(t => t.isEnforced).length;
+
+            if (enforcedCount === 0) continue; // groupe normal, rien à faire
+
+            if (enforcedCount === allInGroup.length) {
+                // Toutes enforced → dissoudre le groupe
+                const groupId = task.taskGroupId ?? task.id;
+                console.log(`⚓ Groupe "${groupId}" : toutes les tâches sont enforced → groupe dissous, traitement individuel.`);
+                task.dissolveGroup();
+            } else {
+                // Mélange → ignorer enforced sur les tâches concernées
+                const groupId = task.taskGroupId ?? task.id;
+                const enforcedTasks = allInGroup.filter(t => t.isEnforced);
+                console.warn(`⚠️ Groupe "${groupId}" : mélange enforced/non-enforced (${enforcedCount}/${allInGroup.length}) — propriété enforced ignorée sur ${enforcedTasks.map(t => `"${t.name}"`).join(', ')}.`);
+                for (const t of enforcedTasks) {
+                    t.overrideEnforced();
+                }
+            }
+        }
+    }
+
+    /**
      * Réorganise this.tasks pour que chaque représentante de groupe soit immédiatement
      * suivie de ses membres dans l'ordre approprié.
-     * - Parallel : ordre de déclaration conservé
-     * - Sequential : membres triés par schedulable ASC (plus contraint → placé en premier)
+     * - Représentante : ré-élue comme la tâche la plus contrainte du groupe
+     *   (schedulable minimal au moment de l'appel, après initialisation des ressources).
+     * - Parallel : membres insérés dans l'ordre de déclaration après la représentante.
+     * - Sequential : membres triés par schedulable ASC (plus contraint → placé en premier).
      */
     private _arrangeGroupsInTasks(): void {
         // Collecter les IDs des membres à retirer de their position actuelle
@@ -452,18 +500,28 @@ export class Schedule {
         // (le plus contraint sera placé immédiatement après la représentante)
         for (const task of this.tasks) {
             if (!task.isGroupRepresentative()) continue;
-            if (task.getGroupType() === 'sequential') {
-                const members = task.getGroupMembers();
+
+            // Ré-élire la représentante : la tâche la plus contrainte parmi représentante + membres
+            const allInGroup = [task, ...task.getGroupMembers()];
+            const mostConstrained = allInGroup.reduce((min, t) =>
+                t.schedulable.getTotalAvailableTime() < min.schedulable.getTotalAvailableTime() ? t : min
+            );
+            if (mostConstrained !== task) {
+                task.transferGroupTo(mostConstrained);
+                console.log(`🔁 Représentante du groupe réélue : "${mostConstrained.name}" (plus contrainte que "${task.name}")`);
+            }
+
+            const currentRep = mostConstrained !== task ? mostConstrained : task;
+
+            if (currentRep.getGroupType() === 'sequential') {
+                const members = currentRep.getGroupMembers();
                 members.sort((a, b) => a.schedulable.getTotalAvailableTime() - b.schedulable.getTotalAvailableTime());
-                // Remplacer l'ordre interne : on ne peut pas modifier _groupMembers directement,
-                // mais on utilisera getGroupMembers() + l'ordre de this.tasks pour le placement.
-                // On insère simplement dans cet ordre dans this.tasks.
-                const repIndex = this.tasks.indexOf(task);
+                const repIndex = this.tasks.indexOf(currentRep);
                 this.tasks.splice(repIndex + 1, 0, ...members);
             } else {
                 // Parallel : conserver l'ordre de déclaration
-                const repIndex = this.tasks.indexOf(task);
-                this.tasks.splice(repIndex + 1, 0, ...task.getGroupMembers());
+                const repIndex = this.tasks.indexOf(currentRep);
+                this.tasks.splice(repIndex + 1, 0, ...currentRep.getGroupMembers());
             }
         }
 

@@ -153,29 +153,28 @@ export class SchedulerData {
       throw new Error('initTasks() doit être appelé avant initGroups()');
     }
     const allTasks = this._tasksManager.getAllTasks();
-    const taskById = new Map<string, Task>();
+
+    // Regroupe les tâches par taskGroupId
+    const tasksByGroupId = new Map<string, Task[]>();
     for (const task of allTasks) {
-      taskById.set(task.id, task);
+      if (task.taskGroupId) {
+        const list = tasksByGroupId.get(task.taskGroupId) ?? [];
+        list.push(task);
+        tasksByGroupId.set(task.taskGroupId, list);
+      }
     }
 
     for (const decl of groups) {
-      if (decl.taskIds.length < 2) {
-        console.warn(`⚠️ Groupe ${decl.type} ignoré : moins de 2 tâches déclarées.`);
+      const members = tasksByGroupId.get(decl.id);
+      if (!members || members.length < 2) {
+        // console.warn not available in scheduler-common (no dom/node lib)
+        // Silently skip invalid groups — caller is responsible for data integrity
         continue;
       }
-      const representative = taskById.get(decl.taskIds[0]);
-      if (!representative) {
-        console.warn(`⚠️ Groupe ${decl.type} : représentante "${decl.taskIds[0]}" introuvable.`);
-        continue;
-      }
+      const representative = members[0];
       representative.makeGroupRepresentative(decl.type);
-      for (let i = 1; i < decl.taskIds.length; i++) {
-        const member = taskById.get(decl.taskIds[i]);
-        if (!member) {
-          console.warn(`⚠️ Groupe ${decl.type} : membre "${decl.taskIds[i]}" introuvable.`);
-          continue;
-        }
-        representative.addGroupMember(member);
+      for (let i = 1; i < members.length; i++) {
+        representative.addGroupMember(members[i]);
       }
     }
   }
