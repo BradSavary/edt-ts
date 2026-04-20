@@ -348,6 +348,10 @@ export class Schedule {
             throw new Error('Aucune ressource disponible. Vérifiez que les ressources sont chargées.');
         }
 
+        // Résolution des incohérences groupe + enforced (avant l'init des ressources
+        // et le tri enforced-first, pour que isEnforced() soit stable pour la suite).
+        this._resolveGroupEnforcedConflicts();
+
         // Initialisation des ressources : première combinaison disponible pour chaque tâche.
         // L'ordre d'exploration effectif est contrôlé par _config.resourceSelection
         // dans _tryAllResourceCombinations pendant le backtracking.
@@ -424,6 +428,42 @@ export class Schedule {
         this._arrangeGroupsInTasks();
 
         this._initialized = true;
+    }
+
+    /**
+     * Résout les incohérences entre groupes de tâches et propriété `enforced`.
+     *
+     * - Groupe entièrement enforced : le groupe est dissous ; chaque tâche est traitée
+     *   individuellement comme une tâche enforced normale.
+     * - Groupe mixte (certaines enforced, d'autres non) : la propriété `enforced` est ignorée
+     *   sur les tâches concernées et le groupe est traité normalement.
+     *
+     * Doit être appelé AVANT l'initialisation des appliedResources et le tri enforced-first.
+     */
+    private _resolveGroupEnforcedConflicts(): void {
+        for (const task of this.tasks) {
+            if (!task.isGroupRepresentative()) continue;
+
+            const allInGroup = [task, ...task.getGroupMembers()];
+            const enforcedCount = allInGroup.filter(t => t.isEnforced).length;
+
+            if (enforcedCount === 0) continue; // groupe normal, rien à faire
+
+            if (enforcedCount === allInGroup.length) {
+                // Toutes enforced → dissoudre le groupe
+                const groupId = task.taskGroupId ?? task.id;
+                console.log(`⚓ Groupe "${groupId}" : toutes les tâches sont enforced → groupe dissous, traitement individuel.`);
+                task.dissolveGroup();
+            } else {
+                // Mélange → ignorer enforced sur les tâches concernées
+                const groupId = task.taskGroupId ?? task.id;
+                const enforcedTasks = allInGroup.filter(t => t.isEnforced);
+                console.warn(`⚠️ Groupe "${groupId}" : mélange enforced/non-enforced (${enforcedCount}/${allInGroup.length}) — propriété enforced ignorée sur ${enforcedTasks.map(t => `"${t.name}"`).join(', ')}.`);
+                for (const t of enforcedTasks) {
+                    t.overrideEnforced();
+                }
+            }
+        }
     }
 
     /**

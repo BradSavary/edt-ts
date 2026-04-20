@@ -36,6 +36,8 @@ class Task {
   private _groupMembers: Task[] = [];
   // Pour un membre : pointeur vers sa représentante
   private _groupRepresentative: Task | null = null;
+  // Permet d'ignorer la propriété enforced (ex: groupe mixte enforced/non-enforced)
+  private _enforcedOverridden: boolean = false;
 
   constructor(id: string, courseData: CourseTaskData, resources: Resource[] = []) {
     if (courseData.duration <= 0) {
@@ -65,7 +67,28 @@ class Task {
   }
 
   get isEnforced(): boolean {
-    return this.enforced !== undefined;
+    return this.enforced !== undefined && !this._enforcedOverridden;
+  }
+
+  /**
+   * Ignore la propriété `enforced` de cette tâche.
+   * Utilisé quand un groupe contient un mélange de tâches enforced et non-enforced.
+   */
+  overrideEnforced(): void {
+    this._enforcedOverridden = true;
+  }
+
+  /**
+   * Dissout le groupe dont cette tâche est la représentante.
+   * Tous les membres redeviennent des tâches indépendantes.
+   */
+  dissolveGroup(): void {
+    if (this._groupType === null) return;
+    for (const member of this._groupMembers) {
+      member._groupRepresentative = null;
+    }
+    this._groupType = null;
+    this._groupMembers = [];
   }
 
   get schedulable(): Availability {
