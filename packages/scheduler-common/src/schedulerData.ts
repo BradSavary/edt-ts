@@ -3,6 +3,7 @@ import { ResourcesManager } from './resourcesManager.ts';
 import { TasksManager } from './tasksManager.ts';
 import { AvailabilityManager } from './availabilityManager.ts';
 import { Task } from './task.ts';
+import type { ISchedulable } from './schedulable.ts';
 import type { ResourceGroupData, CoursesData, ConstraintsData, ResourceEntry } from './types.ts';
 
 /**
@@ -137,14 +138,16 @@ export class SchedulerData {
         if (group.length > 0) task.resources[ResourceType.GROUP].push(group);
       }
 
-      manager.addTask(task);
+      manager.addUnit(task);
     }
 
-    this._determineDependencies(manager.getAllTasks());
+    this._determineDependencies(manager.getAllUnits());
     this._tasksManager = manager;
   }
 
-  private _determineDependencies(tasks: Task[]): void {
+  private _determineDependencies(units: ISchedulable[]): void {
+    // Pour l'instant toutes les unités sont des Task — cast explicite pour accéder à getGroups()
+    const tasks = units as Task[];
     const tasksByCode = new Map<string, Task[]>();
     for (const task of tasks) {
       const list = tasksByCode.get(task.code) ?? [];

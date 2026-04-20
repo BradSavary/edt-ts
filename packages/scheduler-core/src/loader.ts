@@ -38,7 +38,7 @@ export class Loader {
       console.log(`📚 Chargement des tâches pour la semaine ${coursesData.weeks}`);
       this._data.initTasks(coursesData);
       this._currentWeek = coursesData.weeks;
-      console.log(`✅ ${this._data.tasksManager!.getTaskCount()} tâches chargées pour la semaine ${this._currentWeek}`);
+      console.log(`✅ ${this._data.tasksManager!.getUnitCount()} tâches chargées pour la semaine ${this._currentWeek}`);
     }
     return this._data.tasksManager!;
   }
@@ -69,7 +69,7 @@ export class Loader {
     console.log(`📚 Chargement des tâches pour la semaine ${weekNumber}`);
     this._data.initTasks({ weeks: weekNumber, courses: allCourses.courses });
     this._currentWeek = weekNumber;
-    console.log(`✅ ${this._data.tasksManager!.getTaskCount()} tâches chargées pour la semaine ${weekNumber}`);
+    console.log(`✅ ${this._data.tasksManager!.getUnitCount()} tâches chargées pour la semaine ${weekNumber}`);
     return this._data.tasksManager!;
   }
 
@@ -89,7 +89,7 @@ export class Loader {
     console.log(`📚 Chargement des tâches pour la semaine ${data.week}`);
     this._data.initTasks({ weeks: data.week, courses: data.courses });
     this._currentWeek = data.week;
-    console.log(`✅ ${this._data.tasksManager!.getTaskCount()} tâches chargées pour la semaine ${data.week}`);
+    console.log(`✅ ${this._data.tasksManager!.getUnitCount()} tâches chargées pour la semaine ${data.week}`);
   }
 
   // ── Utilitaires JSON ────────────────────────────────────────────────────

@@ -12,6 +12,7 @@ export type { AvailableSlot } from './availability.ts';
 // --- Modèles de ressources et tâches ---
 export { Resource, ResourceType } from './resource.ts';
 export { Task } from './task.ts';
+export type { ISchedulable } from './schedulable.ts';
 export { ResourcesManager } from './resourcesManager.ts';
 export { TasksManager } from './tasksManager.ts';
 

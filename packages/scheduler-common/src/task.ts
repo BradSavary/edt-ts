@@ -1,13 +1,14 @@
 import { Resource, ResourceType } from './resource.ts';
 import { Availability } from './availability.ts';
 import type { CourseTaskData, EnforcedData } from './types.ts';
+import type { ISchedulable } from './schedulable.ts';
 
 /**
  * Classe représentant une tâche à planifier
  * Une tâche a une durée et peut nécessiter plusieurs ressources simultanément
  * Elle peut aussi dépendre d'autres tâches (ordre de planification)
  */
-class Task {
+class Task implements ISchedulable {
  
   public readonly id: string;
   public readonly code: string;
@@ -23,8 +24,8 @@ class Task {
   // Ressources applicables à la tâche (ressources alternatives incluses)
   public readonly resources: { [K in ResourceType]: Resource[][] };
   private _schedulable: Availability | null = null;
-  private dependsOn: Task | null = null;
-  private dependentTasks: Task[] = [];
+  private dependsOn: ISchedulable | null = null;
+  private dependentUnits: ISchedulable[] = [];
 
   constructor(id: string, courseData: CourseTaskData, resources: Resource[] = []) {
     if (courseData.duration <= 0) {
@@ -128,72 +129,64 @@ class Task {
       .map(arr => arr.join(', '));
   }
 
-  setDependsOn(task: Task): void {
-    if (task === this) {
+  setDependsOn(unit: ISchedulable): void {
+    if (unit === this) {
       throw new Error('Une tâche ne peut pas dépendre d\'elle-même');
     }
 
-    if (this.wouldCreateCircularDependency(task)) {
+    if (this.wouldCreateCircularDependency(unit)) {
       throw new Error('Cette dépendance créerait une dépendance circulaire');
     }
 
     if (this.dependsOn) {
-      this.dependsOn.removeDependentTask(this);
+      this.dependsOn._removeDependentUnit(this);
     }
 
-    this.dependsOn = task;
-    task.addDependentTask(this);
-  } 
+    this.dependsOn = unit;
+    unit._addDependentUnit(this);
+  }
 
-  getDependsOn(): Task | null {
+  getDependsOn(): ISchedulable | null {
     return this.dependsOn;
   }
 
-  getDependentTasks(): Task[] {
-    return [...this.dependentTasks];
+  getDependentUnits(): ISchedulable[] {
+    return [...this.dependentUnits];
   }
 
-  hasDependentTasks(): boolean {
-    return this.dependentTasks.length > 0;
+  hasDependentUnits(): boolean {
+    return this.dependentUnits.length > 0;
   }
 
-  private addDependentTask(task: Task): void {
-    if (!this.dependentTasks.includes(task)) {
-      this.dependentTasks.push(task);
+  /** @internal — appelé uniquement par setDependsOn */
+  _addDependentUnit(unit: ISchedulable): void {
+    if (!this.dependentUnits.includes(unit)) {
+      this.dependentUnits.push(unit);
     }
   }
 
-  private removeDependentTask(task: Task): void {
-    const index = this.dependentTasks.indexOf(task);
+  /** @internal — appelé uniquement par setDependsOn */
+  _removeDependentUnit(unit: ISchedulable): void {
+    const index = this.dependentUnits.indexOf(unit);
     if (index !== -1) {
-      this.dependentTasks.splice(index, 1);
+      this.dependentUnits.splice(index, 1);
     }
   }
 
-  private wouldCreateCircularDependency(task: Task): boolean {
-    const visited = new Set<Task>();
-    
-    const checkDependency = (currentTask: Task): boolean => {
-      if (visited.has(currentTask)) {
-        return false;
+  private wouldCreateCircularDependency(unit: ISchedulable): boolean {
+    const visited = new Set<ISchedulable>();
+
+    const checkDependency = (current: ISchedulable): boolean => {
+      if (visited.has(current)) return false;
+      if (current === this) return true;
+      visited.add(current);
+      for (const dependent of current.getDependentUnits()) {
+        if (checkDependency(dependent)) return true;
       }
-      
-      if (currentTask === this) {
-        return true;
-      }
-      
-      visited.add(currentTask);
-      
-      for (const dependent of currentTask.dependentTasks) {
-        if (checkDependency(dependent)) {
-          return true;
-        }
-      }
-      
       return false;
     };
-    
-    return checkDependency(task);
+
+    return checkDependency(unit);
   }
 
   getTeacherResource(): Resource | null {

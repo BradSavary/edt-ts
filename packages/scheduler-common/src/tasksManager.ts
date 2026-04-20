@@ -1,20 +1,20 @@
-import { Task } from './task.ts';
+import type { ISchedulable } from './schedulable.ts';
 
 /**
- * Gestionnaire d'un ensemble de tâches à planifier.
+ * Gestionnaire d'un ensemble d'unités planifiables (Task ou TaskGroup).
  */
 export class TasksManager {
-  private _tasks: Task[] = [];
+  private _units: ISchedulable[] = [];
 
-  addTask(task: Task): void {
-    this._tasks.push(task);
+  addUnit(unit: ISchedulable): void {
+    this._units.push(unit);
   }
 
-  getAllTasks(): Task[] {
-    return [...this._tasks];
+  getAllUnits(): ISchedulable[] {
+    return [...this._units];
   }
 
-  getTaskCount(): number {
-    return this._tasks.length;
+  getUnitCount(): number {
+    return this._units.length;
   }
 }

@@ -3,9 +3,8 @@ import {
   Loader,
   Schedule,
 } from '@edt-ts/scheduler-core';
-import type { RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON, NeutralizedTaskInfoJSON, SchedulerConfig } from '@edt-ts/scheduler-common';
+import type { RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON, NeutralizedTaskInfoJSON, SchedulerConfig, ISchedulable } from '@edt-ts/scheduler-common';
 import { DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
-import type { Task } from '@edt-ts/scheduler-common';
 import type {
   TaskSolution,
   ScheduleSolution,
@@ -18,7 +17,7 @@ import type {
 
 function serializeSolution(solutions: TaskSolution[]): TaskSolutionJSON[] {
   return solutions.map(sol => {
-    const task = sol.task;
+    const task = sol.unit;
     const resources = task.getAllResources?.() ?? [];
     return {
       taskId: task.id,
@@ -37,7 +36,7 @@ function serializeSolution(solutions: TaskSolution[]): TaskSolutionJSON[] {
 }
 
 /** Sérialise une Task non planifiée (startTime = -1 car absence de créneau) */
-function serializeTask(task: Task): TaskSolutionJSON {
+function serializeTask(task: ISchedulable): TaskSolutionJSON {
   const resources = task.getAllResources?.() ?? [];
   return {
     taskId: task.id,
@@ -57,7 +56,7 @@ function serializeTask(task: Task): TaskSolutionJSON {
 /** Sérialise un NeutralizedTaskInfo vers NeutralizedTaskInfoJSON */
 function serializeNeutralizedTaskInfo(info: NeutralizedTaskInfo): NeutralizedTaskInfoJSON {
   return {
-    task: serializeTask(info.task),
+    task: serializeTask(info.unit),
     eliminationRound: info.eliminationRound,
     failureCount: info.failureCount,
     requiredMinutes: info.requiredMinutes,

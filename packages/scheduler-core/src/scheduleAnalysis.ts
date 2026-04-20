@@ -117,7 +117,7 @@ export class ScheduleAnalysis {
     const resourcesSet = new Set<Resource>();
     
     for (const solution of this.solutions) {
-      for (const resource of solution.task.getAllResources()) {
+      for (const resource of solution.unit.getAllResources()) {
         resourcesSet.add(resource);
       }
     }
@@ -130,24 +130,24 @@ export class ScheduleAnalysis {
    */
   analyzeResourceUsage(resourceId: string): ResourceUsageStats | null {
     const resourceTasks = this.solutions.filter(sol => 
-      sol.task.getAllResources().some(r => r.id === resourceId)
+      sol.unit.getAllResources().some(r => r.id === resourceId)
     );
 
     if (resourceTasks.length === 0) {
       return null;
     }
 
-    const resource = resourceTasks[0].task.getAllResources().find(r => r.id === resourceId);
+    const resource = resourceTasks[0].unit.getAllResources().find(r => r.id === resourceId);
     if (!resource) return null;
 
     let totalMinutes = 0;
     const tasks = resourceTasks.map(sol => {
-      const duration = sol.task.duration;
+      const duration = sol.unit.duration;
       totalMinutes += duration;
       const day = this.getDayFromMinutes(sol.startTime);
       
       return {
-        taskName: sol.task.name,
+        taskName: sol.unit.name,
         startTime: sol.startTime,
         duration,
         day,
@@ -209,11 +209,11 @@ export class ScheduleAnalysis {
       
       const stats = dailyStats.get(day)!;
       stats.taskCount++;
-      stats.totalMinutes += solution.task.duration;
+      stats.totalMinutes += solution.unit.duration;
       stats.totalHours = stats.totalMinutes / 60;
       
       // Ajouter toutes les ressources utilisées
-      for (const resource of solution.task.getAllResources()) {
+      for (const resource of solution.unit.getAllResources()) {
         stats.resourcesUsed.add(resource.id);
       }
     }
@@ -237,10 +237,10 @@ export class ScheduleAnalysis {
       
       // Calculer l'usage par jour pour cette ressource
       for (const solution of this.solutions) {
-        if (solution.task.getAllResources().some(r => r.id === resource.id)) {
+        if (solution.unit.getAllResources().some(r => r.id === resource.id)) {
           const day = this.getDayFromMinutes(solution.startTime);
           const currentUsage = dailyUsage.get(day) || 0;
-          dailyUsage.set(day, currentUsage + solution.task.duration);
+          dailyUsage.set(day, currentUsage + solution.unit.duration);
         }
       }
       
@@ -281,7 +281,7 @@ export class ScheduleAnalysis {
     
     for (const solution of this.solutions) {
       firstTaskStart = Math.min(firstTaskStart, solution.startTime);
-      lastTaskEnd = Math.max(lastTaskEnd, solution.startTime + solution.task.duration);
+      lastTaskEnd = Math.max(lastTaskEnd, solution.startTime + solution.unit.duration);
     }
     
     const totalDays = firstTaskStart === Infinity ? 0 : 
@@ -487,10 +487,10 @@ export class ScheduleAnalysis {
       const coursesByDay = new Map<number, Array<{ start: number; end: number }>>();
       
       for (const solution of this.solutions) {
-        if (solution.task.getAllResources().some(r => r.id === resource.id)) {
+        if (solution.unit.getAllResources().some(r => r.id === resource.id)) {
           const day = this.getDayFromMinutes(solution.startTime);
           const start = solution.startTime;
-          const end = start + solution.task.duration;
+          const end = start + solution.unit.duration;
           
           if (!coursesByDay.has(day)) {
             coursesByDay.set(day, []);
@@ -630,7 +630,7 @@ export class ScheduleAnalysis {
     const resourceTypeMap = new Map<string, ResourceType>();
 
     for (const solution of this.solutions) {
-      for (const resource of solution.task.getAllResources()) {
+      for (const resource of solution.unit.getAllResources()) {
         if (!resourceType || resource.type === resourceType) {
           resourcesSet.add(resource.id);
           resourceTypeMap.set(resource.id, resource.type);
@@ -658,10 +658,10 @@ export class ScheduleAnalysis {
 
       // Collecter tous les cours de cette ressource
       for (const solution of this.solutions) {
-        if (solution.task.getAllResources().some(r => r.id === resourceId)) {
+        if (solution.unit.getAllResources().some(r => r.id === resourceId)) {
           const day = this.getDayFromMinutes(solution.startTime);
           const timeOfDay = solution.startTime % (24 * 60);
-          const courseEnd = timeOfDay + solution.task.duration;
+          const courseEnd = timeOfDay + solution.unit.duration;
 
           // Déterminer la période (matin ou après-midi)
           // Matin : cours se termine au plus tard à 13h00 (fin <= 780 minutes)
@@ -691,11 +691,11 @@ export class ScheduleAnalysis {
 
             const halfDay = halfDayMap.get(key)!;
             halfDay.courseCount++;
-            halfDay.totalDuration += solution.task.duration;
+            halfDay.totalDuration += solution.unit.duration;
             halfDay.courses.push({
-              name: solution.task.name,
+              name: solution.unit.name,
               start: solution.startTime,
-              duration: solution.task.duration
+              duration: solution.unit.duration
             });
 
             totalCourses++;
