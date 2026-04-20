@@ -269,6 +269,38 @@ class Task {
   }
 
   /**
+   * Transfère le rôle de représentante à une autre tâche du groupe.
+   * `newRepresentative` doit être un membre actuel de ce groupe.
+   * Après l'appel : `newRepresentative` est représentante, `this` devient membre.
+   */
+  transferGroupTo(newRepresentative: Task): void {
+    if (this._groupType === null) {
+      throw new Error(`La tâche "${this.name}" n'est pas représentante d'un groupe.`);
+    }
+    const idx = this._groupMembers.indexOf(newRepresentative);
+    if (idx === -1) {
+      throw new Error(`La tâche "${newRepresentative.name}" n'est pas membre du groupe de "${this.name}".`);
+    }
+    const type = this._groupType;
+    const otherMembers = this._groupMembers.filter(m => m !== newRepresentative);
+
+    // Réinitialiser l'ancienne représentante
+    this._groupType = null;
+    this._groupMembers = [];
+    this._groupRepresentative = newRepresentative;
+
+    // Configurer la nouvelle représentante
+    newRepresentative._groupRepresentative = null;
+    newRepresentative._groupType = type;
+    newRepresentative._groupMembers = [this, ...otherMembers];
+
+    // Mettre à jour le pointeur représentante des autres membres
+    for (const m of otherMembers) {
+      m._groupRepresentative = newRepresentative;
+    }
+  }
+
+  /**
    * Vérifie si le schedulable de la tâche contient au moins un créneau
    * d'une durée >= à la durée de la tâche (avec les ressources actuellement appliquées)
    */

@@ -167,7 +167,8 @@ export class SchedulerData {
     for (const decl of groups) {
       const members = tasksByGroupId.get(decl.id);
       if (!members || members.length < 2) {
-        console.warn(`⚠️ Groupe ${decl.type} "${decl.id}" ignoré : moins de 2 tâches trouvées avec ce taskGroupId.`);
+        // console.warn not available in scheduler-common (no dom/node lib)
+        // Silently skip invalid groups — caller is responsible for data integrity
         continue;
       }
       const representative = members[0];

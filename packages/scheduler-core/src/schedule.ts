@@ -429,8 +429,10 @@ export class Schedule {
     /**
      * Réorganise this.tasks pour que chaque représentante de groupe soit immédiatement
      * suivie de ses membres dans l'ordre approprié.
-     * - Parallel : ordre de déclaration conservé
-     * - Sequential : membres triés par schedulable ASC (plus contraint → placé en premier)
+     * - Représentante : ré-élue comme la tâche la plus contrainte du groupe
+     *   (schedulable minimal au moment de l'appel, après initialisation des ressources).
+     * - Parallel : membres insérés dans l'ordre de déclaration après la représentante.
+     * - Sequential : membres triés par schedulable ASC (plus contraint → placé en premier).
      */
     private _arrangeGroupsInTasks(): void {
         // Collecter les IDs des membres à retirer de their position actuelle
@@ -452,18 +454,28 @@ export class Schedule {
         // (le plus contraint sera placé immédiatement après la représentante)
         for (const task of this.tasks) {
             if (!task.isGroupRepresentative()) continue;
-            if (task.getGroupType() === 'sequential') {
-                const members = task.getGroupMembers();
+
+            // Ré-élire la représentante : la tâche la plus contrainte parmi représentante + membres
+            const allInGroup = [task, ...task.getGroupMembers()];
+            const mostConstrained = allInGroup.reduce((min, t) =>
+                t.schedulable.getTotalAvailableTime() < min.schedulable.getTotalAvailableTime() ? t : min
+            );
+            if (mostConstrained !== task) {
+                task.transferGroupTo(mostConstrained);
+                console.log(`🔁 Représentante du groupe réélue : "${mostConstrained.name}" (plus contrainte que "${task.name}")`);
+            }
+
+            const currentRep = mostConstrained !== task ? mostConstrained : task;
+
+            if (currentRep.getGroupType() === 'sequential') {
+                const members = currentRep.getGroupMembers();
                 members.sort((a, b) => a.schedulable.getTotalAvailableTime() - b.schedulable.getTotalAvailableTime());
-                // Remplacer l'ordre interne : on ne peut pas modifier _groupMembers directement,
-                // mais on utilisera getGroupMembers() + l'ordre de this.tasks pour le placement.
-                // On insère simplement dans cet ordre dans this.tasks.
-                const repIndex = this.tasks.indexOf(task);
+                const repIndex = this.tasks.indexOf(currentRep);
                 this.tasks.splice(repIndex + 1, 0, ...members);
             } else {
                 // Parallel : conserver l'ordre de déclaration
-                const repIndex = this.tasks.indexOf(task);
-                this.tasks.splice(repIndex + 1, 0, ...task.getGroupMembers());
+                const repIndex = this.tasks.indexOf(currentRep);
+                this.tasks.splice(repIndex + 1, 0, ...currentRep.getGroupMembers());
             }
         }
 
