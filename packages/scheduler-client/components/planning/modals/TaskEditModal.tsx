@@ -40,15 +40,27 @@ interface ResourceSlotProps {
   values: string[];
   options: string[];
   onChange: (index: number, val: string) => void;
+  onAdd?: () => void;
 }
 
-function ResourceSlots({ label, values, options, onChange }: ResourceSlotProps) {
-  if (values.length === 0) return null;
+function ResourceSlots({ label, values, options, onChange, onAdd }: ResourceSlotProps) {
+  if (values.length === 0 && !onAdd) return null;
   return (
     <div>
-      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
-        {label}
-      </Label>
+      <div className="flex items-center justify-between mb-1.5">
+        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+          {label}
+        </Label>
+        {onAdd && (
+          <button
+            type="button"
+            onClick={onAdd}
+            className="text-xs text-primary hover:underline"
+          >
+            + Ajouter
+          </button>
+        )}
+      </div>
       {values.map((val, i) => {
         const allOptions = [...new Set([...options, val])];
         return (
@@ -116,6 +128,7 @@ export default function TaskEditModal({
             values={selRooms}
             options={roomOptions}
             onChange={(i, v) => setSelRooms((p) => p.map((x, j) => (j === i ? v : x)))}
+            onAdd={roomOptions.length > 0 && selRooms.length === 0 ? () => setSelRooms([roomOptions[0]]) : undefined}
           />
         </div>
 
