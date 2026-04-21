@@ -1,11 +1,20 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import { usePlanningStore, type TaskGroupConfig } from '@/store/usePlanningStore';
+import { useSidebarCourseDrag } from '@/hooks/useSidebarCourseDrag';
 import { Separator } from '@/components/ui/separator';
 
-type SimpleCourse = { code: string; type: string; name: string; groups?: string[] };
+type SimpleCourse = {
+  code: string;
+  type: string;
+  name: string;
+  duration: number;
+  groups?: string[];
+  teacher?: string[];
+  rooms?: string[];
+};
 
 interface GroupDrawerProps {
   parsedCourses: CourseTaskData[];
@@ -93,26 +102,12 @@ function NewGroupSection() {
         <button
           type="button"
           onClick={() => addTaskGroup(pendingType)}
-          className="shrink-0 w-2/3 text-xs font-semibold px-2 py-1.5 rounded bg-violet-500 hover:bg-violet-600 text-white transition-colors"
+          className="shrink-0 w-full text-xs font-semibold px-2 py-1.5 rounded bg-violet-500 hover:bg-violet-600 text-white transition-colors"
           title="Créer un nouveau groupe (puis glisser des cours dedans)"
         >
           + Créer un groupe
         </button>
-        {/* Toggle type compact */}
-        <button
-          type="button"
-          onClick={() => setPendingType((t) => t === 'parallel' ? 'sequential' : 'parallel')}
-          className="shrink-0 w-1/3 text-[11px] font-semibold px-1.5 py-1.5 rounded border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-800/40 transition-colors"
-          title={pendingType === 'parallel'
-            ? '∥ Parallèle : même créneau. Cliquer pour basculer en Séquentiel.'
-            : '→ Séquentiel : consécutif. Cliquer pour basculer en Parallèle.'}
-        >
-          {pendingType === 'parallel' ? '∥ Parallèle' : '→ Séquentiel'}
-        </button>
       </div>
-      <p className="text-[10px] text-muted-foreground/70">
-        Choisissez le type, cliquez sur +, puis glissez des cours dans le groupe.
-      </p>
     </div>
   );
 }
@@ -160,7 +155,7 @@ function GroupCard({ group, parsedCourses }: GroupCardProps) {
         </button>
       </div>
 
-      {/* Membres — drag & drop pour réordonner */}
+      {/* Membres — drag & drop pour réordonner + drop sur calendrier */}
       <div className="flex flex-col gap-1">
         {group.courseKeys.map((key, idx) => {
           const courseIdx = parseInt(key, 10);
@@ -168,8 +163,6 @@ function GroupCard({ group, parsedCourses }: GroupCardProps) {
           return (
             <div
               key={key}
-              draggable
-              onDragStart={() => { dragIndexRef.current = idx; }}
               onDragOver={(e) => { e.preventDefault(); setDragOverIndex(idx); }}
               onDragLeave={() => setDragOverIndex(null)}
               onDrop={() => {
@@ -179,24 +172,43 @@ function GroupCard({ group, parsedCourses }: GroupCardProps) {
                 dragIndexRef.current = null;
                 setDragOverIndex(null);
               }}
-              onDragEnd={() => { dragIndexRef.current = null; setDragOverIndex(null); }}
-              className={`flex items-center justify-between gap-1 text-xs rounded px-1.5 py-1 cursor-grab active:cursor-grabbing transition-colors ${
+              className={`flex items-center gap-1 text-xs rounded px-1.5 py-1 transition-colors ${
                 dragOverIndex === idx
                   ? 'bg-violet-100 dark:bg-violet-900/40 border border-violet-400'
                   : 'bg-muted/40'
               }`}
             >
-              <span className="text-muted-foreground/50 mr-1 select-none">⠿</span>
-              <span className="flex-1 min-w-0">
-                <span className="font-medium">{course?.code ?? '?'}</span>{' '}
-                <span className="text-muted-foreground">{course?.type ?? ''}</span>
-                {course?.name && (
-                  <span className="text-muted-foreground/70 ml-1">{course.name}</span>
+              {/* Poignée HTML5 pour réordonner */}
+              <span
+                draggable
+                onDragStart={() => { dragIndexRef.current = idx; }}
+                onDragEnd={() => { dragIndexRef.current = null; setDragOverIndex(null); }}
+                className="text-muted-foreground/50 select-none cursor-grab active:cursor-grabbing shrink-0 mr-1"
+              >⠿</span>
+              {/* Zone FC-draggable vers le calendrier */}
+              <div
+                data-course-key={String(courseIdx)}
+                data-title={`${course?.code ?? '?'} ${course?.type ?? ''}`}
+                data-duration={course?.duration ?? 60}
+                className="flex-1 min-w-0 cursor-grab active:cursor-grabbing"
+              >
+                <div className="truncate">
+                  <span className="font-medium">{course?.code ?? '?'}</span>{' '}
+                  <span className="text-muted-foreground">{course?.type ?? ''}</span>
+                  {course?.name && <span className="text-muted-foreground/70 ml-1">{course.name}</span>}
+                </div>
+                {course?.teacher && course.teacher.length > 0 && (
+                  <div className="truncate text-muted-foreground/70">{course.teacher.join(', ')}</div>
+                )}
+                {course?.rooms && course.rooms.length > 0 ? (
+                  <div className="truncate text-muted-foreground/60 italic">{course.rooms.join(', ')}</div>
+                ) : (
+                  <div className="truncate text-red-400/70 dark:text-red-500/70 italic text-[10px]">Pas de salle par défaut</div>
                 )}
                 {course?.groups && course.groups.length > 0 && (
-                  <span className="text-muted-foreground/60 ml-1">({course.groups.join(', ')})</span>
+                  <div className="truncate text-muted-foreground/60">({course.groups.join(', ')})</div>
                 )}
-              </span>
+              </div>
               <button
                 type="button"
                 onClick={() => removeCourseFromGroup(group.id, key)}
@@ -225,9 +237,24 @@ export function GroupDrawer({ parsedCourses }: GroupDrawerProps) {
 
   // Transformation interne : CourseTaskData → format simplifié pour GroupCard
   const simplifiedCourses = useMemo<SimpleCourse[]>(
-    () => parsedCourses.map((c) => ({ code: c.code, type: c.type, name: c.name, groups: c.groups.flat() as string[] })),
+    () => parsedCourses.map((c) => ({
+      code: c.code,
+      type: c.type,
+      name: c.name,
+      duration: c.duration,
+      groups: c.groups.flat() as string[],
+      teacher: c.teacher.flat() as string[],
+      rooms: c.rooms.flat() as string[],
+    })),
     [parsedCourses],
   );
+
+  // Ref pour le container FC Draggable
+  const [drawerContainer, setDrawerContainer] = useState<HTMLDivElement | null>(null);
+  const drawerContainerRef = useCallback((node: HTMLDivElement | null) => setDrawerContainer(node), []);
+
+  // Drag vers le calendrier depuis les GroupCards
+  useSidebarCourseDrag({ container: drawerContainer, courses: parsedCourses });
 
   // Déclenche un resize après la transition (200ms) pour que FullCalendar recalcule sa taille
   useEffect(() => {
@@ -239,24 +266,13 @@ export function GroupDrawer({ parsedCourses }: GroupDrawerProps) {
 
   return (
     <div className="flex shrink-0">
-      {/* Arrow toggle button on the left edge */}
-      <button
-        type="button"
-        onClick={toggleGroupDrawer}
-        className="self-center h-16 w-5 flex items-center justify-center bg-card border border-border rounded-l text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        title={groupDrawerOpen ? 'Fermer le panneau groupes' : 'Ouvrir le panneau groupes'}
-        aria-label={groupDrawerOpen ? 'Fermer' : 'Ouvrir'}
-      >
-        {groupDrawerOpen ? '›' : '‹'}
-      </button>
-
       <aside
-        className={`bg-card border-l border-border flex flex-col overflow-hidden transition-all duration-200 ${
+        className={`bg-card border-r border-border flex flex-col overflow-hidden transition-all duration-200 ${
           groupDrawerOpen ? 'w-72' : 'w-0'
         }`}
         aria-hidden={!groupDrawerOpen}
       >
-        <div className="flex flex-col gap-3 p-4 overflow-y-auto h-full min-w-72">
+        <div ref={drawerContainerRef} className="flex flex-col gap-3 p-4 overflow-y-auto h-full min-w-72">
           <div>
             <h2 className="text-sm font-semibold">Groupes de tâches</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -296,6 +312,17 @@ export function GroupDrawer({ parsedCourses }: GroupDrawerProps) {
           )}
         </div>
       </aside>
+
+      {/* Arrow toggle button on the right edge */}
+      <button
+        type="button"
+        onClick={toggleGroupDrawer}
+        className="self-center h-16 w-5 flex items-center justify-center bg-card border border-border rounded-r text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        title={groupDrawerOpen ? 'Fermer le panneau groupes' : 'Ouvrir le panneau groupes'}
+        aria-label={groupDrawerOpen ? 'Fermer' : 'Ouvrir'}
+      >
+        {groupDrawerOpen ? '‹' : '›'}
+      </button>
     </div>
   );
 }

@@ -60,7 +60,12 @@ export default function CourseGroupList({ courses, groupBy, enforcedMap }: Props
             onClick={() => toggleGroup(key)}
             className="w-full flex items-center justify-between px-2 py-1.5 h-auto text-xs font-semibold text-left rounded bg-muted hover:bg-muted/80"
           >
-            <span className="truncate">{key}</span>
+            <span className="truncate">
+              {key}
+              {groupBy === 'code' && items[0]?.course.name && (
+                <span className="font-normal text-muted-foreground ml-1">{items[0].course.name}</span>
+              )}
+            </span>
             <span className="flex items-center gap-1.5 shrink-0 text-muted-foreground">
               <span>{items.length}</span>
               <span className="text-[10px]">{openGroups.has(key) ? '▲' : '▼'}</span>

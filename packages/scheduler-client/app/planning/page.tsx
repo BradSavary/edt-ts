@@ -55,6 +55,8 @@ export default function PlanningPage() {
 
         <SidebarLeft parsedCourses={parsedCourses} />
 
+        <GroupDrawer parsedCourses={parsedCourses} />
+
         <main className="flex-1 overflow-hidden p-4 flex flex-col">
           {scheduleResult && scheduleResult.solutions.length > 1 && (
             <div className="flex flex-wrap gap-1 mb-2 shrink-0">
@@ -78,8 +80,6 @@ export default function PlanningPage() {
             parsedCourses={parsedCourses}
           />
         </main>
-
-        <GroupDrawer parsedCourses={parsedCourses} />
 
       </div>
 

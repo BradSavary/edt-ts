@@ -33,9 +33,14 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
 
   useSidebarCourseDrag({ container: cardContainer, courses: parsedCourses });
 
-  const week = selectedWeek !== null ? String(selectedWeek) : '1';
+  const [weekInput, setWeekInput] = useState<string>(selectedWeek !== null ? String(selectedWeek) : '');
 
   function handleSetWeek(v: string) {
+    setWeekInput(v);
+    if (v === '') {
+      setSelectedWeek(null);
+      return;
+    }
     const n = parseInt(v, 10);
     if (!isNaN(n) && n >= 1 && n <= 53) setSelectedWeek(n);
   }
@@ -56,9 +61,8 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
               type="number"
               min="1"
               max="53"
-              value={week}
+              value={weekInput}
               onChange={(e) => handleSetWeek(e.target.value)}
-              required
             />
           </div>
 
@@ -82,7 +86,7 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
           <Separator />
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Cours S{week}
+              Cours {weekInput ? `S${weekInput}` : ''}
             </p>
             <div className="flex items-center gap-1">
               <Badge variant="secondary">{parsedCourses.length} cours</Badge>

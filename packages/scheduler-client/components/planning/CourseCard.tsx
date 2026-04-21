@@ -21,6 +21,11 @@ function formatEntries(entries: ResourceEntry[]): string {
 export default function CourseCard({ courseKey, course, enforced }: Props) {
   const teacherStr = formatEntries(course.teacher);
   const groupsStr = formatEntries(course.groups);
+  const MAX_ROOMS = 2;
+  const roomsStr = course.rooms && course.rooms.length > 0
+    ? course.rooms.slice(0, MAX_ROOMS).map((e) => (Array.isArray(e) ? e.join(' | ') : e)).join(', ') +
+      (course.rooms.length > MAX_ROOMS ? ', …' : '')
+    : '';
   const taskGroups = usePlanningStore((s) => s.taskGroups);
   const groupInfo = getCourseGroupInfo(taskGroups, courseKey);
 
@@ -63,6 +68,14 @@ export default function CourseCard({ courseKey, course, enforced }: Props) {
         )}
         {groupsStr && (
           <div className="truncate text-muted-foreground/70">{groupsStr}</div>
+        )}
+        {roomsStr ? (
+          <div className="truncate text-muted-foreground/60 italic">{roomsStr}</div>
+        ) : (
+          <div className="truncate text-red-400/70 dark:text-red-500/70 italic text-[10px]">Pas de salle par défaut</div>
+        )}
+        {!teacherStr && (
+          <div className="truncate text-red-400/70 dark:text-red-500/70 italic text-[10px]">Pas d&apos;enseignant par défaut</div>
         )}
         {enforced && (
           <div className="mt-1 text-green-600 dark:text-green-400 font-medium">📌 Imposé</div>
