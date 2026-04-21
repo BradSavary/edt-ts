@@ -20,6 +20,24 @@ export interface ConstraintsData {
 }
 
 /**
+ * Type d'un groupe de tâches.
+ *  - parallel  : toutes les tâches démarrent au même instant
+ *  - sequential : les tâches s'enchaînent sans gap (fin de l'une = début de la suivante)
+ */
+export type TaskGroupType = 'parallel' | 'sequential';
+
+/**
+ * Interface minimale d'un groupe de tâches, utilisée par Task pour référencer
+ * son groupe sans créer de dépendance circulaire (task.ts ↔ taskGroup.ts).
+ */
+export interface ITaskGroup {
+  readonly id: string;
+  readonly groupType: TaskGroupType;
+  readonly name: string;
+  readonly code: string;
+}
+
+/**
  * Un élément de ressource est soit un identifiant unique (string),
  * soit un groupe d'alternatives dont une seule sera choisie (string[]).
  *

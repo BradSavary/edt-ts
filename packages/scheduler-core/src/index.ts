@@ -9,6 +9,13 @@
 export { Schedule } from './schedule.js';
 export type { ScheduleSolution, TaskSolution, NeutralizedTaskInfo, ResourceAvailabilitySnapshot } from './schedule.js';
 
+// --- Nouveau moteur (ISchedulingUnit) ---
+export { Scheduler } from './scheduler.js';
+export type { SchedulerSolution, NeutralizedUnitInfo } from './scheduler.js';
+export { TaskUnit } from './taskUnit.js';
+export { TaskGroupUnit } from './taskGroupUnit.js';
+export type { ISchedulingUnit, SchedulingResult, UnitSolution } from './schedulingUnit.js';
+
 // --- Modèles de données ---
 export { Task } from '@edt-ts/scheduler-common';
 export { Resource, ResourceType } from '@edt-ts/scheduler-common';
