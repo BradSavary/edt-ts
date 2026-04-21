@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -31,6 +32,8 @@ interface Props {
   teacherOptions: string[];
   groupOptions: string[];
   roomOptions: string[];
+  isEnforced?: boolean;
+  onRemoveEnforced?: () => void;
   onConfirm: (update: TaskEditUpdate) => void;
   onCancel: () => void;
 }
@@ -40,44 +43,85 @@ interface ResourceSlotProps {
   values: string[];
   options: string[];
   onChange: (index: number, val: string) => void;
-  onAdd?: () => void;
+  onAdd: (value: string) => void;
+  onRemove: (index: number) => void;
 }
 
-function ResourceSlots({ label, values, options, onChange, onAdd }: ResourceSlotProps) {
-  if (values.length === 0 && !onAdd) return null;
+function ResourceSlots({ label, values, options, onChange, onAdd, onRemove }: ResourceSlotProps) {
+  const [customInput, setCustomInput] = useState('');
+
+  const nextDefault = options.find((o) => !values.includes(o));
+
+  function handleCustomAdd() {
+    const v = customInput.trim();
+    if (v) { onAdd(v); setCustomInput(''); }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
           {label}
         </Label>
-        {onAdd && (
+        {nextDefault && (
           <button
             type="button"
-            onClick={onAdd}
+            onClick={() => onAdd(nextDefault)}
             className="text-xs text-primary hover:underline"
           >
             + Ajouter
           </button>
         )}
       </div>
+
       {values.map((val, i) => {
         const allOptions = [...new Set([...options, val])];
         return (
-          <Select key={i} value={val} onValueChange={(v) => onChange(i, v)}>
-            <SelectTrigger className="w-full mb-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {allOptions.map((opt) => (
-                <SelectItem key={opt} value={opt}>
-                  {opt}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div key={i} className="flex gap-1 mb-1">
+            <Select value={val} onValueChange={(v) => onChange(i, v)}>
+              <SelectTrigger className="flex-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {allOptions.map((opt) => (
+                  <SelectItem key={opt} value={opt}>
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <button
+              type="button"
+              onClick={() => onRemove(i)}
+              className="shrink-0 text-muted-foreground hover:text-destructive text-sm px-2"
+              title="Supprimer"
+            >
+              ×
+            </button>
+          </div>
         );
       })}
+
+      {/* Saisie manuelle d'un ID personnalisé */}
+      <div className="flex gap-1 mt-1">
+        <Input
+          value={customInput}
+          onChange={(e) => setCustomInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCustomAdd(); } }}
+          placeholder="Ressource personnalisée…"
+          className="h-7 text-xs flex-1"
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={handleCustomAdd}
+          disabled={!customInput.trim()}
+          className="h-7 px-2 text-xs"
+        >
+          +
+        </Button>
+      </div>
     </div>
   );
 }
@@ -90,6 +134,8 @@ export default function TaskEditModal({
   teacherOptions,
   groupOptions,
   roomOptions,
+  isEnforced,
+  onRemoveEnforced,
   onConfirm,
   onCancel,
 }: Props) {
@@ -116,19 +162,24 @@ export default function TaskEditModal({
             values={selTeachers}
             options={teacherOptions}
             onChange={(i, v) => setSelTeachers((p) => p.map((x, j) => (j === i ? v : x)))}
+            onAdd={(v) => setSelTeachers((p) => [...p, v])}
+            onRemove={(i) => setSelTeachers((p) => p.filter((_, j) => j !== i))}
           />
           <ResourceSlots
             label="Groupe(s)"
             values={selGroups}
             options={groupOptions}
             onChange={(i, v) => setSelGroups((p) => p.map((x, j) => (j === i ? v : x)))}
+            onAdd={(v) => setSelGroups((p) => [...p, v])}
+            onRemove={(i) => setSelGroups((p) => p.filter((_, j) => j !== i))}
           />
           <ResourceSlots
             label="Salle(s)"
             values={selRooms}
             options={roomOptions}
             onChange={(i, v) => setSelRooms((p) => p.map((x, j) => (j === i ? v : x)))}
-            onAdd={roomOptions.length > 0 && selRooms.length === 0 ? () => setSelRooms([roomOptions[0]]) : undefined}
+            onAdd={(v) => setSelRooms((p) => [...p, v])}
+            onRemove={(i) => setSelRooms((p) => p.filter((_, j) => j !== i))}
           />
         </div>
 
@@ -140,6 +191,16 @@ export default function TaskEditModal({
             Confirmer
           </Button>
         </div>
+
+        {isEnforced && onRemoveEnforced && (
+          <Button
+            variant="outline"
+            className="w-full border-destructive text-destructive hover:bg-destructive/10"
+            onClick={() => { onRemoveEnforced(); onCancel(); }}
+          >
+            Retirer l&apos;imposition
+          </Button>
+        )}
       </DialogContent>
     </Dialog>
   );

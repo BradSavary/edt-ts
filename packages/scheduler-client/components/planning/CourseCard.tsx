@@ -10,6 +10,7 @@ interface Props {
   courseKey: string;
   course: CourseTaskData;
   enforced: boolean;
+  onEdit?: () => void;
 }
 
 function formatEntries(entries: ResourceEntry[]): string {
@@ -18,7 +19,7 @@ function formatEntries(entries: ResourceEntry[]): string {
     .join(', ');
 }
 
-export default function CourseCard({ courseKey, course, enforced }: Props) {
+export default function CourseCard({ courseKey, course, enforced, onEdit }: Props) {
   const teacherStr = formatEntries(course.teacher);
   const groupsStr = formatEntries(course.groups);
   const MAX_ROOMS = 2;
@@ -49,6 +50,16 @@ export default function CourseCard({ courseKey, course, enforced }: Props) {
             <span className="font-normal text-muted-foreground">{course.type}</span>
           </span>
           <div className="flex items-center gap-1 shrink-0">
+            {onEdit && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                className="text-muted-foreground hover:text-foreground text-[11px] px-1"
+                title="Modifier les ressources"
+              >
+                ✏
+              </button>
+            )}
             {groupInfo && (
               <Badge
                 variant="outline"

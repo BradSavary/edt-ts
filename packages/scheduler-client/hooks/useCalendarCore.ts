@@ -224,21 +224,35 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       handleBlockedZoneRemove(ext.blockedZoneId);
       return;
     }
-    setSelected({
+
+    const startTime = arg.event.start
+      ? Math.round((arg.event.start.getTime() - monday.getTime()) / 60000)
+      : 0;
+
+    const teacherOptions = resources
+      .filter((g) => g.resourceType === 'teacher')
+      .flatMap((g) => g.resources.map((r) => r.id));
+    const groupOptions = resources
+      .filter((g) => g.resourceType === 'group')
+      .flatMap((g) => g.resources.map((r) => r.id));
+    const roomOptions = resources
+      .filter((g) => g.resourceType === 'room')
+      .flatMap((g) => g.resources.map((r) => r.id));
+
+    setPendingEdit({
+      taskId: arg.event.id,
+      courseKey: ext.courseKey,
       title: arg.event.title,
-      name: ext.name ?? '',
-      code: ext.code ?? '',
-      type: ext.type ?? '',
       teachers: ext.teachers ?? [],
       groups: ext.groups ?? [],
       rooms: ext.rooms ?? [],
-      start: arg.event.start!,
-      end: arg.event.end!,
+      startTime,
       durationMin: ext.durationMin ?? 0,
       isEnforced: ext.isEnforced,
-      courseKey: ext.courseKey,
-      eventId: arg.event.id,
       isNeutralizedPlaced: ext.isNeutralizedPlaced,
+      teacherOptions,
+      groupOptions,
+      roomOptions,
     });
   }
 

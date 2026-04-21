@@ -11,6 +11,7 @@ interface Props {
   courses: CourseTaskData[];
   groupBy: GroupBy;
   enforcedMap: Record<string, EnforcedData>;
+  onEditCourse?: (courseKey: string, course: CourseTaskData) => void;
 }
 
 function getTeacherLabel(teacher: ResourceEntry[]): string {
@@ -20,7 +21,7 @@ function getTeacherLabel(teacher: ResourceEntry[]): string {
   return first;
 }
 
-export default function CourseGroupList({ courses, groupBy, enforcedMap }: Props) {
+export default function CourseGroupList({ courses, groupBy, enforcedMap, onEditCourse }: Props) {
   const groups = useMemo(() => {
     const map = new Map<string, { index: number; course: CourseTaskData }[]>();
     courses.forEach((course, i) => {
@@ -79,6 +80,7 @@ export default function CourseGroupList({ courses, groupBy, enforcedMap }: Props
                   courseKey={String(index)}
                   course={course}
                   enforced={enforcedMap[String(index)] !== undefined}
+                  onEdit={onEditCourse ? () => onEditCourse(String(index), course) : undefined}
                 />
               ))}
             </div>

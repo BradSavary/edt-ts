@@ -3,9 +3,11 @@
 import { useCallback, useState } from 'react';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import { usePlanningStore } from '@/store/usePlanningStore';
+import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { useSidebarCourseDrag } from '@/hooks/useSidebarCourseDrag';
 import CourseGroupList, { type GroupBy } from '@/components/planning/CourseGroupList';
 import { SchedulerConfigDialog } from '@/components/planning/SchedulerConfigDialog';
+import TaskEditModal, { type TaskEditUpdate } from '@/components/planning/modals/TaskEditModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +29,10 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
   const groupDrawerOpen = usePlanningStore((s) => s.groupDrawerOpen);
   const toggleGroupDrawer = usePlanningStore((s) => s.toggleGroupDrawer);
 
+  const allCourses = useSchedulerStore((s) => s.allCourses);
+  const setCourses = useSchedulerStore((s) => s.setCourses);
+  const resources = useSchedulerStore((s) => s.resources);
+
   const [groupBy, setGroupBy] = useState<GroupBy>('code');
   const [cardContainer, setCardContainer] = useState<HTMLDivElement | null>(null);
   const cardContainerRef = useCallback((node: HTMLDivElement | null) => setCardContainer(node), []);
@@ -34,6 +40,35 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
   useSidebarCourseDrag({ container: cardContainer, courses: parsedCourses });
 
   const [weekInput, setWeekInput] = useState<string>(selectedWeek !== null ? String(selectedWeek) : '');
+
+  // ── Edit modal state ───────────────────────────────────────────────────
+  const [editingCourse, setEditingCourse] = useState<{ courseKey: string; course: CourseTaskData } | null>(null);
+
+  function handleEditCourse(courseKey: string, course: CourseTaskData) {
+    setEditingCourse({ courseKey, course });
+  }
+
+  function handleEditConfirm(update: TaskEditUpdate) {
+    if (!editingCourse) return;
+    const courseRef = editingCourse.course;
+    const updated = allCourses.map((c) =>
+      c === courseRef
+        ? { ...c, teacher: update.teachers, groups: update.groups, rooms: update.rooms }
+        : c,
+    );
+    setCourses(updated);
+    setEditingCourse(null);
+  }
+
+  const teacherOptions = resources
+    .filter((g) => g.resourceType === 'teacher')
+    .flatMap((g) => g.resources.map((r) => r.id));
+  const groupOptions = resources
+    .filter((g) => g.resourceType === 'group')
+    .flatMap((g) => g.resources.map((r) => r.id));
+  const roomOptions = resources
+    .filter((g) => g.resourceType === 'room')
+    .flatMap((g) => g.resources.map((r) => r.id));
 
   function handleSetWeek(v: string) {
     setWeekInput(v);
@@ -123,9 +158,25 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
               courses={parsedCourses}
               groupBy={groupBy}
               enforcedMap={enforcedMap}
+              onEditCourse={handleEditCourse}
             />
           </div>
         </div>
+      )}
+
+      {/* Modal d'édition des ressources d'un cours */}
+      {editingCourse && (
+        <TaskEditModal
+          title={`${editingCourse.course.code} ${editingCourse.course.type} — ${editingCourse.course.name}`}
+          teachers={editingCourse.course.teacher.flat() as string[]}
+          groups={editingCourse.course.groups.flat() as string[]}
+          rooms={editingCourse.course.rooms.flat() as string[]}
+          teacherOptions={teacherOptions}
+          groupOptions={groupOptions}
+          roomOptions={roomOptions}
+          onConfirm={handleEditConfirm}
+          onCancel={() => setEditingCourse(null)}
+        />
       )}
     </aside>
   );

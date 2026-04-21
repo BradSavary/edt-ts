@@ -144,8 +144,6 @@ export default function ScheduleCalendar({ solutions, parsedCourses = [] }: Prop
     calendarRef,
     calendarWrapperRef,
     calendarEvents,
-    selected,
-    setSelected,
     pendingDrop,
     pendingEdit,
     setPendingEdit,
@@ -159,7 +157,6 @@ export default function ScheduleCalendar({ solutions, parsedCourses = [] }: Prop
     removeEnforced,
     handleModalConfirm,
     handleModalCancel,
-    handleEditRequest,
     handleEditConfirm,
   } = useCalendarCore(solutions, parsedCourses);
 
@@ -211,14 +208,6 @@ export default function ScheduleCalendar({ solutions, parsedCourses = [] }: Prop
           />
         </div>
 
-        {selected && (
-          <EventDetailPopup
-            detail={selected}
-            onClose={() => setSelected(null)}
-            onRemoveEnforced={removeEnforced}
-            onEditResources={handleEditRequest}
-          />
-        )}
       </div>
 
       {pendingDrop && (
@@ -240,6 +229,12 @@ export default function ScheduleCalendar({ solutions, parsedCourses = [] }: Prop
           teacherOptions={pendingEdit.teacherOptions}
           groupOptions={pendingEdit.groupOptions}
           roomOptions={pendingEdit.roomOptions}
+          isEnforced={pendingEdit.isEnforced}
+          onRemoveEnforced={
+            pendingEdit.isEnforced && pendingEdit.courseKey
+              ? () => { removeEnforced(pendingEdit.courseKey!); setPendingEdit(null); }
+              : undefined
+          }
           onConfirm={handleEditConfirm}
           onCancel={() => setPendingEdit(null)}
         />
