@@ -21,6 +21,30 @@ export interface PlacedTaskOverride {
 }
 
 /**
+ * Tâche planifiée déposée manuellement dans la zone de neutralisation ("pioche").
+ */
+export interface ManuallyNeutralizedTask {
+  taskId: string;
+  code: string;
+  name: string;
+  type: string;
+  duration: number;
+  teachers: string[];
+  groups: string[];
+  rooms: string[];
+}
+
+/**
+ * État mutable par solution (overrides, placements, pioche).
+ * Sauvegardé et restauré lors des changements de solution.
+ */
+export interface SolutionState {
+  taskOverrides: Record<string, PlacedTaskOverride>;
+  placedNeutralizedTasks: PlacedNeutralizedTask[];
+  manuallyNeutralizedTasks: ManuallyNeutralizedTask[];
+}
+
+/**
  * Tâche neutralisée placée manuellement sur le calendrier.
  * Contient les données complètes nécessaires à l'affichage.
  */
@@ -57,6 +81,19 @@ export interface PlanningStore {
   taskOverrides: Record<string, PlacedTaskOverride>;
   /** Tâches neutralisées placées manuellement sur le calendrier. */
   placedNeutralizedTasks: PlacedNeutralizedTask[];
+  /** Clés (indices dans parsedCourses) des tâches pré-neutralisées avant planification. */
+  preNeutralizedKeys: string[];
+  togglePreNeutralized: (courseKey: string) => void;
+  /** Tâches planifiées déposées dans la zone de neutralisation ("pioche"). */
+  manuallyNeutralizedTasks: ManuallyNeutralizedTask[];
+  addManuallyNeutralizedTask: (task: ManuallyNeutralizedTask) => void;
+  removeManuallyNeutralizedTask: (taskId: string) => void;
+  /** État mutable sauvegardé par solution (overrides, pioche, placements). */
+  solutionStates: Record<number, SolutionState>;
+  /** Entrées synthétiques pour les tâches pré-neutralisées (communes à toutes les solutions). */
+  syntheticNeutralizedTasks: NeutralizedTaskInfoJSON[];
+  /** Remet la solution courante à son état initial du moteur. */
+  resetCurrentSolution: () => void;
 
   // Filtrage
   searchQuery: string;
@@ -136,6 +173,10 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
       activeNeutralizedTasks: [],
       taskOverrides: {},
       placedNeutralizedTasks: [],
+      preNeutralizedKeys: [],
+      manuallyNeutralizedTasks: [],
+      solutionStates: {},
+      syntheticNeutralizedTasks: [],
       blockedZones: [],
       status: null,
       taskGroups: [],
@@ -147,15 +188,24 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
   scheduleResult: null,
   selectedSolutionIndex: 0,
   setSelectedSolutionIndex: (index) => {
-    const { scheduleResult } = get();
+    const { scheduleResult, selectedSolutionIndex, taskOverrides, placedNeutralizedTasks, manuallyNeutralizedTasks, solutionStates, syntheticNeutralizedTasks } = get();
     if (!scheduleResult) return;
+    // Sauvegarder l'état courant avant de changer de solution
+    const newSolutionStates: Record<number, SolutionState> = {
+      ...solutionStates,
+      [selectedSolutionIndex]: { taskOverrides, placedNeutralizedTasks, manuallyNeutralizedTasks },
+    };
+    // Restaurer l'état sauvegardé pour la nouvelle solution (ou état initial)
+    const saved = newSolutionStates[index];
     const solution = scheduleResult.solutions[index];
     set({
       selectedSolutionIndex: index,
+      solutionStates: newSolutionStates,
       activeSolution: solution?.tasks ?? [],
-      activeNeutralizedTasks: solution?.neutralizedTasks ?? [],
-      taskOverrides: {},
-      placedNeutralizedTasks: [],
+      activeNeutralizedTasks: [...(solution?.neutralizedTasks ?? []), ...syntheticNeutralizedTasks],
+      taskOverrides: saved?.taskOverrides ?? {},
+      placedNeutralizedTasks: saved?.placedNeutralizedTasks ?? [],
+      manuallyNeutralizedTasks: saved?.manuallyNeutralizedTasks ?? [],
     });
   },
 
@@ -163,6 +213,44 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
   activeNeutralizedTasks: [],
   taskOverrides: {},
   placedNeutralizedTasks: [],
+  preNeutralizedKeys: [],
+  togglePreNeutralized: (courseKey) => {
+    set((state) => ({
+      preNeutralizedKeys: state.preNeutralizedKeys.includes(courseKey)
+        ? state.preNeutralizedKeys.filter((k) => k !== courseKey)
+        : [...state.preNeutralizedKeys, courseKey],
+    }));
+  },
+  manuallyNeutralizedTasks: [],
+  solutionStates: {},
+  syntheticNeutralizedTasks: [],
+  resetCurrentSolution: () => {
+    const { scheduleResult, selectedSolutionIndex, solutionStates, syntheticNeutralizedTasks } = get();
+    if (!scheduleResult) return;
+    const solution = scheduleResult.solutions[selectedSolutionIndex];
+    const newStates = { ...solutionStates };
+    delete newStates[selectedSolutionIndex];
+    set({
+      solutionStates: newStates,
+      taskOverrides: {},
+      placedNeutralizedTasks: [],
+      manuallyNeutralizedTasks: [],
+      activeNeutralizedTasks: [...(solution?.neutralizedTasks ?? []), ...syntheticNeutralizedTasks],
+    });
+  },
+  addManuallyNeutralizedTask: (task) => {
+    set((state) => ({
+      manuallyNeutralizedTasks: [
+        ...state.manuallyNeutralizedTasks.filter((t) => t.taskId !== task.taskId),
+        task,
+      ],
+    }));
+  },
+  removeManuallyNeutralizedTask: (taskId) => {
+    set((state) => ({
+      manuallyNeutralizedTasks: state.manuallyNeutralizedTasks.filter((t) => t.taskId !== taskId),
+    }));
+  },
 
   searchQuery: '',
   setSearchQuery: (query) => set({ searchQuery: query }),
@@ -240,7 +328,7 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
   },
 
   runSchedule: async (mode) => {
-    const { selectedWeek, enforcedMap, blockedZones, taskGroups } = get();
+    const { selectedWeek, enforcedMap, blockedZones, taskGroups, preNeutralizedKeys } = get();
     if (selectedWeek === null) {
       set({ status: { message: '❌ Semaine non sélectionnée.', kind: 'err' } });
       return;
@@ -255,7 +343,40 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
       set({ status: { message: `❌ Aucun cours pour la semaine ${selectedWeek}. Importez le fichier CSV.`, kind: 'err' } });
       return;
     }
-    const { coursesWithGroups, declarations } = buildTaskGroupData(coursesForWeek, taskGroups);
+
+    // Filtrage des tâches pré-neutralisées
+    const preNeutSet = new Set(preNeutralizedKeys);
+    const filteredCourses: typeof coursesForWeek = [];
+    const oldToNew = new Map<number, number>();
+    const preNeutEntries: { oldKey: string; course: typeof coursesForWeek[0] }[] = [];
+
+    coursesForWeek.forEach((course, oldIdx) => {
+      const key = String(oldIdx);
+      if (preNeutSet.has(key)) {
+        preNeutEntries.push({ oldKey: key, course });
+      } else {
+        oldToNew.set(oldIdx, filteredCourses.length);
+        filteredCourses.push(course);
+      }
+    });
+
+    // Remapping de enforcedMap et taskGroups vers les nouveaux indices
+    const remappedEnforced: Record<string, EnforcedData> = {};
+    for (const [oldKey, data] of Object.entries(enforcedMap)) {
+      const newIdx = oldToNew.get(parseInt(oldKey, 10));
+      if (newIdx !== undefined) remappedEnforced[String(newIdx)] = data;
+    }
+    const remappedTaskGroups: TaskGroupConfig[] = taskGroups.map((g) => ({
+      ...g,
+      courseKeys: g.courseKeys
+        .map((k) => {
+          const newIdx = oldToNew.get(parseInt(k, 10));
+          return newIdx !== undefined ? String(newIdx) : null;
+        })
+        .filter((k): k is string => k !== null),
+    }));
+
+    const { coursesWithGroups, declarations } = buildTaskGroupData(filteredCourses, remappedTaskGroups);
     set({ isLoading: true, status: { message: 'Planification en cours…', kind: 'inf' } });
     try {
       const result = await runScheduleRequestFromData({
@@ -263,20 +384,48 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
         courses: coursesWithGroups,
         resources,
         constraintsData: constraints as ConstraintsData | null,
-        enforcedMap,
+        enforcedMap: remappedEnforced,
         blockedZones,
         mode,
         schedulerConfig,
         groups: declarations.length > 0 ? declarations : undefined,
       });
       const best = result.solutions[0];
+
+      // Entrées synthétiques pour les tâches pré-neutralisées
+      const syntheticNeutralized: NeutralizedTaskInfoJSON[] = preNeutEntries.map(({ oldKey, course }) => ({
+        task: {
+          taskId: `pre-neutral-${oldKey}`,
+          code: course.code,
+          name: course.name,
+          type: course.type,
+          week: selectedWeek,
+          duration: course.duration,
+          startTime: 0,
+          resources: [
+            ...course.teacher.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e])).filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'teacher' })),
+            ...course.groups.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e])).filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'group' })),
+            ...course.rooms.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e])).filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'room' })),
+          ],
+        },
+        eliminationRound: 0,
+        failureCount: 0,
+        requiredMinutes: course.duration,
+        schedulableMinutes: 0,
+        resourceSnapshots: [],
+        reason: 'Neutralisée manuellement avant planification',
+      }));
+
       set({
         scheduleResult: result,
         selectedSolutionIndex: 0,
         activeSolution: best.tasks,
-        activeNeutralizedTasks: best.neutralizedTasks ?? [],
+        activeNeutralizedTasks: [...(best.neutralizedTasks ?? []), ...syntheticNeutralized],
+        syntheticNeutralizedTasks: syntheticNeutralized,
+        solutionStates: {},
         taskOverrides: {},
         placedNeutralizedTasks: [],
+        manuallyNeutralizedTasks: [],
         isLoading: false,
         status: buildScheduleStatus(result),
       });
@@ -362,6 +511,8 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
         ...state.placedNeutralizedTasks.filter((t) => t.taskId !== task.taskId),
         task,
       ],
+      // Retirer de la pioche si la tâche y était
+      manuallyNeutralizedTasks: state.manuallyNeutralizedTasks.filter((t) => t.taskId !== task.taskId),
     }));
   },
 
@@ -386,6 +537,10 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
     activeNeutralizedTasks: [],
     taskOverrides: {},
     placedNeutralizedTasks: [],
+    preNeutralizedKeys: [],
+    manuallyNeutralizedTasks: [],
+    solutionStates: {},
+    syntheticNeutralizedTasks: [],
     status: null,
   }),
 
@@ -397,6 +552,10 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
     activeNeutralizedTasks: [],
     taskOverrides: {},
     placedNeutralizedTasks: [],
+    preNeutralizedKeys: [],
+    manuallyNeutralizedTasks: [],
+    solutionStates: {},
+    syntheticNeutralizedTasks: [],
     enforcedMap: {},
     manualEnforcedMap: {},
     blockedZones: [],

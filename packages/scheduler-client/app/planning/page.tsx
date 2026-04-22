@@ -9,6 +9,14 @@ import { GroupDrawer } from '@/components/planning/GroupDrawer';
 import ScheduleCalendar from '@/components/planning/ScheduleCalendar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export default function PlanningPage() {
   // ── Stores ──────────────────────────────────────────────────────────────
@@ -18,9 +26,13 @@ export default function PlanningPage() {
   const scheduleResult = usePlanningStore((s) => s.scheduleResult);
   const selectedSolutionIndex = usePlanningStore((s) => s.selectedSolutionIndex);
   const setSelectedSolutionIndex = usePlanningStore((s) => s.setSelectedSolutionIndex);
+  const resetCurrentSolution = usePlanningStore((s) => s.resetCurrentSolution);
   const activeSolution = usePlanningStore((s) => s.activeSolution);
   const searchQuery = usePlanningStore((s) => s.searchQuery);
   const status = usePlanningStore((s) => s.status);
+
+  // ── État local ──────────────────────────────────────────────────────────
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
   // ── Cours dérivés pour la semaine courante ───────────────────────────────
   const parsedCourses: CourseTaskData[] = useMemo(
@@ -58,9 +70,9 @@ export default function PlanningPage() {
         <GroupDrawer parsedCourses={parsedCourses} />
 
         <main className="flex-1 overflow-hidden p-4 flex flex-col">
-          {scheduleResult && scheduleResult.solutions.length > 1 && (
-            <div className="flex flex-wrap gap-1 mb-2 shrink-0">
-              {scheduleResult.solutions.map((sol, i) => (
+          {scheduleResult && (
+            <div className="flex flex-wrap gap-1 mb-2 shrink-0 items-center">
+              {scheduleResult.solutions.length > 1 && scheduleResult.solutions.map((sol, i) => (
                 <Button
                   key={i}
                   type="button"
@@ -72,6 +84,16 @@ export default function PlanningPage() {
                   Solution {i + 1}{sol.score !== undefined ? ` — ${sol.score} pts` : ''}
                 </Button>
               ))}
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setResetDialogOpen(true)}
+                className="text-xs h-7 px-3 text-muted-foreground hover:text-destructive ml-auto"
+                title="Remettre la solution à son état initial"
+              >
+                ↺ Réinitialiser
+              </Button>
             </div>
           )}
 
@@ -99,6 +121,21 @@ export default function PlanningPage() {
       ) : (
         <div className="shrink-0 h-10.5 border-b border-border bg-background/50" />
       )}
+      {/* Dialog de réinitialisation de la solution */}
+      <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Réinitialiser la solution</DialogTitle>
+            <DialogDescription>
+              Réinitialiser la solution va supprimer toutes les modifications apportées à celle-ci. Voulez-vous continuer ?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetDialogOpen(false)}>Annuler</Button>
+            <Button variant="destructive" onClick={() => { resetCurrentSolution(); setResetDialogOpen(false); }}>Réinitialiser</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

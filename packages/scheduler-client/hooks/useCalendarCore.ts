@@ -125,11 +125,14 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
   const week = selectedWeek ?? 1;
   const taskOverrides = usePlanningStore((s) => s.taskOverrides);
   const placedNeutralizedTasks = usePlanningStore((s) => s.placedNeutralizedTasks);
+  const manuallyNeutralizedTasks = usePlanningStore((s) => s.manuallyNeutralizedTasks);
+  const searchQuery = usePlanningStore((s) => s.searchQuery);
   const setTaskOverride = usePlanningStore((s) => s.setTaskOverride);
   const moveTaskOverride = usePlanningStore((s) => s.moveTaskOverride);
   const addPlacedNeutralizedTask = usePlanningStore((s) => s.addPlacedNeutralizedTask);
   const updatePlacedNeutralizedTask = usePlanningStore((s) => s.updatePlacedNeutralizedTask);
   const removePlacedNeutralizedTask = usePlanningStore((s) => s.removePlacedNeutralizedTask);
+  const addManuallyNeutralizedTask = usePlanningStore((s) => s.addManuallyNeutralizedTask);
   const storeEnforcedMap = usePlanningStore((s) => s.enforcedMap);
   const handleEnforceChange = usePlanningStore((s) => s.handleEnforceChange);
   const blockedZones = usePlanningStore((s) => s.blockedZones);
@@ -184,10 +187,15 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
   }, [storeEnforcedMap, parsedCourses, monday, yearColorConfig]);
 
   const prevParsedCoursesRef = useRef<CourseTaskData[]>(parsedCourses);
+  const skipNextParsedCoursesResetRef = useRef(false);
   useEffect(() => {
     if (prevParsedCoursesRef.current !== parsedCourses) {
       prevParsedCoursesRef.current = parsedCourses;
-      handleEnforceChange({});
+      if (skipNextParsedCoursesResetRef.current) {
+        skipNextParsedCoursesResetRef.current = false;
+      } else {
+        handleEnforceChange({});
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parsedCourses]);
@@ -402,6 +410,22 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       });
     }
 
+    // Mise à jour de allCourses pour que la CourseCard en sidebar reflète les changements
+    if (pendingEdit.courseKey !== undefined) {
+      const courseIdx = parseInt(pendingEdit.courseKey, 10);
+      const course = parsedCourses[courseIdx];
+      if (course) {
+        const { allCourses, setCourses } = useSchedulerStore.getState();
+        const updatedCourses = allCourses.map((c) =>
+          c === course
+            ? { ...c, teacher: update.teachers as typeof c.teacher, groups: update.groups as typeof c.groups, rooms: update.rooms as typeof c.rooms }
+            : c,
+        );
+        skipNextParsedCoursesResetRef.current = true;
+        setCourses(updatedCourses);
+      }
+    }
+
     setPendingEdit(null);
   }
 
@@ -479,7 +503,38 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     }
 
     if (ext.isNeutralizedPlaced && info.event.id) {
-      removePlacedNeutralizedTask(info.event.id);
+      const taskId = info.event.id;
+      removePlacedNeutralizedTask(taskId);
+      // Si la tâche vient de activeSolution, la remettre dans la pioche
+      const solutionTask = usePlanningStore.getState().activeSolution.find((t) => t.taskId === taskId);
+      if (solutionTask) {
+        addManuallyNeutralizedTask({
+          taskId,
+          code: ext.code ?? solutionTask.code,
+          name: ext.name ?? solutionTask.name,
+          type: ext.type ?? solutionTask.type,
+          duration: ext.durationMin ?? solutionTask.duration,
+          teachers: ext.teachers ?? [],
+          groups: ext.groups ?? [],
+          rooms: ext.rooms ?? [],
+        });
+      }
+    }
+
+    // Tâche planifiée ordinaire déposée hors du calendrier → pioche
+    if (!ext.isEnforced && !ext.isNeutralizedPlaced && !ext.isBlockedZone) {
+      const taskId = info.event.id;
+      info.event.remove();
+      addManuallyNeutralizedTask({
+        taskId,
+        code: ext.code ?? '',
+        name: ext.name ?? '',
+        type: ext.type ?? '',
+        duration: ext.durationMin ?? 60,
+        teachers: ext.teachers ?? [],
+        groups: ext.groups ?? [],
+        rooms: ext.rooms ?? [],
+      });
     }
   }
 
@@ -495,7 +550,12 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       extendedProps: { isBlockedZone: true, blockedZoneId: zone.id },
     }));
 
-    const solEvts: CalendarEventData[] = solutions.map((task) => {
+    const solEvts: CalendarEventData[] = solutions
+      .filter((task) =>
+        !placedNeutralizedTasks.some((p) => p.taskId === task.taskId) &&
+        !manuallyNeutralizedTasks.some((m) => m.taskId === task.taskId),
+      )
+      .map((task) => {
       const override = taskOverrides[task.taskId];
       const teachers = override?.teachers ?? task.resources.filter((r) => r.type === 'teacher').map((r) => r.id);
       const groups = override?.groups ?? task.resources.filter((r) => r.type === 'group').map((r) => r.id);
@@ -513,7 +573,19 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       };
     });
 
-    const placedNeutralizedEvts: CalendarEventData[] = placedNeutralizedTasks.map((task) => {
+    const placedNeutralizedEvts: CalendarEventData[] = placedNeutralizedTasks
+      .filter((task) => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return true;
+        return (
+          task.code.toLowerCase().includes(q) ||
+          task.name.toLowerCase().includes(q) ||
+          task.teachers.some((t) => t.toLowerCase().includes(q)) ||
+          task.rooms.some((r) => r.toLowerCase().includes(q)) ||
+          task.groups.some((g) => g.toLowerCase().includes(q))
+        );
+      })
+      .map((task) => {
       const start = startTimeToDate(monday, task.startTime);
       const end = new Date(start.getTime() + task.duration * 60 * 1000);
       const title = [task.code, task.type, ...task.teachers].filter(Boolean).join(' • ');
@@ -628,7 +700,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       ...placedNeutralizedEvts.map(applyHighlight),
       ...constraintBgEvents,
     ];
-  }, [solutions, blockedZones, monday, enforcedEventsState, taskOverrides, placedNeutralizedTasks, dragging, externalDragging, availabilityManager, week, yearColorConfig]);
+  }, [solutions, blockedZones, monday, enforcedEventsState, taskOverrides, placedNeutralizedTasks, manuallyNeutralizedTasks, searchQuery, dragging, externalDragging, availabilityManager, week, yearColorConfig]);
 
   return {
     week,

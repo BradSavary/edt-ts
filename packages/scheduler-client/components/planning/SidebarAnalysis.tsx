@@ -1,9 +1,10 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useMemo, useState } from 'react';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useNeutralizedDraggable } from '@/hooks/useNeutralizedDraggable';
 import { downloadIcalSolution } from '@/lib/icalExport';
+import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +25,7 @@ export function SidebarAnalysis() {
   const activeSolution = usePlanningStore((s) => s.activeSolution);
   const activeNeutralizedTasks = usePlanningStore((s) => s.activeNeutralizedTasks);
   const placedNeutralizedTasks = usePlanningStore((s) => s.placedNeutralizedTasks);
+  const manuallyNeutralizedTasks = usePlanningStore((s) => s.manuallyNeutralizedTasks);
   const searchQuery = usePlanningStore((s) => s.searchQuery);
   const setSearchQuery = usePlanningStore((s) => s.setSearchQuery);
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
@@ -33,17 +35,65 @@ export function SidebarAnalysis() {
 
   useNeutralizedDraggable({
     containerRef: neutralizedContainerRef,
-    neutralizedTasks: activeNeutralizedTasks.length > 0 ? activeNeutralizedTasks : undefined,
+    hasItems: activeNeutralizedTasks.some((t) => !placedNeutralizedTasks.some((p) => p.taskId === t.task.taskId)) || manuallyNeutralizedTasks.length > 0,
   });
 
   const iCalWeek = selectedWeek ?? 1;
 
-  const unplacedCount = activeNeutralizedTasks.filter(
+  const filteredSolutions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return activeSolution;
+    return activeSolution.filter((task) => {
+      const teachers = task.resources.filter((r) => r.type === 'teacher').map((r) => r.id.toLowerCase());
+      const rooms = task.resources.filter((r) => r.type === 'room').map((r) => r.id.toLowerCase());
+      const groups = task.resources.filter((r) => r.type === 'group').map((r) => r.id.toLowerCase());
+      return (
+        task.code.toLowerCase().includes(q) ||
+        task.name.toLowerCase().includes(q) ||
+        teachers.some((t) => t.includes(q)) ||
+        rooms.some((r) => r.includes(q)) ||
+        groups.some((g) => g.includes(q))
+      );
+    });
+  }, [activeSolution, searchQuery]);
+
+  const filteredPlacedNeutralized = useMemo((): TaskSolutionJSON[] => {
+    const q = searchQuery.trim().toLowerCase();
+    return placedNeutralizedTasks
+      .filter((task) => {
+        if (!q) return true;
+        return (
+          task.code.toLowerCase().includes(q) ||
+          task.name.toLowerCase().includes(q) ||
+          task.teachers.some((t) => t.toLowerCase().includes(q)) ||
+          task.rooms.some((r) => r.toLowerCase().includes(q)) ||
+          task.groups.some((g) => g.toLowerCase().includes(q))
+        );
+      })
+      .map((task) => ({
+        taskId: task.taskId,
+        code: task.code,
+        name: task.name,
+        type: task.type,
+        week: iCalWeek,
+        duration: task.duration,
+        startTime: task.startTime,
+        resources: [
+          ...task.teachers.map((id) => ({ id, type: 'teacher' })),
+          ...task.groups.map((id) => ({ id, type: 'group' })),
+          ...task.rooms.map((id) => ({ id, type: 'room' })),
+        ],
+      }));
+  }, [placedNeutralizedTasks, searchQuery, iCalWeek]);
+
+  const unplacedNeutralized = activeNeutralizedTasks.filter(
     (t) => !placedNeutralizedTasks.some((p) => p.taskId === t.task.taskId),
-  ).length;
+  );
+  const hasAnyNeutralizedItems = unplacedNeutralized.length > 0 || manuallyNeutralizedTasks.length > 0;
 
   function handleConfirmRetour() {
     setConfirmOpen(false);
+    setSearchQuery('');
     resetScheduleResult();
   }
 
@@ -81,44 +131,47 @@ export function SidebarAnalysis() {
               type="button"
               variant="outline"
               className="w-full"
-              onClick={() => downloadIcalSolution(activeSolution, iCalWeek)}
+              onClick={() => downloadIcalSolution([...filteredSolutions, ...filteredPlacedNeutralized], iCalWeek)}
             >
-              Exporter en iCal
+              {searchQuery.trim() ? 'Exporter (filtré) en iCal' : 'Exporter en iCal'}
             </Button>
           )}
         </div>
 
-        {/* Tâches non placées / neutralisées */}
-        {activeNeutralizedTasks.length > 0 && (
+        {/* Pioche — tâches neutralisées et tâches retirées du calendrier */}
+        {hasAnyNeutralizedItems && (
           <>
             <Separator />
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Non placés
               </p>
-              <Badge variant="secondary">{unplacedCount}</Badge>
+              <Badge variant="secondary">{unplacedNeutralized.length + manuallyNeutralizedTasks.length}</Badge>
             </div>
             <p className="text-xs text-muted-foreground italic">
               Glissez un cours sur le calendrier pour le placer.
             </p>
             <div ref={neutralizedContainerRef} className="flex flex-col gap-2">
-              {activeNeutralizedTasks.map((neutralizedInfo) => {
+              {/* Tâches neutralisées par le moteur ou pré-neutralisées */}
+              {unplacedNeutralized.map((neutralizedInfo) => {
                 const task = neutralizedInfo.task;
                 const teachers = task.resources.filter((r) => r.type === 'teacher').map((r) => r.id);
                 const groups = task.resources.filter((r) => r.type === 'group').map((r) => r.id);
                 const rooms = task.resources.filter((r) => r.type === 'room').map((r) => r.id);
-                const isPlaced = placedNeutralizedTasks.some((p) => p.taskId === task.taskId);
 
+                const isPreNeutralized = task.taskId.startsWith('pre-neutral-');
                 const tooltipLines: string[] = [neutralizedInfo.reason];
-                tooltipLines.push(`Échecs : ${neutralizedInfo.failureCount}`);
-                tooltipLines.push(`Temps nécessaire : ${neutralizedInfo.requiredMinutes} min`);
-                tooltipLines.push(`Temps dispo : ${neutralizedInfo.schedulableMinutes} min`);
-                if (neutralizedInfo.resourceSnapshots.length > 0) {
-                  const conflicting = neutralizedInfo.resourceSnapshots.filter(
-                    (s) => s.availableMinutes < neutralizedInfo.requiredMinutes,
-                  );
-                  if (conflicting.length > 0) {
-                    tooltipLines.push(`Ressources limitantes : ${conflicting.map((s) => s.resourceId).join(', ')}`);
+                if (!isPreNeutralized) {
+                  tooltipLines.push(`Échecs : ${neutralizedInfo.failureCount}`);
+                  tooltipLines.push(`Temps nécessaire : ${neutralizedInfo.requiredMinutes} min`);
+                  tooltipLines.push(`Temps dispo : ${neutralizedInfo.schedulableMinutes} min`);
+                  if (neutralizedInfo.resourceSnapshots.length > 0) {
+                    const conflicting = neutralizedInfo.resourceSnapshots.filter(
+                      (s) => s.availableMinutes < neutralizedInfo.requiredMinutes,
+                    );
+                    if (conflicting.length > 0) {
+                      tooltipLines.push(`Ressources limitantes : ${conflicting.map((s) => s.resourceId).join(', ')}`);
+                    }
                   }
                 }
 
@@ -126,7 +179,7 @@ export function SidebarAnalysis() {
                   <Tooltip key={task.taskId}>
                     <TooltipTrigger asChild>
                       <div
-                        data-task-id={!isPlaced ? task.taskId : undefined}
+                        data-task-id={task.taskId}
                         data-title={`${task.code} ${task.type}`}
                         data-duration={task.duration}
                         data-teachers={JSON.stringify(teachers)}
@@ -135,11 +188,7 @@ export function SidebarAnalysis() {
                         data-code={task.code}
                         data-name={task.name}
                         data-type={task.type}
-                        className={`p-2 rounded-lg border text-xs transition-all ${
-                          isPlaced
-                            ? 'bg-muted/40 border-border opacity-60'
-                            : 'bg-card border-border cursor-grab active:cursor-grabbing hover:border-primary/50 hover:shadow-sm'
-                        }`}
+                        className="p-2 rounded-lg border text-xs bg-card border-border cursor-grab active:cursor-grabbing hover:border-primary/50 hover:shadow-sm transition-all"
                       >
                         <div className="flex items-center justify-between gap-1 mb-0.5">
                           <span className="font-bold text-foreground truncate">
@@ -155,9 +204,6 @@ export function SidebarAnalysis() {
                         {groups.length > 0 && (
                           <div className="truncate text-muted-foreground">{groups.join(', ')}</div>
                         )}
-                        {isPlaced && (
-                          <div className="mt-1 text-green-600 dark:text-green-400 font-medium text-xs">✅ Placé</div>
-                        )}
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="right" color='light' className="max-w-72 whitespace-pre-line bg-background text-foreground border shadow-md">
@@ -166,6 +212,38 @@ export function SidebarAnalysis() {
                   </Tooltip>
                 );
               })}
+
+              {/* Tâches retirées manuellement du calendrier */}
+              {manuallyNeutralizedTasks.map((task) => (
+                <div
+                  key={task.taskId}
+                  data-task-id={task.taskId}
+                  data-title={`${task.code} ${task.type}`}
+                  data-duration={task.duration}
+                  data-teachers={JSON.stringify(task.teachers)}
+                  data-groups={JSON.stringify(task.groups)}
+                  data-rooms={JSON.stringify(task.rooms)}
+                  data-code={task.code}
+                  data-name={task.name}
+                  data-type={task.type}
+                  className="p-2 rounded-lg border text-xs bg-card border-border cursor-grab active:cursor-grabbing hover:border-primary/50 hover:shadow-sm transition-all"
+                >
+                  <div className="flex items-center justify-between gap-1 mb-0.5">
+                    <span className="font-bold text-foreground truncate">
+                      {task.code}{' '}
+                      <span className="font-normal text-muted-foreground">{task.type}</span>
+                    </span>
+                    <span className="text-muted-foreground shrink-0">{task.duration}min</span>
+                  </div>
+                  <div className="truncate text-foreground/80 mb-0.5">{task.name}</div>
+                  {task.teachers.length > 0 && (
+                    <div className="truncate text-muted-foreground">{task.teachers.join(', ')}</div>
+                  )}
+                  {task.groups.length > 0 && (
+                    <div className="truncate text-muted-foreground">{task.groups.join(', ')}</div>
+                  )}
+                </div>
+              ))}
             </div>
           </>
         )}

@@ -307,7 +307,7 @@ export function GroupDrawer({ parsedCourses }: GroupDrawerProps) {
 
           {taskGroups.length === 0 && hasCoursesForCurrentWeek && (
             <p className="text-xs text-muted-foreground italic">
-              Aucun groupe défini. Créez-en un en glissant un cours ci-dessus.
+              Aucun groupe défini. Créez-en un ci-dessus.
             </p>
           )}
         </div>

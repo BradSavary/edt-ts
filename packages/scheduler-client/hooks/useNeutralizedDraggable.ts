@@ -2,12 +2,11 @@
 
 import { useEffect } from 'react';
 import { Draggable } from '@fullcalendar/interaction';
-import type { NeutralizedTaskInfoJSON } from '@edt-ts/scheduler-common';
 import { usePlanningStore } from '@/store/usePlanningStore';
 
 interface UseNeutralizedDraggableOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
-  neutralizedTasks: NeutralizedTaskInfoJSON[] | undefined;
+  hasItems: boolean;
 }
 
 /**
@@ -16,14 +15,14 @@ interface UseNeutralizedDraggableOptions {
  */
 export function useNeutralizedDraggable({
   containerRef,
-  neutralizedTasks,
+  hasItems,
 }: UseNeutralizedDraggableOptions): void {
   const setDraggingExternal = usePlanningStore((s) => s.setDraggingExternal);
 
   // FullCalendar Draggable
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !neutralizedTasks?.length) return;
+    if (!container || !hasItems) return;
 
     const draggable = new Draggable(container, {
       itemSelector: '[data-task-id]',
@@ -45,7 +44,7 @@ export function useNeutralizedDraggable({
     });
 
     return () => draggable.destroy();
-  }, [containerRef, neutralizedTasks]);
+  }, [containerRef, hasItems]);
 
   // Détection du drag externe pour la colorisation de conflits en temps réel
   useEffect(() => {
@@ -92,5 +91,5 @@ export function useNeutralizedDraggable({
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('pointercancel', onPointerUp);
     };
-  }, [containerRef, neutralizedTasks, setDraggingExternal]);
+  }, [containerRef, hasItems, setDraggingExternal]);
 }

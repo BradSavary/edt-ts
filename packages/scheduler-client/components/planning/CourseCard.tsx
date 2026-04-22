@@ -28,19 +28,24 @@ export default function CourseCard({ courseKey, course, enforced, onEdit }: Prop
       (course.rooms.length > MAX_ROOMS ? ', …' : '')
     : '';
   const taskGroups = usePlanningStore((s) => s.taskGroups);
+  const preNeutralizedKeys = usePlanningStore((s) => s.preNeutralizedKeys);
+  const togglePreNeutralized = usePlanningStore((s) => s.togglePreNeutralized);
   const groupInfo = getCourseGroupInfo(taskGroups, courseKey);
+  const isNeutralized = preNeutralizedKeys.includes(courseKey);
 
   return (
     <Card
-      data-course-key={courseKey}
+      data-course-key={!isNeutralized && !enforced ? courseKey : undefined}
       data-title={`${course.code} ${course.type}`}
       data-duration={course.duration}
-      className={`text-xs select-none transition-all cursor-grab active:cursor-grabbing ${
-        enforced
+      className={`text-xs select-none transition-all ${
+        isNeutralized
+          ? 'opacity-50 border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-950 cursor-default'
+          : enforced
           ? 'opacity-70 cursor-default border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950'
           : groupInfo
-          ? 'border-violet-300 dark:border-violet-700 hover:border-violet-400 hover:shadow-sm'
-          : 'hover:border-blue-400 hover:shadow-sm'
+          ? 'cursor-grab active:cursor-grabbing border-violet-300 dark:border-violet-700 hover:border-violet-400 hover:shadow-sm'
+          : 'cursor-grab active:cursor-grabbing hover:border-blue-400 hover:shadow-sm'
       }`}
     >
       <CardContent className="">
@@ -50,11 +55,23 @@ export default function CourseCard({ courseKey, course, enforced, onEdit }: Prop
             <span className="font-normal text-muted-foreground">{course.type}</span>
           </span>
           <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); togglePreNeutralized(courseKey); }}
+              className={`text-[11px] px-1 transition-colors ${
+                isNeutralized
+                  ? 'text-orange-500 hover:text-orange-700 dark:text-orange-400'
+                  : 'text-muted-foreground hover:text-orange-500'
+              }`}
+              title={isNeutralized ? 'Retirer de la neutralisation' : 'Neutraliser cette tâche'}
+            >
+              ⊘
+            </button>
             {onEdit && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                className="text-muted-foreground hover:text-foreground text-[11px] px-1"
+                className="text-muted-foreground hover:text-foreground text-[11px] px-1 rotate-135"
                 title="Modifier les ressources"
               >
                 ✏
@@ -91,7 +108,11 @@ export default function CourseCard({ courseKey, course, enforced, onEdit }: Prop
         {enforced && (
           <div className="mt-1 text-green-600 dark:text-green-400 font-medium">📌 Imposé</div>
         )}
+        {isNeutralized && (
+          <div className="mt-1 text-orange-500 dark:text-orange-400 font-medium text-[10px]">⊘ Neutralisée</div>
+        )}
       </CardContent>
     </Card>
   );
 }
+
