@@ -147,6 +147,13 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
 
   const monday = useMemo(() => getMondayOfISOWeek(week), [week]);
 
+  // ── Options de ressources (pour les modals d'édition) ─────────────────
+  const resourceOptions = useMemo(() => ({
+    teacherOptions: resources.filter((g) => g.resourceType === 'teacher').flatMap((g) => g.resources.map((r) => r.id)),
+    groupOptions: resources.filter((g) => g.resourceType === 'group').flatMap((g) => g.resources.map((r) => r.id)),
+    roomOptions: resources.filter((g) => g.resourceType === 'room').flatMap((g) => g.resources.map((r) => r.id)),
+  }), [resources]);
+
   // ── État local UI ──────────────────────────────────────────────────────
   const [selected, setSelected] = useState<EventDetail | null>(null);
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
@@ -237,16 +244,6 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       ? Math.round((arg.event.start.getTime() - monday.getTime()) / 60000)
       : 0;
 
-    const teacherOptions = resources
-      .filter((g) => g.resourceType === 'teacher')
-      .flatMap((g) => g.resources.map((r) => r.id));
-    const groupOptions = resources
-      .filter((g) => g.resourceType === 'group')
-      .flatMap((g) => g.resources.map((r) => r.id));
-    const roomOptions = resources
-      .filter((g) => g.resourceType === 'room')
-      .flatMap((g) => g.resources.map((r) => r.id));
-
     setPendingEdit({
       taskId: arg.event.id,
       courseKey: ext.courseKey,
@@ -258,9 +255,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       durationMin: ext.durationMin ?? 0,
       isEnforced: ext.isEnforced,
       isNeutralizedPlaced: ext.isNeutralizedPlaced,
-      teacherOptions,
-      groupOptions,
-      roomOptions,
+      ...resourceOptions,
     });
   }
 
@@ -353,16 +348,6 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     if (!selected) return;
     const startTime = Math.round((selected.start.getTime() - monday.getTime()) / 60000);
 
-    const teacherOptions = resources
-      .filter((g) => g.resourceType === 'teacher')
-      .flatMap((g) => g.resources.map((r) => r.id));
-    const groupOptions = resources
-      .filter((g) => g.resourceType === 'group')
-      .flatMap((g) => g.resources.map((r) => r.id));
-    const roomOptions = resources
-      .filter((g) => g.resourceType === 'room')
-      .flatMap((g) => g.resources.map((r) => r.id));
-
     setPendingEdit({
       taskId: selected.eventId ?? '',
       courseKey: selected.courseKey,
@@ -374,9 +359,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       durationMin: selected.durationMin,
       isEnforced: selected.isEnforced,
       isNeutralizedPlaced: selected.isNeutralizedPlaced,
-      teacherOptions,
-      groupOptions,
-      roomOptions,
+      ...resourceOptions,
     });
   }
 

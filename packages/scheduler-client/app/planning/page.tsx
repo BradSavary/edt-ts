@@ -7,6 +7,7 @@ import { usePlanningStore } from '@/store/usePlanningStore';
 import { SidebarLeft } from '@/components/planning/SidebarLeft';
 import { GroupDrawer } from '@/components/planning/GroupDrawer';
 import ScheduleCalendar from '@/components/planning/ScheduleCalendar';
+import { filterSolutionsByQuery } from '@/lib/calendarUtils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,23 +42,10 @@ export default function PlanningPage() {
   );
 
   // ── Solutions filtrées (recherche) ───────────────────────────────────────
-  const filteredSolutions = useMemo(() => {
-    const tasks = activeSolution ?? [];
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return tasks;
-    return tasks.filter((task) => {
-      const teachers = task.resources.filter((r) => r.type === 'teacher').map((r) => r.id.toLowerCase());
-      const rooms = task.resources.filter((r) => r.type === 'room').map((r) => r.id.toLowerCase());
-      const groups = task.resources.filter((r) => r.type === 'group').map((r) => r.id.toLowerCase());
-      return (
-        task.code.toLowerCase().includes(q) ||
-        task.name.toLowerCase().includes(q) ||
-        teachers.some((t) => t.includes(q)) ||
-        rooms.some((r) => r.includes(q)) ||
-        groups.some((g) => g.includes(q))
-      );
-    });
-  }, [activeSolution, searchQuery]);
+  const filteredSolutions = useMemo(
+    () => filterSolutionsByQuery(activeSolution ?? [], searchQuery),
+    [activeSolution, searchQuery],
+  );
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-secondary/30">

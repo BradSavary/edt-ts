@@ -121,3 +121,27 @@ export function computeDragHighlights(
   return result;
 }
 
+/**
+ * Filtre un tableau de tâches planifiées par une requête de recherche.
+ * Cherche dans le code, le nom, les enseignants, les salles et les groupes.
+ * Retourne le tableau original si la requête est vide.
+ */
+export function filterSolutionsByQuery<T extends { code: string; name: string; resources: { id: string; type: string }[] }>(
+  tasks: T[],
+  query: string,
+): T[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return tasks;
+  return tasks.filter((task) => {
+    const teachers = task.resources.filter((r) => r.type === 'teacher').map((r) => r.id.toLowerCase());
+    const rooms = task.resources.filter((r) => r.type === 'room').map((r) => r.id.toLowerCase());
+    const groups = task.resources.filter((r) => r.type === 'group').map((r) => r.id.toLowerCase());
+    return (
+      task.code.toLowerCase().includes(q) ||
+      task.name.toLowerCase().includes(q) ||
+      teachers.some((t) => t.includes(q)) ||
+      rooms.some((r) => r.includes(q)) ||
+      groups.some((g) => g.includes(q))
+    );
+  });
+}

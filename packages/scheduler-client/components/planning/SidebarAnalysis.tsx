@@ -4,6 +4,7 @@ import { useRef, useMemo, useState } from 'react';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useNeutralizedDraggable } from '@/hooks/useNeutralizedDraggable';
 import { downloadIcalSolution } from '@/lib/icalExport';
+import { filterSolutionsByQuery } from '@/lib/calendarUtils';
 import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,22 +41,10 @@ export function SidebarAnalysis() {
 
   const iCalWeek = selectedWeek ?? 1;
 
-  const filteredSolutions = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return activeSolution;
-    return activeSolution.filter((task) => {
-      const teachers = task.resources.filter((r) => r.type === 'teacher').map((r) => r.id.toLowerCase());
-      const rooms = task.resources.filter((r) => r.type === 'room').map((r) => r.id.toLowerCase());
-      const groups = task.resources.filter((r) => r.type === 'group').map((r) => r.id.toLowerCase());
-      return (
-        task.code.toLowerCase().includes(q) ||
-        task.name.toLowerCase().includes(q) ||
-        teachers.some((t) => t.includes(q)) ||
-        rooms.some((r) => r.includes(q)) ||
-        groups.some((g) => g.includes(q))
-      );
-    });
-  }, [activeSolution, searchQuery]);
+  const filteredSolutions = useMemo(
+    () => filterSolutionsByQuery(activeSolution, searchQuery),
+    [activeSolution, searchQuery],
+  );
 
   const filteredPlacedNeutralized = useMemo((): TaskSolutionJSON[] => {
     const q = searchQuery.trim().toLowerCase();
