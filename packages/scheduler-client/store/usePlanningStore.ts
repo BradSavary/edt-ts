@@ -18,6 +18,8 @@ export interface PlacedTaskOverride {
   teachers: string[];
   groups: string[];
   rooms: string[];
+  /** Durée surchargée (minutes). Si absent, utilise la durée du cours original. */
+  duration?: number;
   /** Violation de contrainte détectée au moment du placement. */
   constraintViolation?: 'red' | 'orange' | 'none';
 }

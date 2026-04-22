@@ -116,6 +116,7 @@ export interface PendingEditData {
   durationMin: number;
   isEnforced?: boolean;
   isNeutralizedPlaced?: boolean;
+  showDuration?: boolean;
   teacherOptions: string[];
   groupOptions: string[];
   roomOptions: string[];
@@ -160,7 +161,6 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
   }), [resources]);
 
   // ── État local UI ──────────────────────────────────────────────────────
-  const [selected, setSelected] = useState<EventDetail | null>(null);
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
   const [pendingEdit, setPendingEdit] = useState<PendingEditData | null>(null);
   const [dragging, setDragging] = useState<DraggingState | null>(null);
@@ -263,6 +263,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       durationMin: ext.durationMin ?? 0,
       isEnforced: ext.isEnforced,
       isNeutralizedPlaced: ext.isNeutralizedPlaced,
+      showDuration: true,
       ...resourceOptions,
     });
   }
@@ -355,32 +356,12 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     setPendingDrop(null);
   }
 
-  function handleEditRequest() {
-    if (!selected) return;
-    const startTime = Math.round((selected.start.getTime() - monday.getTime()) / 60000);
-
-    setPendingEdit({
-      taskId: selected.eventId ?? '',
-      courseKey: selected.courseKey,
-      title: selected.title,
-      teachers: selected.teachers,
-      groups: selected.groups,
-      rooms: selected.rooms,
-      startTime,
-      durationMin: selected.durationMin,
-      isEnforced: selected.isEnforced,
-      isNeutralizedPlaced: selected.isNeutralizedPlaced,
-      ...resourceOptions,
-    });
-  }
-
   function handleEditConfirm(update: TaskEditUpdate) {
     if (!pendingEdit) return;
 
     if (pendingEdit.isEnforced && pendingEdit.courseKey) {
       const courseKey = pendingEdit.courseKey;
       const state = usePlanningStore.getState();
-      // Chercher dans manualEnforcedMap d'abord, puis dans enforcedMap (auto-propagé)
       const existing = state.manualEnforcedMap[courseKey] ?? state.enforcedMap[courseKey];
       if (existing) {
         const updated: EnforcedData = { ...existing, teacher: update.teachers, groups: update.groups, rooms: update.rooms };
@@ -392,6 +373,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
         teachers: update.teachers,
         groups: update.groups,
         rooms: update.rooms,
+        ...(update.duration !== undefined ? { duration: update.duration } : {}),
       });
     } else {
       const taskId = pendingEdit.taskId;
@@ -401,6 +383,8 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
         teachers: update.teachers,
         groups: update.groups,
         rooms: update.rooms,
+        ...(existingOverride?.constraintViolation !== undefined ? { constraintViolation: existingOverride.constraintViolation } : {}),
+        ...(update.duration !== undefined ? { duration: update.duration } : (existingOverride?.duration !== undefined ? { duration: existingOverride.duration } : {})),
       });
     }
 
@@ -412,7 +396,13 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
         const { allCourses, setCourses } = useSchedulerStore.getState();
         const updatedCourses = allCourses.map((c) =>
           c === course
-            ? { ...c, teacher: update.teachers as typeof c.teacher, groups: update.groups as typeof c.groups, rooms: update.rooms as typeof c.rooms }
+            ? {
+                ...c,
+                teacher: update.teachers as typeof c.teacher,
+                groups: update.groups as typeof c.groups,
+                rooms: update.rooms as typeof c.rooms,
+                ...(update.duration !== undefined ? { duration: update.duration } : {}),
+              }
             : c,
         );
         skipNextParsedCoursesResetRef.current = true;
@@ -573,16 +563,17 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       const groups = override?.groups ?? task.resources.filter((r) => r.type === 'group').map((r) => r.id);
       const rooms = override?.rooms ?? task.resources.filter((r) => r.type === 'room').map((r) => r.id);
       const startTime = override?.startTime ?? task.startTime;
+      const duration = override?.duration ?? task.duration;
       const isManuallyPlaced = override !== undefined && override.startTime !== task.startTime;
       const start = startTimeToDate(monday, startTime);
-      const end = new Date(start.getTime() + task.duration * 60 * 1000);
+      const end = new Date(start.getTime() + duration * 60 * 1000);
       return {
         id: task.taskId,
         title: [task.code, task.type, ...teachers].join(' • '),
         start,
         end,
         ...getEventColors(levelFromCode(task.code), task.type, yearColorConfig),
-        extendedProps: { name: task.name, code: task.code, type: task.type, teachers, groups, rooms, durationMin: task.duration, manuallyPlaced: isManuallyPlaced || undefined, constraintViolation: isManuallyPlaced ? (override?.constraintViolation ?? 'none') : undefined },
+        extendedProps: { name: task.name, code: task.code, type: task.type, teachers, groups, rooms, durationMin: duration, manuallyPlaced: isManuallyPlaced || undefined, constraintViolation: isManuallyPlaced ? (override?.constraintViolation ?? 'none') : undefined },
       };
     });
 
@@ -724,8 +715,6 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     calendarWrapperRef,
     calendarEvents,
     // État des modals
-    selected,
-    setSelected,
     pendingDrop,
     pendingEdit,
     setPendingEdit,
@@ -743,7 +732,6 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     removeEnforced,
     handleModalConfirm,
     handleModalCancel,
-    handleEditRequest,
     handleEditConfirm,
     // Données pour les modals
     solutions,

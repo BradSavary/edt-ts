@@ -8,6 +8,7 @@ import { useSidebarCourseDrag } from '@/hooks/useSidebarCourseDrag';
 import CourseGroupList, { type GroupBy } from '@/components/planning/CourseGroupList';
 import { SchedulerConfigDialog } from '@/components/planning/SchedulerConfigDialog';
 import TaskEditModal, { type TaskEditUpdate } from '@/components/planning/modals/TaskEditModal';
+import CourseCreateModal from '@/components/planning/modals/CourseCreateModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,6 +32,8 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
 
   const allCourses = useSchedulerStore((s) => s.allCourses);
   const setCourses = useSchedulerStore((s) => s.setCourses);
+  const addCourse = useSchedulerStore((s) => s.addCourse);
+  const removeCourse = useSchedulerStore((s) => s.removeCourse);
   const resources = useSchedulerStore((s) => s.resources);
 
   const [groupBy, setGroupBy] = useState<GroupBy>('code');
@@ -43,6 +46,8 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
 
   // ── Edit modal state ───────────────────────────────────────────────────
   const [editingCourse, setEditingCourse] = useState<{ courseKey: string; course: CourseTaskData } | null>(null);
+  // ── Create/duplicate modal state ───────────────────────────────────────
+  const [createModal, setCreateModal] = useState<{ initialCourse?: CourseTaskData } | null>(null);
 
   function handleEditCourse(courseKey: string, course: CourseTaskData) {
     setEditingCourse({ courseKey, course });
@@ -53,11 +58,16 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
     const courseRef = editingCourse.course;
     const updated = allCourses.map((c) =>
       c === courseRef
-        ? { ...c, teacher: update.teachers, groups: update.groups, rooms: update.rooms }
+        ? { ...c, teacher: update.teachers, groups: update.groups, rooms: update.rooms, ...(update.duration !== undefined ? { duration: update.duration } : {}) }
         : c,
     );
     setCourses(updated);
     setEditingCourse(null);
+  }
+
+  function handleCreateConfirm(course: CourseTaskData) {
+    addCourse(course);
+    setCreateModal(null);
   }
 
   const teacherOptions = resources
@@ -125,6 +135,18 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
             </p>
             <div className="flex items-center gap-1">
               <Badge variant="secondary">{parsedCourses.length} cours</Badge>
+              {selectedWeek !== null && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-6 px-2 text-[10px]"
+                  onClick={() => setCreateModal({})}
+                  title="Créer un nouveau cours"
+                >
+                  + Cours
+                </Button>
+              )}
               <div className="relative inline-flex">
                 <Button
                   type="button"
@@ -137,7 +159,7 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
                   ⬡ Groupes
                 </Button>
                 {taskGroups.length > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-violet-500 text-white text-[9px] font-bold leading-none pointer-events-none">
+                  <span className="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 flex items-center justify-center rounded-full bg-violet-500 text-white text-[9px] font-bold leading-none pointer-events-none">
                     {taskGroups.length}
                   </span>
                 )}
@@ -159,6 +181,12 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
               groupBy={groupBy}
               enforcedMap={enforcedMap}
               onEditCourse={handleEditCourse}
+              onDuplicateCourse={(course) => setCreateModal({ initialCourse: course })}
+              onDeleteCourse={(indexInParsed) => {
+                const courseRef = parsedCourses[indexInParsed];
+                const realIndex = allCourses.indexOf(courseRef);
+                if (realIndex !== -1) removeCourse(realIndex);
+              }}
             />
           </div>
         </div>
@@ -171,11 +199,26 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
           teachers={editingCourse.course.teacher.flat() as string[]}
           groups={editingCourse.course.groups.flat() as string[]}
           rooms={editingCourse.course.rooms.flat() as string[]}
+          duration={editingCourse.course.duration}
+          showDuration={true}
           teacherOptions={teacherOptions}
           groupOptions={groupOptions}
           roomOptions={roomOptions}
           onConfirm={handleEditConfirm}
           onCancel={() => setEditingCourse(null)}
+        />
+      )}
+
+      {/* Modal de création / duplication d'un cours */}
+      {createModal && selectedWeek !== null && (
+        <CourseCreateModal
+          week={selectedWeek}
+          teacherOptions={teacherOptions}
+          groupOptions={groupOptions}
+          roomOptions={roomOptions}
+          initialCourse={createModal.initialCourse}
+          onConfirm={handleCreateConfirm}
+          onCancel={() => setCreateModal(null)}
         />
       )}
     </aside>

@@ -12,6 +12,8 @@ interface Props {
   groupBy: GroupBy;
   enforcedMap: Record<string, EnforcedData>;
   onEditCourse?: (courseKey: string, course: CourseTaskData) => void;
+  onDuplicateCourse?: (course: CourseTaskData) => void;
+  onDeleteCourse?: (index: number) => void;
 }
 
 function getTeacherLabel(teacher: ResourceEntry[]): string {
@@ -21,7 +23,7 @@ function getTeacherLabel(teacher: ResourceEntry[]): string {
   return first;
 }
 
-export default function CourseGroupList({ courses, groupBy, enforcedMap, onEditCourse }: Props) {
+export default function CourseGroupList({ courses, groupBy, enforcedMap, onEditCourse, onDuplicateCourse, onDeleteCourse }: Props) {
   const groups = useMemo(() => {
     const map = new Map<string, { index: number; course: CourseTaskData }[]>();
     courses.forEach((course, i) => {
@@ -81,6 +83,8 @@ export default function CourseGroupList({ courses, groupBy, enforcedMap, onEditC
                   course={course}
                   enforced={enforcedMap[String(index)] !== undefined}
                   onEdit={onEditCourse ? () => onEditCourse(String(index), course) : undefined}
+                  onDuplicate={onDuplicateCourse ? () => onDuplicateCourse(course) : undefined}
+                  onDelete={onDeleteCourse ? () => onDeleteCourse(index) : undefined}
                 />
               ))}
             </div>

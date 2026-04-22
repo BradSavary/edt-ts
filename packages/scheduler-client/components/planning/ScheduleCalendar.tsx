@@ -7,94 +7,12 @@ import type { EventContentArg } from '@fullcalendar/core';
 import type { TaskSolutionJSON, CourseTaskData } from '@edt-ts/scheduler-common';
 import EnforceModal from '@/components/planning/modals/EnforceModal';
 import TaskEditModal from '@/components/planning/modals/TaskEditModal';
-import { formatTime, formatDate } from '@/lib/calendarUtils';
 import { useCalendarCore } from '@/hooks/useCalendarCore';
-import type { EventDetail } from '@/hooks/useCalendarCore';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 
 interface Props {
   solutions: TaskSolutionJSON[];
   parsedCourses?: CourseTaskData[];
 }
-
-// ─── Composant local : détail d'un event cliqué ───────────────────────────────
-
-interface EventDetailPopupProps {
-  detail: EventDetail;
-  onClose: () => void;
-  onRemoveEnforced: (courseKey: string) => void;
-  onEditResources?: () => void;
-}
-
-function EventDetailPopup({ detail, onClose, onRemoveEnforced, onEditResources }: EventDetailPopupProps) {
-  return (
-    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {detail.code} {detail.type} — {detail.teachers.join(', ')}
-          </DialogTitle>
-        </DialogHeader>
-        <p className="text-sm text-muted-foreground">{detail.name}</p>
-
-        <Separator />
-
-        <dl className="space-y-2 text-sm">
-          <div className="flex gap-2">
-            <dt className="font-medium text-muted-foreground w-24 shrink-0">Date</dt>
-            <dd className="text-foreground">{formatDate(detail.start)}</dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="font-medium text-muted-foreground w-24 shrink-0">Horaire</dt>
-            <dd className="text-foreground">
-              {formatTime(detail.start)} – {formatTime(detail.end)}
-            </dd>
-          </div>
-          {detail.groups.length > 0 && (
-            <div className="flex gap-2">
-              <dt className="font-medium text-muted-foreground w-24 shrink-0">Groupes</dt>
-              <dd className="text-foreground">{detail.groups.join(', ')}</dd>
-            </div>
-          )}
-          {detail.rooms.length > 0 && (
-            <div className="flex gap-2">
-              <dt className="font-medium text-muted-foreground w-24 shrink-0">Salle</dt>
-              <dd className="text-foreground">{detail.rooms.join(', ')}</dd>
-            </div>
-          )}
-        </dl>
-
-        {detail.isEnforced && detail.courseKey && (
-          <Button
-            variant="outline"
-            className="w-full border-destructive text-destructive hover:bg-destructive/10"
-            onClick={() => { onRemoveEnforced(detail.courseKey!); onClose(); }}
-          >
-            Retirer l&apos;imposition
-          </Button>
-        )}
-        {onEditResources && (
-          <Button
-            variant="outline"
-            className="w-full border-blue-300 text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-950"
-            onClick={() => { onEditResources(); onClose(); }}
-          >
-            ✏️ Modifier les ressources
-          </Button>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 function renderEventContent(info: EventContentArg) {
   const props = info.event.extendedProps as {
@@ -212,6 +130,7 @@ export default function ScheduleCalendar({ solutions, parsedCourses = [] }: Prop
             firstDay={1}
             droppable
             editable
+            eventDurationEditable={false}
             selectable={solutions.length === 0}
             selectMirror
             selectMinDistance={5}
@@ -255,6 +174,8 @@ export default function ScheduleCalendar({ solutions, parsedCourses = [] }: Prop
           groupOptions={pendingEdit.groupOptions}
           roomOptions={pendingEdit.roomOptions}
           isEnforced={pendingEdit.isEnforced}
+          duration={pendingEdit.durationMin}
+          showDuration={pendingEdit.showDuration}
           onRemoveEnforced={
             pendingEdit.isEnforced && pendingEdit.courseKey
               ? () => { removeEnforced(pendingEdit.courseKey!); setPendingEdit(null); }

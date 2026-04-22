@@ -24,6 +24,8 @@ interface SchedulerDataSlice {
   clientSchedulerData: ClientSchedulerData | null;
   setCourses: (courses: CourseTaskData[], fileName?: string) => void;
   setResources: (resources: ResourceGroupData[]) => void;
+  addCourse: (course: CourseTaskData) => void;
+  removeCourse: (index: number) => void;
   setSchedulerConfig: (config: SchedulerConfig) => void;
   setYearColorConfig: (config: YearColorConfig) => void;
 }
@@ -49,6 +51,8 @@ export const useSchedulerStore = create<SchedulerStore>()(
       clientSchedulerData: null, // Reconstruit par subscribe ci-dessous
       setCourses: (allCourses, fileName) => set({ allCourses, ...(fileName !== undefined ? { coursesFileName: fileName } : {}) }),
       setResources: (resources) => set({ resources }),
+      addCourse: (course) => set((state) => ({ allCourses: [...state.allCourses, course] })),
+      removeCourse: (index) => set((state) => ({ allCourses: state.allCourses.filter((_, i) => i !== index) })),
       setSchedulerConfig: (schedulerConfig) => set({ schedulerConfig }),
       setYearColorConfig: (yearColorConfig) => set({ yearColorConfig }),
     }),
