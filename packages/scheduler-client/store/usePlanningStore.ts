@@ -18,6 +18,8 @@ export interface PlacedTaskOverride {
   teachers: string[];
   groups: string[];
   rooms: string[];
+  /** Violation de contrainte détectée au moment du placement. */
+  constraintViolation?: 'red' | 'orange' | 'none';
 }
 
 /**
@@ -58,6 +60,8 @@ export interface PlacedNeutralizedTask {
   teachers: string[];
   groups: string[];
   rooms: string[];
+  /** Violation de contrainte détectée au moment du placement. */
+  constraintViolation?: 'red' | 'orange' | 'none';
 }
 
 // ── Interface ──────────────────────────────────────────────────────────────
@@ -101,6 +105,9 @@ export interface PlanningStore {
 
   // Contraintes de session
   enforcedMap: Record<string, EnforcedData>;
+  /** Violations de contrainte pour les tâches imposées déplacées manuellement. */
+  enforcedViolations: Record<string, 'red' | 'orange' | 'none'>;
+  setEnforcedViolation: (courseKey: string, violation: 'red' | 'orange' | 'none') => void;
   blockedZones: BlockedZone[];
 
   // Statut UI
@@ -182,6 +189,7 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
       taskGroups: [],
       manualEnforcedMap: {},
       enforcedMap: {},
+      enforcedViolations: {},
     });
   },
 
@@ -256,6 +264,10 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
   setSearchQuery: (query) => set({ searchQuery: query }),
 
   enforcedMap: {},
+  enforcedViolations: {},
+  setEnforcedViolation: (courseKey, violation) => set((state) => ({
+    enforcedViolations: { ...state.enforcedViolations, [courseKey]: violation },
+  })),
   blockedZones: [],
 
   isLoading: false,
@@ -459,6 +471,7 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
     set({
       manualEnforcedMap: manualMap,
       enforcedMap: augmented,
+      enforcedViolations: {},
       scheduleResult: null,
       selectedSolutionIndex: 0,
       activeSolution: [],
@@ -541,6 +554,7 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
     manuallyNeutralizedTasks: [],
     solutionStates: {},
     syntheticNeutralizedTasks: [],
+    enforcedViolations: {},
     status: null,
   }),
 
@@ -557,6 +571,7 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
     solutionStates: {},
     syntheticNeutralizedTasks: [],
     enforcedMap: {},
+    enforcedViolations: {},
     manualEnforcedMap: {},
     blockedZones: [],
     isLoading: false,

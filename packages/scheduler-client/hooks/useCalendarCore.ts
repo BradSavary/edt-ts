@@ -8,7 +8,7 @@ import type { EventClickArg } from '@fullcalendar/core';
 import type { TaskSolutionJSON, CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
 import type { EnforceSelection } from '@/components/planning/modals/EnforceModal';
 import type { TaskEditUpdate } from '@/components/planning/modals/TaskEditModal';
-import { getMondayOfISOWeek, startTimeToDate, computeStaticConflicts, computeDragHighlights } from '@/lib/calendarUtils';
+import { getMondayOfISOWeek, startTimeToDate, computeStaticConflicts, computeDragHighlights, computeConstraintViolation } from '@/lib/calendarUtils';
 import type { ResourceEventInfo } from '@/lib/calendarUtils';
 import { computeConstraintUnavailableZones } from '@/lib/blockedZones';
 import { levelFromCode, getEventColors } from '@/lib/yearColors';
@@ -80,6 +80,10 @@ export interface CalendarEventExtProps {
   taskId?: string;
   isBlockedZone?: boolean;
   blockedZoneId?: string;
+  /** Indique que la tâche a été placée ou déplacée manuellement. */
+  manuallyPlaced?: boolean;
+  /** Violation de contrainte détectée au moment du placement. */
+  constraintViolation?: 'red' | 'orange' | 'none';
 }
 
 export interface CalendarEventData {
@@ -128,12 +132,13 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
   const manuallyNeutralizedTasks = usePlanningStore((s) => s.manuallyNeutralizedTasks);
   const searchQuery = usePlanningStore((s) => s.searchQuery);
   const setTaskOverride = usePlanningStore((s) => s.setTaskOverride);
-  const moveTaskOverride = usePlanningStore((s) => s.moveTaskOverride);
   const addPlacedNeutralizedTask = usePlanningStore((s) => s.addPlacedNeutralizedTask);
   const updatePlacedNeutralizedTask = usePlanningStore((s) => s.updatePlacedNeutralizedTask);
   const removePlacedNeutralizedTask = usePlanningStore((s) => s.removePlacedNeutralizedTask);
   const addManuallyNeutralizedTask = usePlanningStore((s) => s.addManuallyNeutralizedTask);
   const storeEnforcedMap = usePlanningStore((s) => s.enforcedMap);
+  const enforcedViolations = usePlanningStore((s) => s.enforcedViolations);
+  const setEnforcedViolation = usePlanningStore((s) => s.setEnforcedViolation);
   const handleEnforceChange = usePlanningStore((s) => s.handleEnforceChange);
   const blockedZones = usePlanningStore((s) => s.blockedZones);
   const handleBlockedZoneAdd = usePlanningStore((s) => s.handleBlockedZoneAdd);
@@ -172,6 +177,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       const title = [course?.code ?? '?', course?.type ?? '', teacherStr].filter(Boolean).join(' • ');
       const startDate = new Date(monday.getTime() + enforced.startTime * 60 * 1000);
       const endDate = new Date(startDate.getTime() + (course?.duration ?? 60) * 60 * 1000);
+      const violation = enforcedViolations[courseKey];
       return {
         id: `enforced-${courseKey}`,
         title,
@@ -188,10 +194,12 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
           durationMin: course?.duration ?? 0,
           isEnforced: true,
           courseKey,
+          manuallyPlaced: violation !== undefined ? true : undefined,
+          constraintViolation: violation,
         },
       };
     });
-  }, [storeEnforcedMap, parsedCourses, monday, yearColorConfig]);
+  }, [storeEnforcedMap, parsedCourses, monday, yearColorConfig, enforcedViolations]);
 
   const prevParsedCoursesRef = useRef<CourseTaskData[]>(parsedCourses);
   const skipNextParsedCoursesResetRef = useRef(false);
@@ -295,7 +303,10 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     const startTime = Math.round((startDate.getTime() - monday.getTime()) / 60000);
 
     info.event.remove();
-    addPlacedNeutralizedTask({ taskId, code, name, type, startTime, duration: durationMin, teachers, groups, rooms });
+    const violation = availabilityManager
+      ? computeConstraintViolation(startTime, durationMin, teachers, groups, rooms, availabilityManager, week)
+      : 'none';
+    addPlacedNeutralizedTask({ taskId, code, name, type, startTime, duration: durationMin, teachers, groups, rooms, constraintViolation: violation });
   }
 
   function handleEventReceive(info: EventReceiveArg) {
@@ -437,6 +448,12 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       const updated: EnforcedData = { ...existing, startTime: newStartTime };
       const newMap = { ...state.manualEnforcedMap, [courseKey]: updated };
       handleEnforceChange({ ...newMap });
+      // Calculer la violation au nouveau créneau
+      if (availabilityManager) {
+        const duration = ext.durationMin ?? 0;
+        const violation = computeConstraintViolation(newStartTime, duration, existing.teacher, existing.groups, existing.rooms, availabilityManager, week);
+        setEnforcedViolation(courseKey, violation);
+      }
       return;
     }
 
@@ -449,14 +466,26 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     const rooms = ext.rooms ?? [];
 
     if (ext.isNeutralizedPlaced) {
-      updatePlacedNeutralizedTask(taskId, { startTime: newStartTime });
+      const violation = availabilityManager
+        ? computeConstraintViolation(newStartTime, ext.durationMin ?? 0, teachers, groups, rooms, availabilityManager, week)
+        : 'none';
+      updatePlacedNeutralizedTask(taskId, { startTime: newStartTime, constraintViolation: violation });
       return;
     }
 
+    // Déterminer si la tâche est revenue à sa position d'origine
+    const originalTask = solutions.find((t) => t.taskId === taskId);
+    const originalStartTime = originalTask?.startTime ?? null;
+    const isAtOrigin = originalStartTime !== null && newStartTime === originalStartTime;
+    const violation = (!isAtOrigin && availabilityManager)
+      ? computeConstraintViolation(newStartTime, ext.durationMin ?? 0, teachers, groups, rooms, availabilityManager, week)
+      : 'none';
+
     if (taskId in taskOverrides) {
-      moveTaskOverride(taskId, newStartTime);
+      const existing = taskOverrides[taskId];
+      setTaskOverride(taskId, { ...existing, startTime: newStartTime, constraintViolation: isAtOrigin ? undefined : violation });
     } else {
-      setTaskOverride(taskId, { startTime: newStartTime, teachers, groups, rooms });
+      setTaskOverride(taskId, { startTime: newStartTime, teachers, groups, rooms, constraintViolation: isAtOrigin ? undefined : violation });
     }
   }
 
@@ -544,6 +573,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       const groups = override?.groups ?? task.resources.filter((r) => r.type === 'group').map((r) => r.id);
       const rooms = override?.rooms ?? task.resources.filter((r) => r.type === 'room').map((r) => r.id);
       const startTime = override?.startTime ?? task.startTime;
+      const isManuallyPlaced = override !== undefined && override.startTime !== task.startTime;
       const start = startTimeToDate(monday, startTime);
       const end = new Date(start.getTime() + task.duration * 60 * 1000);
       return {
@@ -552,7 +582,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
         start,
         end,
         ...getEventColors(levelFromCode(task.code), task.type, yearColorConfig),
-        extendedProps: { name: task.name, code: task.code, type: task.type, teachers, groups, rooms, durationMin: task.duration },
+        extendedProps: { name: task.name, code: task.code, type: task.type, teachers, groups, rooms, durationMin: task.duration, manuallyPlaced: isManuallyPlaced || undefined, constraintViolation: isManuallyPlaced ? (override?.constraintViolation ?? 'none') : undefined },
       };
     });
 
@@ -588,6 +618,8 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
           durationMin: task.duration,
           isNeutralizedPlaced: true,
           taskId: task.taskId,
+          manuallyPlaced: true,
+          constraintViolation: task.constraintViolation ?? 'none',
         },
       };
     });
@@ -683,7 +715,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       ...placedNeutralizedEvts.map(applyHighlight),
       ...constraintBgEvents,
     ];
-  }, [solutions, blockedZones, monday, enforcedEventsState, taskOverrides, placedNeutralizedTasks, manuallyNeutralizedTasks, searchQuery, dragging, externalDragging, availabilityManager, week, yearColorConfig]);
+  }, [solutions, blockedZones, monday, enforcedEventsState, taskOverrides, placedNeutralizedTasks, manuallyNeutralizedTasks, searchQuery, enforcedViolations, dragging, externalDragging, availabilityManager, week, yearColorConfig]);
 
   return {
     week,

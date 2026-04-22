@@ -2,6 +2,43 @@
  * Utilitaires de calcul de dates/heures pour l'affichage du calendrier.
  */
 
+import type { AvailabilityManager } from '@edt-ts/scheduler-common';
+
+/**
+ * Calcule la violation de contrainte pour un créneau donné.
+ * - 'red'    : au moins un enseignant est indisponible sur ce créneau
+ * - 'orange' : au moins une salle ou groupe est indisponible (mais pas d'enseignant)
+ * - 'none'   : pas de violation détectée
+ *
+ * @param startTime   Minutes depuis lundi minuit
+ * @param duration    Durée en minutes
+ * @param teachers    IDs des enseignants
+ * @param groups      IDs des groupes
+ * @param rooms       IDs des salles
+ * @param manager     AvailabilityManager instancié avec les contraintes courantes
+ * @param week        Numéro de semaine ISO (pour les contraintes hebdomadaires)
+ */
+export function computeConstraintViolation(
+  startTime: number,
+  duration: number,
+  teachers: string[],
+  groups: string[],
+  rooms: string[],
+  manager: AvailabilityManager,
+  week: number,
+): 'red' | 'orange' | 'none' {
+  const end = startTime + duration;
+  for (const id of teachers) {
+    const avail = manager.getAvailability(id, week);
+    if (avail && !avail.isAvailable(startTime, end)) return 'red';
+  }
+  for (const id of [...groups, ...rooms]) {
+    const avail = manager.getAvailability(id, week);
+    if (avail && !avail.isAvailable(startTime, end)) return 'orange';
+  }
+  return 'none';
+}
+
 /**
  * Calcule le lundi de la semaine ISO donnée.
  * @param isoWeek Numéro de semaine ISO (1–53)

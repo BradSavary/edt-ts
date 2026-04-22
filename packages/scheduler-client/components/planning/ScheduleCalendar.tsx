@@ -104,6 +104,8 @@ function renderEventContent(info: EventContentArg) {
     durationMin?: number;
     isEnforced?: boolean;
     isBlockedZone?: boolean;
+    manuallyPlaced?: boolean;
+    constraintViolation?: 'red' | 'orange' | 'none';
   };
 
   if (props.isBlockedZone) {
@@ -120,8 +122,31 @@ function renderEventContent(info: EventContentArg) {
 
   const groups = props.groups ?? [];
   const rooms = props.rooms ?? [];
+
+  // Badge de placement manuel
+  let badgeColor = '';
+  let badgeTitle = '';
+  if (props.manuallyPlaced) {
+    if (props.constraintViolation === 'red') {
+      badgeColor = 'bg-red-500 border-red-800';
+      badgeTitle = 'Contrainte enseignant non respectée';
+    } else if (props.constraintViolation === 'orange') {
+      badgeColor = 'bg-orange-400 border-orange-700';
+      badgeTitle = 'Contrainte salle/groupe non respectée';
+    } else {
+      badgeColor = 'bg-blue-500 border-blue-800';
+      badgeTitle = 'Placé manuellement';
+    }
+  }
+
   return (
-    <div className="px-1 py-0.5 text-xs overflow-hidden leading-tight h-full">
+    <div className="px-1 py-0.5 text-xs overflow-hidden leading-tight h-full relative">
+      {props.manuallyPlaced && (
+        <span
+          className={`absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full border-2 ${badgeColor} z-10`}
+          title={badgeTitle}
+        />
+      )}
       <div className="font-semibold truncate flex items-center gap-1">
         {props.isEnforced && <span title="Imposé">📌</span>}
         {info.event.title}
