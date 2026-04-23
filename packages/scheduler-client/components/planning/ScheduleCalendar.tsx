@@ -61,7 +61,7 @@ function renderEventContent(info: EventContentArg) {
     <div className="px-1 py-0.5 text-xs overflow-hidden leading-tight h-full relative">
       {props.manuallyPlaced && (
         <span
-          className={`absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full border-2 ${badgeColor} z-10`}
+          className={`absolute top-0.5 lft-0.5 w-2.5 h-2.5 rounded-full border-2 ${badgeColor} z-10`}
           title={badgeTitle}
         />
       )}
