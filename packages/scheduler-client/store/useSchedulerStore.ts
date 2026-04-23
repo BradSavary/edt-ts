@@ -6,6 +6,7 @@ import type { CourseTaskData, ResourceGroupData, ConstraintsData, SchedulerConfi
 import { AvailabilityManager, DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
 import { ClientSchedulerData } from '../lib/clientSchedulerData';
 import { type YearColorConfig, DEFAULT_YEAR_COLORS } from '../lib/yearColors';
+import type { SchoolYearConfig } from '../lib/schoolHolidays';
 
 // ── Slice : données brutes du planificateur ────────────────────────────────
 // allCourses, resources, constraints sont persistés (localStorage "edt-scheduler").
@@ -18,6 +19,8 @@ interface SchedulerDataSlice {
   coursesFileName: string | null;
   schedulerConfig: SchedulerConfig;
   yearColorConfig: YearColorConfig;
+  /** Configuration année scolaire + vacances/jours fériés (persistée) */
+  schoolYearConfig: SchoolYearConfig | null;
   /** Instance reconstruite depuis constraints — non persistée, jamais null si constraints non vide */
   availabilityManager: AvailabilityManager | null;
   /** Instance ClientSchedulerData — non persistée, reconstruite quand allCourses ou resources change */
@@ -28,6 +31,7 @@ interface SchedulerDataSlice {
   removeCourse: (index: number) => void;
   setSchedulerConfig: (config: SchedulerConfig) => void;
   setYearColorConfig: (config: YearColorConfig) => void;
+  setSchoolYearConfig: (config: SchoolYearConfig | null) => void;
 }
 
 // ── Store combiné ──────────────────────────────────────────────────────────
@@ -47,6 +51,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
       coursesFileName: null,
       schedulerConfig: DEFAULT_SCHEDULER_CONFIG,
       yearColorConfig: DEFAULT_YEAR_COLORS,
+      schoolYearConfig: null,
       availabilityManager: null, // Reconstruit par subscribe ci-dessous
       clientSchedulerData: null, // Reconstruit par subscribe ci-dessous
       setCourses: (allCourses, fileName) => set({ allCourses, ...(fileName !== undefined ? { coursesFileName: fileName } : {}) }),
@@ -55,6 +60,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
       removeCourse: (index) => set((state) => ({ allCourses: state.allCourses.filter((_, i) => i !== index) })),
       setSchedulerConfig: (schedulerConfig) => set({ schedulerConfig }),
       setYearColorConfig: (yearColorConfig) => set({ yearColorConfig }),
+      setSchoolYearConfig: (schoolYearConfig) => set({ schoolYearConfig }),
     }),
     {
       name: 'edt-scheduler',
@@ -67,6 +73,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
         coursesFileName: state.coursesFileName,
         schedulerConfig: state.schedulerConfig,
         yearColorConfig: state.yearColorConfig,
+        schoolYearConfig: state.schoolYearConfig,
       }),
     },
   ),

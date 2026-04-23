@@ -80,6 +80,8 @@ export interface CalendarEventExtProps {
   taskId?: string;
   isBlockedZone?: boolean;
   blockedZoneId?: string;
+  blockedZoneSource?: 'manual' | 'vacation' | 'public-holiday';
+  blockedZoneLabel?: string;
   /** Indique que la tâche a été placée ou déplacée manuellement. */
   manuallyPlaced?: boolean;
   /** Violation de contrainte détectée au moment du placement. */
@@ -150,8 +152,18 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
   const availabilityManager = useSchedulerStore((s) => s.availabilityManager);
   const resources = useSchedulerStore((s) => s.resources);
   const yearColorConfig = useSchedulerStore((s) => s.yearColorConfig);
+  const schoolYearConfig = useSchedulerStore((s) => s.schoolYearConfig);
 
-  const monday = useMemo(() => getMondayOfISOWeek(week), [week]);
+  const monday = useMemo(() => {
+    if (schoolYearConfig) {
+      const parts = schoolYearConfig.year.split('-').map(Number);
+      const startYear = parts[0] ?? new Date().getFullYear();
+      const endYear = parts[1] ?? startYear + 1;
+      const year = week >= 35 ? startYear : endYear;
+      return getMondayOfISOWeek(week, year);
+    }
+    return getMondayOfISOWeek(week);
+  }, [week, schoolYearConfig]);
 
   // ── Options de ressources (pour les modals d'édition) ─────────────────
   const resourceOptions = useMemo(() => ({
@@ -546,10 +558,25 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       id: `blocked-${zone.id}`,
       start: zone.start,
       end: zone.end,
-      backgroundColor: 'rgba(239,68,68)',
-      borderColor: 'rgba(220, 34, 34, 1)',
+      backgroundColor:
+        zone.source === 'vacation'
+          ? 'rgba(99,179,237,0.95)'
+          : zone.source === 'public-holiday'
+            ? 'rgba(154,117,210,0.95)'
+            : 'rgba(239,68,68,0.95)',
+      borderColor:
+        zone.source === 'vacation'
+          ? 'rgba(66,153,225,0.9)'
+          : zone.source === 'public-holiday'
+            ? 'rgba(128,90,213,0.9)'
+            : 'rgba(220, 34, 34, 1)',
       classNames: ['fc-blocked-zone'],
-      extendedProps: { isBlockedZone: true, blockedZoneId: zone.id },
+      extendedProps: {
+        isBlockedZone: true,
+        blockedZoneId: zone.id,
+        blockedZoneSource: zone.source ?? 'manual',
+        blockedZoneLabel: zone.label,
+      },
     }));
 
     const solEvts: CalendarEventData[] = solutions

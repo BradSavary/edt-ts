@@ -5,6 +5,10 @@ export interface BlockedZone {
   id: string;
   start: Date;
   end: Date;
+  /** Libellé affiché dans le calendrier (ex: "Vacances de Toussaint", "1er janvier") */
+  label?: string;
+  /** Origine de la zone : 'manual' (utilisateur), 'vacation' (vacances scolaires), 'public-holiday' (jour férié) */
+  source?: 'manual' | 'vacation' | 'public-holiday';
 }
 
 // Base d'disponibilité fictive quand aucun fichier de contraintes n'est chargé
@@ -150,11 +154,23 @@ export function applyBlockedZonesToConstraints(
     let slots = getResourceBaseSlots(resourceId, weekNumber, baseConstraints);
 
     for (const zone of blockedZones) {
-      const blockedDay = dateToFrenchDay(zone.start);
-      const blockedFrom = zone.start.getHours() * 60 + zone.start.getMinutes();
-      const blockedTo = zone.end.getHours() * 60 + zone.end.getMinutes();
-      if (blockedFrom >= blockedTo) continue;
-      slots = subtractIntervalFromSlots(slots, blockedDay, blockedFrom, blockedTo);
+      // Itérer sur chaque jour calendaire couvert par la zone (support multi-jours)
+      const zoneStartDay = new Date(zone.start);
+      zoneStartDay.setHours(0, 0, 0, 0);
+      const zoneEndDay = new Date(zone.end);
+      zoneEndDay.setHours(0, 0, 0, 0);
+      const cursor = new Date(zoneStartDay);
+      while (cursor <= zoneEndDay) {
+        const isFirst = cursor.getTime() === zoneStartDay.getTime();
+        const isLast = cursor.getTime() === zoneEndDay.getTime();
+        const blockedDay = dateToFrenchDay(cursor);
+        const blockedFrom = isFirst ? zone.start.getHours() * 60 + zone.start.getMinutes() : 0;
+        const blockedTo = isLast ? zone.end.getHours() * 60 + zone.end.getMinutes() : 24 * 60;
+        if (blockedFrom < blockedTo) {
+          slots = subtractIntervalFromSlots(slots, blockedDay, blockedFrom, blockedTo);
+        }
+        cursor.setDate(cursor.getDate() + 1);
+      }
     }
 
     const existing = (result as Record<string, unknown>)[resourceId];

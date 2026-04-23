@@ -6,6 +6,7 @@ import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { Label } from '@/components/ui/label';
 import { YEAR_COLOR_PALETTE, getEventColors, type YearColorConfig } from '@/lib/yearColors';
+import { SchoolYearBlock } from '@/components/config/SchoolYearBlock';
 
 export default function ConfigPage() {
   const allCourses = useSchedulerStore((s) => s.allCourses);
@@ -48,7 +49,7 @@ export default function ConfigPage() {
   ];
 
   return (
-    <div className="max-w-5xl mx-auto p-8 flex flex-row gap-8 items-start">
+    <div className="max-w-5xl mx-auto p-8 flex flex-row gap-8 items-start flex-wrap">
       
 
       <div className="flex flex-col gap-6 rounded-lg border border-border bg-card p-6">
@@ -177,6 +178,8 @@ export default function ConfigPage() {
           );
         })}
       </div>
+
+      <SchoolYearBlock />
     </div>
   );
 }

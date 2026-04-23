@@ -22,16 +22,21 @@ function renderEventContent(info: EventContentArg) {
     durationMin?: number;
     isEnforced?: boolean;
     isBlockedZone?: boolean;
+    blockedZoneSource?: 'manual' | 'vacation' | 'public-holiday';
+    blockedZoneLabel?: string;
     manuallyPlaced?: boolean;
     constraintViolation?: 'red' | 'orange' | 'none';
   };
 
   if (props.isBlockedZone) {
+    const source = props.blockedZoneSource;
+    const label = props.blockedZoneLabel;
+    const title = source === 'vacation' ? 'Vacances' : source === 'public-holiday' ? 'Jour férié' : 'Zone vide';
     return (
       <div className="px-1 py-0.5 text-xs overflow-hidden leading-tight h-full flex items-start gap-1 cursor-pointer select-none">
         <span className="shrink-0">🚫</span>
         <div>
-          <div className="font-semibold">Zone vide</div>
+          <div className="font-semibold">{label ?? title}</div>
           <div className="opacity-60">Clic pour retirer</div>
         </div>
       </div>

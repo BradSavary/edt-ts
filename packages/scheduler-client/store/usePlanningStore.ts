@@ -4,6 +4,7 @@ import type { BlockedZone } from '@/lib/blockedZones';
 import { runScheduleRequestFromData, buildScheduleStatus, type ScheduleResult, type ScheduleStatus } from '@/lib/scheduleApi';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { type TaskGroupConfig, buildTaskGroupData, getCourseGroupInfo, computeGroupEnforcements } from '@/lib/taskGroupUtils';
+import { computeHolidayZonesForWeek } from '@/lib/schoolHolidays';
 
 export type { TaskGroupConfig };
 
@@ -173,6 +174,13 @@ export type DraggingResources = NonNullable<PlanningStore['draggingExternal']>;
 export const usePlanningStore = create<PlanningStore>()((set, get) => ({
   selectedWeek: null,
   setSelectedWeek: (week) => {
+    // Pré-charger les zones bloquées de vacances/jours fériés pour la semaine
+    const { schoolYearConfig } = useSchedulerStore.getState();
+    const initialBlockedZones: BlockedZone[] =
+      week !== null && schoolYearConfig
+        ? computeHolidayZonesForWeek(schoolYearConfig, week)
+        : [];
+
     set({
       selectedWeek: week,
       searchQuery: '',
@@ -186,7 +194,7 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
       manuallyNeutralizedTasks: [],
       solutionStates: {},
       syntheticNeutralizedTasks: [],
-      blockedZones: [],
+      blockedZones: initialBlockedZones,
       status: null,
       taskGroups: [],
       manualEnforcedMap: {},
