@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { scheduleHandler, healthHandler, solveWithEliminationHandler, defaultConfigHandler } from '../controllers/scheduleController.js';
+import { scheduleHandler, healthHandler, solveWithEliminationHandler, defaultConfigHandler, schedulerV2Handler } from '../controllers/scheduleController.js';
 
 const router = Router();
 
@@ -57,5 +57,16 @@ router.post('/', scheduleHandler);
  * Retourne un tableau de ScheduleSolutionJSON.
  */
 router.post('/elimination', solveWithEliminationHandler);
+
+/**
+ * POST /api/schedule/v2
+ * Nouveau moteur (Scheduler) avec élimination intégrée.
+ *
+ * Corps JSON identique à POST /api/schedule/elimination.
+ * Si options.maxEliminations = 0, aucune élimination n'est tentée.
+ *
+ * Retourne un tableau de ScheduleSolutionJSON (même format que /elimination).
+ */
+router.post('/v2', schedulerV2Handler);
 
 export default router;

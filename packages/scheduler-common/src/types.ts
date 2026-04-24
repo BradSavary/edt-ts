@@ -122,9 +122,9 @@ export interface NeutralizedTaskInfoJSON {
   task: TaskSolutionJSON;
   eliminationRound: number;
   failureCount: number;
-  requiredMinutes: number;
-  schedulableMinutes: number;
-  resourceSnapshots: ResourceAvailabilitySnapshotJSON[];
+  requiredMinutes?: number;
+  schedulableMinutes?: number;
+  resourceSnapshots?: ResourceAvailabilitySnapshotJSON[];
   reason: string;
 }
 

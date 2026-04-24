@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import {
   Loader,
   Schedule,
+  Scheduler,
 } from '@edt-ts/scheduler-core';
 import type { RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON, NeutralizedTaskInfoJSON, SchedulerConfig, ISchedulable } from '@edt-ts/scheduler-common';
 import { DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
@@ -9,6 +10,9 @@ import type {
   TaskSolution,
   ScheduleSolution,
   NeutralizedTaskInfo,
+  SchedulerSolution,
+  NeutralizedUnitInfo,
+  UnitSolution,
 } from '@edt-ts/scheduler-core';
 
 // --------------------------------------------------------------------------
@@ -247,6 +251,105 @@ export async function solveWithEliminationHandler(req: Request, res: Response): 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('❌ Erreur planification (elimination) :', message);
+    res.status(500).json({ error: message });
+  }
+}
+
+// --------------------------------------------------------------------------
+// Sérialisation Scheduler (nouveau moteur) → JSON
+// --------------------------------------------------------------------------
+
+function serializeUnitSolutions(solutions: UnitSolution[], taskMap: Map<string, ISchedulable>): TaskSolutionJSON[] {
+  return solutions.map(sol => {
+    const task = taskMap.get(sol.unit.id);
+    return {
+      taskId:    sol.unit.id,
+      code:      task?.code     ?? '',
+      name:      task?.name     ?? '',
+      type:      task?.type     ?? '',
+      week:      task?.week     ?? 0,
+      duration:  task?.duration ?? sol.unit.duration,
+      startTime: sol.start,
+      resources: sol.resources.map(r => ({ id: r.id, type: r.type })),
+    };
+  });
+}
+
+function serializeNeutralizedUnit(info: NeutralizedUnitInfo, taskMap: Map<string, ISchedulable>): NeutralizedTaskInfoJSON {
+  const task = taskMap.get(info.unit.id);
+  const taskJSON: TaskSolutionJSON = {
+    taskId:    info.unit.id,
+    code:      task?.code     ?? '',
+    name:      task?.name     ?? '',
+    type:      task?.type     ?? '',
+    week:      task?.week     ?? 0,
+    duration:  task?.duration ?? info.unit.duration,
+    startTime: -1,
+    resources: [],
+  };
+  return {
+    task:             taskJSON,
+    eliminationRound: info.eliminationRound,
+    failureCount:     info.failureCount,
+    reason:           info.reason,
+  };
+}
+
+function serializeSchedulerSolution(result: SchedulerSolution, taskMap: Map<string, ISchedulable>): ScheduleSolutionJSON {
+  const out: ScheduleSolutionJSON = {
+    solutions:  serializeUnitSolutions(result.solutions, taskMap),
+    isComplete: result.isComplete,
+    score:      result.score,
+  };
+  if (result.neutralizedUnits && result.neutralizedUnits.length > 0) {
+    out.neutralizedTasks = result.neutralizedUnits.map(u => serializeNeutralizedUnit(u, taskMap));
+  }
+  return out;
+}
+
+// --------------------------------------------------------------------------
+// POST /api/schedule/v2
+// --------------------------------------------------------------------------
+
+/**
+ * Nouveau moteur (Scheduler) avec élimination intégrée.
+ * Corps identique à POST /api/schedule/elimination.
+ * Si options.maxEliminations = 0, aucune élimination n'est tentée.
+ * Retourne un tableau de ScheduleSolutionJSON.
+ */
+export async function schedulerV2Handler(req: Request, res: Response): Promise<void> {
+  try {
+    const body = req.body as RawScheduleData & { options?: SchedulerConfig };
+
+    if (!body.week || !body.courses || !Array.isArray(body.courses)) {
+      res.status(400).json({
+        error: 'Corps invalide : les champs "week" et "courses" sont requis.',
+      });
+      return;
+    }
+
+    Loader.reload();
+    Loader.loadFromRawData({
+      week:        body.week,
+      resources:   body.resources ?? [],
+      courses:     body.courses,
+      constraints: body.constraints,
+    });
+
+    // Construire la map id→ISchedulable avant la résolution (état stable après loadFromRawData)
+    const allTasks = Loader.tasksManager.getAllUnits();
+    const taskMap = new Map<string, ISchedulable>(allTasks.map(t => [t.id, t]));
+
+    const scheduler = new Scheduler();
+    if (body.options) scheduler.configure(body.options);
+
+    const results: SchedulerSolution[] = scheduler.solveWithElimination();
+
+    const response: ScheduleSolutionJSON[] = results.map(r => serializeSchedulerSolution(r, taskMap));
+    res.status(200).json(response);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('❌ Erreur planification (v2) :', message);
     res.status(500).json({ error: message });
   }
 }
