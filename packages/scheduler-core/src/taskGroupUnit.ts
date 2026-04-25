@@ -1,5 +1,4 @@
 import { Task, Resource } from '@edt-ts/scheduler-common';
-import { TaskGroup } from '@edt-ts/scheduler-common';
 import type { ISchedulingUnit, SchedulingResult, UnitSolution } from './schedulingUnit.js';
 
 const SLOT_STEP = 30;
@@ -25,7 +24,9 @@ interface TaskAssignment {
  * Le moteur (Scheduler) ne voit que ISchedulingUnit.
  */
 export class TaskGroupUnit implements ISchedulingUnit {
-    readonly task: TaskGroup;
+    readonly id: string;
+    private readonly _groupType: 'parallel' | 'sequential';
+    private readonly _tasks: Task[];
     private _dependsOn: ISchedulingUnit | null = null;
     private _dependentUnits: ISchedulingUnit[] = [];
     /** Affectation calculée par earlySchedule, utilisée par book/unBook. */
@@ -33,21 +34,28 @@ export class TaskGroupUnit implements ISchedulingUnit {
     /** Pile LIFO de sauvegardes pour unBook. */
     private _savedAssignments: TaskAssignment[][] = [];
 
-    constructor(group: TaskGroup) {
-        this.task = group;
+    constructor(id: string, groupType: 'parallel' | 'sequential', tasks: Task[]) {
+        this.id = id;
+        this._groupType = groupType;
+        this._tasks = tasks;
     }
 
-    get id(): string { return this.task.id; }
-    get duration(): number { return this.task.duration; }
+    get duration(): number {
+        if (this._tasks.length === 0) return 0;
+        if (this._groupType === 'parallel') {
+            return Math.max(...this._tasks.map(t => t.duration));
+        }
+        return this._tasks.reduce((sum, t) => sum + t.duration, 0);
+    }
     get isEnforced(): false { return false; }
 
     // ── Planification ──────────────────────────────────────────────────────
 
     earlySchedule(fromTime: number): SchedulingResult | null {
-        const tasks = this.task.getTasks();
+        const tasks = this._tasks;
         if (tasks.length === 0) return null;
 
-        if (this.task.groupType === 'parallel') {
+        if (this._groupType === 'parallel') {
             return this._earlyScheduleParallel(tasks, fromTime);
         } else {
             return this._earlyScheduleSequential(tasks, fromTime);
@@ -185,13 +193,12 @@ export class TaskGroupUnit implements ISchedulingUnit {
      * Reflète l'état courant des ressources.
      */
     getSchedulingPriority(): number {
-        const tasks = this.task.getTasks();
-        if (tasks.length === 0) return 0;
+        if (this._tasks.length === 0) return 0;
 
         let score = 0;
         const MAX_WEEK_MINUTES = (10 * 4 + 4.5) * 60;
 
-        for (const task of tasks) {
+        for (const task of this._tasks) {
             // Vacataire boost
             const teacher = task.getTeacherResource();
             if (teacher?.status === 'VACATAIRE') score += 5 * 24 * 60;
@@ -230,8 +237,8 @@ export class TaskGroupUnit implements ISchedulingUnit {
     // ── Sérialisation ──────────────────────────────────────────────────────
 
     toSolutions(result: SchedulingResult): UnitSolution[] {
-        const tasks = this.task.getTasks();
-        if (this.task.groupType === 'parallel') {
+        const tasks = this._tasks;
+        if (this._groupType === 'parallel') {
             return tasks.map((task) => ({
                 unit: this,
                 start: result.start,

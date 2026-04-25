@@ -1,6 +1,6 @@
 import { Resource, ResourceType } from './resource.ts';
 import { Availability } from './availability.ts';
-import type { CourseTaskData, EnforcedData, ITaskGroup } from './types.ts';
+import type { CourseTaskData, EnforcedData } from './types.ts';
 import type { ISchedulable } from './schedulable.ts';
 
 /**
@@ -26,7 +26,6 @@ class Task implements ISchedulable {
   private _schedulable: Availability | null = null;
   private dependsOn: ISchedulable | null = null;
   private dependentUnits: ISchedulable[] = [];
-  private _group: ITaskGroup | null = null;
 
   constructor(id: string, courseData: CourseTaskData, resources: Resource[] = []) {
     if (courseData.duration <= 0) {
@@ -200,21 +199,6 @@ class Task implements ISchedulable {
    */
   hasSchedulableSlot(): boolean {
     return this.schedulable.hasSlotOfDuration(this.duration);
-  }
-
-  // ── Appartenance à un groupe ──────────────────────────────────────────────
-
-  /** Retourne le groupe auquel appartient cette tâche, ou null. */
-  get group(): ITaskGroup | null {
-    return this._group;
-  }
-
-  /**
-   * @internal — appelé uniquement par TaskGroup.addTask.
-   * Ne pas appeler directement.
-   */
-  _setGroup(group: ITaskGroup): void {
-    this._group = group;
   }
 
 }

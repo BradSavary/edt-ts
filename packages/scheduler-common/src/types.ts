@@ -20,21 +20,14 @@ export interface ConstraintsData {
 }
 
 /**
- * Type d'un groupe de tâches.
+ * Déclaration d'un groupe de tâches transmise dans le payload.
+ * Les tâches membres référencent ce groupe via leur champ `taskGroupId`.
  *  - parallel  : toutes les tâches démarrent au même instant
  *  - sequential : les tâches s'enchaînent sans gap (fin de l'une = début de la suivante)
  */
-export type TaskGroupType = 'parallel' | 'sequential';
-
-/**
- * Interface minimale d'un groupe de tâches, utilisée par Task pour référencer
- * son groupe sans créer de dépendance circulaire (task.ts ↔ taskGroup.ts).
- */
-export interface ITaskGroup {
-  readonly id: string;
-  readonly groupType: TaskGroupType;
-  readonly name: string;
-  readonly code: string;
+export interface TaskGroupDeclaration {
+  id: string;
+  type: 'parallel' | 'sequential';
 }
 
 /**
@@ -68,6 +61,8 @@ export interface CourseTaskData {
   rooms: ResourceEntry[];
   duration: number;
   enforced?: EnforcedData;
+  /** Identifiant du groupe auquel appartient cette tâche (référence une TaskGroupDeclaration). */
+  taskGroupId?: string;
 }
 
 export interface CoursesData {
@@ -94,6 +89,7 @@ export interface RawScheduleData {
   resources: ResourceGroupData[];
   courses: CourseTaskData[];
   constraints?: ConstraintsData;
+  groups?: TaskGroupDeclaration[];
 }
 
 /**
@@ -109,6 +105,7 @@ export interface TaskSolutionJSON {
   duration: number;
   startTime: number;
   resources: { id: string; type: string }[];
+  taskGroupId?: string;
 }
 
 
@@ -126,6 +123,7 @@ export interface NeutralizedTaskInfoJSON {
   schedulableMinutes?: number;
   resourceSnapshots?: ResourceAvailabilitySnapshotJSON[];
   reason: string;
+  taskGroupId?: string;
 }
 
 export interface ScheduleSolutionJSON {
