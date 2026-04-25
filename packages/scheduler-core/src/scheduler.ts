@@ -1,9 +1,10 @@
 import { Resource, ResourceType } from '@edt-ts/scheduler-common';
-import type { ISchedulable, SchedulerConfig } from '@edt-ts/scheduler-common';
+import type { SchedulerConfig } from '@edt-ts/scheduler-common';
 import { Task } from '@edt-ts/scheduler-common';
 import { Loader } from './loader.js';
 import type { ISchedulingUnit, SchedulingResult, UnitSolution } from './schedulingUnit.js';
 import { TaskUnit } from './taskUnit.js';
+import { TaskGroupUnit } from './taskGroupUnit.js';
 
 const SLOT_STEP = 30; // minutes — granularité du backtracking
 
@@ -77,27 +78,55 @@ export class Scheduler {
     // ── Initialisation ───────────────────────────────────────────────────────
 
     initSolver(): void {
-        const tasks = Loader.tasksManager.getAllUnits();
+        const allUnits = Loader.tasksManager.getAllUnits();
+        const tasks = allUnits as Task[];
         this._resources = Array.from(Loader.resourcesManager.getAllResources());
+        this._units = [];
 
         if (tasks.length === 0) throw new Error('Aucune tâche à planifier. Vérifiez que les données sont chargées.');
         if (this._resources.length === 0) throw new Error('Aucune ressource disponible.');
 
-        // Créer les TaskUnit wrappers et construire la map ISchedulable → TaskUnit
-        const unitMap = new Map<ISchedulable, TaskUnit>();
-        this._units = tasks.map(t => {
-            const unit = new TaskUnit(t as Task);
-            unitMap.set(t, unit);
-            return unit;
-        });
+        // Map Task → ISchedulingUnit (TaskUnit ou TaskGroupUnit)
+        const unitMap = new Map<Task, ISchedulingUnit>();
 
-        // Reporter le graphe de dépendances du niveau Task vers le niveau TaskUnit
-        for (const t of tasks) {
-            const dep = t.getDependsOn();
+        // 1. Construire les TaskGroupUnit à partir des déclarations de groupes
+        const groupDeclarations = Loader.groups;
+        if (groupDeclarations.length > 0) {
+            const groupAccumulator = new Map<string, { type: 'parallel' | 'sequential'; tasks: Task[] }>();
+            for (const decl of groupDeclarations) {
+                groupAccumulator.set(decl.id, { type: decl.type, tasks: [] });
+            }
+            for (const task of tasks) {
+                if (task.taskGroupId) {
+                    const entry = groupAccumulator.get(task.taskGroupId);
+                    if (entry) entry.tasks.push(task);
+                }
+            }
+            for (const [groupId, { type, tasks: groupTasks }] of groupAccumulator) {
+                if (groupTasks.length === 0) continue;
+                const groupUnit = new TaskGroupUnit(groupId, type, groupTasks);
+                for (const t of groupTasks) unitMap.set(t, groupUnit);
+                this._units.push(groupUnit);
+            }
+        }
+
+        // 2. Construire les TaskUnit pour les tâches sans groupe
+        for (const task of tasks) {
+            if (!unitMap.has(task)) {
+                const unit = new TaskUnit(task);
+                unitMap.set(task, unit);
+                this._units.push(unit);
+            }
+        }
+
+        // 3. Reporter le graphe de dépendances Task → ISchedulingUnit
+        for (const task of tasks) {
+            const dep = task.getDependsOn() as Task | null;
             if (dep) {
-                const unit = unitMap.get(t)!;
+                const unit = unitMap.get(task)!;
                 const depUnit = unitMap.get(dep);
-                if (depUnit) {
+                // Éviter une auto-dépendance si les deux tâches sont dans le même groupe
+                if (depUnit && unit !== depUnit) {
                     unit.setDependsOn(depUnit);
                 }
             }

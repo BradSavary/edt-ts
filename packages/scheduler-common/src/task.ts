@@ -19,6 +19,7 @@ class Task implements ISchedulable {
   public readonly semester: number;
   public readonly level: number;
   public readonly enforced: EnforcedData | undefined;
+  public readonly taskGroupId: string | undefined;
   // Ressources actuellement appliquées à la tâche (une combinaison spécifique)
   private _appliedResources: Resource[] | null = null;
   // Ressources applicables à la tâche (ressources alternatives incluses)
@@ -39,6 +40,7 @@ class Task implements ISchedulable {
     this.week = courseData.week;
     this.semester = courseData.semester;
     this.level = courseData.level;
+    this.taskGroupId = courseData.taskGroupId;
  
     this.resources = {
       [ResourceType.TEACHER]: [],

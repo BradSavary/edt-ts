@@ -4,7 +4,7 @@ import { TasksManager } from './tasksManager.ts';
 import { AvailabilityManager } from './availabilityManager.ts';
 import { Task } from './task.ts';
 import type { ISchedulable } from './schedulable.ts';
-import type { ResourceGroupData, CoursesData, ConstraintsData, ResourceEntry } from './types.ts';
+import type { ResourceGroupData, CoursesData, ConstraintsData, ResourceEntry, TaskGroupDeclaration } from './types.ts';
 
 /**
  * Conteneur des données nécessaires à la planification.
@@ -21,6 +21,7 @@ export class SchedulerData {
   protected _tasksManager: TasksManager | null = null;
   protected _availabilityManager: AvailabilityManager | null = null;
   protected _taskCounter: number = 0;
+  protected _groups: TaskGroupDeclaration[] = [];
 
   get isReady(): boolean {
     return (
@@ -40,6 +41,14 @@ export class SchedulerData {
 
   get availabilityManager(): AvailabilityManager | null {
     return this._availabilityManager;
+  }
+
+  get groups(): TaskGroupDeclaration[] {
+    return this._groups;
+  }
+
+  initGroups(groups: TaskGroupDeclaration[]): void {
+    this._groups = groups;
   }
 
   /**

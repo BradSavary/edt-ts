@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-import type { ConstraintsData, CoursesData, ResourceGroupData, ResourcesManager, TasksManager, RawScheduleData, CourseTaskData } from '@edt-ts/scheduler-common';
+import type { ConstraintsData, CoursesData, ResourceGroupData, ResourcesManager, TasksManager, RawScheduleData, CourseTaskData, TaskGroupDeclaration } from '@edt-ts/scheduler-common';
 
 export type { RawScheduleData };
 
@@ -41,6 +41,10 @@ export class Loader {
       console.log(`✅ ${this._data.tasksManager!.getUnitCount()} tâches chargées pour la semaine ${this._currentWeek}`);
     }
     return this._data.tasksManager!;
+  }
+
+  static get groups(): TaskGroupDeclaration[] {
+    return this._data.groups;
   }
 
   static get currentWeek(): number | null {
@@ -88,6 +92,7 @@ export class Loader {
     Loader.validateEnforcedCourses(data.courses);
     console.log(`📚 Chargement des tâches pour la semaine ${data.week}`);
     this._data.initTasks({ weeks: data.week, courses: data.courses });
+    this._data.initGroups(data.groups ?? []);
     this._currentWeek = data.week;
     console.log(`✅ ${this._data.tasksManager!.getUnitCount()} tâches chargées pour la semaine ${data.week}`);
   }
