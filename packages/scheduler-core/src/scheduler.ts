@@ -211,11 +211,13 @@ export class Scheduler {
             results = this.solve();
         }
 
-        if (results.length > 0 && neutralizedList.length > 0) {
-            results[0] = { ...results[0], neutralizedUnits: [...neutralizedList] };
-        } else if (results.length === 0 && neutralizedList.length > 0) {
-            // Retourner une solution partielle vide avec les infos de neutralisation
-            results = [{ solutions: [], isComplete: false, score: 0, neutralizedUnits: [...neutralizedList] }];
+        if (neutralizedList.length > 0) {
+            if (results.length > 0) {
+                results = results.map(r => ({ ...r, neutralizedUnits: [...neutralizedList] }));
+            } else {
+                // Retourner une solution partielle vide avec les infos de neutralisation
+                results = [{ solutions: [], isComplete: false, score: 0, neutralizedUnits: [...neutralizedList] }];
+            }
         }
 
         return results;
