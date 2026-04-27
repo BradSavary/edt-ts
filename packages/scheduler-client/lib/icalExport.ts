@@ -1,5 +1,5 @@
 import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
-import { getMondayOfISOWeek } from '@/lib/calendarUtils';
+import { getMondayOfISOWeek } from '@/lib/calendar/calendarUtils';
 
 /** Formatage iCal YYYYMMDDTHHMMSS (sans Z → heure locale). */
 function formatICalDate(date: Date): string {

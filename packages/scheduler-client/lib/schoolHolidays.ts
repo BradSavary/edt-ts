@@ -1,5 +1,5 @@
-import { getMondayOfISOWeek } from '@/lib/calendarUtils';
-import type { BlockedZone } from '@/lib/blockedZones';
+import { getMondayOfISOWeek } from '@/lib/calendar/calendarUtils';
+import type { BlockedZone } from '@/lib/calendar/blockedZones';
 
 // ── Modèles ────────────────────────────────────────────────────────────────
 

@@ -46,18 +46,28 @@ packages/scheduler-client/
     api/
       schedule/
         route.ts                    # Route handler POST /api/schedule (proxy → Express, 5min)
-        elimination/
-          route.ts                  # Route handler POST /api/schedule/elimination (10min)
+        v2/
+          route.ts                  # Route handler POST /api/schedule/v2 (proxy → Express, 10min)
   components/
+    config/
+      SchoolYearBlock.tsx           # Bloc UI sélecteur vacances scolaires (année + zone A/B/C)
     planning/                       # Composants de la page Planning
-      ScheduleCalendar.tsx          # Calendrier FullCalendar (coquille, logique dans useCalendarCore)
-      SidebarLeft.tsx               # Sidebar gauche (modes préparation / analyse des solutions)
-      CourseCard.tsx                # Carte draggable d'un cours
-      CourseGroupList.tsx           # Liste groupée de cours (par code ou enseignant)
-      SchedulerConfigDialog.tsx     # Dialog configuration avancée du planificateur
+      calendar/
+        ScheduleCalendar.tsx        # Calendrier FullCalendar (coquille, logique dans useCalendarCore)
+      sidebar/
+        SidebarLeft.tsx             # Switch préparation / analyse
+        SidebarPreparation.tsx      # Mode préparation (cours, config, semaine)
+        SidebarAnalysis.tsx         # Mode analyse (solutions, export iCal)
+      courses/
+        CourseCard.tsx              # Carte draggable d'un cours
+        CourseGroupList.tsx         # Liste groupée de cours (par code ou enseignant)
+        GroupDrawer.tsx             # Drawer de détail d'un groupe de cours
       modals/
+        ResourceSlots.tsx           # Éditeur de créneaux de ressources (partagé)
         EnforceModal.tsx            # Modal de confirmation de placement imposé
         TaskEditModal.tsx           # Modal d'édition des ressources d'une tâche placée
+        CourseCreateModal.tsx       # Modal de création/duplication d'un cours
+      SchedulerConfigDialog.tsx     # Dialog configuration avancée du planificateur
     constraints/                    # Composants de la page Contraintes
       ConstraintsManager.tsx        # Gestionnaire complet des contraintes
       ResourceConstraintEditor.tsx  # Éditeur de contraintes par ressource
@@ -65,14 +75,19 @@ packages/scheduler-client/
       AddResourceModal.tsx          # Modal ajout d'une ressource dans les contraintes
     ui/                             # Composants shadcn/ui (générés automatiquement)
   lib/                              # Utilitaires (framework-agnostic)
+    calendar/
+      calendarUtils.ts              # Helpers FullCalendar + détection conflits ressources
+      blockedZones.ts               # Logique zones bloquées (soustraction de créneaux)
+      yearColors.ts                 # Palette de couleurs par année BUT
+    api/
+      scheduleApi.ts                # Client API (runScheduleRequestFromData → POST /api/schedule)
+      clientSchedulerData.ts        # Sous-classe ClientSchedulerData extends SchedulerData
     utils.ts                        # Fonction cn() (clsx + tailwind-merge)
-    calendarUtils.ts                # Helpers FullCalendar + détection conflits ressources
-    blockedZones.ts                 # Logique zones bloquées (soustraction de créneaux)
     parseCsvCourses.ts              # Parsing CSV des cours → CourseTaskData[] + ressources
-    scheduleApi.ts                  # Client API (runScheduleRequestFromData → POST /api/schedule)
     icalExport.ts                   # Export iCal RFC 5545 (generateIcalContent, downloadIcalSolution)
     constraintsUtils.ts             # Utilitaires UI contraintes (DayMap, normalisation, export JSON)
-    clientSchedulerData.ts          # Sous-classe ClientSchedulerData extends SchedulerData
+    schoolHolidays.ts               # Vacances scolaires & jours fériés (HolidayPeriod, SchoolYearConfig)
+    taskGroupUtils.ts               # Groupes de tâches (GroupType, buildTaskGroupData, computeGroupEnforcements)
   hooks/
     useCalendarCore.ts              # Toute la logique calendrier (drag, drop, conflits, modals)
     useNeutralizedDraggable.ts      # FullCalendar Draggable pour les tâches neutralisées
@@ -150,8 +165,7 @@ usePlanningStore.runSchedule('elimination')
 
 Fonctions exportées :
 - `parseCsvCourses(csv, week)` — parse une semaine → `CourseTaskData[]`
-- `parseCsvCoursesAll(csv)` — parse toutes les semaines
-- `extractResourcesFromCsv(csv)` — extrait les ressources uniques → `ResourceGroupData[]`
+- `extractResourceWeeks(csv)` — extrait les semaines actives par ressource → `Record<string, number[]>`
 - **`parseCsvFull(csv)`** — passe unique → `{ courses, resources, resourceWeeks }` (entrée principale)
 
 ## `lib/icalExport.ts`
@@ -179,21 +193,21 @@ Types UI spécifiques au client :
 - `ResourceTypeUI` (`'teacher' | 'room' | 'group' | 'other'`) — distinct de `ResourceType` de `common` (ajoute `'other'`)
 - `DayMap`, `DayName`, `DaySlot`, `DAYS` — format par-jour pour l'éditeur de contraintes
 
-## `lib/scheduleApi.ts`
+## `lib/api/scheduleApi.ts`
 
 Une seule fonction publique : **`runScheduleRequestFromData(params)`**.  
-Elle prend les données déjà en mémoire (depuis les stores), construit le payload et appelle `POST /api/schedule` ou `/api/schedule/elimination`.
+Elle prend les données déjà en mémoire (depuis les stores), construit le payload et appelle `POST /api/schedule` (standard, 5min) ou `POST /api/schedule/v2` (mode élimination, 10min).
 
 ## `hooks/useCalendarCore.ts`
 
 Hook principal extrait de `ScheduleCalendar`. Contient toute la logique complexe :
 - Construction des événements FullCalendar (depuis `activeSolution` + `taskOverrides` + `placedNeutralizedTasks`)
 - Handlers drag-and-drop (interne, sidebar gauche, panel neutralisé)
-- Gestion des modals (`EnforceModal`, `TaskEditModal`, popup de détail)
+- Gestion des modals (`EnforceModal`, `TaskEditModal`, `CourseCreateModal`, popup de détail)
 - Coloration des conflits et background events d'indisponibilité
-- Zones bloquées (sélection, suppression)
+- Zones bloquées (sélection, suppression) — `source` différencie manual/vacation/public-holiday
 
-> `ScheduleCalendar` est une coquille : il instancie `useCalendarCore` et passe les résultats à FullCalendar.
+> `ScheduleCalendar` (`components/planning/calendar/`) est une coquille : il instancie `useCalendarCore` et passe les résultats à FullCalendar.
 
 ## `components/planning/SchedulerConfigDialog.tsx`
 
@@ -204,15 +218,15 @@ Dialog de configuration avancée du planificateur. Paramètres :
 
 La configuration est persistée dans `useSchedulerStore.schedulerConfig`.
 
-## `components/planning/SidebarLeft.tsx`
+## `components/planning/sidebar/SidebarLeft.tsx`
 
-Sidebar gauche avec **deux modes** :
+Wrapper léger qui commute entre `SidebarPreparation` et `SidebarAnalysis` selon la présence d'un résultat.
 
-**Mode Préparation** (pas de résultat) :
+**`SidebarPreparation`** (pas de résultat) :
 - Input semaine + bouton "Planifier" (`runSchedule('elimination')`) + `SchedulerConfigDialog`
 - Liste draggable des cours (`CourseGroupList` + `useSidebarCourseDrag`)
 
-**Mode Analyse** (résultat disponible) :
+**`SidebarAnalysis`** (résultat disponible) :
 - Bouton "← Retour à la préparation" (avec dialog de confirmation)
 - Barre de recherche (filtre calendrier via `searchQuery`)
 - Panel des tâches neutralisées (draggables via `useNeutralizedDraggable`)
@@ -223,10 +237,12 @@ Sidebar gauche avec **deux modes** :
 Les routes handler Next.js sont de simples **proxies HTTP** vers l'API Express (port 3000, configurable via `SCHEDULER_API_URL`).  
 Elles existent car le proxy `rewrites` de Next.js applique un timeout court incompatible avec les longues computations.
 
-| Route | Timeout |
-|---|---|
-| `POST /api/schedule` | 5 minutes |
-| `POST /api/schedule/elimination` | 10 minutes |
+| Route Next.js | Route Express | Timeout |
+|---|---|---|
+| `POST /api/schedule` | `/api/schedule` | 5 minutes |
+| `POST /api/schedule/v2` | `/api/schedule/v2` | 10 minutes |
+
+> Ne pas confondre la route Next.js (`app/api/schedule/v2/route.ts`) avec la route Express — ce sont deux couches distinctes.
 
 ## Utilisation de `@edt-ts/scheduler-common` côté client
 
@@ -262,10 +278,15 @@ Elles existent car le proxy `rewrites` de Next.js applique un timeout court inco
 - Ne jamais importer depuis `@edt-ts/scheduler-core` ou `@edt-ts/scheduler-api`
 - Utiliser le proxy Next.js route handlers (`app/api/`) pour toutes les requêtes vers l'API Express
 - Utiliser l'alias `@/` pour tous les imports internes (résout vers la racine du package)
-  - `@/components/planning/...` pour les composants de la page Planning
+  - `@/components/planning/calendar/...` pour le calendrier FullCalendar
+  - `@/components/planning/sidebar/...` pour les sidebars
+  - `@/components/planning/courses/...` pour les composants de cours
+  - `@/components/planning/modals/...` pour les modals
   - `@/components/constraints/...` pour les composants de la page Contraintes
   - `@/components/ui/...` pour les composants shadcn
-  - `@/lib/...` pour les utilitaires
+  - `@/lib/calendar/...` pour les utilitaires calendrier (calendarUtils, blockedZones, yearColors)
+  - `@/lib/api/...` pour les utilitaires API (scheduleApi, clientSchedulerData)
+  - `@/lib/...` pour les autres utilitaires (parseCsvCourses, icalExport, etc.)
   - `@/store/...` pour les stores Zustand
   - `@/hooks/...` pour les hooks
 
@@ -321,3 +342,27 @@ Elles existent car le proxy `rewrites` de Next.js applique un timeout court inco
 - Tests unitaires : `npm run test --workspace=packages/scheduler-client`
 - Tests unitaires watch : `npm run test:watch --workspace=packages/scheduler-client`
 - Tests E2E : `npm run test:e2e --workspace=packages/scheduler-client`
+
+## Fonctionnalité : Vacances scolaires & jours fériés
+
+Implémentée dans `scheduler-client` uniquement. Ne concerne pas `scheduler-common` ni `scheduler-core`.
+
+### Architecture
+
+- **`lib/schoolHolidays.ts`** : types (`HolidayPeriod`, `SchoolYearConfig`), fonction `fetchSchoolHolidayConfig` (appel vers `/api/holidays`), `computeHolidayZonesForWeek` (calcul des `BlockedZone[]` pour une semaine ISO), `getAvailableSchoolYears`.
+- **`app/api/holidays/route.ts`** : route Next.js GET `/api/holidays?year=YYYY-YYYY&zone=A|B|C`. Proxifie vers :
+  - `data.education.gouv.fr` (vacances scolaires, filtré par zone et année scolaire)
+  - `calendrier.api.gouv.fr` (jours fériés, métropole uniquement, pour les deux années civiles de l'année scolaire)
+- **`store/useSchedulerStore.ts`** : champ `schoolYearConfig: SchoolYearConfig | null` persisté en localStorage.
+- **`store/usePlanningStore.ts`** : `setSelectedWeek` pré-peuple `blockedZones` avec `computeHolidayZonesForWeek` si une config est chargée.
+- **`lib/calendar/blockedZones.ts`** : `BlockedZone` étendu avec `label?: string` et `source?: 'manual' | 'vacation' | 'public-holiday'`.
+- **`components/config/SchoolYearBlock.tsx`** : bloc UI sur `/config` (sélecteur d'année + zone A/B/C + bouton charger).
+- **`hooks/useCalendarCore.ts`** : `blockEvts` utilise `source` pour différencier les couleurs (bleu = vacances, violet = férié, rouge = manuel). Transmet `blockedZoneSource` et `blockedZoneLabel` via `extendedProps`.
+- **`components/planning/calendar/ScheduleCalendar.tsx`** : `renderEventContent` affiche 🏖️/🎌/🚫 et le libellé selon la source.
+
+### Comportement
+
+- Les zones vacances/fériés sont générées automatiquement à chaque `setSelectedWeek` depuis les données en store.
+- Elles sont visuelles et non bloquantes (supprimables par clic comme les zones manuelles).
+- Elles disparaissent si l'utilisateur les supprime, et réapparaissent au prochain changement de semaine.
+- Jours fériés : métropole uniquement. Zones scolaires : A, B, C (France).

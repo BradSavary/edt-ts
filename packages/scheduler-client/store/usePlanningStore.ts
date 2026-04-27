@@ -1,11 +1,9 @@
 import { create } from 'zustand';
-import type { EnforcedData, TaskSolutionJSON, NeutralizedTaskInfoJSON, ConstraintsData, TaskGroupDeclaration } from '@edt-ts/scheduler-common';
-
-type GroupType = TaskGroupDeclaration['type'];
-import type { BlockedZone } from '@/lib/blockedZones';
-import { runScheduleRequestFromData, buildScheduleStatus, type ScheduleResult, type ScheduleStatus } from '@/lib/scheduleApi';
+import type { EnforcedData, TaskSolutionJSON, NeutralizedTaskInfoJSON, ConstraintsData } from '@edt-ts/scheduler-common';
+import type { BlockedZone } from '@/lib/calendar/blockedZones';
+import { runScheduleRequestFromData, buildScheduleStatus, type ScheduleResult, type ScheduleStatus } from '@/lib/api/scheduleApi';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
-import { type TaskGroupConfig, buildTaskGroupData, getCourseGroupInfo, computeGroupEnforcements } from '@/lib/taskGroupUtils';
+import { type TaskGroupConfig, type GroupType, buildTaskGroupData, getCourseGroupInfo, computeGroupEnforcements } from '@/lib/taskGroupUtils';
 import { computeHolidayZonesForWeek } from '@/lib/schoolHolidays';
 
 export type { TaskGroupConfig };

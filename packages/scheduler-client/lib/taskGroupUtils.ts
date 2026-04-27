@@ -1,6 +1,6 @@
 import type { CourseTaskData, EnforcedData, TaskGroupDeclaration } from '@edt-ts/scheduler-common';
 
-type GroupType = TaskGroupDeclaration['type'];
+export type GroupType = TaskGroupDeclaration['type'];
 
 /**
  * Config d'un groupe de tâches côté client (session uniquement, non persisté).
@@ -47,17 +47,6 @@ export function buildTaskGroupData(
   });
 
   return { coursesWithGroups, declarations };
-}
-
-/**
- * @deprecated Utiliser buildTaskGroupData à la place.
- * Conservé pour compatibilité temporaire.
- */
-export function buildTaskGroupDeclarations(
-  courses: CourseTaskData[],
-  groups: TaskGroupConfig[],
-): TaskGroupDeclaration[] {
-  return buildTaskGroupData(courses, groups).declarations;
 }
 
 /**

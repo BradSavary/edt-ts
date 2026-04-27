@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { formatStartTime } from '@/lib/calendarUtils';
+import { formatStartTime } from '@/lib/calendar/calendarUtils';
 
 export interface EnforceSelection {
   courseKey: string;

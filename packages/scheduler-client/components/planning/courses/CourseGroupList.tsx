@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import type { CourseTaskData, ResourceEntry, EnforcedData } from '@edt-ts/scheduler-common';
 import { Button } from '@/components/ui/button';
-import CourseCard from '@/components/planning/CourseCard';
+import CourseCard from '@/components/planning/courses/CourseCard';
 
 export type GroupBy = 'code' | 'teacher';
 

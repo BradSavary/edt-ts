@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getMondayOfISOWeek, startTimeToDate, formatTime, formatDate } from '../lib/calendarUtils';
+import { getMondayOfISOWeek, startTimeToDate, formatTime, formatDate } from '../lib/calendar/calendarUtils';
 
 describe('getMondayOfISOWeek', () => {
   it('retourne un lundi (getDay() === 1)', () => {

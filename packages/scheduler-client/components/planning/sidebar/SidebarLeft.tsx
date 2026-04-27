@@ -2,8 +2,8 @@
 
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import { usePlanningStore } from '@/store/usePlanningStore';
-import { SidebarPreparation } from '@/components/planning/SidebarPreparation';
-import { SidebarAnalysis } from '@/components/planning/SidebarAnalysis';
+import { SidebarPreparation } from '@/components/planning/sidebar/SidebarPreparation';
+import { SidebarAnalysis } from '@/components/planning/sidebar/SidebarAnalysis';
 
 interface SidebarLeftProps {
   parsedCourses: CourseTaskData[];

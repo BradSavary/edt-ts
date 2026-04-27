@@ -4,8 +4,8 @@ import type { StateCreator } from 'zustand';
 import { createConstraintsSlice, type ConstraintsSlice } from './slices/constraintsSlice';
 import type { CourseTaskData, ResourceGroupData, ConstraintsData, SchedulerConfig } from '@edt-ts/scheduler-common';
 import { AvailabilityManager, DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
-import { ClientSchedulerData } from '../lib/clientSchedulerData';
-import { type YearColorConfig, DEFAULT_YEAR_COLORS } from '../lib/yearColors';
+import { ClientSchedulerData } from '../lib/api/clientSchedulerData';
+import { type YearColorConfig, DEFAULT_YEAR_COLORS } from '../lib/calendar/yearColors';
 import type { SchoolYearConfig } from '../lib/schoolHolidays';
 
 // ── Slice : données brutes du planificateur ────────────────────────────────

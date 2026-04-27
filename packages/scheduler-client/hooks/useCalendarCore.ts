@@ -8,10 +8,10 @@ import type { EventClickArg } from '@fullcalendar/core';
 import type { TaskSolutionJSON, CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
 import type { EnforceSelection } from '@/components/planning/modals/EnforceModal';
 import type { TaskEditUpdate } from '@/components/planning/modals/TaskEditModal';
-import { getMondayOfISOWeek, startTimeToDate, computeStaticConflicts, computeDragHighlights, computeConstraintViolation } from '@/lib/calendarUtils';
-import type { ResourceEventInfo } from '@/lib/calendarUtils';
-import { computeConstraintUnavailableZones } from '@/lib/blockedZones';
-import { levelFromCode, getEventColors } from '@/lib/yearColors';
+import { getMondayOfISOWeek, startTimeToDate, computeStaticConflicts, computeDragHighlights, computeConstraintViolation } from '@/lib/calendar/calendarUtils';
+import type { ResourceEventInfo } from '@/lib/calendar/calendarUtils';
+import { computeConstraintUnavailableZones } from '@/lib/calendar/blockedZones';
+import { levelFromCode, getEventColors } from '@/lib/calendar/yearColors';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 

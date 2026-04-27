@@ -1,5 +1,5 @@
 import type { RawScheduleData, TaskSolutionJSON, NeutralizedTaskInfoJSON, CourseTaskData, EnforcedData, ConstraintsData, ResourceGroupData, SchedulerConfig, TaskGroupDeclaration } from '@edt-ts/scheduler-common';
-import { type BlockedZone, applyBlockedZonesToConstraints } from '@/lib/blockedZones';
+import { type BlockedZone, applyBlockedZonesToConstraints } from '@/lib/calendar/blockedZones';
 
 export interface NormalizedSolution {
   isComplete: boolean;

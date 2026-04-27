@@ -4,10 +4,10 @@ import { useState, useMemo } from 'react';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { usePlanningStore } from '@/store/usePlanningStore';
-import { SidebarLeft } from '@/components/planning/SidebarLeft';
-import { GroupDrawer } from '@/components/planning/GroupDrawer';
-import ScheduleCalendar from '@/components/planning/ScheduleCalendar';
-import { filterSolutionsByQuery } from '@/lib/calendarUtils';
+import { SidebarLeft } from '@/components/planning/sidebar/SidebarLeft';
+import { GroupDrawer } from '@/components/planning/courses/GroupDrawer';
+import ScheduleCalendar from '@/components/planning/calendar/ScheduleCalendar';
+import { filterSolutionsByQuery } from '@/lib/calendar/calendarUtils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {

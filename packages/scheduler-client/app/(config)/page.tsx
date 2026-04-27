@@ -5,8 +5,14 @@ import { parseCsvFull } from '@/lib/parseCsvCourses';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { Label } from '@/components/ui/label';
-import { YEAR_COLOR_PALETTE, getEventColors, type YearColorConfig } from '@/lib/yearColors';
+import { YEAR_COLOR_PALETTE, getEventColors, type YearColorConfig } from '@/lib/calendar/yearColors';
 import { SchoolYearBlock } from '@/components/config/SchoolYearBlock';
+
+const YEAR_LABELS: { key: keyof YearColorConfig; label: string }[] = [
+  { key: 'but1', label: 'BUT 1' },
+  { key: 'but2', label: 'BUT 2' },
+  { key: 'but3', label: 'BUT 3' },
+];
 
 export default function ConfigPage() {
   const allCourses = useSchedulerStore((s) => s.allCourses);
@@ -41,12 +47,6 @@ export default function ConfigPage() {
   }, [coursesCsvFile]);
 
   const resourceCount = resources.reduce((acc, g) => acc + g.resources.length, 0);
-
-  const YEAR_LABELS: { key: keyof YearColorConfig; label: string }[] = [
-    { key: 'but1', label: 'BUT 1' },
-    { key: 'but2', label: 'BUT 2' },
-    { key: 'but3', label: 'BUT 3' },
-  ];
 
   return (
     <div className="max-w-5xl mx-auto p-8 flex flex-row gap-8 items-start flex-wrap">

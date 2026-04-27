@@ -4,7 +4,7 @@ import { useRef, useMemo, useState } from 'react';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useNeutralizedDraggable } from '@/hooks/useNeutralizedDraggable';
 import { downloadIcalSolution } from '@/lib/icalExport';
-import { filterSolutionsByQuery } from '@/lib/calendarUtils';
+import { filterSolutionsByQuery } from '@/lib/calendar/calendarUtils';
 import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
