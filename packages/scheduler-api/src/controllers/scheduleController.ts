@@ -335,6 +335,7 @@ export async function schedulerV2Handler(req: Request, res: Response): Promise<v
       resources:   body.resources ?? [],
       courses:     body.courses,
       constraints: body.constraints,
+      groups:      body.groups,
     });
 
     // Construire la map id→ISchedulable avant la résolution (état stable après loadFromRawData)
