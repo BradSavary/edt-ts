@@ -243,13 +243,14 @@ export class TaskGroupUnit implements ISchedulingUnit {
                 unit: this,
                 start: result.start,
                 resources: task.appliedResources,
+                task,
             }));
         }
         // sequential : reconstituer les offsets à partir des durées
         const solutions: UnitSolution[] = [];
         let offset = 0;
         for (const task of tasks) {
-            solutions.push({ unit: this, start: result.start + offset, resources: task.appliedResources });
+            solutions.push({ unit: this, start: result.start + offset, resources: task.appliedResources, task });
             offset += task.duration;
         }
         return solutions;

@@ -1,4 +1,4 @@
-import type { Resource } from '@edt-ts/scheduler-common';
+import type { Resource, Task } from '@edt-ts/scheduler-common';
 
 /**
  * Résultat d'un earlySchedule : premier créneau disponible + combinaison de ressources choisie.
@@ -11,11 +11,14 @@ export interface SchedulingResult {
 /**
  * Solution atomique pour une unité planifiée (un créneau + ses ressources).
  * Un TaskGroup produit N UnitSolution (une par tâche membre).
+ * `task` est renseigné par TaskGroupUnit pour désigner la tâche individuelle membre.
  */
 export interface UnitSolution {
     unit: ISchedulingUnit;
     start: number;
     resources: Resource[];
+    /** Tâche individuelle membre du groupe — présent uniquement si l'unité est un TaskGroupUnit. */
+    task?: Task;
 }
 
 /**

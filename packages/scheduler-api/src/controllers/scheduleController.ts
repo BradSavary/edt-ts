@@ -261,14 +261,15 @@ export async function solveWithEliminationHandler(req: Request, res: Response): 
 
 function serializeUnitSolutions(solutions: UnitSolution[], taskMap: Map<string, ISchedulable>): TaskSolutionJSON[] {
   return solutions.map(sol => {
-    const task = taskMap.get(sol.unit.id);
+    // sol.task est renseigné par TaskGroupUnit (tâche individuelle membre)
+    const meta = sol.task ?? taskMap.get(sol.unit.id);
     return {
-      taskId:    sol.unit.id,
-      code:      task?.code     ?? '',
-      name:      task?.name     ?? '',
-      type:      task?.type     ?? '',
-      week:      task?.week     ?? 0,
-      duration:  task?.duration ?? sol.unit.duration,
+      taskId:    meta?.id       ?? sol.unit.id,
+      code:      meta?.code     ?? '',
+      name:      meta?.name     ?? '',
+      type:      meta?.type     ?? '',
+      week:      meta?.week     ?? 0,
+      duration:  meta?.duration ?? sol.unit.duration,
       startTime: sol.start,
       resources: sol.resources.map(r => ({ id: r.id, type: r.type })),
     };
