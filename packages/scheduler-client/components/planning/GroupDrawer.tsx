@@ -38,7 +38,9 @@ function GroupDropZone({ groupId, label }: GroupDropZoneProps) {
     const onPointerMove = (e: PointerEvent) => {
       const el = zoneRef.current;
       if (!el) return;
-      const dragging = usePlanningStore.getState().draggingExternal;
+      const state = usePlanningStore.getState();
+      if (!state.groupDrawerOpen) { setOver(false); return; }
+      const dragging = state.draggingExternal;
       if (!dragging?.courseKey) { setOver(false); return; }
       const rect = el.getBoundingClientRect();
       const inside =
@@ -50,7 +52,9 @@ function GroupDropZone({ groupId, label }: GroupDropZoneProps) {
     const onPointerUp = (e: PointerEvent) => {
       const el = zoneRef.current;
       if (!el) return;
-      const dragging = usePlanningStore.getState().draggingExternal;
+      const state = usePlanningStore.getState();
+      if (!state.groupDrawerOpen) return;
+      const dragging = state.draggingExternal;
       if (!dragging?.courseKey) return;
       const rect = el.getBoundingClientRect();
       const inside =
