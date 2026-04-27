@@ -4,7 +4,7 @@ import {
   Schedule,
   Scheduler,
 } from '@edt-ts/scheduler-core';
-import type { RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON, NeutralizedTaskInfoJSON, SchedulerConfig, ISchedulable } from '@edt-ts/scheduler-common';
+import type { RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON, NeutralizedTaskInfoJSON, SchedulerConfig, ISchedulable, Task } from '@edt-ts/scheduler-common';
 import { DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
 import type {
   TaskSolution,
@@ -276,24 +276,34 @@ function serializeUnitSolutions(solutions: UnitSolution[], taskMap: Map<string, 
   });
 }
 
-function serializeNeutralizedUnit(info: NeutralizedUnitInfo, taskMap: Map<string, ISchedulable>): NeutralizedTaskInfoJSON {
-  const task = taskMap.get(info.unit.id);
-  const taskJSON: TaskSolutionJSON = {
-    taskId:    info.unit.id,
-    code:      task?.code     ?? '',
-    name:      task?.name     ?? '',
-    type:      task?.type     ?? '',
-    week:      task?.week     ?? 0,
-    duration:  task?.duration ?? info.unit.duration,
-    startTime: -1,
-    resources: [],
-  };
-  return {
-    task:             taskJSON,
-    eliminationRound: info.eliminationRound,
-    failureCount:     info.failureCount,
-    reason:           info.reason,
-  };
+function serializeNeutralizedUnit(info: NeutralizedUnitInfo): NeutralizedTaskInfoJSON[] {
+  return info.unit.getMemberTasks().map((memberTask: Task) => {
+    const seen = new Set<string>();
+    const candidateResources: { id: string; type: string }[] = [];
+    for (const alternatives of Object.values(memberTask.resources)) {
+      for (const combo of alternatives as Array<Array<{ id: string; type: string }>>) {
+        for (const r of combo) {
+          if (!seen.has(r.id)) { seen.add(r.id); candidateResources.push({ id: r.id, type: r.type }); }
+        }
+      }
+    }
+    const taskJSON: TaskSolutionJSON = {
+      taskId:    memberTask.id,
+      code:      memberTask.code,
+      name:      memberTask.name,
+      type:      memberTask.type,
+      week:      memberTask.week,
+      duration:  memberTask.duration,
+      startTime: -1,
+      resources: candidateResources,
+    };
+    return {
+      task:             taskJSON,
+      eliminationRound: info.eliminationRound,
+      failureCount:     info.failureCount,
+      reason:           info.reason,
+    };
+  });
 }
 
 function serializeSchedulerSolution(result: SchedulerSolution, taskMap: Map<string, ISchedulable>): ScheduleSolutionJSON {
@@ -303,7 +313,7 @@ function serializeSchedulerSolution(result: SchedulerSolution, taskMap: Map<stri
     score:      result.score,
   };
   if (result.neutralizedUnits && result.neutralizedUnits.length > 0) {
-    out.neutralizedTasks = result.neutralizedUnits.map(u => serializeNeutralizedUnit(u, taskMap));
+    out.neutralizedTasks = result.neutralizedUnits.flatMap(u => serializeNeutralizedUnit(u));
   }
   return out;
 }

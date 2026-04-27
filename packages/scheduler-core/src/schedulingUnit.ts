@@ -110,4 +110,17 @@ export interface ISchedulingUnit {
      *  - TaskGroup séquentiel → [N solutions, starts décalés]
      */
     toSolutions(result: SchedulingResult): UnitSolution[];
+
+    /**
+     * Retourne la liste aplatie des ressources candidates (toutes alternatives confondues).
+     * Utilisée pour sérialiser une unité neutralisée (non placée).
+     */
+    getCandidateResources(): Resource[];
+
+    /**
+     * Retourne les tâches membres individuelles de l'unité.
+     * Pour une TaskUnit : [this.task]. Pour un TaskGroupUnit : toutes les tâches du groupe.
+     * Permet à la sérialisation d'éclater un groupe neutralisé en N entrées.
+     */
+    getMemberTasks(): Task[];
 }
