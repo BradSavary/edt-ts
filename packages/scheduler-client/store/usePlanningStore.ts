@@ -1,5 +1,7 @@
 import { create } from 'zustand';
-import type { EnforcedData, TaskSolutionJSON, NeutralizedTaskInfoJSON, ConstraintsData, GroupType } from '@edt-ts/scheduler-common';
+import type { EnforcedData, TaskSolutionJSON, NeutralizedTaskInfoJSON, ConstraintsData, TaskGroupDeclaration } from '@edt-ts/scheduler-common';
+
+type GroupType = TaskGroupDeclaration['type'];
 import type { BlockedZone } from '@/lib/blockedZones';
 import { runScheduleRequestFromData, buildScheduleStatus, type ScheduleResult, type ScheduleStatus } from '@/lib/scheduleApi';
 import { useSchedulerStore } from '@/store/useSchedulerStore';

@@ -31,7 +31,7 @@ function analyzeSolution(result: any): void {
     
     result.solutions.forEach((taskSol: any) => {
         // Utiliser getAllResources() qui retourne appliedResources
-        const allResources = taskSol.task.getAllResources();
+        const allResources = taskSol.unit.getAllResources();
         
         // Compter les salles
         const rooms = allResources.filter((r: any) => r.type === 'room');
@@ -89,7 +89,7 @@ function displayPerformanceMetrics(executionTime: number, result: any): void {
     console.log(`🔍 Conflits détectés: ${result.conflictCount || 0}`);
     
     // Calcul du taux de réussite
-    const tasks = Loader.tasksManager.getAllTasks();
+    const tasks = Loader.tasksManager.getAllUnits();
     const successRate = (result.solutions.length / tasks.length * 100).toFixed(1);
     console.log(`📈 Taux de réussite: ${successRate}%`);
 }
@@ -98,7 +98,7 @@ function displayPerformanceMetrics(executionTime: number, result: any): void {
  * Affiche le top 10 des tâches ayant le plus souvent bloqué le backtracking
  * (aucun créneau disponible pour aucune combinaison de ressources)
  */
-function displayTopBlockingTasks(scheduler: Schedule, tasks: ReturnType<typeof Loader.tasksManager.getAllTasks>): void {
+function displayTopBlockingTasks(scheduler: Schedule, tasks: ReturnType<typeof Loader.tasksManager.getAllUnits>): void {
     const failureCounts = scheduler.getTaskFailureCounts();
     if (failureCounts.size === 0) {
         console.log(`\n🎯 TOP 10 DES TÂCHES BLOQUANTES`);
@@ -108,16 +108,16 @@ function displayTopBlockingTasks(scheduler: Schedule, tasks: ReturnType<typeof L
     }
 
     // Enrichir avec les métadonnées des tâches puis trier par count décroissant
-    const taskById = new Map(tasks.map(t => [t.id, t]));
+    const taskById = new Map(tasks.map((t: import('@edt-ts/scheduler-common').ISchedulable) => [t.id, t]));
     const ranked = Array.from(failureCounts.entries())
-        .map(([id, count]) => ({ task: taskById.get(id), id, count }))
+        .map(([id, count]) => ({ unit: taskById.get(id), id, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 10);
 
     console.log(`\n🎯 TOP 10 DES TÂCHES BLOQUANTES`);
     console.log(`================================`);
-    ranked.forEach(({ task, id, count }, index) => {
-        const label = task ? `${task.name} (${task.code})` : id;
+    ranked.forEach(({ unit, id, count }, index) => {
+        const label = unit ? `${unit.name} (${unit.code})` : id;
         console.log(`   ${index + 1}. ${label} — ${count} blocage(s)`);
     });
 }
@@ -134,7 +134,7 @@ async function testScheduleAR(): Promise<any> {
         Loader.reload();
         
         // Analyser les données chargées
-        const tasks = Loader.tasksManager.getAllTasks();
+        const tasks = Loader.tasksManager.getAllUnits();
         console.log(`📚 Données chargées:`);
         console.log(`   📋 Tâches totales: ${tasks.length}`);
         console.log(`   🏢 Ressources disponibles: ${Loader.resourcesManager.getAllResources().length}`);
@@ -240,15 +240,15 @@ async function testScheduleAR(): Promise<any> {
             
             // Vérifier les tâches les plus contraintes
             console.log('🎯 Analyse des contraintes par tâche:');
-            const constraintScores = tasks.map(task => ({
-                task: task,
+            const constraintScores = tasks.map((task: import('@edt-ts/scheduler-common').ISchedulable) => ({
+                unit: task,
                 score: (scheduler as any).getTaskConstraintScore(task),
                 availableSlots: (scheduler as any).generatePossibleSlots(task).length
-            })).sort((a, b) => a.score - b.score);
+            })).sort((a: { score: number }, b: { score: number }) => a.score - b.score);
             
             console.log('   Top 5 des tâches les plus contraintes:');
             constraintScores.slice(0, 5).forEach((item, index) => {
-                console.log(`   ${index + 1}. ${item.task.name} (${item.task.code})`);
+                console.log(`   ${index + 1}. ${item.unit.name} (${item.unit.code})`);
                 console.log(`      Score contrainte: ${item.score}`);
                 console.log(`      Créneaux disponibles: ${item.availableSlots}`);
             });

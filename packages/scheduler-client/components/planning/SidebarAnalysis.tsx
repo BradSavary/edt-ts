@@ -152,11 +152,15 @@ export function SidebarAnalysis() {
                 const tooltipLines: string[] = [neutralizedInfo.reason];
                 if (!isPreNeutralized) {
                   tooltipLines.push(`Échecs : ${neutralizedInfo.failureCount}`);
-                  tooltipLines.push(`Temps nécessaire : ${neutralizedInfo.requiredMinutes} min`);
-                  tooltipLines.push(`Temps dispo : ${neutralizedInfo.schedulableMinutes} min`);
-                  if (neutralizedInfo.resourceSnapshots.length > 0) {
+                  if (neutralizedInfo.requiredMinutes !== undefined) {
+                    tooltipLines.push(`Temps nécessaire : ${neutralizedInfo.requiredMinutes} min`);
+                  }
+                  if (neutralizedInfo.schedulableMinutes !== undefined) {
+                    tooltipLines.push(`Temps dispo : ${neutralizedInfo.schedulableMinutes} min`);
+                  }
+                  if (neutralizedInfo.resourceSnapshots && neutralizedInfo.resourceSnapshots.length > 0) {
                     const conflicting = neutralizedInfo.resourceSnapshots.filter(
-                      (s) => s.availableMinutes < neutralizedInfo.requiredMinutes,
+                      (s) => s.availableMinutes < (neutralizedInfo.requiredMinutes ?? Infinity),
                     );
                     if (conflicting.length > 0) {
                       tooltipLines.push(`Ressources limitantes : ${conflicting.map((s) => s.resourceId).join(', ')}`);

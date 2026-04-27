@@ -64,7 +64,7 @@ async function _callScheduleApi(
     ...(Object.keys(options).length > 0 ? { options } : {}),
   };
 
-  const endpoint = mode === 'elimination' ? '/api/schedule/elimination' : '/api/schedule';
+  const endpoint = mode === 'elimination' ? '/api/schedule/v2' : '/api/schedule';
 
   console.groupCollapsed(`📤 Payload envoyé à POST ${endpoint}`);
   console.log(payload);

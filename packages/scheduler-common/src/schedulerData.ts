@@ -3,6 +3,7 @@ import { ResourcesManager } from './resourcesManager.ts';
 import { TasksManager } from './tasksManager.ts';
 import { AvailabilityManager } from './availabilityManager.ts';
 import { Task } from './task.ts';
+import type { ISchedulable } from './schedulable.ts';
 import type { ResourceGroupData, CoursesData, ConstraintsData, ResourceEntry, TaskGroupDeclaration } from './types.ts';
 
 /**
@@ -20,6 +21,7 @@ export class SchedulerData {
   protected _tasksManager: TasksManager | null = null;
   protected _availabilityManager: AvailabilityManager | null = null;
   protected _taskCounter: number = 0;
+  protected _groups: TaskGroupDeclaration[] = [];
 
   get isReady(): boolean {
     return (
@@ -39,6 +41,14 @@ export class SchedulerData {
 
   get availabilityManager(): AvailabilityManager | null {
     return this._availabilityManager;
+  }
+
+  get groups(): TaskGroupDeclaration[] {
+    return this._groups;
+  }
+
+  initGroups(groups: TaskGroupDeclaration[]): void {
+    this._groups = groups;
   }
 
   /**
@@ -137,49 +147,16 @@ export class SchedulerData {
         if (group.length > 0) task.resources[ResourceType.GROUP].push(group);
       }
 
-      manager.addTask(task);
+      manager.addUnit(task);
     }
 
-    this._determineDependencies(manager.getAllTasks());
+    this._determineDependencies(manager.getAllUnits());
     this._tasksManager = manager;
   }
 
-  /**
-   * Déclare les groupes de tâches (parallel/sequential) après initTasks().
-   * Identifie les tâches par leur ID et configure les relations représentante/membres.
-   */
-  initGroups(groups: TaskGroupDeclaration[]): void {
-    if (!this._tasksManager) {
-      throw new Error('initTasks() doit être appelé avant initGroups()');
-    }
-    const allTasks = this._tasksManager.getAllTasks();
-
-    // Regroupe les tâches par taskGroupId
-    const tasksByGroupId = new Map<string, Task[]>();
-    for (const task of allTasks) {
-      if (task.taskGroupId) {
-        const list = tasksByGroupId.get(task.taskGroupId) ?? [];
-        list.push(task);
-        tasksByGroupId.set(task.taskGroupId, list);
-      }
-    }
-
-    for (const decl of groups) {
-      const members = tasksByGroupId.get(decl.id);
-      if (!members || members.length < 2) {
-        // console.warn not available in scheduler-common (no dom/node lib)
-        // Silently skip invalid groups — caller is responsible for data integrity
-        continue;
-      }
-      const representative = members[0];
-      representative.makeGroupRepresentative(decl.type);
-      for (let i = 1; i < members.length; i++) {
-        representative.addGroupMember(members[i]);
-      }
-    }
-  }
-
-  private _determineDependencies(tasks: Task[]): void {
+  private _determineDependencies(units: ISchedulable[]): void {
+    // Pour l'instant toutes les unités sont des Task — cast explicite pour accéder à getGroups()
+    const tasks = units as Task[];
     const tasksByCode = new Map<string, Task[]>();
     for (const task of tasks) {
       const list = tasksByCode.get(task.code) ?? [];

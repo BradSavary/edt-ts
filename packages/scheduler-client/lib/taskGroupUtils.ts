@@ -1,4 +1,6 @@
-import type { CourseTaskData, EnforcedData, TaskGroupDeclaration, GroupType } from '@edt-ts/scheduler-common';
+import type { CourseTaskData, EnforcedData, TaskGroupDeclaration } from '@edt-ts/scheduler-common';
+
+type GroupType = TaskGroupDeclaration['type'];
 
 /**
  * Config d'un groupe de tâches côté client (session uniquement, non persisté).

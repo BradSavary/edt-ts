@@ -15,7 +15,7 @@ if (process.platform === 'win32') {
     exec('chcp 65001', () => {});
 }
 
-function displayTopBlockingTasks(scheduler: Schedule, tasks: ReturnType<typeof Loader.tasksManager.getAllTasks>): void {
+function displayTopBlockingTasks(scheduler: Schedule, tasks: ReturnType<typeof Loader.tasksManager.getAllUnits>): void {
     const failureCounts = scheduler.getTaskFailureCounts();
     console.log(`\n🎯 TOP 10 DES TÂCHES BLOQUANTES`);
     console.log(`================================`);
@@ -23,13 +23,13 @@ function displayTopBlockingTasks(scheduler: Schedule, tasks: ReturnType<typeof L
         console.log(`   Aucune tâche bloquante détectée.`);
         return;
     }
-    const taskById = new Map(tasks.map(t => [t.id, t]));
+    const taskById = new Map(tasks.map((t: import('@edt-ts/scheduler-common').ISchedulable) => [t.id, t]));
     Array.from(failureCounts.entries())
-        .map(([id, count]) => ({ task: taskById.get(id), id, count }))
+        .map(([id, count]) => ({ unit: taskById.get(id), id, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 10)
-        .forEach(({ task, id, count }, index) => {
-            const label = task ? `${task.name} (${task.code}) [${id}]` : id;
+        .forEach(({ unit, id, count }, index) => {
+            const label = unit ? `${unit.name} (${unit.code}) [${id}]` : id;
             console.log(`   ${index + 1}. ${label} — ${count} blocage(s)`);
         });
 }
@@ -41,7 +41,7 @@ async function testTaskElimination(): Promise<void> {
     try {
         Loader.reload();
 
-        const tasks = Loader.tasksManager.getAllTasks();
+        const tasks = Loader.tasksManager.getAllUnits();
         console.log(`📚 Données chargées: ${tasks.length} tâches, ${Loader.resourcesManager.getAllResources().length} ressources`);
 
         const scheduler = new Schedule();
@@ -65,7 +65,7 @@ async function testTaskElimination(): Promise<void> {
             console.log(`   Aucune — solution trouvée sans élimination.`);
         } else {
             neutralized.forEach((task, i) => {
-                console.log(`   ${i + 1}. ${task.name} (${task.code})`);
+                console.log(`   ${i + 1}. ${task.unit.name} (${task.unit.code})`);
             });
         }
 
@@ -109,16 +109,16 @@ async function testTaskElimination(): Promise<void> {
             console.log(`\n🔀 COMPARAISON DES SOLUTIONS (référence : S1)`);
             console.log(`=============================================`);
             const ref = results[0].solutions;
-            const refMap = new Map(ref.map(s => [s.task.id, s.startTime]));
+            const refMap = new Map(ref.map(s => [s.unit.id, s.startTime]));
             for (let i = 1; i < results.length; i++) {
                 const other = results[i].solutions;
                 let diffCount = 0;
                 for (const sol of other) {
-                    const refStart = refMap.get(sol.task.id);
+                    const refStart = refMap.get(sol.unit.id);
                     if (refStart === undefined || refStart !== sol.startTime) diffCount++;
                 }
                 // Tâches présentes dans ref mais absentes de other (neutralisées différemment)
-                const otherIds = new Set(other.map(s => s.task.id));
+                const otherIds = new Set(other.map(s => s.unit.id));
                 for (const id of refMap.keys()) {
                     if (!otherIds.has(id)) diffCount++;
                 }

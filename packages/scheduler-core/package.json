@@ -10,7 +10,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test-ar": "npx tsx examples/test-scheduleAR.ts",
-    "test-ar-elimination": "npx tsx examples/test-scheduleAR-elimination.ts"
+    "test-ar-elimination": "npx tsx examples/test-scheduleAR-elimination.ts",
+    "test-scheduler-elimination": "npx tsx examples/test-scheduler-elimination.ts"
   },
   "dependencies": {
     "@edt-ts/scheduler-common": "*"

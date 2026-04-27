@@ -1,0 +1,110 @@
+import type { Resource } from '@edt-ts/scheduler-common';
+
+/**
+ * Résultat d'un earlySchedule : premier créneau disponible + combinaison de ressources choisie.
+ */
+export interface SchedulingResult {
+    start: number;
+    resources: Resource[];
+}
+
+/**
+ * Solution atomique pour une unité planifiée (un créneau + ses ressources).
+ * Un TaskGroup produit N UnitSolution (une par tâche membre).
+ */
+export interface UnitSolution {
+    unit: ISchedulingUnit;
+    start: number;
+    resources: Resource[];
+}
+
+/**
+ * Contrat de planification d'une unité dans le moteur Scheduler.
+ *
+ * Chaque unité sait :
+ *  - trouver son premier créneau disponible à partir d'un instant donné (earlySchedule)
+ *  - se réserver et se libérer (book / unBook)
+ *  - se pré-réserver pour un créneau imposé (bookEnforced)
+ *  - calculer sa priorité pour le tri MCV (getSchedulingPriority)
+ *  - se sérialiser en UnitSolution[] après placement (toSolutions)
+ *
+ * Le moteur (Scheduler) ne connaît que cette interface.
+ * Il ne distingue pas Task, TaskGroup ou tout autre type concret.
+ */
+export interface ISchedulingUnit {
+    /** Identifiant unique */
+    readonly id: string;
+
+    /** Durée en minutes */
+    readonly duration: number;
+
+    /** Vrai si le placement est imposé (ne passe pas par earlySchedule) */
+    readonly isEnforced: boolean;
+
+    /**
+     * Retourne le premier créneau disponible ≥ fromTime en choisissant en interne
+     * la combinaison de ressources qui permet le placement le plus tôt.
+     * Retourne null si aucun créneau n'existe avec aucune combinaison.
+     * Opération en lecture seule : ne modifie pas l'état visible de l'unité.
+     */
+    earlySchedule(fromTime: number): SchedulingResult | null;
+
+    /**
+     * Réserve les ressources pour le créneau donné.
+     * Sauvegarde l'état précédent pour permettre un unBook ultérieur.
+     */
+    book(result: SchedulingResult): void;
+
+    /**
+     * Libère les ressources réservées par le book correspondant.
+     * Restaure l'état d'avant le book (LIFO).
+     */
+    unBook(result: SchedulingResult): void;
+
+    /**
+     * Réserve le créneau imposé. L'unité résout elle-même ses ressources
+     * via Loader. Ne s'applique qu'aux unités enforced (TaskUnit).
+     */
+    bookEnforced(): void;
+
+    /**
+     * Retourne le SchedulingResult correspondant au créneau imposé,
+     * après que bookEnforced() a été appelé.
+     * Utilisé par le solveur pour pré-remplir _scheduled et _solution.
+     * Ne s'applique qu'aux unités enforced (TaskUnit).
+     */
+    getEnforcedResult(): SchedulingResult;
+
+    /**
+     * Retourne un score de priorité pour le tri MCV.
+     * Score élevé = unité très contrainte = à planifier en premier.
+     * Doit refléter l'état courant des ressources (après les books précédents).
+     */
+    getSchedulingPriority(): number;
+
+    // --- Dépendances séquentielles (ordre inter-unités) ---
+
+    getDependsOn(): ISchedulingUnit | null;
+    getDependentUnits(): ISchedulingUnit[];
+    hasDependentUnits(): boolean;
+
+    /**
+     * Déclare que cette unité dépend de `unit` (doit être planifiée après).
+     * Met à jour le lien inverse via _addDependentUnit.
+     */
+    setDependsOn(unit: ISchedulingUnit): void;
+
+    /** @internal — maintient le lien inverse depuis setDependsOn */
+    _addDependentUnit(unit: ISchedulingUnit): void;
+
+    /** @internal — supprime le lien inverse */
+    _removeDependentUnit(unit: ISchedulingUnit): void;
+
+    /**
+     * Sérialise le résultat du placement en UnitSolution(s).
+     *  - Task atomique       → [1 solution]
+     *  - TaskGroup parallel  → [N solutions, même start]
+     *  - TaskGroup séquentiel → [N solutions, starts décalés]
+     */
+    toSolutions(result: SchedulingResult): UnitSolution[];
+}

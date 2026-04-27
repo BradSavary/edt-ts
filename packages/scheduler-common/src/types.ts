@@ -20,6 +20,17 @@ export interface ConstraintsData {
 }
 
 /**
+ * Déclaration d'un groupe de tâches transmise dans le payload.
+ * Les tâches membres référencent ce groupe via leur champ `taskGroupId`.
+ *  - parallel  : toutes les tâches démarrent au même instant
+ *  - sequential : les tâches s'enchaînent sans gap (fin de l'une = début de la suivante)
+ */
+export interface TaskGroupDeclaration {
+  id: string;
+  type: 'parallel' | 'sequential';
+}
+
+/**
  * Un élément de ressource est soit un identifiant unique (string),
  * soit un groupe d'alternatives dont une seule sera choisie (string[]).
  *
@@ -50,7 +61,7 @@ export interface CourseTaskData {
   rooms: ResourceEntry[];
   duration: number;
   enforced?: EnforcedData;
-  /** Identifiant du groupe de tâches auquel appartient cette tâche (optionnel). */
+  /** Identifiant du groupe auquel appartient cette tâche (référence une TaskGroupDeclaration). */
   taskGroupId?: string;
 }
 
@@ -85,7 +96,6 @@ export interface RawScheduleData {
   resources: ResourceGroupData[];
   courses: CourseTaskData[];
   constraints?: ConstraintsData;
-  /** Groupes de tâches à co-planifier (parallel ou sequential). Optionnel. */
   groups?: TaskGroupDeclaration[];
 }
 
@@ -116,9 +126,9 @@ export interface NeutralizedTaskInfoJSON {
   task: TaskSolutionJSON;
   eliminationRound: number;
   failureCount: number;
-  requiredMinutes: number;
-  schedulableMinutes: number;
-  resourceSnapshots: ResourceAvailabilitySnapshotJSON[];
+  requiredMinutes?: number;
+  schedulableMinutes?: number;
+  resourceSnapshots?: ResourceAvailabilitySnapshotJSON[];
   reason: string;
   taskGroupId?: string;
 }

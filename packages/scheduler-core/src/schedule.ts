@@ -1,6 +1,6 @@
 import { Loader } from './loader.js';
-import { Task, Resource, ResourceType } from '@edt-ts/scheduler-common';
-import type { SchedulerConfig } from '@edt-ts/scheduler-common';
+import { Resource, ResourceType } from '@edt-ts/scheduler-common';
+import type { ISchedulable, SchedulerConfig } from '@edt-ts/scheduler-common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -16,10 +16,10 @@ export interface ResourceAvailabilitySnapshot {
 }
 
 /**
- * Informations de diagnostic sur une tâche neutralisée (non planifiable)
+ * Informations de diagnostic sur une unité neutralisée (non planifiable)
  */
 export interface NeutralizedTaskInfo {
-    task: Task;
+    unit: ISchedulable;
     eliminationRound: number;
     failureCount: number;
     requiredMinutes: number;
@@ -29,11 +29,11 @@ export interface NeutralizedTaskInfo {
 }
 
 /**
- * Représente une solution de planification pour une tâche
+ * Représente une solution de planification pour une unité planifiable
  */
 export interface TaskSolution {
-    task: Task;
-    startTime: number; // Créneau de début (0-119 pour 5 jours * 24 créneaux)
+    unit: ISchedulable;
+    startTime: number;
     appliedResources: Resource[];
 }
 
@@ -54,7 +54,7 @@ export interface ScheduleSolution {
  */
 export class Schedule {
 
-    protected tasks: Task[] = [];
+    protected units: ISchedulable[] = [];
     protected resources: Resource[] = [];
     protected solution: TaskSolution[] = [];
     protected bestSolution: TaskSolution[] = [];
@@ -112,22 +112,22 @@ export class Schedule {
         this._taskFailureCount.clear();
         this._allSolutions = [];
 
-        this.tasks.sort((a, b) => {
+        this.units.sort((a, b) => {
             if (a.isEnforced && !b.isEnforced) return -1;
             if (!a.isEnforced && b.isEnforced) return 1;
             return this.getCurrentConstraintScore(b) - this.getCurrentConstraintScore(a);
         });
 
         for (let i = 0; i < this.firstNonEnforcedIndex; i++) {
-            const task = this.tasks[i];
+            const unit = this.units[i];
             this.solution.push({
-                task,
-                startTime: task.enforced!.startTime,
-                appliedResources: [...task.appliedResources],
+                unit,
+                startTime: unit.enforced!.startTime,
+                appliedResources: [...unit.appliedResources],
             });
         }
 
-        console.log(`📋 ${this.tasks.length} tâches à planifier`);
+        console.log(`📋 ${this.units.length} tâches à planifier`);
         console.log(`🏢 ${this.resources.length} ressources disponibles`);
         console.log(`⏱️ Limite: ${this._config.maxIterations} itérations`);
         console.log(`🎯 Objectif: ${this._config.maxSolutions} solutions complètes`);
@@ -194,17 +194,8 @@ export class Schedule {
             const failureCounts = this.getTaskFailureCounts();
             let maxFailures = 0;
             let targetIndex = -1;
-            for (let j = this.firstNonEnforcedIndex; j < this.tasks.length; j++) {
-                const t = this.tasks[j];
-                // Ne considérer que les représentantes et les tâches indépendantes
-                if (t.isGroupMember()) continue;
-                // Agréger les counts de la tâche + ses membres éventuels
-                let cnt = failureCounts.get(t.id) ?? 0;
-                if (t.isGroupRepresentative()) {
-                    for (const m of t.getGroupMembers()) {
-                        cnt += failureCounts.get(m.id) ?? 0;
-                    }
-                }
+            for (let j = this.firstNonEnforcedIndex; j < this.units.length; j++) {
+                const cnt = failureCounts.get(this.units[j].id) ?? 0;
                 if (cnt > maxFailures) {
                     maxFailures = cnt;
                     targetIndex = j;
@@ -216,19 +207,11 @@ export class Schedule {
                 break;
             }
 
-            const eliminated = this.tasks[targetIndex];
+            const eliminated = this.units[targetIndex];
             const info = this._buildNeutralizedTaskInfo(eliminated, i + 1, maxFailures);
             neutralizedInfoList.push(info);
-            // Si la tâche éliminée est une représentante de groupe, reporter aussi les membres
-            if (eliminated.isGroupRepresentative()) {
-                for (const member of eliminated.getGroupMembers()) {
-                    neutralizedInfoList.push(this._buildNeutralizedTaskInfo(member, i + 1, failureCounts.get(member.id) ?? 0));
-                }
-            }
             console.log(`🗑️ Élimination #${i + 1}: "${eliminated.name}" (${maxFailures} échec(s)) — ${info.reason}`);
-            // Supprimer la représentante + ses membres consécutifs le cas échéant
-            const groupSize = 1 + (eliminated.isGroupRepresentative() ? eliminated.getGroupMembers().length : 0);
-            this.tasks.splice(targetIndex, groupSize);
+            this.units.splice(targetIndex, 1);
             lastResults = this.solve();
         }
 
@@ -251,15 +234,15 @@ export class Schedule {
      * l'état initial moins les bookings enforced et la pause méridienne.
      */
     private _buildNeutralizedTaskInfo(
-        task: Task,
+        unit: ISchedulable,
         eliminationRound: number,
         failureCount: number,
     ): NeutralizedTaskInfo {
-        const requiredMinutes = task.duration;
-        const schedulableMinutes = task.schedulable.getTotalAvailableTime();
+        const requiredMinutes = unit.duration;
+        const schedulableMinutes = unit.schedulable.getTotalAvailableTime();
 
         // Collecter toutes les ressources uniques sur l'ensemble des combinaisons disponibles
-        const combinations = task.getApplicableResources();
+        const combinations = unit.getApplicableResources();
         const uniqueResources = new Map<string, Resource>();
         for (const combo of combinations) {
             for (const r of combo) {
@@ -268,7 +251,7 @@ export class Schedule {
         }
         // Fallback : ressources actuellement affectées si aucune combinaison
         if (uniqueResources.size === 0) {
-            for (const r of task.appliedResources) {
+            for (const r of unit.appliedResources) {
                 uniqueResources.set(r.id, r);
             }
         }
@@ -294,7 +277,7 @@ export class Schedule {
             }
         }
 
-        return { task, eliminationRound, failureCount, requiredMinutes, schedulableMinutes, resourceSnapshots, reason };
+        return { unit, eliminationRound, failureCount, requiredMinutes, schedulableMinutes, resourceSnapshots, reason };
     }
 
     /**
@@ -319,7 +302,7 @@ export class Schedule {
             }
         }
 
-        for (const task of this.tasks) {
+        for (const task of this.units) {
             task.invalidateSchedulable();
         }
 
@@ -334,7 +317,7 @@ export class Schedule {
 
     private _restoreTaskResourcesFromSolution(solution: TaskSolution[]): void {
         for (const sol of solution) {
-            sol.task.appliedResources = sol.appliedResources;
+            sol.unit.appliedResources = sol.appliedResources;
         }
     }
 
@@ -344,25 +327,21 @@ export class Schedule {
      * Doit être appelé avant solve().
      */
     initSolver(): void {
-        this.tasks = Loader.tasksManager.getAllTasks();
+        this.units = Loader.tasksManager.getAllUnits();
         this.resources = Array.from(Loader.resourcesManager.getAllResources());
 
-        if (this.tasks.length === 0) {
+        if (this.units.length === 0) {
             throw new Error('Aucune tâche à planifier. Vérifiez que les données sont chargées.');
         }
         if (this.resources.length === 0) {
             throw new Error('Aucune ressource disponible. Vérifiez que les ressources sont chargées.');
         }
 
-        // Résolution des incohérences groupe + enforced (avant l'init des ressources
-        // et le tri enforced-first, pour que isEnforced() soit stable pour la suite).
-        this._resolveGroupEnforcedConflicts();
-
         // Initialisation des ressources : première combinaison disponible pour chaque tâche.
         // L'ordre d'exploration effectif est contrôlé par _config.resourceSelection
         // dans _tryAllResourceCombinations pendant le backtracking.
         let tasksWithoutResources = 0;
-        for (const task of this.tasks) {
+        for (const task of this.units) {
             if (task.isEnforced) continue;
             const allCombinations = task.getApplicableResources();
             if (allCombinations.length === 0) {
@@ -380,22 +359,22 @@ export class Schedule {
         // Trier : enforced en tête uniquement.
         // L'ordre des tâches non-enforced est géré dynamiquement par dynamicTaskSort()
         // à chaque niveau du backtracking (heuristique MCV sur état courant).
-        this.tasks.sort((a, b) => {
+        this.units.sort((a, b) => {
             if (a.isEnforced && !b.isEnforced) return -1;
             if (!a.isEnforced && b.isEnforced) return 1;
             return 0;
         });
 
         // Calculer l'index de la première tâche non-enforced
-        const idx = this.tasks.findIndex(t => !t.isEnforced);
-        this.firstNonEnforcedIndex = idx === -1 ? this.tasks.length : idx;
+        const idx = this.units.findIndex(t => !t.isEnforced);
+        this.firstNonEnforcedIndex = idx === -1 ? this.units.length : idx;
 
         // Pré-booking des tâches enforced
         if (this.firstNonEnforcedIndex > 0) {
             console.log(`⚓ ${this.firstNonEnforcedIndex} tâche(s) enforced — placement imposé en cours...`);
             const resourcesManager = Loader.resourcesManager;
             for (let i = 0; i < this.firstNonEnforcedIndex; i++) {
-                const task = this.tasks[i];
+                const task = this.units[i];
                 const enforced = task.enforced!;
                 const enforcedResources = [
                     ...enforced.teacher,
@@ -420,114 +399,14 @@ export class Schedule {
         this._applyLunchBreakConstraint();
 
         // Vérification préalable : chaque tâche non-enforced doit avoir au moins 1 créneau schedulable
-        for (const task of this.tasks) {
+        for (const task of this.units) {
             if (task.isEnforced) continue;
             if (!task.hasSchedulableSlot()) {
                 console.warn(`⚠️ Aucun créneau suffisant pour la tâche "${task.name}" (${task.code}, durée: ${task.duration} min) avec les ressources initiales.`);
             }
         }
 
-        // Arrangement consécutif des groupes de tâches.
-        // Pour chaque représentante, les membres sont insérés immédiatement après elle.
-        // Pour les groupes séquentiels, les membres sont triés par disponibilité croissante
-        // (heuristique : le membre le plus contraint est placé en premier).
-        this._arrangeGroupsInTasks();
-
         this._initialized = true;
-    }
-
-    /**
-     * Résout les incohérences entre groupes de tâches et propriété `enforced`.
-     *
-     * - Groupe entièrement enforced : le groupe est dissous ; chaque tâche est traitée
-     *   individuellement comme une tâche enforced normale.
-     * - Groupe mixte (certaines enforced, d'autres non) : la propriété `enforced` est ignorée
-     *   sur les tâches concernées et le groupe est traité normalement.
-     *
-     * Doit être appelé AVANT l'initialisation des appliedResources et le tri enforced-first.
-     */
-    private _resolveGroupEnforcedConflicts(): void {
-        for (const task of this.tasks) {
-            if (!task.isGroupRepresentative()) continue;
-
-            const allInGroup = [task, ...task.getGroupMembers()];
-            const enforcedCount = allInGroup.filter(t => t.isEnforced).length;
-
-            if (enforcedCount === 0) continue; // groupe normal, rien à faire
-
-            if (enforcedCount === allInGroup.length) {
-                // Toutes enforced → dissoudre le groupe
-                const groupId = task.taskGroupId ?? task.id;
-                console.log(`⚓ Groupe "${groupId}" : toutes les tâches sont enforced → groupe dissous, traitement individuel.`);
-                task.dissolveGroup();
-            } else {
-                // Mélange → ignorer enforced sur les tâches concernées
-                const groupId = task.taskGroupId ?? task.id;
-                const enforcedTasks = allInGroup.filter(t => t.isEnforced);
-                console.warn(`⚠️ Groupe "${groupId}" : mélange enforced/non-enforced (${enforcedCount}/${allInGroup.length}) — propriété enforced ignorée sur ${enforcedTasks.map(t => `"${t.name}"`).join(', ')}.`);
-                for (const t of enforcedTasks) {
-                    t.overrideEnforced();
-                }
-            }
-        }
-    }
-
-    /**
-     * Réorganise this.tasks pour que chaque représentante de groupe soit immédiatement
-     * suivie de ses membres dans l'ordre approprié.
-     * - Représentante : ré-élue comme la tâche la plus contrainte du groupe
-     *   (schedulable minimal au moment de l'appel, après initialisation des ressources).
-     * - Parallel : membres insérés dans l'ordre de déclaration après la représentante.
-     * - Sequential : membres triés par schedulable ASC (plus contraint → placé en premier).
-     */
-    private _arrangeGroupsInTasks(): void {
-        // Collecter les IDs des membres à retirer de their position actuelle
-        const memberIds = new Set<string>();
-        for (const task of this.tasks) {
-            if (task.isGroupRepresentative()) {
-                for (const m of task.getGroupMembers()) {
-                    memberIds.add(m.id);
-                }
-            }
-        }
-
-        if (memberIds.size === 0) return; // Aucun groupe déclaré
-
-        // Retirer les membres de this.tasks (ils seront réinsérés après leur représentante)
-        this.tasks = this.tasks.filter(t => !memberIds.has(t.id));
-
-        // Pour les groupes séquentiels, trier les membres par schedulable ASC
-        // (le plus contraint sera placé immédiatement après la représentante)
-        for (const task of this.tasks) {
-            if (!task.isGroupRepresentative()) continue;
-
-            // Ré-élire la représentante : la tâche la plus contrainte parmi représentante + membres
-            const allInGroup = [task, ...task.getGroupMembers()];
-            const mostConstrained = allInGroup.reduce((min, t) =>
-                t.schedulable.getTotalAvailableTime() < min.schedulable.getTotalAvailableTime() ? t : min
-            );
-            if (mostConstrained !== task) {
-                task.transferGroupTo(mostConstrained);
-                console.log(`🔁 Représentante du groupe réélue : "${mostConstrained.name}" (plus contrainte que "${task.name}")`);
-            }
-
-            const currentRep = mostConstrained !== task ? mostConstrained : task;
-
-            if (currentRep.getGroupType() === 'sequential') {
-                const members = currentRep.getGroupMembers();
-                members.sort((a, b) => a.schedulable.getTotalAvailableTime() - b.schedulable.getTotalAvailableTime());
-                const repIndex = this.tasks.indexOf(currentRep);
-                this.tasks.splice(repIndex + 1, 0, ...members);
-            } else {
-                // Parallel : conserver l'ordre de déclaration
-                const repIndex = this.tasks.indexOf(currentRep);
-                this.tasks.splice(repIndex + 1, 0, ...currentRep.getGroupMembers());
-            }
-        }
-
-        const groupCount = this.tasks.filter(t => t.isGroupRepresentative()).length;
-        const memberCount = memberIds.size;
-        console.log(`🔗 ${groupCount} groupe(s) arrangé(s) — ${memberCount} membre(s) positionné(s) consécutivement.\n`);
     }
 
     /**
@@ -553,12 +432,12 @@ export class Schedule {
             return false;
         }
 
-        if (taskIndex >= this.tasks.length) {
+        if (taskIndex >= this.units.length) {
             this._solutionsFound++;
             const score = Math.round(this.evaluateSolution(this.solution));
 
             const solutionSnapshot: TaskSolution[] = this.solution.map(sol => ({
-                task: sol.task,
+                unit: sol.unit,
                 startTime: sol.startTime,
                 appliedResources: [...sol.appliedResources],
             }));
@@ -580,24 +459,24 @@ export class Schedule {
 
         this.dynamicTaskSort(taskIndex);
 
-        const task = this.tasks[taskIndex];
+        const task = this.units[taskIndex];
 
         if (!this.canTaskBeScheduledNow(task)) {
             throw new Error(`Erreur: La tâche '${task.name}' ne peut pas être planifiée (dépendances non satisfaites)`);
         }
 
         if (this.currentIterations % 10000 === 0) {
-            console.log(`🔄 Itération ${this.currentIterations}, tâche ${taskIndex}/${this.tasks.length}: ${task.name}`);
+            console.log(`🔄 Itération ${this.currentIterations}, tâche ${taskIndex}/${this.units.length}: ${task.name}`);
         }
 
         return this._tryAllResourceCombinations(task, taskIndex);
     }
 
-    private _tryAllResourceCombinations(task: Task, taskIndex: number): boolean {
-        const raw = task.getApplicableResources();
+    private _tryAllResourceCombinations(unit: ISchedulable, taskIndex: number): boolean {
+        const raw = unit.getApplicableResources();
 
         if (raw.length === 0) {
-            console.warn(`⚠️ Aucune combinaison de ressources pour ${task.name}`);
+            console.warn(`⚠️ Aucune combinaison de ressources pour ${unit.name}`);
             return false;
         }
 
@@ -608,31 +487,31 @@ export class Schedule {
             ? [...raw].sort(() => Math.random() - 0.5)
             : raw;
 
-        const previousResources = task.appliedResources;
+        const previousResources = unit.appliedResources;
         let someHadSlots = false;
         for (const resourceCombination of allCombinations) {
-            task.appliedResources = resourceCombination;
-            task.invalidateSchedulable();
-            if (this._tryTaskWithCurrentResources(task, taskIndex)) {
+            unit.appliedResources = resourceCombination;
+            unit.invalidateSchedulable();
+            if (this._tryTaskWithCurrentResources(unit, taskIndex)) {
                 return true;
             }
             someHadSlots ||= this._lastAttemptHadSlots;
         }
 
         // Restaurer les ressources d'avant l'exploration après échec de toutes les combinaisons
-        task.appliedResources = previousResources;
-        task.invalidateSchedulable();
+        unit.appliedResources = previousResources;
+        unit.invalidateSchedulable();
 
         if (!someHadSlots) {
-            const cnt = (this._taskFailureCount.get(task.id) ?? 0) + 1;
-            this._taskFailureCount.set(task.id, cnt);
+            const cnt = (this._taskFailureCount.get(unit.id) ?? 0) + 1;
+            this._taskFailureCount.set(unit.id, cnt);
         }
 
         return false;
     }
 
-    private _tryTaskWithCurrentResources(task: Task, taskIndex: number): boolean {
-        const possibleSlots = this.generatePossibleSlots(task);
+    private _tryTaskWithCurrentResources(unit: ISchedulable, taskIndex: number): boolean {
+        const possibleSlots = this.generatePossibleSlots(unit);
 
         if (possibleSlots.length === 0) {
             this._lastAttemptHadSlots = false;
@@ -642,9 +521,9 @@ export class Schedule {
 
         for (const slot of possibleSlots) {
             const taskSolution: TaskSolution = {
-                task,
+                unit,
                 startTime: slot.startTime,
-                appliedResources: [...task.getAllResources()],
+                appliedResources: [...unit.getAllResources()],
             };
 
             this.solution.push(taskSolution);
@@ -669,60 +548,11 @@ export class Schedule {
     }
 
     /**
-     * Génère tous les créneaux possibles pour une tâche donnée.
-     * - Pour un membre de groupe : retourne un unique créneau forcé (parallel = même heure
-     *   que la représentante ; sequential = fin de la tâche précédente dans le groupe).
-     * - Pour les autres tâches : explore task.schedulable en tenant compte des dépendances.
+     * SUPPORT DES DÉPENDANCES: Génère tous les créneaux possibles pour une tâche donnée
+     * MODIFIÉ: Utilise maintenant les vrais créneaux disponibles de task.schedulable
+     * et intègre les contraintes de dépendances temporelles
      */
-    protected generatePossibleSlots(task: Task): Array<{startTime: number}> {
-
-        // --- Cas membre de groupe : slot imposé par la représentante ---
-        const representative = task.getGroupRepresentative();
-        if (representative !== null) {
-            const repSolution = this.solution.find(sol => sol.task === representative);
-            if (!repSolution) return [];
-
-            let forcedStart: number;
-            if (representative.getGroupType() === 'parallel') {
-                forcedStart = repSolution.startTime;
-            } else {
-                // Sequential : accumuler les durées de la représentante + membres précédents
-                let cumul = representative.duration;
-                for (const m of representative.getGroupMembers()) {
-                    if (m === task) break;
-                    cumul += m.duration;
-                }
-                forcedStart = repSolution.startTime + cumul;
-            }
-
-            const forcedEnd = forcedStart + task.duration;
-            if (!task.schedulable.isAvailable(forcedStart, forcedEnd)) {
-                return [];
-            }
-
-            // Vérification pause méridienne flottante pour les ressources GROUP du membre
-            const lb = this._config.lunchBreak;
-            if (lb.type === 'floating') {
-                const MINUTES_PER_DAY = 24 * 60;
-                const floatingEarliestMin = this._parseTimeToMinutes(lb.earliest);
-                const floatingLatestMin   = this._parseTimeToMinutes(lb.latest);
-                const memberGroupResources = task.appliedResources.filter(r => r.type === ResourceType.GROUP);
-                if (memberGroupResources.length > 0) {
-                    const dayIndex = Math.floor(forcedStart / MINUTES_PER_DAY);
-                    const winStart = dayIndex * MINUTES_PER_DAY + floatingEarliestMin;
-                    const winEnd   = dayIndex * MINUTES_PER_DAY + floatingLatestMin;
-                    if (memberGroupResources.some(r =>
-                        !this._resourceKeepsFloatingBreak(r, forcedStart, forcedEnd, winStart, winEnd, lb.duration)
-                    )) {
-                        return [];
-                    }
-                }
-            }
-
-            return [{ startTime: forcedStart }];
-        }
-
-        // --- Cas général ---
+    protected generatePossibleSlots(task: ISchedulable): Array<{startTime: number}> {
         const slots: Array<{startTime: number}> = [];
         const SLOT_STEP = 30;
         const MINUTES_PER_DAY = 24 * 60;
@@ -730,7 +560,7 @@ export class Schedule {
         let earliestStartTime = 0;
         const dependency = task.getDependsOn();
         if (dependency) {
-            const dependencyScheduled = this.solution.find(sol => sol.task === dependency);
+            const dependencyScheduled = this.solution.find(sol => sol.unit === dependency);
             if (!dependencyScheduled) return [];
             earliestStartTime = dependencyScheduled.startTime + dependency.duration;
         }
@@ -799,8 +629,8 @@ export class Schedule {
      *
      * Opération en lecture seule — ne modifie pas l'état du solveur.
      */
-    private _dependantsHaveSlotAfter(task: Task, earliestStart: number): boolean {
-        for (const dep of task.getDependentTasks()) {
+    private _dependantsHaveSlotAfter(task: ISchedulable, earliestStart: number): boolean {
+        for (const dep of task.getDependentUnits()) {
             // Trouver le début effectif le plus tôt pour dep (optimiste)
             const intervals = dep.schedulable.getAvailableIntervals();
             let depEarliestStart: number | null = null;
@@ -826,8 +656,8 @@ export class Schedule {
      * qu'ils peuvent être placés *simultanément* sans conflit mutuel.
      * Sinon, délègue à `_dependantsHaveSlotAfter` (comportement inchangé).
      */
-    private _dependantsCanAllFitAfter(task: Task, earliestStart: number): boolean {
-        const deps = task.getDependentTasks();
+    private _dependantsCanAllFitAfter(task: ISchedulable, earliestStart: number): boolean {
+        const deps = task.getDependentUnits();
         if (deps.length <= 1) {
             return this._dependantsHaveSlotAfter(task, earliestStart);
         }
@@ -838,7 +668,7 @@ export class Schedule {
     }
 
     /** Retourne true si au moins deux tâches de la liste partagent une ressource. */
-    private _depsShareAnyResource(deps: Task[]): boolean {
+    private _depsShareAnyResource(deps: ISchedulable[]): boolean {
         const seen = new Set<string>();
         for (const dep of deps) {
             for (const r of dep.appliedResources) {
@@ -861,7 +691,7 @@ export class Schedule {
      *      les sous-dépendances de ce dep via `_dependantsCanAllFitAfter`.
      *   4. Restaurer toutes les disponibilités avant de retourner (lecture seule nette).
      */
-    private _siblingDepsCompatibleAfter(deps: Task[], earliestStart: number): boolean {
+    private _siblingDepsCompatibleAfter(deps: ISchedulable[], earliestStart: number): boolean {
         const sorted = [...deps].sort(
             (a, b) => this.getCurrentConstraintScore(b) - this.getCurrentConstraintScore(a),
         );
@@ -906,7 +736,7 @@ export class Schedule {
      * où `dep.duration` minutes consécutives sont disponibles, ou null si aucun.
      * Opération en lecture seule.
      */
-    private _findFirstAvailableSlot(dep: Task, earliestStart: number): number | null {
+    private _findFirstAvailableSlot(dep: ISchedulable, earliestStart: number): number | null {
         for (const interval of dep.schedulable.getAvailableIntervals()) {
             const effectiveStart = Math.max(interval.start, earliestStart);
             if (interval.end - effectiveStart >= dep.duration) {
@@ -950,10 +780,10 @@ export class Schedule {
      * Applique les contraintes après l'assignation d'une tâche
      */
     protected applyConstraints(taskSolution: TaskSolution): void {
-        const { startTime, task, appliedResources } = taskSolution;
+        const { startTime, unit, appliedResources } = taskSolution;
         
         const startMinutes = startTime;
-        const endMinutes = startMinutes + task.duration;
+        const endMinutes = startMinutes + unit.duration;
         
         for (const resource of appliedResources) {
             resource.book(startMinutes, endMinutes);
@@ -965,10 +795,10 @@ export class Schedule {
      * Annule les contraintes lors du backtrack
      */
     protected undoConstraints(taskSolution: TaskSolution): void {
-        const { startTime, task, appliedResources } = taskSolution;
+        const { startTime, unit, appliedResources } = taskSolution;
         
         const startMinutes = startTime;
-        const endMinutes = startMinutes + task.duration;
+        const endMinutes = startMinutes + unit.duration;
         
         for (const resource of appliedResources) {
             resource.availability.addAvailability(startMinutes, endMinutes);
@@ -981,19 +811,19 @@ export class Schedule {
      * OPTIMISÉ: Utilise l'index bidirectionnel des ressources pour un accès direct
      */
     protected invalidateSchedulableForResources(resources: Resource[]): void {
-        const tasksToInvalidate = new Set<Task>();
+        const unitsToInvalidate = new Set<ISchedulable>();
         
-        // Utiliser l'index bidirectionnel pour collecter directement les tâches concernées
+        // Utiliser l'index bidirectionnel pour collecter directement les unités concernées
         for (const resource of resources) {
-            const resourceTasks = resource.getTasks() as Task[];
-            for (const task of resourceTasks) {
-                tasksToInvalidate.add(task);
+            const resourceUnits = resource.getTasks() as ISchedulable[];
+            for (const unit of resourceUnits) {
+                unitsToInvalidate.add(unit);
             }
         }
         
-        // Invalider le schedulable de toutes les tâches concernées
-        for (const task of tasksToInvalidate) {
-            task.invalidateSchedulable();
+        // Invalider le schedulable de toutes les unités concernées
+        for (const unit of unitsToInvalidate) {
+            unit.invalidateSchedulable();
         }
     }
 
@@ -1001,7 +831,7 @@ export class Schedule {
      * Calcule un score de contrainte dynamique pour une tâche (état ACTUEL des ressources)
      * Prend en compte les réservations déjà effectuées pendant le backtracking
      */
-    protected getCurrentConstraintScore(task: Task): number {
+    protected getCurrentConstraintScore(task: ISchedulable): number {
         // Recalculer la disponibilité avec l'état actuel des ressources
         // (après les réservations effectuées par les tâches déjà planifiées)
         let baseScore = 0;
@@ -1021,67 +851,36 @@ export class Schedule {
         baseScore += (max - currentAvailableTime);
 
         // si la tache possède des dépendances, on lui ajoute le score de ses dépendances
-        if (task.hasDependentTasks() ) {
+        if (task.hasDependentUnits() ) {
          
-            let deps = task.getDependentTasks();
+            let deps = task.getDependentUnits();
             for (let dep of deps) {
                 baseScore += this.getCurrentConstraintScore(dep);
             }
 
         }
 
-        // Si c'est une représentante de groupe, agréger les scores des membres
-        if (task.isGroupRepresentative()) {
-            for (const member of task.getGroupMembers()) {
-                baseScore += this.getCurrentConstraintScore(member);
-            }
-        }
-
         return baseScore;
     }
 
     /**
-     * Trie dynamiquement les tâches restantes selon l'état actuel des ressources.
-     * Applique une heuristique Most Constrained Variable (MCV).
-     * Les groupes (représentante + membres) sont traités comme des unités atomiques :
-     * le tri porte sur l'unité entière, dont le score est celui de la représentante.
+     * Trie dynamiquement les tâches restantes selon l'état actuel des ressources
+     * Applique une heuristique Most Constrained Variable (MCV)
      */
     protected dynamicTaskSort(startIndex: number): void {
-        // Construire des unités : tâche indépendante = unité de taille 1,
-        // représentante = unité [rep, m1, m2, ...] (membres déjà consécutifs dans this.tasks)
-        const units: Task[][] = [];
-        let i = startIndex;
-        while (i < this.tasks.length) {
-            const task = this.tasks[i];
-            if (task.isGroupRepresentative()) {
-                const members = task.getGroupMembers();
-                // Les membres sont garantis consécutifs après la représentante dans this.tasks
-                units.push([task, ...members]);
-                i += 1 + members.length;
-            } else if (task.isGroupMember()) {
-                // Ne devrait pas apparaître en dehors d'un bloc représentante,
-                // mais on le traite comme unité indépendante par sécurité
-                units.push([task]);
-                i++;
-            } else {
-                units.push([task]);
-                i++;
-            }
-        }
-
-        // Trier les unités par score MCV décroissant (score de la tâche de tête)
-        units.sort((a, b) => {
-            const scoreA = this.getCurrentConstraintScore(a[0]);
-            const scoreB = this.getCurrentConstraintScore(b[0]);
+        // Ne trier que les tâches non encore traitées
+        const remainingTasks = this.units.slice(startIndex);
+        
+        // Trier par score de contrainte actuel (plus contraint = plus prioritaire)
+        remainingTasks.sort((a, b) => {
+            const scoreA = this.getCurrentConstraintScore(a);
+            const scoreB = this.getCurrentConstraintScore(b);
             return scoreB - scoreA;
         });
-
-        // Réécrire this.tasks à partir de startIndex avec les unités triées
-        let idx = startIndex;
-        for (const unit of units) {
-            for (const task of unit) {
-                this.tasks[idx++] = task;
-            }
+        
+        // Remettre les tâches triées dans le tableau principal
+        for (let i = 0; i < remainingTasks.length; i++) {
+            this.units[startIndex + i] = remainingTasks[i];
         }
     }
 
@@ -1119,14 +918,14 @@ export class Schedule {
         
         console.log(`🔍 Vérification de la solution (${solution.length} tâches)...`);
         
-        // Vérification de doublons d'instances de Task
-        const seenTasks = new Set<Task>();
+        // Vérification de doublons d'instances d'ISchedulable
+        const seenUnits = new Set<ISchedulable>();
         const duplicateTasks: string[] = [];
         for (const sol of solution) {
-            if (seenTasks.has(sol.task)) {
-                duplicateTasks.push(sol.task.code);
+            if (seenUnits.has(sol.unit)) {
+                duplicateTasks.push(sol.unit.code);
             }
-            seenTasks.add(sol.task);
+            seenUnits.add(sol.unit);
         }
         if (duplicateTasks.length > 0) {
             console.error(`❌ Doublons d'instances de Task détectés dans la solution: ${duplicateTasks.join(', ')}`);
@@ -1134,21 +933,21 @@ export class Schedule {
         // Vérifier chaque paire de tâches pour détecter les conflits
         for (let i = 0; i < solution.length; i++) {
             const task1 = solution[i];
-            const end1 = task1.startTime + task1.task.duration;
+            const end1 = task1.startTime + task1.unit.duration;
             
             for (let j = i + 1; j < solution.length; j++) {
                 const task2 = solution[j];
-                const end2 = task2.startTime + task2.task.duration;
+                const end2 = task2.startTime + task2.unit.duration;
                 
                 // Vérifier s'il y a chevauchement temporel
                 const hasTimeOverlap = (task1.startTime < end2 && end1 > task2.startTime);
                 
                 if (hasTimeOverlap) {
                     // OPTIMISÉ: Utiliser des Sets pour des comparaisons plus rapides
-                    const resSet1 = new Set(task1.task.getAllResources().map(r => r.id));
-                    const sharedRes = task2.task.getAllResources().filter(r2 => resSet1.has(r2.id));
+                    const resSet1 = new Set(task1.unit.getAllResources().map(r => r.id));
+                    const sharedRes = task2.unit.getAllResources().filter(r2 => resSet1.has(r2.id));
                     if (sharedRes.length > 0) {
-                        const conflict = `CONFLIT détecté entre "${task1.task.name}" (${this.formatTime(task1.startTime)}-${this.formatTime(end1)}) et "${task2.task.name}" (${this.formatTime(task2.startTime)}-${this.formatTime(end2)}) sur les ressources: ${sharedRes.map(r => r.id).join(', ')}`;
+                        const conflict = `CONFLIT détecté entre "${task1.unit.name}" (${this.formatTime(task1.startTime)}-${this.formatTime(end1)}) et "${task2.unit.name}" (${this.formatTime(task2.startTime)}-${this.formatTime(end2)}) sur les ressources: ${sharedRes.map(r => r.id).join(', ')}`;
                         conflicts.push(conflict);
                         console.error(`❌ ${conflict}`);
                         throw new Error('Erreur critique: Conflit détecté dans une solution supposée valide');
@@ -1208,9 +1007,9 @@ export class Schedule {
         console.log(`📅 Lundi de la semaine 3: ${mondayWeek3.toLocaleDateString('fr-FR')}`);
 
         // Séparer les solutions par code de cours
-        const r1Solutions = this.bestSolution.filter(s => s.task.code.startsWith('R1'));
-        const r3Solutions = this.bestSolution.filter(s => s.task.code.startsWith('R3'));
-        const r5Solutions = this.bestSolution.filter(s => s.task.code.startsWith('R5'));
+        const r1Solutions = this.bestSolution.filter(s => s.unit.code.startsWith('R1'));
+        const r3Solutions = this.bestSolution.filter(s => s.unit.code.startsWith('R3'));
+        const r5Solutions = this.bestSolution.filter(s => s.unit.code.startsWith('R5'));
 
         const exportedFiles: string[] = [];
 
@@ -1234,8 +1033,8 @@ export class Schedule {
         for (const category of categories) {
             // Trouver les tâches non planifiées pour cette catégorie
             // Correction : ne placer le dimanche que les tâches réellement non planifiées (absentes de la solution globale)
-            const allTasksInCategory = this.tasks.filter(task => task.code.startsWith(category.prefix));
-            const plannedTasksGlobal = this.bestSolution.map(sol => sol.task);
+            const allTasksInCategory = this.units.filter(task => task.code.startsWith(category.prefix));
+            const plannedTasksGlobal = this.bestSolution.map(sol => sol.unit);
             const unplannedTasksInCategory = allTasksInCategory.filter(task => !plannedTasksGlobal.includes(task));
             if (unplannedTasksInCategory.length > 0) {
                 console.log(`📋 Codes des tâches non planifiées pour ${category.prefix}:`);
@@ -1259,7 +1058,7 @@ export class Schedule {
 
             // Ajouter chaque événement planifié de cette catégorie
             for (const solution of category.solutions) {
-                const task = solution.task;
+                const task = solution.unit;
                 
                 // Convertir le timestamp en composants jour/heure
                 const { dayIndex, hour, minute } = this.fromTimestamp(solution.startTime);
@@ -1274,9 +1073,9 @@ export class Schedule {
                 endDate.setMinutes(endDate.getMinutes() + task.duration);
 
                 // Extraire les ressources
-                const teachersExport = solution.task.getAllResources().filter(r => r.type === 'teacher').map(r => r.id);
-                const roomsExport = solution.task.getAllResources().filter(r => r.type === 'room').map(r => r.id);
-                const groupsExport = solution.task.getAllResources().filter(r => r.type === 'group').map(r => r.id);
+                const teachersExport = solution.unit.getAllResources().filter(r => r.type === 'teacher').map(r => r.id);
+                const roomsExport = solution.unit.getAllResources().filter(r => r.type === 'room').map(r => r.id);
+                const groupsExport = solution.unit.getAllResources().filter(r => r.type === 'group').map(r => r.id);
 
                 // Créer une description détaillée
                 const description = [
@@ -1430,8 +1229,8 @@ export class Schedule {
         console.log('\n📦 Création du fichier iCal global (TOUTES les tâches)...');
         
         // Trouver toutes les tâches non planifiées (toutes catégories confondues)
-        const plannedTasksGlobal = this.bestSolution.map(sol => sol.task);
-        const allUnplannedTasks = this.tasks.filter(task => !plannedTasksGlobal.includes(task));
+        const plannedTasksGlobal = this.bestSolution.map(sol => sol.unit);
+        const allUnplannedTasks = this.units.filter(task => !plannedTasksGlobal.includes(task));
         
         // Générer le contenu iCal global
         let globalICalContent = [
@@ -1445,7 +1244,7 @@ export class Schedule {
 
         // Ajouter TOUTES les tâches planifiées (toutes catégories)
         for (const solution of this.bestSolution) {
-            const task = solution.task;
+            const task = solution.unit;
             
             // Convertir le timestamp en composants jour/heure
             const { dayIndex, hour, minute } = this.fromTimestamp(solution.startTime);
@@ -1460,9 +1259,9 @@ export class Schedule {
             endDate.setMinutes(endDate.getMinutes() + task.duration);
 
             // Extraire les ressources
-            const teachersExport = solution.task.getAllResources().filter(r => r.type === 'teacher').map(r => r.id);
-            const roomsExport = solution.task.getAllResources().filter(r => r.type === 'room').map(r => r.id);
-            const groupsExport = solution.task.getAllResources().filter(r => r.type === 'group').map(r => r.id);
+            const teachersExport = solution.unit.getAllResources().filter(r => r.type === 'teacher').map(r => r.id);
+            const roomsExport = solution.unit.getAllResources().filter(r => r.type === 'room').map(r => r.id);
+            const groupsExport = solution.unit.getAllResources().filter(r => r.type === 'group').map(r => r.id);
 
             // Créer une description détaillée
             const description = [
@@ -1617,13 +1416,7 @@ export class Schedule {
      * SUPPORT DES DÉPENDANCES: Vérifie si une tâche peut être planifiée maintenant
      * en tenant compte de ses dépendances
      */
-    protected canTaskBeScheduledNow(task: Task): boolean {
-        // Membre de groupe : la représentante doit être déjà dans la solution
-        const representative = task.getGroupRepresentative();
-        if (representative !== null) {
-            return this.solution.some(sol => sol.task === representative);
-        }
-
+    protected canTaskBeScheduledNow(task: ISchedulable): boolean {
         const dependency = task.getDependsOn();
         
         if (!dependency) {
@@ -1631,7 +1424,7 @@ export class Schedule {
         }
         
         // Vérifier si la tâche dont elle dépend est déjà planifiée dans la solution actuelle
-        const dependencyScheduled = this.solution.find(sol => sol.task === dependency);
+        const dependencyScheduled = this.solution.find(sol => sol.unit === dependency);
         
         if (!dependencyScheduled) {
             // La dépendance n'est pas encore planifiée

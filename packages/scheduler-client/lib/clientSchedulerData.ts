@@ -30,6 +30,6 @@ export class ClientSchedulerData extends SchedulerData {
    * Retourne les tâches correspondant à une semaine ISO donnée.
    */
   getTasksForWeek(week: number): Task[] {
-    return this._tasksManager?.getAllTasks().filter(t => t.week === week) ?? [];
+    return (this._tasksManager?.getAllUnits().filter(t => t.week === week) ?? []) as Task[];
   }
 }
