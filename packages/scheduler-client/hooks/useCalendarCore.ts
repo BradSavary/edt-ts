@@ -620,6 +620,8 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       const start = startTimeToDate(monday, task.startTime);
       const end = new Date(start.getTime() + task.duration * 60 * 1000);
       const title = [task.code, task.type, ...task.teachers].filter(Boolean).join(' • ');
+      const originalTask = solutions.find((t) => t.taskId === task.taskId);
+      const isAtOrigin = originalTask !== undefined && task.startTime === originalTask.startTime;
       return {
         id: task.taskId,
         title,
@@ -636,8 +638,8 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
           durationMin: task.duration,
           isNeutralizedPlaced: true,
           taskId: task.taskId,
-          manuallyPlaced: true,
-          constraintViolation: task.constraintViolation ?? 'none',
+          manuallyPlaced: isAtOrigin ? undefined : true,
+          constraintViolation: isAtOrigin ? undefined : (task.constraintViolation ?? 'none'),
         },
       };
     });
