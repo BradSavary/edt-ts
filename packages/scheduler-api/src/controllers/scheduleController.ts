@@ -361,7 +361,9 @@ export async function schedulerV2Handler(req: Request, res: Response): Promise<v
     res.status(200).json(response);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
     console.error('❌ Erreur planification (v2) :', message);
+    if (stack) console.error(stack);
     res.status(500).json({ error: message });
   }
 }
