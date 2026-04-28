@@ -20,7 +20,6 @@ export interface RunScheduleParamsFromData {
   constraintsData: ConstraintsData | null;
   enforcedMap: Record<string, EnforcedData>;
   blockedZones: BlockedZone[];
-  mode: 'standard' | 'elimination';
   schedulerConfig?: SchedulerConfig;
   groups?: TaskGroupDeclaration[];
 }
@@ -36,7 +35,6 @@ async function _callScheduleApi(
   constraintsData: ConstraintsData | null,
   enforcedMap: Record<string, EnforcedData>,
   blockedZones: BlockedZone[],
-  mode: 'standard' | 'elimination',
   schedulerConfig?: SchedulerConfig,
   groups?: TaskGroupDeclaration[],
 ): Promise<ScheduleResult> {
@@ -63,10 +61,9 @@ async function _callScheduleApi(
     ...(groups && groups.length > 0 ? { groups } : {}),
     ...(Object.keys(options).length > 0 ? { options } : {}),
   };
-
-  const endpoint = mode === 'elimination' ? '/api/schedule/v2' : '/api/schedule';
-
-  console.groupCollapsed(`📤 Payload envoyé à POST ${endpoint}`);
+  
+  const endpoint = '/api/schedule/v2';
+  console.groupCollapsed(`📤 Requête ${endpoint}`);
   console.log(payload);
   console.groupEnd();
 
@@ -84,6 +81,7 @@ async function _callScheduleApi(
     throw new Error(`L'API a répondu avec une erreur ${response.status} : ${rawText.slice(0, 200)}`);
   }
 
+  
   console.groupCollapsed(`📥 Réponse ${endpoint}`);
   console.log(data);
   console.groupEnd();
@@ -93,24 +91,13 @@ async function _callScheduleApi(
     throw new Error(err?.error ?? `Erreur ${response.status}`);
   }
 
-  let normalized: NormalizedSolution[];
-
-  if (mode === 'standard') {
-    const d = data as { solutionCount: number; solutions: { score?: number; isComplete: boolean; scheduledCount: number; conflictCount: number; tasks: TaskSolutionJSON[] }[] };
-    normalized = d.solutions.map((s) => ({
-      isComplete: s.isComplete,
-      score: s.score,
-      tasks: s.tasks,
-    }));
-  } else {
-    const d = data as { solutions: TaskSolutionJSON[]; isComplete: boolean; score?: number; neutralizedTasks?: NeutralizedTaskInfoJSON[] }[];
-    normalized = d.map((s) => ({
-      isComplete: s.isComplete,
-      score: s.score,
-      tasks: s.solutions,
-      neutralizedTasks: s.neutralizedTasks,
-    }));
-  }
+  const d = data as { solutions: TaskSolutionJSON[]; isComplete: boolean; score?: number; neutralizedTasks?: NeutralizedTaskInfoJSON[] }[];
+  const normalized: NormalizedSolution[] = d.map((s) => ({
+    isComplete: s.isComplete,
+    score: s.score,
+    tasks: s.solutions,
+    neutralizedTasks: s.neutralizedTasks,
+  }));
 
   if (normalized.length === 0) {
     throw new Error('Aucune solution trouvée.');
@@ -124,7 +111,7 @@ async function _callScheduleApi(
  * Préférer cette fonction quand les données sont disponibles dans useSchedulerStore.
  */
 export async function runScheduleRequestFromData(params: RunScheduleParamsFromData): Promise<ScheduleResult> {
-  const { week, courses, resources, constraintsData, enforcedMap, blockedZones, mode, schedulerConfig, groups } = params;
+  const { week, courses, resources, constraintsData, enforcedMap, blockedZones, schedulerConfig, groups } = params;
 
   if (week < 1 || week > 53) {
     throw new Error('"week" doit être un entier entre 1 et 53.');
@@ -136,7 +123,7 @@ export async function runScheduleRequestFromData(params: RunScheduleParamsFromDa
     throw new Error(`Aucun cours trouvé pour la semaine ${week}.`);
   }
 
-  return _callScheduleApi(week, resources, courses, constraintsData, enforcedMap, blockedZones, mode, schedulerConfig, groups);
+  return _callScheduleApi(week, resources, courses, constraintsData, enforcedMap, blockedZones, schedulerConfig, groups);
 }
 
 export interface ScheduleStatus {

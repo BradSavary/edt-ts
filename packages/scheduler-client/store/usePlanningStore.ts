@@ -140,7 +140,7 @@ export interface PlanningStore {
   // ── Actions ──────────────────────────────────────────────────────────────
 
   // Planification
-  runSchedule: (mode: 'standard' | 'elimination') => Promise<void>;
+  runSchedule: () => Promise<void>;
 
   // Cours forcés (reçoit la map MANUELLE — la propagation de groupes est calculée automatiquement)
   handleEnforceChange: (map: Record<string, EnforcedData>) => void;
@@ -349,7 +349,7 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
     }));
   },
 
-  runSchedule: async (mode) => {
+  runSchedule: async () => {
     const { selectedWeek, enforcedMap, blockedZones, taskGroups, preNeutralizedKeys } = get();
     if (selectedWeek === null) {
       set({ status: { message: '❌ Semaine non sélectionnée.', kind: 'err' } });
@@ -408,7 +408,6 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
         constraintsData: constraints as ConstraintsData | null,
         enforcedMap: remappedEnforced,
         blockedZones,
-        mode,
         schedulerConfig,
         groups: declarations.length > 0 ? declarations : undefined,
       });

@@ -64,10 +64,8 @@ export const useSchedulerStore = create<SchedulerStore>()(
     }),
     {
       name: 'edt-scheduler',
-      // Non persisté : saveNotice, constraintsInitialized
       partialize: (state) => ({
         constraints: state.constraints,
-        resourceWeeks: state.resourceWeeks,
         allCourses: state.allCourses,
         resources: state.resources,
         coursesFileName: state.coursesFileName,

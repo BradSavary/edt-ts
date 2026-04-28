@@ -69,7 +69,6 @@ export function startTimeToDate(monday: Date, startTimeMinutes: number): Date {
   return date;
 }
 
-const DAY_LABELS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 // Indexed by startTime dayIndex (0=Lundi … 5=Samedi)
 const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
@@ -83,14 +82,6 @@ export function formatStartTime(startTime: number): string {
   const h = Math.floor(minutesInDay / 60).toString().padStart(2, '0');
   const m = (minutesInDay % 60).toString().padStart(2, '0');
   return `${WEEKDAY_LABELS[dayIndex] ?? '?'} ${h}:${m}`;
-}
-
-export function formatTime(date: Date): string {
-  return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-}
-
-export function formatDate(date: Date): string {
-  return `${DAY_LABELS[date.getDay()]} ${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
 }
 
 // ─── Détection de conflits de ressources ─────────────────────────────────────

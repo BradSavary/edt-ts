@@ -283,3 +283,31 @@ export function computeConstraintUnavailableZones(
 
   return result;
 }
+
+/**
+ * Soustrait les intervalles `subtract` de `base` — retourne base \ subtract (sans chevauchement).
+ */
+export function subtractDateZones(
+  base: { start: Date; end: Date }[],
+  subtract: { start: Date; end: Date }[],
+): { start: Date; end: Date }[] {
+  if (subtract.length === 0) return base;
+  const result: { start: Date; end: Date }[] = [];
+  for (const bz of base) {
+    let segs = [{ start: bz.start, end: bz.end }];
+    for (const sz of subtract) {
+      const next: { start: Date; end: Date }[] = [];
+      for (const s of segs) {
+        if (s.end <= sz.start || s.start >= sz.end) {
+          next.push(s);
+        } else {
+          if (s.start < sz.start) next.push({ start: s.start, end: sz.start });
+          if (s.end > sz.end) next.push({ start: sz.end, end: s.end });
+        }
+      }
+      segs = next;
+    }
+    result.push(...segs);
+  }
+  return result;
+}

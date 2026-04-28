@@ -10,36 +10,10 @@ import type { EnforceSelection } from '@/components/planning/modals/EnforceModal
 import type { TaskEditUpdate } from '@/components/planning/modals/TaskEditModal';
 import { getMondayOfISOWeek, startTimeToDate, computeStaticConflicts, computeDragHighlights, computeConstraintViolation } from '@/lib/calendar/calendarUtils';
 import type { ResourceEventInfo } from '@/lib/calendar/calendarUtils';
-import { computeConstraintUnavailableZones } from '@/lib/calendar/blockedZones';
+import { computeConstraintUnavailableZones, subtractDateZones } from '@/lib/calendar/blockedZones';
 import { levelFromCode, getEventColors } from '@/lib/calendar/yearColors';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
-
-/** Soustrait les intervalles `subtract` de `base` — retourne base \ subtract (sans chevauchement). */
-function subtractDateZones(
-  base: { start: Date; end: Date }[],
-  subtract: { start: Date; end: Date }[],
-): { start: Date; end: Date }[] {
-  if (subtract.length === 0) return base;
-  const result: { start: Date; end: Date }[] = [];
-  for (const bz of base) {
-    let segs = [{ start: bz.start, end: bz.end }];
-    for (const sz of subtract) {
-      const next: { start: Date; end: Date }[] = [];
-      for (const s of segs) {
-        if (s.end <= sz.start || s.start >= sz.end) {
-          next.push(s);
-        } else {
-          if (s.start < sz.start) next.push({ start: s.start, end: sz.start });
-          if (s.end > sz.end) next.push({ start: sz.end, end: s.end });
-        }
-      }
-      segs = next;
-    }
-    result.push(...segs);
-  }
-  return result;
-}
 
 // ── Types partagés ─────────────────────────────────────────────────────────
 
@@ -47,23 +21,6 @@ export interface PendingDrop {
   courseKey: string;
   startTime: number;
   course: CourseTaskData;
-}
-
-export interface EventDetail {
-  title: string;
-  name: string;
-  code: string;
-  type: string;
-  teachers: string[];
-  groups: string[];
-  rooms: string[];
-  start: Date;
-  end: Date;
-  durationMin: number;
-  isEnforced?: boolean;
-  courseKey?: string;
-  eventId?: string;
-  isNeutralizedPlaced?: boolean;
 }
 
 export interface CalendarEventExtProps {
@@ -134,6 +91,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
   const placedNeutralizedTasks = usePlanningStore((s) => s.placedNeutralizedTasks);
   const manuallyNeutralizedTasks = usePlanningStore((s) => s.manuallyNeutralizedTasks);
   const searchQuery = usePlanningStore((s) => s.searchQuery);
+  const activeSolution = usePlanningStore((s) => s.activeSolution);
   const setTaskOverride = usePlanningStore((s) => s.setTaskOverride);
   const addPlacedNeutralizedTask = usePlanningStore((s) => s.addPlacedNeutralizedTask);
   const updatePlacedNeutralizedTask = usePlanningStore((s) => s.updatePlacedNeutralizedTask);
@@ -653,7 +611,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
         groups: e.extendedProps.groups ?? [],
         rooms: e.extendedProps.rooms ?? [],
       })),
-      ...(solutions.length === 0 ? enforcedEventsState : []).map((e) => ({
+      ...(!activeSolution || activeSolution.length === 0 ? enforcedEventsState : []).map((e) => ({
         id: e.id,
         start: e.start,
         end: e.end,
@@ -705,7 +663,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
           )
         : [];
 
-      otherZones.forEach((z, i) => {
+      otherZones.forEach((z: { start: Date; end: Date }, i: number) => {
         constraintBgEvents.push({
           id: `constraint-bg-other-${i}`,
           start: z.start,
@@ -731,11 +689,11 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     return [
       ...solEvts.map(applyHighlight),
       ...blockEvts,
-      ...(solutions.length === 0 ? enforcedEventsState.map(applyHighlight) : []),
+      ...(!activeSolution || activeSolution.length === 0 ? enforcedEventsState.map(applyHighlight) : []),
       ...placedNeutralizedEvts.map(applyHighlight),
       ...constraintBgEvents,
     ];
-  }, [solutions, blockedZones, monday, enforcedEventsState, taskOverrides, placedNeutralizedTasks, manuallyNeutralizedTasks, searchQuery, enforcedViolations, dragging, externalDragging, availabilityManager, week, yearColorConfig]);
+  }, [solutions, activeSolution, blockedZones, monday, enforcedEventsState, taskOverrides, placedNeutralizedTasks, manuallyNeutralizedTasks, searchQuery, enforcedViolations, dragging, externalDragging, availabilityManager, week, yearColorConfig]);
 
   return {
     week,

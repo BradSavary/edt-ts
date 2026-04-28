@@ -114,7 +114,7 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
           <div className="flex gap-2">
             <Button
               type="button"
-              onClick={() => runSchedule('elimination')}
+              onClick={() => runSchedule()}
               disabled={isLoading}
               className="flex-1 bg-black hover:bg-zinc-800 text-white dark:bg-zinc-900 dark:hover:bg-zinc-700"
             >
