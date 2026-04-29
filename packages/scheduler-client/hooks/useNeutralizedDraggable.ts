@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Draggable } from '@fullcalendar/interaction';
-import { usePlanningStore } from '@/store/usePlanningStore';
+import { useExternalDragDetection } from '@/hooks/useExternalDragDetection';
+import type { DraggingResources } from '@/store/usePlanningStore';
 
 interface UseNeutralizedDraggableOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -17,8 +18,6 @@ export function useNeutralizedDraggable({
   containerRef,
   hasItems,
 }: UseNeutralizedDraggableOptions): void {
-  const setDraggingExternal = usePlanningStore((s) => s.setDraggingExternal);
-
   // FullCalendar Draggable
   useEffect(() => {
     const container = containerRef.current;
@@ -47,49 +46,18 @@ export function useNeutralizedDraggable({
   }, [containerRef, hasItems]);
 
   // Détection du drag externe pour la colorisation de conflits en temps réel
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    let pendingDrag: { teachers: string[]; groups: string[]; rooms: string[] } | null = null;
-    let isDragging = false;
-
-    function onPointerDown(e: PointerEvent) {
-      const el = (e.target as HTMLElement).closest('[data-task-id]') as HTMLElement | null;
-      if (!el) return;
-      if (!el.getAttribute('data-task-id')) return;
-      try {
-        const teachers = JSON.parse(el.getAttribute('data-teachers') ?? '[]') as string[];
-        const groups = JSON.parse(el.getAttribute('data-groups') ?? '[]') as string[];
-        const rooms = JSON.parse(el.getAttribute('data-rooms') ?? '[]') as string[];
-        pendingDrag = { teachers, groups, rooms };
-        isDragging = false;
-      } catch { /* ignore */ }
+  const getResources = useCallback((el: HTMLElement): DraggingResources | null => {
+    if (!el.getAttribute('data-task-id')) return null;
+    try {
+      return {
+        teachers: JSON.parse(el.getAttribute('data-teachers') ?? '[]') as string[],
+        groups: JSON.parse(el.getAttribute('data-groups') ?? '[]') as string[],
+        rooms: JSON.parse(el.getAttribute('data-rooms') ?? '[]') as string[],
+      };
+    } catch {
+      return null;
     }
+  }, []);
 
-    function onPointerMove(e: PointerEvent) {
-      if (!pendingDrag || isDragging) return;
-      if (Math.abs(e.movementX) + Math.abs(e.movementY) > 2) {
-        isDragging = true;
-        setDraggingExternal(pendingDrag);
-      }
-    }
-
-    function onPointerUp() {
-      pendingDrag = null;
-      isDragging = false;
-      setDraggingExternal(null);
-    }
-
-    container.addEventListener('pointerdown', onPointerDown);
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointercancel', onPointerUp);
-    return () => {
-      container.removeEventListener('pointerdown', onPointerDown);
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', onPointerUp);
-    };
-  }, [containerRef, hasItems, setDraggingExternal]);
+  useExternalDragDetection(containerRef.current, getResources);
 }

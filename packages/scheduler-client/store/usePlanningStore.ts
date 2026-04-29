@@ -5,72 +5,20 @@ import { runScheduleRequestFromData, buildScheduleStatus, type ScheduleResult, t
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { type TaskGroupConfig, type GroupType, buildTaskGroupData, getCourseGroupInfo, computeGroupEnforcements } from '@/lib/taskGroupUtils';
 import { computeHolidayZonesForWeek } from '@/lib/schoolHolidays';
+import { createNeutralizedSlice, type NeutralizedSlice } from '@/store/slices/neutralizedSlice';
+import { createBlockedZonesSlice, type BlockedZonesSlice } from '@/store/slices/blockedZonesSlice';
+import { createTaskGroupsSlice, type TaskGroupsSlice } from '@/store/slices/taskGroupsSlice';
 
 export type { TaskGroupConfig };
+export type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, SolutionState } from './types';
+import type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, SolutionState } from './types';
 
 export type Status = ScheduleStatus;
-
-/**
- * Override de position et/ou de ressources pour une tâche placée manuellement
- * via drag-and-drop ou édition dans le calendrier.
- */
-export interface PlacedTaskOverride {
-  startTime: number;
-  teachers: string[];
-  groups: string[];
-  rooms: string[];
-  /** Durée surchargée (minutes). Si absent, utilise la durée du cours original. */
-  duration?: number;
-  /** Violation de contrainte détectée au moment du placement. */
-  constraintViolation?: 'red' | 'orange' | 'none';
-}
-
-/**
- * Tâche planifiée déposée manuellement dans la zone de neutralisation ("pioche").
- */
-export interface ManuallyNeutralizedTask {
-  taskId: string;
-  code: string;
-  name: string;
-  type: string;
-  duration: number;
-  teachers: string[];
-  groups: string[];
-  rooms: string[];
-}
-
-/**
- * État mutable par solution (overrides, placements, pioche).
- * Sauvegardé et restauré lors des changements de solution.
- */
-export interface SolutionState {
-  taskOverrides: Record<string, PlacedTaskOverride>;
-  placedNeutralizedTasks: PlacedNeutralizedTask[];
-  manuallyNeutralizedTasks: ManuallyNeutralizedTask[];
-}
-
-/**
- * Tâche neutralisée placée manuellement sur le calendrier.
- * Contient les données complètes nécessaires à l'affichage.
- */
-export interface PlacedNeutralizedTask {
-  taskId: string;
-  code: string;
-  name: string;
-  type: string;
-  startTime: number; // minutes depuis lundi minuit
-  duration: number;
-  teachers: string[];
-  groups: string[];
-  rooms: string[];
-  /** Violation de contrainte détectée au moment du placement. */
-  constraintViolation?: 'red' | 'orange' | 'none';
-}
 
 // ── Interface ──────────────────────────────────────────────────────────────
 // Contient les données "de travail" de la session : non persistées.
 
-export interface PlanningStore {
+export interface PlanningStore extends NeutralizedSlice, BlockedZonesSlice, TaskGroupsSlice {
   // Sélection de la semaine
   selectedWeek: number | null;
   setSelectedWeek: (week: number | null) => void;
@@ -88,17 +36,8 @@ export interface PlanningStore {
   taskOverrides: Record<string, PlacedTaskOverride>;
   /** Tâches neutralisées placées manuellement sur le calendrier. */
   placedNeutralizedTasks: PlacedNeutralizedTask[];
-  /** Clés (indices dans parsedCourses) des tâches pré-neutralisées avant planification. */
-  preNeutralizedKeys: string[];
-  togglePreNeutralized: (courseKey: string) => void;
-  /** Tâches planifiées déposées dans la zone de neutralisation ("pioche"). */
-  manuallyNeutralizedTasks: ManuallyNeutralizedTask[];
-  addManuallyNeutralizedTask: (task: ManuallyNeutralizedTask) => void;
-  removeManuallyNeutralizedTask: (taskId: string) => void;
   /** État mutable sauvegardé par solution (overrides, pioche, placements). */
   solutionStates: Record<number, SolutionState>;
-  /** Entrées synthétiques pour les tâches pré-neutralisées (communes à toutes les solutions). */
-  syntheticNeutralizedTasks: NeutralizedTaskInfoJSON[];
   /** Remet la solution courante à son état initial du moteur. */
   resetCurrentSolution: () => void;
 
@@ -111,7 +50,6 @@ export interface PlanningStore {
   /** Violations de contrainte pour les tâches imposées déplacées manuellement. */
   enforcedViolations: Record<string, 'red' | 'orange' | 'none'>;
   setEnforcedViolation: (courseKey: string, violation: 'red' | 'orange' | 'none') => void;
-  blockedZones: BlockedZone[];
 
   // Statut UI
   isLoading: boolean;
@@ -125,18 +63,6 @@ export interface PlanningStore {
   groupDrawerOpen: boolean;
   toggleGroupDrawer: () => void;
 
-  // ── Groupes de tâches ──────────────────────────────────────────────────
-  /** Map des enforcements manuels (sans auto-propagation de groupes). */
-  manualEnforcedMap: Record<string, EnforcedData>;
-  /** Groupes de tâches définis pour la session courante (non persistés). */
-  taskGroups: TaskGroupConfig[];
-  addTaskGroup: (type: GroupType, courseKey?: string) => string;
-  removeTaskGroup: (groupId: string) => void;
-  addCourseToGroup: (groupId: string, courseKey: string) => void;
-  removeCourseFromGroup: (groupId: string, courseKey: string) => void;
-  setGroupType: (groupId: string, type: GroupType) => void;
-  reorderCourseInGroup: (groupId: string, fromIndex: number, toIndex: number) => void;
-
   // ── Actions ──────────────────────────────────────────────────────────────
 
   // Planification
@@ -144,11 +70,6 @@ export interface PlanningStore {
 
   // Cours forcés (reçoit la map MANUELLE — la propagation de groupes est calculée automatiquement)
   handleEnforceChange: (map: Record<string, EnforcedData>) => void;
-
-  // Zones bloquées
-  handleBlockedZoneAdd: (start: Date, end: Date) => void;
-  handleBlockedZoneRemove: (id: string) => void;
-  handleBlockedZoneMove: (id: string, start: Date, end: Date) => void;
 
   // Overrides de tâches planifiées
   setTaskOverride: (taskId: string, override: PlacedTaskOverride) => void;
@@ -171,7 +92,13 @@ export type DraggingResources = NonNullable<PlanningStore['draggingExternal']>;
 
 // ── Store ──────────────────────────────────────────────────────────────────
 
-export const usePlanningStore = create<PlanningStore>()((set, get) => ({
+export const usePlanningStore = create<PlanningStore>()((...a) => {
+  const [set, get] = a;
+  return {
+  ...createNeutralizedSlice(...a),
+  ...createBlockedZonesSlice(...a),
+  ...createTaskGroupsSlice(...a),
+
   selectedWeek: null,
   setSelectedWeek: (week) => {
     // Pré-charger les zones bloquées de vacances/jours fériés pour la semaine
@@ -231,17 +158,7 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
   activeNeutralizedTasks: [],
   taskOverrides: {},
   placedNeutralizedTasks: [],
-  preNeutralizedKeys: [],
-  togglePreNeutralized: (courseKey) => {
-    set((state) => ({
-      preNeutralizedKeys: state.preNeutralizedKeys.includes(courseKey)
-        ? state.preNeutralizedKeys.filter((k) => k !== courseKey)
-        : [...state.preNeutralizedKeys, courseKey],
-    }));
-  },
-  manuallyNeutralizedTasks: [],
   solutionStates: {},
-  syntheticNeutralizedTasks: [],
   resetCurrentSolution: () => {
     const { scheduleResult, selectedSolutionIndex, solutionStates, syntheticNeutralizedTasks } = get();
     if (!scheduleResult) return;
@@ -256,19 +173,6 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
       activeNeutralizedTasks: [...(solution?.neutralizedTasks ?? []), ...syntheticNeutralizedTasks],
     });
   },
-  addManuallyNeutralizedTask: (task) => {
-    set((state) => ({
-      manuallyNeutralizedTasks: [
-        ...state.manuallyNeutralizedTasks.filter((t) => t.taskId !== task.taskId),
-        task,
-      ],
-    }));
-  },
-  removeManuallyNeutralizedTask: (taskId) => {
-    set((state) => ({
-      manuallyNeutralizedTasks: state.manuallyNeutralizedTasks.filter((t) => t.taskId !== taskId),
-    }));
-  },
 
   searchQuery: '',
   setSearchQuery: (query) => set({ searchQuery: query }),
@@ -278,7 +182,6 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
   setEnforcedViolation: (courseKey, violation) => set((state) => ({
     enforcedViolations: { ...state.enforcedViolations, [courseKey]: violation },
   })),
-  blockedZones: [],
 
   isLoading: false,
   status: null,
@@ -287,67 +190,6 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
 
   groupDrawerOpen: false,
   toggleGroupDrawer: () => set((s) => ({ groupDrawerOpen: !s.groupDrawerOpen })),
-
-  manualEnforcedMap: {},
-  taskGroups: [],
-
-  addTaskGroup: (type, courseKey) => {
-    const id = `tg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    set((state) => ({
-      taskGroups: [
-        ...state.taskGroups,
-        { id, type, courseKeys: courseKey ? [courseKey] : [] },
-      ],
-    }));
-    return id;
-  },
-
-  removeTaskGroup: (groupId) => {
-    set((state) => ({ taskGroups: state.taskGroups.filter((g) => g.id !== groupId) }));
-  },
-
-  addCourseToGroup: (groupId, courseKey) => {
-    set((state) => {
-      // Une tâche ne peut appartenir qu'à un seul groupe
-      const alreadyInGroup = state.taskGroups.some((g) => g.courseKeys.includes(courseKey));
-      if (alreadyInGroup) return {};
-      return {
-        taskGroups: state.taskGroups.map((g) =>
-          g.id === groupId && !g.courseKeys.includes(courseKey)
-            ? { ...g, courseKeys: [...g.courseKeys, courseKey] }
-            : g,
-        ),
-      };
-    });
-  },
-
-  removeCourseFromGroup: (groupId, courseKey) => {
-    set((state) => ({
-      taskGroups: state.taskGroups
-        .map((g) =>
-          g.id === groupId ? { ...g, courseKeys: g.courseKeys.filter((k) => k !== courseKey) } : g,
-        )
-        .filter((g) => g.courseKeys.length > 0),
-    }));
-  },
-
-  setGroupType: (groupId, type) => {
-    set((state) => ({
-      taskGroups: state.taskGroups.map((g) => (g.id === groupId ? { ...g, type } : g)),
-    }));
-  },
-
-  reorderCourseInGroup: (groupId, fromIndex, toIndex) => {
-    set((state) => ({
-      taskGroups: state.taskGroups.map((g) => {
-        if (g.id !== groupId) return g;
-        const keys = [...g.courseKeys];
-        const [moved] = keys.splice(fromIndex, 1);
-        keys.splice(toIndex, 0, moved);
-        return { ...g, courseKeys: keys };
-      }),
-    }));
-  },
 
   runSchedule: async () => {
     const { selectedWeek, enforcedMap, blockedZones, taskGroups, preNeutralizedKeys } = get();
@@ -587,4 +429,5 @@ export const usePlanningStore = create<PlanningStore>()((set, get) => ({
     status: null,
     taskGroups: [],
   }),
-}));
+  };
+});
