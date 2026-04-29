@@ -62,20 +62,34 @@ const minutes = 810 % 60;                        // = 30
 ## Utilisation dans le code
 
 ### Classes principales
-- **`TimestampUtils`** : Utilitaires de conversion (dans `bookable.ts`)
-- **`ConstraintsManager`** : Génération des timestamps depuis les contraintes JSON
-- **`AvailabilityManager`** : Manipulation des créneaux de disponibilité
 
-### Fonctions de formatage
+- **`Availability`** (`packages/scheduler-common/src/availability.ts`) : gère la liste triée d'intervalles de disponibilité d'une ressource. Expose `addAvailability`, `removeAvailability`, `isAvailable`, `getTotalAvailableTime` et `displaySchedule` (debug console).
+- **`AvailabilityManager`** (`packages/scheduler-common/src/availabilityManager.ts`) : construit les objets `Availability` à partir d'un `ConstraintsData`. S'instancie directement — pas de singleton global. Méthode principale : `getAvailability(resourceId, weekNumber?)`.
+
+La conversion timestamps ↔ jours/heures est encapsulée dans ces deux classes ; il n'existe pas de classe utilitaire publique dédiée (`TimestampUtils` n'existe pas).
+
+### Conversion dans le code
+
 ```typescript
-// Conversion timestamp → affichage lisible
-formatInterval(start, end) // "Vendredi 13:30 - 15:00 (90 min)"
+// Construire un timestamp (utilisé dans AvailabilityManager._createFromSlots)
+const startTimestamp = dayIndex * 24 * 60 + startMinutes; // dayIndex * 1440 + mm
 
-// Conversion composants → timestamp  
-TimestampUtils.toTimestamp(4, 13, 30) // 6570
+// Décomposer un timestamp (utilisé dans Availability.displaySchedule)
+const dayIndex  = Math.floor(ts / (24 * 60));       // index 0-6
+const timeInDay = ts % (24 * 60);                   // minutes depuis minuit du jour
+const hour      = Math.floor(timeInDay / 60);
+const minute    = timeInDay % 60;
+```
 
-// Conversion timestamp → composants
-TimestampUtils.fromTimestamp(6570) // {dayIndex: 4, hour: 13, minute: 30, dayName: "Vendredi"}
+### Affichage lisible (debug)
+
+```typescript
+// Affiche tous les créneaux d'une Availability dans la console
+availability.displaySchedule();
+// ➜  📅 Créneaux de disponibilité:
+//       Lundi: 08:00 - 18:00
+//       Mercredi: 09:00 - 17:00
+//       📊 Total: 19h00 (1140 minutes)
 ```
 
 ## Gestion des semaines spécifiques
@@ -103,4 +117,4 @@ Les timestamps incorrects se manifestent souvent par :
 
 **Cause commune** : Utilisation de `new Date(timestamp)` qui interprète le timestamp comme des millisecondes depuis 1970 au lieu de minutes depuis lundi minuit.
 
-**Solution** : Toujours utiliser les fonctions de formatage dédiées (`formatInterval`, `TimestampUtils`, etc.)
+**Solution** : Toujours travailler en minutes entières et utiliser `Availability.displaySchedule()` pour le debug, ou reproduire la décomposition arithmétique ci-dessus.
