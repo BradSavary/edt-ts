@@ -100,12 +100,12 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
         </p>
         <form className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="week-input">Semaine (1–53)</Label>
+            <Label htmlFor="week-input">Semaine (1-52)</Label>
             <Input
               id="week-input"
               type="number"
               min="1"
-              max="53"
+              max="52"
               value={weekInput}
               onChange={(e) => handleSetWeek(e.target.value)}
             />
