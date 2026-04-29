@@ -61,13 +61,14 @@ packages/scheduler-client/
       courses/
         CourseCard.tsx              # Carte draggable d'un cours
         CourseGroupList.tsx         # Liste groupée de cours (par code ou enseignant)
+        CourseConstraintList.tsx    # Liste des cours groupés par niveau de contrainte (critique/tendu/ok)
         GroupDrawer.tsx             # Drawer de détail d'un groupe de cours
       modals/
         ResourceSlots.tsx           # Éditeur de créneaux de ressources (partagé)
         EnforceModal.tsx            # Modal de confirmation de placement imposé
         TaskEditModal.tsx           # Modal d'édition des ressources d'une tâche placée
         CourseCreateModal.tsx       # Modal de création/duplication d'un cours
-      SchedulerConfigDialog.tsx     # Dialog configuration avancée du planificateur
+        SchedulerConfigDialog.tsx   # Dialog configuration avancée du planificateur
     constraints/                    # Composants de la page Contraintes
       ConstraintsManager.tsx        # Gestionnaire complet des contraintes
       ResourceConstraintEditor.tsx  # Éditeur de contraintes par ressource
@@ -78,9 +79,10 @@ packages/scheduler-client/
     calendar/
       calendarUtils.ts              # Helpers FullCalendar + détection conflits ressources
       blockedZones.ts               # Logique zones bloquées (soustraction de créneaux)
-      yearColors.ts                 # Palette de couleurs par année BUT
+      yearColors.ts                 # Palette de couleurs par année BUT (YearColorConfig, levelFromCode)
+      types.ts                      # Types FullCalendar partagés (CalendarEventExtProps, CalendarEventData, PendingDrop…)
     api/
-      scheduleApi.ts                # Client API (runScheduleRequestFromData → POST /api/schedule)
+      scheduleApi.ts                # Client API (runScheduleRequestFromData → POST /api/schedule/v2)
       clientSchedulerData.ts        # Sous-classe ClientSchedulerData extends SchedulerData
     utils.ts                        # Fonction cn() (clsx + tailwind-merge)
     parseCsvCourses.ts              # Parsing CSV des cours → CourseTaskData[] + ressources
@@ -88,15 +90,21 @@ packages/scheduler-client/
     constraintsUtils.ts             # Utilitaires UI contraintes (DayMap, normalisation, export JSON)
     schoolHolidays.ts               # Vacances scolaires & jours fériés (HolidayPeriod, SchoolYearConfig)
     taskGroupUtils.ts               # Groupes de tâches (GroupType, buildTaskGroupData, computeGroupEnforcements)
+    taskConstraintAnalysis.ts       # Analyse de contraintes par cours (analyzeConstraints, ConstraintLevel)
   hooks/
     useCalendarCore.ts              # Toute la logique calendrier (drag, drop, conflits, modals)
     useNeutralizedDraggable.ts      # FullCalendar Draggable pour les tâches neutralisées
     useSidebarCourseDrag.ts         # FullCalendar Draggable + conflits pour la sidebar cours
+    useExternalDragDetection.ts     # Détection de drag depuis containers non-calendrier (pointer events)
   store/
-    useSchedulerStore.ts            # Store persisté (allCourses, resources, constraints, config)
-    usePlanningStore.ts             # Store session (semaine, résultat, solution active, overrides)
+    types.ts                        # Types de session partagés (PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, SolutionState)
+    useSchedulerStore.ts            # Store persisté (allCourses, resources, constraints, config, yearColorConfig)
+    usePlanningStore.ts             # Store session (semaine, résultat, solution active, overrides) — compose les slices
     slices/
       constraintsSlice.ts           # Slice Zustand pour les contraintes (avec persist)
+      blockedZonesSlice.ts          # Slice zones bloquées (blockedZones, add/remove/move)
+      neutralizedSlice.ts           # Slice tâches neutralisées (preNeutralizedKeys, manuallyNeutralizedTasks, syntheticNeutralizedTasks)
+      taskGroupsSlice.ts            # Slice groupes de tâches (taskGroups, manualEnforcedMap)
   __tests__/                        # Tests unitaires (Vitest + Testing Library)
   e2e/                              # Tests E2E (Playwright)
   public/                           # Assets statiques
@@ -121,25 +129,51 @@ L'état global est **séparé en deux stores** :
 - `resources: ResourceGroupData[]` — ressources extraites automatiquement du CSV
 - `coursesFileName: string | null` — nom du fichier CSV importé
 - `constraints: ConstraintsRecord` — contraintes de disponibilité (Zustand persist)
-- `resourceWeeks: Record<string, number[]>` — semaines actives par ressource (du CSV)
 - `schedulerConfig: SchedulerConfig` — configuration avancée du planificateur (persistée)
+- `yearColorConfig: YearColorConfig` — palette de couleurs par année BUT (persistée)
+- `schoolYearConfig: SchoolYearConfig | null` — config vacances scolaires (persistée)
+
+Mutations persistées : `setCourses`, `setResources`, `addCourse`, `removeCourse`, `setSchedulerConfig`, `setYearColorConfig`, `setSchoolYearConfig`
 
 **Champs non persistés** (reconstruits côté client uniquement via `subscribe` + initialisation immédiate) :
-- `availabilityManager: AvailabilityManager | null` — reconstruit quand `constraints` change ; utilisé par `computeConstraintUnavailableZones` pour les zones de drag
+- `availabilityManager: AvailabilityManager | null` — reconstruit quand `constraints` change ; utilisé par `computeConstraintViolation` pour les zones de drag
 - `clientSchedulerData: ClientSchedulerData | null` — reconstruit quand `allCourses` ou `resources` change ; expose `getTasksForWeek(week) → Task[]`
 
 ### `usePlanningStore` — état de session (non persisté)
-- `selectedWeek`, `setSelectedWeek` — semaine ISO courante (reset complet à chaque changement)
+
+`usePlanningStore` compose trois slices + des champs propres :
+
+**Depuis `NeutralizedSlice` (`slices/neutralizedSlice.ts`)** :
+- `preNeutralizedKeys: string[]` — clés des cours pré-neutralisés avant planification
+- `manuallyNeutralizedTasks: ManuallyNeutralizedTask[]` — tâches déposées dans la "pioche" depuis le calendrier
+- `syntheticNeutralizedTasks: NeutralizedTaskInfoJSON[]` — entrées synthétiques pour les pré-neutralisées
+- `togglePreNeutralized`, `addManuallyNeutralizedTask`, `removeManuallyNeutralizedTask`
+
+**Depuis `BlockedZonesSlice` (`slices/blockedZonesSlice.ts`)** :
+- `blockedZones: BlockedZone[]` — zones bloquées (manuelles + vacances + jours fériés)
+- `handleBlockedZoneAdd`, `handleBlockedZoneRemove`, `handleBlockedZoneMove`
+
+**Depuis `TaskGroupsSlice` (`slices/taskGroupsSlice.ts`)** :
+- `taskGroups: TaskGroupConfig[]` — groupes de tâches (parallel/sequential)
+- `manualEnforcedMap: Record<string, EnforcedData>` — map d'enforcements manuels bruts
+- `addTaskGroup`, `removeTaskGroup`, `addCourseToGroup`, `removeCourseFromGroup`, `setGroupType`, `reorderCourseInGroup`
+
+**Champs propres** :
+- `selectedWeek`, `setSelectedWeek` — semaine ISO courante (reset complet à chaque changement, pré-peuple `blockedZones`)
 - `scheduleResult`, `activeSolution`, `activeNeutralizedTasks` — résultat et vue courante
-- `selectedSolutionIndex`, `setSelectedSolutionIndex` — solution affichée
-- `enforcedMap` — placements imposés (courseKey → EnforcedData)
-- `blockedZones` — zones bloquées (plages indisponibles créées manuellement)
+- `selectedSolutionIndex`, `setSelectedSolutionIndex` — solution affichée (sauvegarde/restaure `SolutionState`)
+- `solutionStates: Record<number, SolutionState>` — état mutable sauvegardé par solution
+- `resetCurrentSolution()` — remet la solution courante à son état initial du moteur
+- `enforcedMap: Record<string, EnforcedData>` — enforcements effectifs (manual + propagation groupe)
+- `enforcedViolations: Record<string, 'red' | 'orange' | 'none'>` — violations de contraintes pour les enforcements
+- `setEnforcedViolation`, `handleEnforceChange`
 - `taskOverrides` — overrides de position/ressources pour les tâches déplacées manuellement
 - `placedNeutralizedTasks` — tâches neutralisées replacées sur le calendrier via drag
 - `searchQuery`, `setSearchQuery` — filtre de recherche dans le calendrier
 - `draggingExternal` — ressources du cours en drag externe (sidebar → calendrier)
+- `groupDrawerOpen`, `toggleGroupDrawer` — visibilité du panneau GroupDrawer (préférence layout)
 - `isLoading`, `status` — feedback UI
-- `runSchedule(mode)` — déclenche l'appel API via `runScheduleRequestFromData`
+- `runSchedule()` — déclenche l'appel API via `runScheduleRequestFromData` (toujours via `/api/schedule/v2`)
 - `resetScheduleResult()` — réinitialise uniquement le résultat (sans changer la semaine)
 - `reset()` — réinitialise tout
 
@@ -148,14 +182,14 @@ L'état global est **séparé en deux stores** :
 ## Flux de données principal
 
 ```
-CSV (cours.csv)   →  parseCsvFull()      →  useSchedulerStore.allCourses + resources + resourceWeeks
+CSV (cours.csv)   →  parseCsvFull()      →  useSchedulerStore.allCourses + resources
 Contraintes UI    →  constraintsSlice    →  useSchedulerStore.constraints
                                                       ↓
                                             AvailabilityManager (auto-reconstruit si constraints change)
                                             ClientSchedulerData  (auto-reconstruit si allCourses/resources change)
                                                       ↓
-usePlanningStore.runSchedule('elimination')
-  →  runScheduleRequestFromData()  →  POST /api/schedule/elimination
+usePlanningStore.runSchedule()
+  →  runScheduleRequestFromData()  →  POST /api/schedule/v2
   →  scheduleResult → activeSolution → ScheduleCalendar
 ```
 
@@ -195,8 +229,12 @@ Types UI spécifiques au client :
 
 ## `lib/api/scheduleApi.ts`
 
-Une seule fonction publique : **`runScheduleRequestFromData(params)`**.  
-Elle prend les données déjà en mémoire (depuis les stores), construit le payload et appelle `POST /api/schedule` (standard, 5min) ou `POST /api/schedule/v2` (mode élimination, 10min).
+Exports publics :
+- **`runScheduleRequestFromData(params)`** — prend les données en mémoire, construit le payload (avec `enforcedMap`, `blockedZones`, `groups`) et appelle **toujours** `POST /api/schedule/v2` (10min)
+- **`buildScheduleStatus(result)`** — construit le message de statut UI depuis un `ScheduleResult`
+- Types : `ScheduleResult`, `NormalizedSolution`, `RunScheduleParamsFromData`, `ScheduleStatus`
+
+Le paramètre `groups?: TaskGroupDeclaration[]` est injecté dans le payload quand des groupes de tâches sont définis.
 
 ## `hooks/useCalendarCore.ts`
 
@@ -204,14 +242,28 @@ Hook principal extrait de `ScheduleCalendar`. Contient toute la logique complexe
 - Construction des événements FullCalendar (depuis `activeSolution` + `taskOverrides` + `placedNeutralizedTasks`)
 - Handlers drag-and-drop (interne, sidebar gauche, panel neutralisé)
 - Gestion des modals (`EnforceModal`, `TaskEditModal`, `CourseCreateModal`, popup de détail)
-- Coloration des conflits et background events d'indisponibilité
+- Coloration des conflits (`constraintViolation`) et background events d'indisponibilité
 - Zones bloquées (sélection, suppression) — `source` différencie manual/vacation/public-holiday
+- Utilise `lib/calendar/types.ts` pour les types d'événements (`CalendarEventExtProps`, `PendingEditData`, etc.)
 
 > `ScheduleCalendar` (`components/planning/calendar/`) est une coquille : il instancie `useCalendarCore` et passe les résultats à FullCalendar.
 
-## `components/planning/SchedulerConfigDialog.tsx`
+## `hooks/useExternalDragDetection.ts`
 
-Dialog de configuration avancée du planificateur. Paramètres :
+Détecte le début d'un drag depuis un container non-calendrier (sidebar, panel neutralisé) via pointer events et met à jour `draggingExternal` dans `usePlanningStore` pour la colorisation des conflits en temps réel.
+
+```ts
+useExternalDragDetection(
+  container: HTMLDivElement | null,
+  getResources: (el: HTMLElement) => DraggingResources | null
+): void
+```
+
+Utilisé par `useSidebarCourseDrag` et `useNeutralizedDraggable`.
+
+## `components/planning/modals/SchedulerConfigDialog.tsx`
+
+Dialog de configuration avancée du planificateur (dans `modals/`, pas à la racine `planning/`). Paramètres :
 - `maxSolutions`, `timeoutSeconds`, `maxIterations`, `maxEliminations`
 - `resourceSelection` : `'deterministic' | 'random'`
 - **Pause déjeuner** : désactivée / fixe (`LunchBreakFixed`) / flottante (`LunchBreakFloating`)
@@ -223,8 +275,10 @@ La configuration est persistée dans `useSchedulerStore.schedulerConfig`.
 Wrapper léger qui commute entre `SidebarPreparation` et `SidebarAnalysis` selon la présence d'un résultat.
 
 **`SidebarPreparation`** (pas de résultat) :
-- Input semaine + bouton "Planifier" (`runSchedule('elimination')`) + `SchedulerConfigDialog`
-- Liste draggable des cours (`CourseGroupList` + `useSidebarCourseDrag`)
+- Input semaine + bouton "Planifier" (`runSchedule()`) + `SchedulerConfigDialog`
+- Onglets de liste de cours : "Par code", "Par enseignant", **"Contraintes"** (via `CourseConstraintList` + `analyzeConstraints`)
+- Liste draggable des cours (`CourseGroupList` ou `CourseConstraintList` + `useSidebarCourseDrag`)
+- Modals : `TaskEditModal` (édition d'un cours), `CourseCreateModal` (création/duplication)
 
 **`SidebarAnalysis`** (résultat disponible) :
 - Bouton "← Retour à la préparation" (avec dialog de confirmation)
@@ -241,14 +295,57 @@ Elles existent car le proxy `rewrites` de Next.js applique un timeout court inco
 |---|---|---|
 | `POST /api/schedule` | `/api/schedule` | 5 minutes |
 | `POST /api/schedule/v2` | `/api/schedule/v2` | 10 minutes |
+| `GET /api/holidays` | — (externe) | — (gouvernemental) |
 
 > Ne pas confondre la route Next.js (`app/api/schedule/v2/route.ts`) avec la route Express — ce sont deux couches distinctes.
+
+> `scheduleApi.ts` cible toujours `/api/schedule/v2`. La route `/api/schedule` reste disponible pour usage direct mais n'est plus utilisée par le client.
+
+## `store/types.ts`
+
+Types de session partagés entre les slices et `usePlanningStore` (non persistés) :
+- `PlacedTaskOverride` — override de position/ressources/durée + violation de contrainte détectée
+- `ManuallyNeutralizedTask` — tâche déposée dans la "pioche" depuis le calendrier
+- `PlacedNeutralizedTask` — tâche neutralisée repositionnée sur le calendrier
+- `SolutionState` — snapshot d'une solution : `{ taskOverrides, placedNeutralizedTasks, manuallyNeutralizedTasks }` ; sauvegardé/restauré via `solutionStates`
+
+## `lib/taskConstraintAnalysis.ts`
+
+Analyse statique des contraintes de disponibilité pour les cours d'une semaine.
+
+Types exportés : `ConstraintLevel` (`'critical' | 'tight' | 'ok'`), `TaskConstraintInfo`, `ResourceOverload`, `ConstraintAnalysisResult`
+
+Fonction principale : **`analyzeConstraints(courses, am, week, blockedZones)`**
+- Calcule le niveau de contrainte de chaque cours selon la disponibilité effective de ses ressources
+- `critical` : disponibilité < demande totale ; `tight` : disponibilité < demande × 1.5 ; `ok` : sinon
+- Niveau d'un cours = pire niveau parmi ses ressources ; pour les groupes alternatifs, prend le meilleur cas
+- Prend en compte les `blockedZones` pour réduire la disponibilité effective
+
+Utilisé dans `SidebarPreparation` (onglet « Contraintes ») et dans `CourseConstraintList`.
+
+## `lib/calendar/types.ts`
+
+Types FullCalendar partagés entre `useCalendarCore`, `ScheduleCalendar` et les hooks :
+- `CalendarEventExtProps` — `extendedProps` d'un événement FullCalendar (taskId, courseKey, isEnforced, constraintViolation, blockedZoneSource…)
+- `CalendarEventData` — événement FullCalendar complet (start, end, backgroundColor, extendedProps)
+- `PendingDrop` — données en attente lors d'un drop externe (courseKey, startTime, course)
+- `DraggingState` — ressources d'un item en cours de drag
+- `PendingEditData` — données à éditer dans `TaskEditModal`
+
+## `lib/calendar/yearColors.ts`
+
+Gestion des couleurs d'événements par année BUT :
+- `YearColorConfig` — objet `{ but1, but2, but3 }` (couleurs hex de base, persisté dans `useSchedulerStore`)
+- `DEFAULT_YEAR_COLORS` — palette par défaut (bleu pastel / ambre / émeraude)
+- `YEAR_COLOR_PALETTE` — liste de couleurs proposées à l'UI
+- `levelFromCode(code)` — déduit le niveau BUT (0/1/2) depuis le code du cours
 
 ## Utilisation de `@edt-ts/scheduler-common` côté client
 
 - `CourseTaskData`, `ResourceGroupData`, `ConstraintsData`, `TimeSlot`, `ResourceConstraints` : types de données, imports directs
 - `TaskSolutionJSON`, `NeutralizedTaskInfoJSON` : types des réponses API
 - `SchedulerConfig`, `LunchBreakFixed`, `LunchBreakFloating`, `DEFAULT_SCHEDULER_CONFIG` : configuration du planificateur
+- `TaskGroupDeclaration` : déclaration de groupe (parallel/sequential) envoyée dans le payload API
 - `SchedulerData` : classe de base étendue par `ClientSchedulerData` (local, `lib/clientSchedulerData.ts`)
 - `Task` : type de retour de `ClientSchedulerData.getTasksForWeek()` ; utile pour accéder aux `Resource` instances et dépendances
 - `AvailabilityManager` : utilisé dans `useSchedulerStore` pour calculer les zones d'indisponibilité côté client
