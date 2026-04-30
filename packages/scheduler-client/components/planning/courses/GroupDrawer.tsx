@@ -5,6 +5,8 @@ import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import { usePlanningStore, type TaskGroupConfig } from '@/store/usePlanningStore';
 import { useSidebarCourseDrag } from '@/hooks/useSidebarCourseDrag';
 import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { validateParallelGroup, type ParallelGroupIssue } from '@/lib/taskGroupUtils';
 
 type SimpleCourse = {
   code: string;
@@ -121,9 +123,10 @@ function NewGroupSection() {
 interface GroupCardProps {
   group: TaskGroupConfig;
   parsedCourses: SimpleCourse[];
+  validationIssue?: ParallelGroupIssue | null;
 }
 
-function GroupCard({ group, parsedCourses }: GroupCardProps) {
+function GroupCard({ group, parsedCourses, validationIssue }: GroupCardProps) {
   const removeTaskGroup = usePlanningStore((s) => s.removeTaskGroup);
   const removeCourseFromGroup = usePlanningStore((s) => s.removeCourseFromGroup);
   const setGroupType = usePlanningStore((s) => s.setGroupType);
@@ -148,6 +151,28 @@ function GroupCard({ group, parsedCourses }: GroupCardProps) {
             {group.type === 'parallel' ? '∥ Parallèle' : '→ Séquentiel'}
             <span className="opacity-40 group-hover/typebtn:opacity-100 transition-opacity text-[9px]">↺</span>
           </button>
+          {validationIssue && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-amber-500 dark:text-amber-400 text-sm cursor-help select-none" aria-label="Problème de planification">
+                  ⚠
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-56 text-xs bg-background text-foreground border shadow-md">
+                <ul className="list-disc list-inside space-y-0.5">
+                  {validationIssue.conflictingTeachers && (
+                    <li>Intervenant(s) en conflit : {validationIssue.conflictingTeachers.join(', ')}</li>
+                  )}
+                  {validationIssue.conflictingGroups && (
+                    <li>Groupe(s) étudiant en conflit : {validationIssue.conflictingGroups.join(', ')}</li>
+                  )}
+                  {validationIssue.roomShortfall && (
+                    <li>Salles insuffisantes : {validationIssue.roomShortfall.available} disponible(s) pour {validationIssue.roomShortfall.needed} tâche(s)</li>
+                  )}
+                </ul>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
         <button
           type="button"
@@ -304,7 +329,7 @@ export function GroupDrawer({ parsedCourses }: GroupDrawerProps) {
           {taskGroups.length > 0 && (
             <div className="flex flex-col gap-3">
               {taskGroups.map((group) => (
-                <GroupCard key={group.id} group={group} parsedCourses={simplifiedCourses} />
+                <GroupCard key={group.id} group={group} parsedCourses={simplifiedCourses} validationIssue={validateParallelGroup(group, parsedCourses)} />
               ))}
             </div>
           )}

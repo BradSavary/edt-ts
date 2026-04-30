@@ -2,6 +2,85 @@ import type { CourseTaskData, EnforcedData, TaskGroupDeclaration } from '@edt-ts
 
 export type GroupType = TaskGroupDeclaration['type'];
 
+export interface ParallelGroupIssue {
+  conflictingTeachers?: string[];
+  conflictingGroups?: string[];
+  roomShortfall?: { available: number; needed: number };
+}
+
+/**
+ * Vérifie la validité d'un groupe 'parallel' :
+ * - Aucun intervenant fixe (string, non-alternatif) ne doit apparaître dans plus d'une tâche
+ * - Aucun groupe étudiant fixe ne doit apparaître dans plus d'une tâche
+ * - L'union des salles possibles de toutes les tâches doit être >= nombre de tâches
+ *
+ * Retourne null si valide, sinon un objet décrivant les problèmes.
+ */
+export function validateParallelGroup(
+  group: TaskGroupConfig,
+  courses: CourseTaskData[],
+): ParallelGroupIssue | null {
+  if (group.type !== 'parallel' || group.courseKeys.length < 2) return null;
+
+  const tasks = group.courseKeys
+    .map((key) => courses[parseInt(key, 10)])
+    .filter((t): t is CourseTaskData => Boolean(t));
+
+  if (tasks.length < 2) return null;
+
+  const issue: ParallelGroupIssue = {};
+  let hasIssue = false;
+
+  // Intervenants fixes (string non-alternatif) en conflit
+  const teacherCounts = new Map<string, number>();
+  for (const task of tasks) {
+    for (const entry of task.teacher) {
+      if (typeof entry === 'string') {
+        teacherCounts.set(entry, (teacherCounts.get(entry) ?? 0) + 1);
+      }
+    }
+  }
+  const conflictingTeachers = [...teacherCounts.entries()]
+    .filter(([, n]) => n > 1)
+    .map(([id]) => id);
+  if (conflictingTeachers.length > 0) {
+    issue.conflictingTeachers = conflictingTeachers;
+    hasIssue = true;
+  }
+
+  // Groupes étudiants fixes en conflit
+  const groupCounts = new Map<string, number>();
+  for (const task of tasks) {
+    for (const entry of task.groups) {
+      if (typeof entry === 'string') {
+        groupCounts.set(entry, (groupCounts.get(entry) ?? 0) + 1);
+      }
+    }
+  }
+  const conflictingGroups = [...groupCounts.entries()]
+    .filter(([, n]) => n > 1)
+    .map(([id]) => id);
+  if (conflictingGroups.length > 0) {
+    issue.conflictingGroups = conflictingGroups;
+    hasIssue = true;
+  }
+
+  // Salles disponibles (union de toutes les alternatives) >= nombre de tâches
+  const allRooms = new Set<string>();
+  for (const task of tasks) {
+    for (const entry of task.rooms) {
+      if (typeof entry === 'string') allRooms.add(entry);
+      else for (const r of entry) allRooms.add(r);
+    }
+  }
+  if (allRooms.size < tasks.length) {
+    issue.roomShortfall = { available: allRooms.size, needed: tasks.length };
+    hasIssue = true;
+  }
+
+  return hasIssue ? issue : null;
+}
+
 /**
  * Config d'un groupe de tâches côté client (session uniquement, non persisté).
  * Les courseKeys sont des indices dans le tableau parsedCourses de la semaine courante.
