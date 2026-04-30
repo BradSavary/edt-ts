@@ -84,10 +84,12 @@ export class TaskGroupUnit implements ISchedulingUnit {
     /** Tente de placer toutes les tâches à l'instant t. Retourne null si impossible. */
     private _tryParallelAt(tasks: Task[], t: number): TaskAssignment[] | null {
         const assignment: TaskAssignment[] = [];
+        const claimed = new Set<Resource>(); // ressources déjà attribuées aux tâches précédentes
         for (const task of tasks) {
-            const combo = this._findAvailableCombo(task, t, t + task.duration);
+            const combo = this._findAvailableCombo(task, t, t + task.duration, claimed);
             if (combo === null) return null;
             assignment.push({ task, slotStart: t, slotEnd: t + task.duration, resources: combo });
+            for (const r of combo) claimed.add(r);
         }
         return assignment;
     }
@@ -129,12 +131,14 @@ export class TaskGroupUnit implements ISchedulingUnit {
 
     /**
      * Cherche en lecture seule la première combinaison de ressources de `task`
-     * dont toutes les ressources sont disponibles sur [slotStart, slotEnd].
+     * dont toutes les ressources sont disponibles sur [slotStart, slotEnd]
+     * et n'appartiennent pas à l'ensemble `claimed` (ressources déjà attribuées
+     * à d'autres tâches du même groupe pour ce créneau).
      * Ne modifie pas l'état des ressources ni de la tâche.
      */
-    private _findAvailableCombo(task: Task, slotStart: number, slotEnd: number): Resource[] | null {
+    private _findAvailableCombo(task: Task, slotStart: number, slotEnd: number, claimed: Set<Resource> = new Set()): Resource[] | null {
         for (const combo of task.getApplicableResources()) {
-            if (combo.every(r => r.availability.isAvailable(slotStart, slotEnd))) {
+            if (combo.every(r => !claimed.has(r) && r.availability.isAvailable(slotStart, slotEnd))) {
                 return combo;
             }
         }

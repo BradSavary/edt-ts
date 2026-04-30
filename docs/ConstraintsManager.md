@@ -1,124 +1,107 @@
-# ConstraintsManager - Documentation
+# AvailabilityManager - Documentation
 
 ## Vue d'ensemble
 
-Le `ConstraintsManager` est une classe statique qui gère le chargement et l'application des contraintes de disponibilité depuis le fichier `contraintes.json`. Il fournit une interface centralisée pour obtenir les `AvailabilityManager` appropriés pour chaque ressource selon les contraintes par défaut et les overrides hebdomadaires.
+`AvailabilityManager` (`packages/scheduler-common/src/availabilityManager.ts`) est la classe qui traduit un objet `ConstraintsData` (contraintes horaires JSON) en objets `Availability` prêts à être affectés aux ressources. Elle est instanciée directement — **pas de singleton global**.
 
-## Architecture des contraintes
+> **Note** : L'ancienne classe `ConstraintsManager` (statique, singleton) n'existe plus. Elle a été remplacée par `AvailabilityManager` lors de la refonte de l'architecture.
 
-### Structure du fichier contraintes.json
+## Types de données (`types.ts`)
+
+```typescript
+interface TimeSlot {
+  days: string;  // "lundi, mardi, jeudi"
+  from: string;  // "08:00"
+  to:   string;  // "18:00"
+}
+
+interface ResourceConstraints {
+  default?: TimeSlot[];
+  [weekKey: string]: TimeSlot[] | undefined; // "S36", "S47", etc.
+}
+
+interface ConstraintsData {
+  Default?: TimeSlot[];
+  [resourceId: string]: TimeSlot[] | ResourceConstraints | undefined;
+}
+```
+
+## Structure d'un `ConstraintsData`
 
 ```json
 {
   "Default": [
-    // Contraintes par défaut pour toutes les ressources sans contraintes spécifiques
+    { "days": "lundi, mardi, jeudi, vendredi", "from": "08:00", "to": "18:00" }
   ],
-  "ResourceID": null, // Utilise les contraintes "Default"
-  "ResourceID": {
-    "default": [...], // Contraintes par défaut pour cette ressource
-    "S38": [...],     // Override pour la semaine 38
-    "S40": [...]      // Override pour la semaine 40
+  "DUPONT Jean": null,
+  "MARTIN Sophie": [
+    { "days": "lundi, mercredi", "from": "09:00", "to": "17:00" }
+  ],
+  "MEUNIER Sandrine": {
+    "default": [{ "days": "lundi, mardi, jeudi", "from": "08:00", "to": "18:00" }],
+    "S38": [{ "days": "lundi", "from": "08:00", "to": "12:00" }]
   }
 }
 ```
 
-### Hiérarchie des contraintes
+### Règles de résolution
 
-1. **Contraintes Default** : S'appliquent aux ressources avec `null`
-2. **Contraintes default** : Contraintes spécifiques à une ressource
-3. **Overrides hebdomadaires** : Remplacent les contraintes par défaut pour des semaines spécifiques (format `SXX`)
+| Valeur pour `resourceId`    | Disponibilité appliquée                    |
+|-----------------------------|--------------------------------------------|
+| `null`                      | Créneaux `Default`                         |
+| `TimeSlot[]`                | Ces créneaux (pas de `Default`)            |
+| `{ default, S36, ... }`     | `default` en base ; `SXX` si override      |
+| Absent des clés             | `Default` (avec warning console)           |
 
-## API Principale
+## API publique
 
-### `getAvailabilityManager(resourceId: string, weekNumber?: number)`
-
-Obtient l'`AvailabilityManager` approprié pour une ressource :
-- Sans `weekNumber` : retourne les contraintes par défaut
-- Avec `weekNumber` : retourne l'override de la semaine ou les contraintes par défaut
-
-### `getAllResourceIds()`
-
-Retourne tous les identifiants de ressources avec contraintes définies.
-
-### `hasResource(resourceId: string)`
-
-Vérifie si une ressource a des contraintes définies.
-
-### `getOverrideWeeks(resourceId: string)`
-
-Retourne les numéros de semaines ayant des overrides pour une ressource.
-
-### `getStats()`
-
-Fournit des statistiques sur les contraintes chargées :
-- Nombre total de ressources
-- Ressources avec overrides
-- Total des overrides
-
-## Intégration avec ResourcesManager
-
-Le `ResourcesManager` a été étendu avec des méthodes d'intégration :
-
-### `applyConstraints()`
-
-Applique les contraintes par défaut à toutes les ressources gérées.
-
-### `applyConstraintsForWeek(weekNumber: number)`
-
-Applique les contraintes spécifiques à une semaine donnée.
-
-### `getConstraintsStats()`
-
-Retourne des statistiques sur l'application des contraintes aux ressources gérées.
-
-## Format des créneaux horaires
-
-Les créneaux horaires sont définis avec :
-- `days` : Jours de la semaine (ex: "lundi, mardi, mercredi")
-- `from` : Heure de début au format "HH:MM"
-- `to` : Heure de fin au format "HH:MM"
-
-## Conversion en timestamps
-
-Le système convertit automatiquement :
-- Les jours en indices (lundi=0, mardi=1, ...)
-- Les heures en minutes depuis minuit
-- Combine les deux en timestamps pour une semaine type
-
-## Gestion des commentaires JSON
-
-Le système supprime automatiquement les commentaires JavaScript (`//`) du fichier JSON pour permettre une documentation inline.
-
-## Exemple d'utilisation
+### Constructeur
 
 ```typescript
-import { Loader } from './lib/loader.js';
-import { ConstraintsManager } from './constraintsManager.js';
-
-// Charger les ressources
-const manager = Loader.loadResources();
-
-// Appliquer les contraintes par défaut
-manager.applyConstraints();
-
-// Obtenir une disponibilité spécifique pour la semaine 38
-const availability = ConstraintsManager.getAvailabilityManager('MEUNIER Sandrine', 38);
-
-// Appliquer les contraintes de la semaine 40
-manager.applyConstraintsForWeek(40);
+const am = new AvailabilityManager(data: ConstraintsData);
 ```
 
-## Avantages
+Construit et met en cache tous les `Availability` au moment de l'instanciation.
 
-1. **Séparation des préoccupations** : Les contraintes sont gérées indépendamment des ressources
-2. **Flexibilité temporelle** : Support des overrides hebdomadaires
-3. **Performance** : Cache des `AvailabilityManager` pré-calculés
-4. **Intégration transparente** : Interface simple avec le `ResourcesManager` existant
-5. **Fallbacks intelligents** : Hiérarchie de contraintes avec valeurs par défaut
+### `getAvailability(resourceId, weekNumber?): Availability | null`
 
-## Limitations actuelles
+Retourne l'`Availability` pour une ressource :
+- Avec `weekNumber` : retourne l'override `SXX` si disponible, sinon le `default` de la ressource
+- Sans `weekNumber` : retourne le `default` de la ressource
+- Si la ressource est inconnue : retourne les créneaux `Default` avec un warning console
 
-- Format de semaine fixe (SXX)
-- Pas de validation des créneaux horaires
+## Intégration avec `ResourcesManager`
+
+`ResourcesManager` expose une méthode dédiée :
+
+```typescript
+resourcesManager.applyConstraintsForWeek(weekNumber: number, am: AvailabilityManager): void
+```
+
+Elle parcourt toutes les ressources et appelle `am.getAvailability(resource.id, weekNumber)` pour affecter l'`Availability` à chaque `Resource`.
+
+## Intégration dans le flux de planification
+
+L'intégration est gérée par `Loader` (`packages/scheduler-core/src/loader.ts`) via `SchedulerData` :
+
+```typescript
+// Dans Loader.loadFromRawData()
+this._data.initGroups(data.groups ?? []);
+// Les contraintes sont passées directement dans RawScheduleData
+// et utilisées pour construire l'AvailabilityManager lors du chargement des ressources
+```
+
+Le payload envoyé à l'API (`RawScheduleData`) peut inclure directement l'objet `constraints` ; aucun fichier JSON externe n'est lu par l'API.
+
+## Parsing des créneaux
+
+- **Jours** : chaîne `"lundi, mardi, jeudi"` — séparateurs virgule et/ou espace, insensible à la casse. Les variantes (`jeeudi`) sont tolérées.
+- **Heures** : format `"HH:MM"` → converti en minutes depuis minuit.
+- **Timestamp** : `dayIndex * 1440 + minutes` (voir `docs/TIMESTAMPS.md`).
+
+## Limitations
+
+- Format d'override semaine fixe : `SXX` (ex: `S36`, `S47`)
+- Pas de validation des créneaux horaires (chevauchements, valeurs hors bornes)
 - Pas de support des jours fériés ou exceptions ponctuelles
-- Contraintes statiques (rechargement requis pour modifications)
+- L'état est immuable après construction (pas de rechargement partiel)

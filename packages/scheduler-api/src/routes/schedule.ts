@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { scheduleHandler, healthHandler, solveWithEliminationHandler, defaultConfigHandler, schedulerV2Handler } from '../controllers/scheduleController.js';
+import { healthHandler, defaultConfigHandler, schedulerV2Handler } from '../controllers/scheduleController.js';
 
 const router = Router();
 
@@ -16,56 +16,13 @@ router.get('/health', healthHandler);
 router.get('/config', defaultConfigHandler);
 
 /**
- * POST /api/schedule
- * Planifie un ensemble de tâches selon les ressources et contraintes fournies.
- *
- * Corps JSON attendu :
- * {
- *   "week": <number>,
- *   "resources": [{ "resourceType": "teacher"|"room"|"group", "resources": [{ "id": string, "info"?: string }] }],
- *   "courses":  [CourseTaskData],
- *   "constraints": ConstraintsData,   // optionnel
- *   "options": {                       // optionnel
- *     "maxSolutions":  number,         // nombre de solutions complètes recherchées (défaut: 6)
- *     "timeoutSeconds": number,        // timeout du backtracking en secondes (défaut: 180)
- *     "maxIterations": number,         // limite de sécurité sur les itérations (défaut: 1 000 000)
- *     "lunchBreak": { "type": "none" }  // aucune contrainte (défaut)
- *   //  "lunchBreak": { "type": "fixed", "from": "12:00", "to": "13:30" }
- *   //  "lunchBreak": { "type": "floating", "duration": 90, "earliest": "12:00", "latest": "14:00" }
- *   }
- * }
- */
-router.post('/', scheduleHandler);
-
-/**
- * POST /api/schedule/elimination
- * Planifie en autorisant la neutralisation des tâches les plus bloquantes.
- *
- * Corps JSON : identique à POST /api/schedule, plus :
- * {
- *   "options": {
- *     "maxSolutions":  number,         // nombre de solutions complètes recherchées (défaut: 6)
- *     "timeoutSeconds": number,        // timeout du backtracking en secondes (défaut: 180)
- *     "maxIterations": number,         // limite de sécurité sur les itérations (défaut: 1 000 000)
- *     "maxEliminations": number,       // nombre max de tâches neutralisables (défaut: 3)
- *     "lunchBreak": { "type": "none" }  // aucune contrainte (défaut)
- *   //  "lunchBreak": { "type": "fixed", "from": "12:00", "to": "13:30" }
- *   //  "lunchBreak": { "type": "floating", "duration": 90, "earliest": "12:00", "latest": "14:00" }
- *   }
- * }
- *
- * Retourne un tableau de ScheduleSolutionJSON.
- */
-router.post('/elimination', solveWithEliminationHandler);
-
-/**
  * POST /api/schedule/v2
  * Nouveau moteur (Scheduler) avec élimination intégrée.
  *
- * Corps JSON identique à POST /api/schedule/elimination.
+ * Corps JSON : { week, resources, courses, constraints?, groups?, options? }
  * Si options.maxEliminations = 0, aucune élimination n'est tentée.
  *
- * Retourne un tableau de ScheduleSolutionJSON (même format que /elimination).
+ * Retourne un tableau de ScheduleSolutionJSON.
  */
 router.post('/v2', schedulerV2Handler);
 

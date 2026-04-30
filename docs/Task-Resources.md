@@ -2,6 +2,168 @@
 
 ## Vue d'ensemble
 
+La classe `Task` (`packages/scheduler-common/src/task.ts`) représente une tâche à planifier. Elle implémente `ISchedulable` et intègre un système de ressources alternatives modélisant des contraintes ET/OU.
+
+## Propriétés publiques
+
+| Propriété       | Type                              | Description                                       |
+|-----------------|-----------------------------------|---------------------------------------------------|
+| `id`            | `string`                          | Identifiant unique                                |
+| `code`          | `string`                          | Code cours (ex: `R101`)                           |
+| `name`          | `string`                          | Libellé                                           |
+| `duration`      | `number`                          | Durée en minutes                                  |
+| `type`          | `string`                          | Type de cours (CM, TD, TP…)                       |
+| `week`          | `number`                          | Numéro de semaine                                 |
+| `semester`      | `number`                          | Semestre                                          |
+| `level`         | `number`                          | Niveau (année)                                    |
+| `taskGroupId`   | `string \| undefined`             | Référence au groupe de tâches (`TaskGroupDeclaration.id`) |
+| `enforced`      | `EnforcedData \| undefined`       | Données de placement forcé                        |
+| `isEnforced`    | `boolean` (getter)                | `true` si `enforced` est défini                   |
+| `resources`     | `{ [K in ResourceType]: Resource[][] }` | Structure des ressources alternatives       |
+
+## Structure des ressources
+
+```typescript
+resources: { [K in ResourceType]: Resource[][] }
+```
+
+Trois types : `TEACHER`, `ROOM`, `GROUP`. Pour chaque type, le tableau contient des **groupes alternatifs** — la tâche nécessite exactement **un élément de chaque groupe**.
+
+### Sémantique ET/OU
+
+```typescript
+{
+  TEACHER: [[ProfA], [ProfB, ProfC]],
+  ROOM:    [[R01, R02]],
+  GROUP:   [[G1]]
+}
+```
+
+**Lecture** : ProfA **ET** (ProfB **OU** ProfC) **ET** (R01 **OU** R02) **ET** G1
+
+**Combinaisons possibles** : `[ProfA, ProfB, R01, G1]`, `[ProfA, ProfB, R02, G1]`, `[ProfA, ProfC, R01, G1]`, `[ProfA, ProfC, R02, G1]`
+
+## Méthodes principales
+
+### `getApplicableResources(): Resource[][]`
+
+Retourne toutes les combinaisons valides via produit cartésien des groupes alternatifs (tous types confondus, dans l'ordre TEACHER → ROOM → GROUP).
+
+```typescript
+const combos = task.getApplicableResources();
+// ex: [[ProfA, R01, G1], [ProfA, R02, G1], ...]
+```
+
+### `appliedResources` (getter/setter)
+
+Ressources choisies pour la solution courante.
+
+```typescript
+const current = task.appliedResources; // Resource[] ([] si non défini)
+task.appliedResources = [profA, r01, g1]; // invalide le cache schedulable
+task.appliedResources = null;             // remet à vide (backtrack)
+```
+
+### `schedulable` (getter) → `Availability`
+
+Intersection des disponibilités de toutes les `appliedResources`. Calculé à la demande et mis en cache ; invalidé à chaque changement de `appliedResources`.
+
+```typescript
+const available = task.schedulable; // Availability
+task.hasSchedulableSlot();          // true si au moins 1 créneau ≥ task.duration
+```
+
+### `getAllResources(): Resource[]`
+
+Alias de `appliedResources` (compatibilité `ISchedulable`).
+
+### `getTeacherResource(): Resource | null`
+
+Retourne la première ressource de type `TEACHER` dans `appliedResources`.
+
+### `invalidateSchedulable(): void`
+
+Force le recalcul du cache `_schedulable` au prochain accès.
+
+## Système de dépendances
+
+Les tâches supportent une dépendance de précédence (une tâche doit être planifiée après une autre) :
+
+```typescript
+task.setDependsOn(otherTask);        // établit la dépendance (vérifie les cycles)
+task.getDependsOn(): ISchedulable | null
+task.getDependentUnits(): ISchedulable[]
+task.hasDependentUnits(): boolean
+```
+
+`setDependsOn` lève une erreur si la dépendance crée un cycle ou si la tâche se référence elle-même.
+
+## Groupes de tâches
+
+Le champ `taskGroupId` relie la tâche à une `TaskGroupDeclaration` (voir `docs/LunchBreak.md` et le type `TaskGroupDeclaration` dans `types.ts`). Le moteur `Scheduler` utilise ce champ dans `initSolver()` pour construire les `TaskGroupUnit`.
+
+## Usage dans le moteur (`scheduler-core`)
+
+Le moteur n'appelle jamais `addResource`/`removeResource` (ces méthodes n'existent pas). Le workflow est :
+
+```typescript
+// 1. Obtenir les combinaisons
+const combos = task.getApplicableResources();
+
+// 2. Pour chaque combo, vérifier la disponibilité
+for (const combo of combos) {
+  if (combo.every(r => r.availability.isAvailable(start, end))) {
+    // 3. Appliquer
+    task.appliedResources = combo;
+    // 4. Consommer la disponibilité des ressources
+    combo.forEach(r => r.availability.removeAvailability(start, end));
+    break;
+  }
+}
+
+// Backtrack
+task.appliedResources = null;
+combo.forEach(r => r.availability.addAvailability(start, end));
+```
+
+En pratique, ce workflow est encapsulé dans `TaskUnit` et `TaskGroupUnit`.
+
+## Cas d'usage courants
+
+### Ressource unique par type
+```typescript
+TEACHER: [[profA]], ROOM: [[r01]], GROUP: [[g1]]
+// 1 combinaison
+```
+
+### Alternatives pour un type
+```typescript
+TEACHER: [[profA]], ROOM: [[r01, r02, r03]], GROUP: [[g1]]
+// 3 combinaisons (une par salle)
+```
+
+### Multiples groupes alternatifs
+```typescript
+TEACHER: [[profA], [profB]], ROOM: [[r01], [r02]], GROUP: [[g1]]
+// 4 combinaisons
+```
+
+### Ressources multiples obligatoires (co-enseignement)
+```typescript
+TEACHER: [[profA, profB]], ROOM: [[r01]], GROUP: [[g1]]
+// 1 combinaison — les deux enseignants sont requis simultanément
+```
+
+## Références
+
+- `packages/scheduler-common/src/task.ts` : implémentation
+- `packages/scheduler-common/src/resource.ts` : `Resource`, `ResourceType`
+- `packages/scheduler-common/src/types.ts` : `CourseTaskData`, `EnforcedData`, `TaskGroupDeclaration`
+- `packages/scheduler-core/src/taskUnit.ts` : usage dans le moteur (tâche isolée)
+- `packages/scheduler-core/src/taskGroupUnit.ts` : usage dans le moteur (groupe de tâches)
+
+## Vue d'ensemble
+
 La classe `Task` représente une tâche à planifier dans le système EDT-TS. Elle intègre un système sophistiqué de gestion des ressources alternatives permettant de modéliser des contraintes de type ET/OU.
 
 ## Structure des Ressources

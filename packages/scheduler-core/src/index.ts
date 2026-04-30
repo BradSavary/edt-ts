@@ -5,11 +5,7 @@
  * utiliser le moteur depuis un package externe (ex: scheduler-api).
  */
 
-// --- Planificateurs ---
-export { Schedule } from './schedule.js';
-export type { ScheduleSolution, TaskSolution, NeutralizedTaskInfo, ResourceAvailabilitySnapshot } from './schedule.js';
-
-// --- Nouveau moteur (ISchedulingUnit) ---
+// --- Planificateur ---
 export { Scheduler } from './scheduler.js';
 export type { SchedulerSolution, NeutralizedUnitInfo } from './scheduler.js';
 export { TaskUnit } from './taskUnit.js';
@@ -26,9 +22,6 @@ export { TasksManager } from '@edt-ts/scheduler-common';
 export { Loader } from './loader.js';
 export { AvailabilityManager } from '@edt-ts/scheduler-common';
 export { SchedulerData } from '@edt-ts/scheduler-common';
-
-// --- Analyse ---
-export { ScheduleAnalysis } from './scheduleAnalysis.js';
 
 // --- Types ---
 export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, ResourceGroupData, ResourceData, RawScheduleData } from '@edt-ts/scheduler-common';

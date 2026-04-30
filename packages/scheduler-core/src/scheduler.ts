@@ -263,11 +263,11 @@ export class Scheduler {
             const depResult = this._scheduled.get(dep.id)!;
             fromTime = depResult.start + dep.duration;
         }
-
+/*
         if (this._iterations % 10000 === 0) {
             console.log(`🔄 Itération ${this._iterations}, unité ${unitIndex}/${this._units.length} : ${unit.id}`);
         }
-
+*/
         // Exploration des créneaux via earlySchedule
         while (true) {
             const result = unit.earlySchedule(fromTime);
