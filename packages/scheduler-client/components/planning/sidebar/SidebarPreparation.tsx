@@ -39,14 +39,15 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
   const removeCourse = useSchedulerStore((s) => s.removeCourse);
   const resources = useSchedulerStore((s) => s.resources);
   const availabilityManager = useSchedulerStore((s) => s.availabilityManager);
+  const tightThreshold = useSchedulerStore((s) => s.tightThreshold);
 
   type SidebarTab = GroupBy | 'constraint';
   const [groupBy, setGroupBy] = useState<SidebarTab>('code');
 
   const constraintAnalysis = useMemo(() => {
     if (!availabilityManager || selectedWeek === null || parsedCourses.length === 0) return null;
-    return analyzeConstraints(parsedCourses, availabilityManager, selectedWeek, blockedZones);
-  }, [parsedCourses, availabilityManager, selectedWeek, blockedZones]);
+    return analyzeConstraints(parsedCourses, availabilityManager, selectedWeek, blockedZones, tightThreshold);
+  }, [parsedCourses, availabilityManager, selectedWeek, blockedZones, tightThreshold]);
   const [cardContainer, setCardContainer] = useState<HTMLDivElement | null>(null);
   const cardContainerRef = useCallback((node: HTMLDivElement | null) => setCardContainer(node), []);
 

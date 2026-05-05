@@ -80,6 +80,7 @@ export function analyzeConstraints(
   am: AvailabilityManager,
   weekNumber: number,
   blockedZones: BlockedZone[] = [],
+  tightThreshold = 0.175,
 ): ConstraintAnalysisResult {
 
   // 1. Pre-compute monday timestamp for blocked zone coordinate conversion
@@ -170,7 +171,7 @@ export function analyzeConstraints(
     if (score >= 1) {
       overloadedResources.push({ resourceId: key, availableMinutes: combinedAvail, totalDemandMinutes: Math.round(d) });
       groupLevelMap.set(key, { level: 'critical', combinedAvail, totalDemand: Math.round(d), score });
-    } else if (score >= 0.175) {
+    } else if (score >= tightThreshold) {
       groupLevelMap.set(key, { level: 'tight', combinedAvail, totalDemand: Math.round(d), score });
     }
   }

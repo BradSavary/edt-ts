@@ -21,6 +21,8 @@ interface SchedulerDataSlice {
   yearColorConfig: YearColorConfig;
   /** Configuration année scolaire + vacances/jours fériés (persistée) */
   schoolYearConfig: SchoolYearConfig | null;
+  /** Seuil score pour le niveau 'tight' dans analyzeConstraints (défaut : 0.175) */
+  tightThreshold: number;
   /** Instance reconstruite depuis constraints — non persistée, jamais null si constraints non vide */
   availabilityManager: AvailabilityManager | null;
   /** Instance ClientSchedulerData — non persistée, reconstruite quand allCourses ou resources change */
@@ -32,6 +34,7 @@ interface SchedulerDataSlice {
   setSchedulerConfig: (config: SchedulerConfig) => void;
   setYearColorConfig: (config: YearColorConfig) => void;
   setSchoolYearConfig: (config: SchoolYearConfig | null) => void;
+  setTightThreshold: (threshold: number) => void;
 }
 
 // ── Store combiné ──────────────────────────────────────────────────────────
@@ -52,6 +55,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
       schedulerConfig: DEFAULT_SCHEDULER_CONFIG,
       yearColorConfig: DEFAULT_YEAR_COLORS,
       schoolYearConfig: null,
+      tightThreshold: 0.175,
       availabilityManager: null, // Reconstruit par subscribe ci-dessous
       clientSchedulerData: null, // Reconstruit par subscribe ci-dessous
       setCourses: (allCourses, fileName) => set({ allCourses, ...(fileName !== undefined ? { coursesFileName: fileName } : {}) }),
@@ -61,6 +65,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
       setSchedulerConfig: (schedulerConfig) => set({ schedulerConfig }),
       setYearColorConfig: (yearColorConfig) => set({ yearColorConfig }),
       setSchoolYearConfig: (schoolYearConfig) => set({ schoolYearConfig }),
+      setTightThreshold: (tightThreshold) => set({ tightThreshold }),
     }),
     {
       name: 'edt-scheduler',
@@ -72,6 +77,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
         schedulerConfig: state.schedulerConfig,
         yearColorConfig: state.yearColorConfig,
         schoolYearConfig: state.schoolYearConfig,
+        tightThreshold: state.tightThreshold,
       }),
     },
   ),
