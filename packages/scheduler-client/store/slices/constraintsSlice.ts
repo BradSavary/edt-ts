@@ -6,7 +6,7 @@ import {
 
 // Type interne correspondant au format JSON réel des contraintes
 type ConstraintValue = ResourceConstraints | TimeSlot[] | null | undefined;
-export type ConstraintsRecord = Record<string, ConstraintValue> & { Default?: TimeSlot[] };
+export type ConstraintsRecord = Record<string, ConstraintValue> & { Default?: TimeSlot[] | ResourceConstraints };
 
 export interface ConstraintsSlice {
   constraints: ConstraintsRecord;
@@ -59,8 +59,18 @@ export const createConstraintsSlice: StateCreator<ConstraintsSlice> = (set, get)
     },
 
     setDefaultConstraint: (value) => {
-      const next = { ...get().constraints, Default: value?.default ?? [] };
-      set({ constraints: next });
+      if (value === null) {
+        const next = { ...get().constraints, Default: [] };
+        set({ constraints: next });
+      } else {
+        // value est un ResourceConstraints : { default?: TimeSlot[], S36?: TimeSlot[], ... }
+        // On serialise en ConstraintsData.Default = TimeSlot[] (legacy) +
+        // les semaines perso comme clés de niveau supérieur sous le même objet "Default".
+        // Architecture existante : constraints.Default est TimeSlot[] OU ResourceConstraints.
+        // Ici on stocke directement l'objet ResourceConstraints sous constraints.Default.
+        const next = { ...get().constraints, Default: value };
+        set({ constraints: next });
+      }
       triggerSaveNotice();
     },
 

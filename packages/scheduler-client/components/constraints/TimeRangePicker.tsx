@@ -34,7 +34,7 @@ function fromMinutes(total: number): string {
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const MINUTES = [0, 15, 30, 45];
+const MINUTES = [0, 30];
 
 // ---- TimeScroller ----
 

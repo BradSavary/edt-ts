@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import type { ResourceConstraints } from '@edt-ts/scheduler-common';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -118,6 +118,14 @@ export function ConstraintsManager() {
   }
 
   const defaultRC = normalizeToRC(constraints.Default ?? []);
+
+  const allCsvWeeks = useMemo(() => {
+    const weeks = new Set<number>();
+    for (const wArr of Object.values(resourceWeeks)) {
+      for (const w of wArr) weeks.add(w);
+    }
+    return [...weeks].sort((a, b) => a - b);
+  }, [resourceWeeks]);
 
   function filteredIds(ids: string[]): string[] {
     const q = search.trim().toLowerCase();
@@ -297,6 +305,7 @@ export function ConstraintsManager() {
                 value={defaultRC}
                 isDefault
                 alwaysExpanded
+                csvWeeks={allCsvWeeks}
                 onChange={handleDefaultChange}
               />
             </div>

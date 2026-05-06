@@ -49,6 +49,14 @@ async function _callScheduleApi(
     blockedZones,
     weekNum,
   );
+
+  // Résoudre constraints.Default vers TimeSlot[] pour la semaine courante,
+  // car AvailabilityManager s'attend à un TimeSlot[] (pas un ResourceConstraints)
+  if (effectiveConstraints.Default !== undefined && !Array.isArray(effectiveConstraints.Default)) {
+    const rc = effectiveConstraints.Default as import('@edt-ts/scheduler-common').ResourceConstraints;
+    const weekKey = `S${weekNum}`;
+    effectiveConstraints.Default = (rc[weekKey] ?? rc.default ?? []) as typeof effectiveConstraints.Default;
+  }
   const hasConstraints = !!constraintsData || blockedZones.length > 0;
 
   const options: Record<string, unknown> = { ...schedulerConfig };

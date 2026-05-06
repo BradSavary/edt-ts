@@ -457,9 +457,8 @@ export function ResourceConstraintEditor({
                       );
                     })}
 
-                    {/* Ajout manuel (semaines hors CSV) */}
-                    {!isDefault && (
-                      <tr>
+                    {/* Ajout manuel (semaines personnalisées) */}
+                    <tr>
                         <td colSpan={DAYS.length + 1} className="px-3 py-2">
                           {addingWeek ? (
                             <div className="flex items-center gap-2">
@@ -505,7 +504,6 @@ export function ResourceConstraintEditor({
                           )}
                         </td>
                       </tr>
-                    )}
                   </tbody>
                 </table>
               </div>

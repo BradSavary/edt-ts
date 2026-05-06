@@ -8,6 +8,19 @@ export interface PendingDrop {
   course: CourseTaskData;
 }
 
+export interface PendingNeutralizedDrop {
+  taskId: string;
+  code: string;
+  name: string;
+  type: string;
+  startTime: number;
+  durationMin: number;
+  teachers: string[];
+  groups: string[];
+  rooms: string[];
+  course: CourseTaskData;
+}
+
 export interface CalendarEventExtProps {
   name?: string;
   code?: string;

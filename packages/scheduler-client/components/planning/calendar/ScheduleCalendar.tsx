@@ -95,6 +95,7 @@ export default function ScheduleCalendar({ solutions, parsedCourses = [] }: Prop
     pendingDrop,
     pendingEdit,
     setPendingEdit,
+    pendingNeutralizedDrop,
     handleSelect,
     handleDateClick,
     handleEventClick,
@@ -105,6 +106,8 @@ export default function ScheduleCalendar({ solutions, parsedCourses = [] }: Prop
     removeEnforced,
     handleModalConfirm,
     handleModalCancel,
+    handleNeutralizedPlaceConfirm,
+    handleNeutralizedPlaceCancel,
     handleEditConfirm,
   } = useCalendarCore(solutions, parsedCourses);
 
@@ -166,6 +169,17 @@ export default function ScheduleCalendar({ solutions, parsedCourses = [] }: Prop
           startTime={pendingDrop.startTime}
           onConfirm={handleModalConfirm}
           onCancel={handleModalCancel}
+        />
+      )}
+
+      {pendingNeutralizedDrop && (
+        <EnforceModal
+          courseKey={pendingNeutralizedDrop.taskId}
+          course={pendingNeutralizedDrop.course}
+          startTime={pendingNeutralizedDrop.startTime}
+          title="Placer la tâche"
+          onConfirm={handleNeutralizedPlaceConfirm}
+          onCancel={handleNeutralizedPlaceCancel}
         />
       )}
 

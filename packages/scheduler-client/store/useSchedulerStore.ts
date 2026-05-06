@@ -71,6 +71,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
       name: 'edt-scheduler',
       partialize: (state) => ({
         constraints: state.constraints,
+        resourceWeeks: state.resourceWeeks,
         allCourses: state.allCourses,
         resources: state.resources,
         coursesFileName: state.coursesFileName,
@@ -97,6 +98,37 @@ function buildClientSchedulerData(state: SchedulerStore): ClientSchedulerData | 
   return data;
 }
 
+/**
+ * Normalise constraints avant de passer à AvailabilityManager :
+ * - Default doit être TimeSlot[] (AvailabilityManager ne supporte pas ResourceConstraints pour Default)
+ * - Les ressources null (héritant de Default) reçoivent le ResourceConstraints complet de Default
+ *   pour que les overrides hebdomadaires de Default soient appliqués correctement pendant le drag.
+ */
+function normalizeConstraintsForAM(constraints: ConstraintsSlice['constraints']): ConstraintsData {
+  const result = { ...constraints } as ConstraintsData;
+  const d = result.Default;
+
+  if (d === undefined || Array.isArray(d)) {
+    // Default est déjà TimeSlot[] ou absent — pas de changement
+    return result;
+  }
+
+  // Default est un ResourceConstraints — extraire la base pour la clé Default
+  const defaultRC = d as import('@edt-ts/scheduler-common').ResourceConstraints;
+  result.Default = (defaultRC.default ?? []) as import('@edt-ts/scheduler-common').TimeSlot[];
+
+  // Propager le ResourceConstraints complet aux ressources qui héritent de Default (valeur null)
+  // Ainsi, AvailabilityManager applique les overrides hebdomadaires de Default pour ces ressources
+  for (const [resourceId, v] of Object.entries(result)) {
+    if (resourceId === 'Default') continue;
+    if (v === null) {
+      result[resourceId] = defaultRC;
+    }
+  }
+
+  return result;
+}
+
 if (typeof window !== 'undefined') {
   // Reconstruit l'AvailabilityManager à chaque changement de constraints.
   // Toujours créé (même avec constraints vides) pour que computeConstraintUnavailableZones
@@ -105,7 +137,7 @@ if (typeof window !== 'undefined') {
   useSchedulerStore.subscribe((state, prevState) => {
     const updates: Record<string, unknown> = {};
     if (state.constraints !== prevState.constraints) {
-      updates.availabilityManager = new AvailabilityManager(state.constraints as ConstraintsData);
+      updates.availabilityManager = new AvailabilityManager(normalizeConstraintsForAM(state.constraints));
     }
     if (state.allCourses !== prevState.allCourses || state.resources !== prevState.resources) {
       updates.clientSchedulerData = buildClientSchedulerData(state);
@@ -119,7 +151,7 @@ if (typeof window !== 'undefined') {
   // avant que le subscribe soit installé (navigation SPA, hot-reload).
   const initialState = useSchedulerStore.getState();
   useSchedulerStore.setState({
-    availabilityManager: new AvailabilityManager(initialState.constraints as ConstraintsData),
+    availabilityManager: new AvailabilityManager(normalizeConstraintsForAM(initialState.constraints)),
     clientSchedulerData: buildClientSchedulerData(initialState),
   });
 }

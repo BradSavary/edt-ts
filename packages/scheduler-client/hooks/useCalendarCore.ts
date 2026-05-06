@@ -14,9 +14,9 @@ import { computeConstraintUnavailableZones, subtractDateZones } from '@/lib/cale
 import { levelFromCode, getEventColors } from '@/lib/calendar/yearColors';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
-import type { PendingDrop, CalendarEventExtProps, CalendarEventData, DraggingState, PendingEditData } from '@/lib/calendar/types';
+import type { PendingDrop, PendingNeutralizedDrop, CalendarEventExtProps, CalendarEventData, DraggingState, PendingEditData } from '@/lib/calendar/types';
 
-export type { PendingDrop, CalendarEventExtProps, CalendarEventData, DraggingState, PendingEditData };
+export type { PendingDrop, PendingNeutralizedDrop, CalendarEventExtProps, CalendarEventData, DraggingState, PendingEditData };
 
 // ── Hook principal ─────────────────────────────────────────────────────────
 
@@ -70,6 +70,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
   // ── État local UI ──────────────────────────────────────────────────────
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
   const [pendingEdit, setPendingEdit] = useState<PendingEditData | null>(null);
+  const [pendingNeutralizedDrop, setPendingNeutralizedDrop] = useState<PendingNeutralizedDrop | null>(null);
   const [dragging, setDragging] = useState<DraggingState | null>(null);
 
   const calendarRef = useRef<FullCalendar | null>(null);
@@ -101,7 +102,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
           durationMin: course?.duration ?? 0,
           isEnforced: true,
           courseKey,
-          manuallyPlaced: violation !== undefined ? true : undefined,
+          manuallyPlaced: (violation !== undefined && violation !== 'none') ? true : undefined,
           constraintViolation: violation,
         },
       };
@@ -123,6 +124,17 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
   }, [parsedCourses]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
+
+  /** Retrouve le CourseTaskData original à partir du taskId (format: code_teachers_groups_counter). */
+  function getCourseFromTaskId(taskId: string): import('@edt-ts/scheduler-common').CourseTaskData | null {
+    if (taskId.startsWith('pre-neutral-')) return null;
+    const parts = taskId.split('_');
+    const counterStr = parts.at(-1);
+    if (!counterStr) return null;
+    const counter = parseInt(counterStr, 10);
+    if (isNaN(counter) || counter < 1 || counter > parsedCourses.length) return null;
+    return parsedCourses[counter - 1] ?? null;
+  }
 
   function confirmEnforce(courseKey: string, enforced: EnforcedData, event: EventApi) {
     event.remove();
@@ -211,6 +223,30 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     const startTime = Math.round((startDate.getTime() - monday.getTime()) / 60000);
 
     info.event.remove();
+
+    // Si le cours original a des alternatives de salle/enseignant, demander la sélection
+    const originalCourse = getCourseFromTaskId(taskId);
+    const hasAlts = originalCourse && [...originalCourse.teacher, ...originalCourse.rooms].some((e) => Array.isArray(e));
+    // Si pas de cours original mais plusieurs rooms dans les candidats
+    const hasMultipleRooms = !originalCourse && rooms.length > 1;
+
+    if (originalCourse && hasAlts) {
+      setPendingNeutralizedDrop({ taskId, code, name, type, startTime, durationMin, teachers, groups, rooms, course: originalCourse });
+      return;
+    }
+
+    if (hasMultipleRooms) {
+      // Construire un CourseTaskData synthétique pour réutiliser EnforceModal
+      const syntheticCourse: import('@edt-ts/scheduler-common').CourseTaskData = {
+        week: 0, semester: 0, level: 0, code, name, type, duration: durationMin,
+        teacher: teachers,
+        groups: groups,
+        rooms: [rooms],
+      };
+      setPendingNeutralizedDrop({ taskId, code, name, type, startTime, durationMin, teachers, groups, rooms, course: syntheticCourse });
+      return;
+    }
+
     const violation = availabilityManager
       ? computeConstraintViolation(startTime, durationMin, teachers, groups, rooms, availabilityManager, week)
       : 'none';
@@ -261,6 +297,30 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     pendingEventRef.current?.remove();
     pendingEventRef.current = null;
     setPendingDrop(null);
+  }
+
+  function handleNeutralizedPlaceConfirm(sel: EnforceSelection) {
+    if (!pendingNeutralizedDrop) return;
+    const violation = availabilityManager
+      ? computeConstraintViolation(sel.startTime, pendingNeutralizedDrop.durationMin, sel.teacher, sel.groups, sel.rooms, availabilityManager, week)
+      : 'none';
+    addPlacedNeutralizedTask({
+      taskId: pendingNeutralizedDrop.taskId,
+      code: pendingNeutralizedDrop.code,
+      name: pendingNeutralizedDrop.name,
+      type: pendingNeutralizedDrop.type,
+      startTime: sel.startTime,
+      duration: pendingNeutralizedDrop.durationMin,
+      teachers: sel.teacher,
+      groups: sel.groups,
+      rooms: sel.rooms,
+      constraintViolation: violation,
+    });
+    setPendingNeutralizedDrop(null);
+  }
+
+  function handleNeutralizedPlaceCancel() {
+    setPendingNeutralizedDrop(null);
   }
 
   function handleEditConfirm(update: TaskEditUpdate) {
@@ -575,7 +635,16 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
 
     function applyHighlight(evt: CalendarEventData): CalendarEventData {
       const hl = highlights[evt.id];
-      if (!hl) return evt;
+      const isDragActive = activeDragResources !== null;
+      if (!hl) {
+        if (!isDragActive) return evt;
+        // Drag actif, aucune collision → vert
+        return {
+          ...evt,
+          backgroundColor: '#22c55e',
+          borderColor: '#16a34a',
+        };
+      }
       return {
         ...evt,
         backgroundColor: hl === 'red' ? '#ef4444' : '#f97316',
@@ -642,6 +711,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     pendingDrop,
     pendingEdit,
     setPendingEdit,
+    pendingNeutralizedDrop,
     dragging,
     // Handlers FullCalendar
     handleSelect,
@@ -656,6 +726,8 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     removeEnforced,
     handleModalConfirm,
     handleModalCancel,
+    handleNeutralizedPlaceConfirm,
+    handleNeutralizedPlaceCancel,
     handleEditConfirm,
     // Données pour les modals
     solutions,

@@ -24,6 +24,7 @@ interface Props {
   courseKey: string;
   course: CourseTaskData;
   startTime: number;
+  title?: string;
   onConfirm: (sel: EnforceSelection) => void;
   onCancel: () => void;
 }
@@ -38,7 +39,7 @@ function splitEntries(entries: ResourceEntry[]): { fixed: string[]; alternatives
   return { fixed, alternatives };
 }
 
-export default function EnforceModal({ courseKey, course, startTime, onConfirm, onCancel }: Props) {
+export default function EnforceModal({ courseKey, course, startTime, title, onConfirm, onCancel }: Props) {
   const rooms = splitEntries(course.rooms);
   const teachers = splitEntries(course.teacher);
 
@@ -77,7 +78,7 @@ export default function EnforceModal({ courseKey, course, startTime, onConfirm, 
     <Dialog open={true} onOpenChange={(open) => !open && onCancel()}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Imposer le cours</DialogTitle>
+          <DialogTitle>{title ?? 'Imposer le cours'}</DialogTitle>
         </DialogHeader>
 
         <p className="text-sm text-muted-foreground">

@@ -97,6 +97,23 @@ function subtractIntervalFromSlots(
  * Retourne les créneaux de disponibilité de base d'une ressource
  * pour la semaine `weekNumber`, en tenant compte des contraintes existantes.
  */
+/**
+ * Résout les slots d'un Default qui peut être TimeSlot[] ou ResourceConstraints.
+ * Si ResourceConstraints, on prend l'override de la semaine donnée si disponible.
+ */
+function resolveDefaultSlots(defaultValue: unknown, weekNumber: number): TimeSlot[] {
+  if (!defaultValue) return BASE_SLOTS;
+  if (Array.isArray(defaultValue)) return defaultValue as TimeSlot[];
+  // ResourceConstraints
+  const rc = defaultValue as Record<string, unknown>;
+  const weekKey = `S${weekNumber}`;
+  const weekOverride = rc[weekKey];
+  if (Array.isArray(weekOverride)) return weekOverride as TimeSlot[];
+  const defSlots = rc['default'];
+  if (Array.isArray(defSlots)) return defSlots as TimeSlot[];
+  return BASE_SLOTS;
+}
+
 function getResourceBaseSlots(
   resourceId: string,
   weekNumber: number,
@@ -108,13 +125,13 @@ function getResourceBaseSlots(
   const entry = (constraints as Record<string, unknown>)[resourceId];
   const weekKey = `S${weekNumber}`;
 
-  // null explicite = "pas de contrainte pour cette ressource" → utiliser le Default de l'établissement
+  // null explicite = «pas de contrainte pour cette ressource» → utiliser le Default de l'établissement
   if (entry === null) {
-    return constraints.Default ?? BASE_SLOTS;
+    return resolveDefaultSlots(constraints.Default, weekNumber);
   }
   // undefined = ressource absente du fichier → utiliser le Default de l'établissement
   if (entry === undefined) {
-    return constraints.Default ?? BASE_SLOTS;
+    return resolveDefaultSlots(constraints.Default, weekNumber);
   }
 
   if (Array.isArray(entry)) {
@@ -129,7 +146,7 @@ function getResourceBaseSlots(
   const defaultSlots = rc['default'];
   if (Array.isArray(defaultSlots)) return defaultSlots as TimeSlot[];
 
-  return constraints.Default ?? BASE_SLOTS;
+  return resolveDefaultSlots(constraints.Default, weekNumber);
 }
 
 /**
