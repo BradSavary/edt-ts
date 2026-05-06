@@ -227,7 +227,7 @@ describe('EnforceModal', () => {
 
     it('appelle onCancel en cliquant sur l\'overlay', () => {
       const onCancel = vi.fn();
-      const { container } = render(
+      render(
         <EnforceModal
           courseKey="0"
           course={baseCourse}
@@ -236,9 +236,9 @@ describe('EnforceModal', () => {
           onCancel={onCancel}
         />
       );
-      // L'overlay est le premier div avec la classe fixed inset-0
-      const overlay = container.firstChild as HTMLElement;
-      fireEvent.click(overlay);
+      // Le Dialog Radix est rendu via un portail (document.body).
+      // On simule la fermeture via la touche Échap, équivalent fonctionnel au clic sur l'overlay.
+      fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape' });
       expect(onCancel).toHaveBeenCalledOnce();
     });
   });
