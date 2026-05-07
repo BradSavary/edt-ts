@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import TaskCard from '@/components/planning/courses/TaskCard';
 
 export function SidebarAnalysis() {
   const resetScheduleResult = usePlanningStore((s) => s.resetScheduleResult);
@@ -144,9 +145,6 @@ export function SidebarAnalysis() {
               {/* Tâches neutralisées par le moteur ou pré-neutralisées */}
               {unplacedNeutralized.map((neutralizedInfo) => {
                 const task = neutralizedInfo.task;
-                const teachers = task.resources.filter((r) => r.type === 'teacher').map((r) => r.id);
-                const groups = task.resources.filter((r) => r.type === 'group').map((r) => r.id);
-                const rooms = task.resources.filter((r) => r.type === 'room').map((r) => r.id);
 
                 const isPreNeutralized = task.taskId.startsWith('pre-neutral-');
                 const tooltipLines: string[] = [neutralizedInfo.reason];
@@ -171,32 +169,17 @@ export function SidebarAnalysis() {
                 return (
                   <Tooltip key={task.taskId}>
                     <TooltipTrigger asChild>
-                      <div
-                        data-task-id={task.taskId}
-                        data-title={`${task.code} ${task.type}`}
-                        data-duration={task.duration}
-                        data-teachers={JSON.stringify(teachers)}
-                        data-groups={JSON.stringify(groups)}
-                        data-rooms={JSON.stringify(rooms)}
-                        data-code={task.code}
-                        data-name={task.name}
-                        data-type={task.type}
-                        className="p-2 rounded-lg border text-xs bg-card border-border cursor-grab active:cursor-grabbing hover:border-primary/50 hover:shadow-sm transition-all"
-                      >
-                        <div className="flex items-center justify-between gap-1 mb-0.5">
-                          <span className="font-bold text-foreground truncate">
-                            {task.code}{' '}
-                            <span className="font-normal text-muted-foreground">{task.type}</span>
-                          </span>
-                          <span className="text-muted-foreground shrink-0">{task.duration}min</span>
-                        </div>
-                        <div className="truncate text-foreground/80 mb-0.5">{task.name}</div>
-                        {teachers.length > 0 && (
-                          <div className="truncate text-muted-foreground">{teachers.join(', ')}</div>
-                        )}
-                        {groups.length > 0 && (
-                          <div className="truncate text-muted-foreground">{groups.join(', ')}</div>
-                        )}
+                      <div>
+                        <TaskCard
+                          code={task.code}
+                          type={task.type}
+                          name={task.name}
+                          duration={task.duration}
+                          teachers={task.resources.filter((r) => r.type === 'teacher').map((r) => r.id)}
+                          groups={task.resources.filter((r) => r.type === 'group').map((r) => r.id)}
+                          rooms={task.resources.filter((r) => r.type === 'room').map((r) => r.id)}
+                          taskId={task.taskId}
+                        />
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="right" color='light' className="max-w-72 whitespace-pre-line bg-background text-foreground border shadow-md">
@@ -208,34 +191,17 @@ export function SidebarAnalysis() {
 
               {/* Tâches retirées manuellement du calendrier */}
               {manuallyNeutralizedTasks.map((task) => (
-                <div
+                <TaskCard
                   key={task.taskId}
-                  data-task-id={task.taskId}
-                  data-title={`${task.code} ${task.type}`}
-                  data-duration={task.duration}
-                  data-teachers={JSON.stringify(task.teachers)}
-                  data-groups={JSON.stringify(task.groups)}
-                  data-rooms={JSON.stringify(task.rooms)}
-                  data-code={task.code}
-                  data-name={task.name}
-                  data-type={task.type}
-                  className="p-2 rounded-lg border text-xs bg-card border-border cursor-grab active:cursor-grabbing hover:border-primary/50 hover:shadow-sm transition-all"
-                >
-                  <div className="flex items-center justify-between gap-1 mb-0.5">
-                    <span className="font-bold text-foreground truncate">
-                      {task.code}{' '}
-                      <span className="font-normal text-muted-foreground">{task.type}</span>
-                    </span>
-                    <span className="text-muted-foreground shrink-0">{task.duration}min</span>
-                  </div>
-                  <div className="truncate text-foreground/80 mb-0.5">{task.name}</div>
-                  {task.teachers.length > 0 && (
-                    <div className="truncate text-muted-foreground">{task.teachers.join(', ')}</div>
-                  )}
-                  {task.groups.length > 0 && (
-                    <div className="truncate text-muted-foreground">{task.groups.join(', ')}</div>
-                  )}
-                </div>
+                  code={task.code}
+                  type={task.type}
+                  name={task.name}
+                  duration={task.duration}
+                  teachers={task.teachers}
+                  groups={task.groups}
+                  rooms={task.rooms}
+                  taskId={task.taskId}
+                />
               ))}
             </div>
           </>

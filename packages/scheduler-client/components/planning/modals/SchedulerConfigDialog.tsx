@@ -104,7 +104,7 @@ function draftToConfig(draft: Draft): SchedulerConfig {
 
   return {
     maxSolutions: Math.max(1, parseInt(draft.maxSolutions, 10) || DEFAULT_SCHEDULER_CONFIG.maxSolutions),
-    timeoutSeconds: Math.max(10, parseInt(draft.timeoutSeconds, 10) || DEFAULT_SCHEDULER_CONFIG.timeoutSeconds),
+    timeoutSeconds: Math.max(1, parseInt(draft.timeoutSeconds, 10) || DEFAULT_SCHEDULER_CONFIG.timeoutSeconds),
     maxIterations: Math.max(1000, parseInt(draft.maxIterations, 10) || DEFAULT_SCHEDULER_CONFIG.maxIterations),
     maxEliminations: Math.max(1, parseInt(draft.maxEliminations, 10) || DEFAULT_SCHEDULER_CONFIG.maxEliminations),
     resourceSelection: draft.resourceSelection,
@@ -232,7 +232,7 @@ export function SchedulerConfigDialog() {
                 <Input
                   id="cfg-timeout"
                   type="number"
-                  min="10"
+                  min="1"
                   max="600"
                   value={draft.timeoutSeconds}
                   onChange={(e) => setDraftField('timeoutSeconds', e.target.value)}
