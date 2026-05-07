@@ -43,20 +43,27 @@ async function _callScheduleApi(
     return enforced ? { ...course, enforced } : course;
   });
 
+  // Résoudre constraints.Default vers TimeSlot[] avant d'appliquer les zones bloquées,
+  // car applyBlockedZonesToConstraints l'utilise comme valeur de fallback pour les ressources.
+  // Nécessaire si Default est stocké comme ResourceConstraints (cas où l'utilisateur a configuré
+  // des overrides par semaine pour le Default).
+  let resolvedConstraintsData = constraintsData;
+  if (resolvedConstraintsData && resolvedConstraintsData.Default !== undefined && !Array.isArray(resolvedConstraintsData.Default)) {
+    const rc = resolvedConstraintsData.Default as import('@edt-ts/scheduler-common').ResourceConstraints;
+    const weekKey = `S${weekNum}`;
+    resolvedConstraintsData = {
+      ...resolvedConstraintsData,
+      Default: (rc[weekKey] ?? rc.default ?? []) as import('@edt-ts/scheduler-common').TimeSlot[],
+    };
+  }
+
   const effectiveConstraints = applyBlockedZonesToConstraints(
     resources,
-    constraintsData,
+    resolvedConstraintsData,
     blockedZones,
     weekNum,
   );
 
-  // Résoudre constraints.Default vers TimeSlot[] pour la semaine courante,
-  // car AvailabilityManager s'attend à un TimeSlot[] (pas un ResourceConstraints)
-  if (effectiveConstraints.Default !== undefined && !Array.isArray(effectiveConstraints.Default)) {
-    const rc = effectiveConstraints.Default as import('@edt-ts/scheduler-common').ResourceConstraints;
-    const weekKey = `S${weekNum}`;
-    effectiveConstraints.Default = (rc[weekKey] ?? rc.default ?? []) as typeof effectiveConstraints.Default;
-  }
   const hasConstraints = !!constraintsData || blockedZones.length > 0;
 
   const options: Record<string, unknown> = { ...schedulerConfig };

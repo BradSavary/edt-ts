@@ -194,7 +194,7 @@ export function applyBlockedZonesToConstraints(
 
     if (existing === null || existing === undefined) {
       result[resourceId] = {
-        default: baseConstraints?.Default ?? BASE_SLOTS,
+        default: resolveDefaultSlots(baseConstraints?.Default, weekNumber),
         [weekKey]: slots,
       } as ResourceConstraints;
     } else if (Array.isArray(existing)) {

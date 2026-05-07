@@ -22,7 +22,8 @@ export class AvailabilityManager {
    * Initialise toutes les Availability pour chaque ressource
    */
   private _initializeAvailabilities(): void {
-    const defaultSlots = this.constraintsData.Default || [];
+    const rawDefault = this.constraintsData.Default;
+    const defaultSlots: TimeSlot[] = Array.isArray(rawDefault) ? rawDefault : [];
 
     for (const [resourceId, constraints] of Object.entries(this.constraintsData)) {
       if (resourceId === 'Default') continue;
@@ -33,7 +34,7 @@ export class AvailabilityManager {
         defaultAvailability = this._createFromSlots(defaultSlots);
       } else if (Array.isArray(constraints)) {
         defaultAvailability = this._createFromSlots(constraints);
-      } else if (typeof constraints === 'object' && constraints.default) {
+      } else if (typeof constraints === 'object' && Array.isArray(constraints.default)) {
         defaultAvailability = this._createFromSlots(constraints.default);
       } else {
         defaultAvailability = this._createFromSlots(defaultSlots);
@@ -48,7 +49,7 @@ export class AvailabilityManager {
           if (key === 'default') continue;
           
           const weekMatch = key.match(/^S(\d+)$/);
-          if (weekMatch && slots) {
+          if (weekMatch && Array.isArray(slots)) {
             const weekNumber = parseInt(weekMatch[1], 10);
             weeklyMap.set(weekNumber, this._createFromSlots(slots));
           }
