@@ -28,7 +28,12 @@ export default function CourseConstraintList({
 }: Props) {
   const levels: ConstraintLevel[] = ['critical', 'tight', 'ok'];
   const groups = levels
-    .map(level => ({ level, items: taskInfos.filter(t => t.level === level) }))
+    .map(level => ({
+      level,
+      items: taskInfos
+        .filter(t => t.level === level)
+        .sort((a, b) => b.fillRatio - a.fillRatio),
+    }))
     .filter(g => g.items.length > 0);
 
   return (

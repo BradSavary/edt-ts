@@ -315,11 +315,40 @@ Analyse statique des contraintes de disponibilité pour les cours d'une semaine.
 
 Types exportés : `ConstraintLevel` (`'critical' | 'tight' | 'ok'`), `TaskConstraintInfo`, `ResourceOverload`, `ConstraintAnalysisResult`
 
-Fonction principale : **`analyzeConstraints(courses, am, week, blockedZones)`**
-- Calcule le niveau de contrainte de chaque cours selon la disponibilité effective de ses ressources
-- `critical` : disponibilité < demande totale ; `tight` : disponibilité < demande × 1.5 ; `ok` : sinon
-- Niveau d'un cours = pire niveau parmi ses ressources ; pour les groupes alternatifs, prend le meilleur cas
-- Prend en compte les `blockedZones` pour réduire la disponibilité effective
+Fonction principale : **`analyzeConstraints(courses, am, week, blockedZones, tightThreshold?)`**
+
+### Principe
+
+Les **teachers sont le signal primaire** (demande globale). Les rooms et groups sont pris en compte comme **réducteurs de disponibilité via intersection**, pas comme signaux indépendants. Cela évite que les groups "chargés" (attendu) n'introduisent du bruit.
+
+### Algorithme (3 étapes)
+
+1. **Demande globale par teacher** — Pour chaque entrée teacher d'un cours, on calcule une clé canonique triée (`"A"` seul, `"A|B"` pour alternatives) et on cumule `demande(clé) += durée`.
+
+2. **Disponibilité conjointe par tâche** — Pour chaque tâche, on calcule l'intersection des disponibilités :
+   ```
+   effective_avail = teacher_avail ∩ room_avail ∩ group_avail − blocked_zones
+   ```
+   - **Alternatives** dans une entrée → **union** des disponibilités (meilleur cas : le scheduler choisira la moins chargée)
+   - **Entrées multiples** d'un même type → **intersection** (toutes nécessaires simultanément)
+   - Ressource non contrainte → ignorée (n'apporte pas de restriction)
+
+3. **Taux de remplissage** — `fillRatio = demande_globale_teacher / effective_avail_minutes`
+   - `fillRatio >= 1` → `critical`
+   - `fillRatio >= tightThreshold` (défaut : `0.5`) → `tight`
+   - sinon → `ok`
+
+### Conséquences
+
+- Deux tâches partageant le même teacher peuvent avoir des niveaux différents si leurs rooms ou groups réduisent différemment la disponibilité conjointe
+- Un group "rempli" mais disponible pendant les créneaux du teacher n'augmente pas la tension
+- Un group ou une room qui élimine des créneaux du teacher amplifie le taux de remplissage
+
+### Configuration du seuil
+
+- Paramètre `tightThreshold` (défaut `0.5` = 50% de taux de remplissage)
+- Persisté dans `useSchedulerStore.tightThreshold`
+- Modifiable depuis la page `/config` via `TightThresholdBlock`
 
 Utilisé dans `SidebarPreparation` (onglet « Contraintes ») et dans `CourseConstraintList`.
 

@@ -21,8 +21,10 @@ interface SchedulerDataSlice {
   yearColorConfig: YearColorConfig;
   /** Configuration année scolaire + vacances/jours fériés (persistée) */
   schoolYearConfig: SchoolYearConfig | null;
-  /** Seuil score pour le niveau 'tight' dans analyzeConstraints (défaut : 0.175) */
+  /** Taux de remplissage (demande/dispo) pour le niveau 'tight' dans analyzeConstraints (défaut : 0.5) */
   tightThreshold: number;
+  /** Taux de remplissage pour le niveau 'critical' dans analyzeConstraints (défaut : 1.0) */
+  criticalThreshold: number;
   /** Instance reconstruite depuis constraints — non persistée, jamais null si constraints non vide */
   availabilityManager: AvailabilityManager | null;
   /** Instance ClientSchedulerData — non persistée, reconstruite quand allCourses ou resources change */
@@ -35,6 +37,7 @@ interface SchedulerDataSlice {
   setYearColorConfig: (config: YearColorConfig) => void;
   setSchoolYearConfig: (config: SchoolYearConfig | null) => void;
   setTightThreshold: (threshold: number) => void;
+  setCriticalThreshold: (threshold: number) => void;
 }
 
 // ── Store combiné ──────────────────────────────────────────────────────────
@@ -55,7 +58,8 @@ export const useSchedulerStore = create<SchedulerStore>()(
       schedulerConfig: DEFAULT_SCHEDULER_CONFIG,
       yearColorConfig: DEFAULT_YEAR_COLORS,
       schoolYearConfig: null,
-      tightThreshold: 0.175,
+      tightThreshold: 0.5,
+      criticalThreshold: 1.0,
       availabilityManager: null, // Reconstruit par subscribe ci-dessous
       clientSchedulerData: null, // Reconstruit par subscribe ci-dessous
       setCourses: (allCourses, fileName) => set({ allCourses, ...(fileName !== undefined ? { coursesFileName: fileName } : {}) }),
@@ -66,6 +70,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
       setYearColorConfig: (yearColorConfig) => set({ yearColorConfig }),
       setSchoolYearConfig: (schoolYearConfig) => set({ schoolYearConfig }),
       setTightThreshold: (tightThreshold) => set({ tightThreshold }),
+      setCriticalThreshold: (criticalThreshold) => set({ criticalThreshold }),
     }),
     {
       name: 'edt-scheduler',
@@ -79,6 +84,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
         yearColorConfig: state.yearColorConfig,
         schoolYearConfig: state.schoolYearConfig,
         tightThreshold: state.tightThreshold,
+        criticalThreshold: state.criticalThreshold,
       }),
     },
   ),
