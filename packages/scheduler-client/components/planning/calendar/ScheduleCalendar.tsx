@@ -155,6 +155,7 @@ export default function ScheduleCalendar({ solutions, parsedCourses = [] }: Prop
             eventDrop={handleEventDrop}
             eventDragStart={handleEventDragStart}
             eventDragStop={handleEventDragStop}
+            dragRevertDuration={0}
             height="100%"
             expandRows
           />
