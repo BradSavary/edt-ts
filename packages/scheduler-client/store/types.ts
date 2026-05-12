@@ -56,3 +56,16 @@ export interface SolutionState {
   placedNeutralizedTasks: PlacedNeutralizedTask[];
   manuallyNeutralizedTasks: ManuallyNeutralizedTask[];
 }
+
+// ── Persistance de semaine (localStorage) ──────────────────────────────────
+
+/**
+ * BlockedZone sérialisée pour le localStorage (Date → ISO string).
+ */
+export interface SerializedBlockedZone {
+  id: string;
+  start: string;
+  end: string;
+  label?: string;
+  source?: 'manual' | 'vacation' | 'public-holiday';
+}

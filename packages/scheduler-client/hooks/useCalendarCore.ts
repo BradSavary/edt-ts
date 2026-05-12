@@ -110,12 +110,24 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
   }, [storeEnforcedMap, parsedCourses, monday, yearColorConfig, enforcedViolations]);
 
   const prevParsedCoursesRef = useRef<CourseTaskData[]>(parsedCourses);
+  const prevSelectedWeekRef = useRef<number | null>(selectedWeek);
   const skipNextParsedCoursesResetRef = useRef(false);
+  const weekChangedRef = useRef(false);
+
+  // Marque le flag quand la semaine change (setSelectedWeek gère déjà manualEnforcedMap)
+  useEffect(() => {
+    if (prevSelectedWeekRef.current !== selectedWeek) {
+      prevSelectedWeekRef.current = selectedWeek;
+      weekChangedRef.current = true;
+    }
+  }, [selectedWeek]);
+
   useEffect(() => {
     if (prevParsedCoursesRef.current !== parsedCourses) {
       prevParsedCoursesRef.current = parsedCourses;
-      if (skipNextParsedCoursesResetRef.current) {
+      if (skipNextParsedCoursesResetRef.current || weekChangedRef.current) {
         skipNextParsedCoursesResetRef.current = false;
+        weekChangedRef.current = false;
       } else {
         handleEnforceChange({});
       }

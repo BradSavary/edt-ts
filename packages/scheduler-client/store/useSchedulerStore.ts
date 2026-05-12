@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { StateCreator } from 'zustand';
 import { createConstraintsSlice, type ConstraintsSlice } from './slices/constraintsSlice';
+import { createWeekSavesSlice, type WeekSavesSlice } from './slices/weekSavesSlice';
 import type { CourseTaskData, ResourceGroupData, ConstraintsData, SchedulerConfig } from '@edt-ts/scheduler-common';
 import { AvailabilityManager, DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
 import { ClientSchedulerData } from '../lib/api/clientSchedulerData';
@@ -44,12 +45,13 @@ interface SchedulerDataSlice {
 // Correspond conceptuellement à SchedulerData côté serveur (common).
 // usePlanningStore (session, non persisté) contient les données de travail.
 
-export type SchedulerStore = ConstraintsSlice & SchedulerDataSlice;
+export type SchedulerStore = ConstraintsSlice & SchedulerDataSlice & WeekSavesSlice;
 
 export const useSchedulerStore = create<SchedulerStore>()(
   persist(
     (set, get, api) => ({
       ...(createConstraintsSlice as StateCreator<SchedulerStore, [], [], ConstraintsSlice>)(set, get, api),
+      ...(createWeekSavesSlice as StateCreator<SchedulerStore, [], [], WeekSavesSlice>)(set, get, api),
 
       // Scheduler data slice
       allCourses: [],
@@ -85,6 +87,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
         schoolYearConfig: state.schoolYearConfig,
         tightThreshold: state.tightThreshold,
         criticalThreshold: state.criticalThreshold,
+        weekSaves: state.weekSaves,
       }),
     },
   ),

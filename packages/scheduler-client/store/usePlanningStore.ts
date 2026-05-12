@@ -12,6 +12,7 @@ import { createTaskGroupsSlice, type TaskGroupsSlice } from '@/store/slices/task
 export type { TaskGroupConfig };
 export type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, SolutionState } from './types';
 import type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, SolutionState } from './types';
+export type { PreparedWeekSnapshot } from './slices/weekSavesSlice';
 
 export type Status = ScheduleStatus;
 
@@ -102,32 +103,91 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   selectedWeek: null,
   setSelectedWeek: (week) => {
     // Pré-charger les zones bloquées de vacances/jours fériés pour la semaine
-    const { schoolYearConfig } = useSchedulerStore.getState();
+    const schedulerState = useSchedulerStore.getState();
+    const { schoolYearConfig } = schedulerState;
     const initialBlockedZones: BlockedZone[] =
       week !== null && schoolYearConfig
         ? computeHolidayZonesForWeek(schoolYearConfig, week)
         : [];
 
-    set({
-      selectedWeek: week,
-      searchQuery: '',
-      scheduleResult: null,
-      selectedSolutionIndex: 0,
-      activeSolution: [],
-      activeNeutralizedTasks: [],
-      taskOverrides: {},
-      placedNeutralizedTasks: [],
-      preNeutralizedKeys: [],
-      manuallyNeutralizedTasks: [],
-      solutionStates: {},
-      syntheticNeutralizedTasks: [],
-      blockedZones: initialBlockedZones,
-      status: null,
-      taskGroups: [],
-      manualEnforcedMap: {},
-      enforcedMap: {},
-      enforcedViolations: {},
-    });
+    // Chercher une sauvegarde pour cette semaine
+    const snapshot =
+      week !== null && schoolYearConfig
+        ? schedulerState.loadWeekSave(schoolYearConfig.year, week)
+        : null;
+
+    if (snapshot) {
+      // Recompute enforcedMap depuis manualEnforcedMap + groupes (même logique que handleEnforceChange)
+      const restoredCourses = snapshot.weeklyCourses;
+      let restoredEnforcedMap: Record<string, EnforcedData> = { ...snapshot.manualEnforcedMap };
+      if (snapshot.taskGroups.length > 0 && restoredCourses.length > 0) {
+        for (const [key, data] of Object.entries(snapshot.manualEnforcedMap)) {
+          const info = getCourseGroupInfo(snapshot.taskGroups, key);
+          if (!info) continue;
+          const group = snapshot.taskGroups.find((g) => g.id === info.groupId);
+          if (!group) continue;
+          const propagated = computeGroupEnforcements(key, data, group, restoredCourses);
+          for (const [pKey, pData] of Object.entries(propagated)) {
+            if (!(pKey in snapshot.manualEnforcedMap)) restoredEnforcedMap[pKey] = pData;
+          }
+        }
+      }
+
+      // Désérialiser les zones bloquées manuelles (ISO string → Date)
+      const restoredManualZones: BlockedZone[] = snapshot.manualBlockedZones.map((z) => ({
+        id: z.id,
+        start: new Date(z.start),
+        end: new Date(z.end),
+        label: z.label,
+        source: z.source,
+      }));
+
+      set({
+        selectedWeek: week,
+        searchQuery: '',
+        scheduleResult: null,
+        selectedSolutionIndex: 0,
+        activeSolution: [],
+        activeNeutralizedTasks: [],
+        taskOverrides: {},
+        placedNeutralizedTasks: [],
+        manuallyNeutralizedTasks: [],
+        solutionStates: {},
+        syntheticNeutralizedTasks: [],
+        status: null,
+        taskGroups: snapshot.taskGroups,
+        manualEnforcedMap: snapshot.manualEnforcedMap,
+        enforcedMap: restoredEnforcedMap,
+        enforcedViolations: {},
+        preNeutralizedKeys: snapshot.preNeutralizedKeys,
+        blockedZones: [...initialBlockedZones, ...restoredManualZones],
+      });
+
+      // Restaurer les cours de cette semaine dans allCourses
+      const otherCourses = schedulerState.allCourses.filter((c) => c.week !== week);
+      useSchedulerStore.setState({ allCourses: [...otherCourses, ...snapshot.weeklyCourses] });
+    } else {
+      set({
+        selectedWeek: week,
+        searchQuery: '',
+        scheduleResult: null,
+        selectedSolutionIndex: 0,
+        activeSolution: [],
+        activeNeutralizedTasks: [],
+        taskOverrides: {},
+        placedNeutralizedTasks: [],
+        preNeutralizedKeys: [],
+        manuallyNeutralizedTasks: [],
+        solutionStates: {},
+        syntheticNeutralizedTasks: [],
+        blockedZones: initialBlockedZones,
+        status: null,
+        taskGroups: [],
+        manualEnforcedMap: {},
+        enforcedMap: {},
+        enforcedViolations: {},
+      });
+    }
   },
 
   scheduleResult: null,
@@ -431,3 +491,50 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   }),
   };
 });
+
+// ── Auto-save de la préparation de semaine ────────────────────────────────
+
+function _saveCurrentWeekSnapshot() {
+  const ps = usePlanningStore.getState();
+  const ss = useSchedulerStore.getState();
+  if (ps.selectedWeek === null || !ss.schoolYearConfig) return;
+  ss.saveWeek({
+    weekNumber: ps.selectedWeek,
+    schoolYear: ss.schoolYearConfig.year,
+    savedAt: Date.now(),
+    taskGroups: ps.taskGroups,
+    manualBlockedZones: ps.blockedZones
+      .filter((z) => !z.source || z.source === 'manual')
+      .map((z) => ({
+        id: z.id,
+        start: z.start.toISOString(),
+        end: z.end.toISOString(),
+        label: z.label,
+        source: z.source,
+      })),
+    preNeutralizedKeys: ps.preNeutralizedKeys,
+    manualEnforcedMap: ps.manualEnforcedMap,
+    weeklyCourses: ss.allCourses.filter((c) => c.week === ps.selectedWeek),
+  });
+}
+
+if (typeof window !== 'undefined') {
+  // Sauvegarde déclenchée par une modification dans usePlanningStore
+  usePlanningStore.subscribe((state, prev) => {
+    // Ignorer les changements de semaine (setSelectedWeek gère la restauration)
+    if (state.selectedWeek !== prev.selectedWeek) return;
+    if (
+      state.taskGroups === prev.taskGroups &&
+      state.blockedZones === prev.blockedZones &&
+      state.preNeutralizedKeys === prev.preNeutralizedKeys &&
+      state.manualEnforcedMap === prev.manualEnforcedMap
+    ) return;
+    _saveCurrentWeekSnapshot();
+  });
+
+  // Sauvegarde déclenchée par un changement de cours (import CSV, ajout manuel)
+  useSchedulerStore.subscribe((state, prev) => {
+    if (state.allCourses === prev.allCourses) return;
+    _saveCurrentWeekSnapshot();
+  });
+}
