@@ -22,6 +22,10 @@ export { AvailabilityManager } from './availabilityManager.ts';
 // --- Données de planification ---
 export { SchedulerData } from './schedulerData.ts';
 
+// --- Analyse de solution ---
+export { SolutionAnalysis } from './solutionAnalysis.ts';
+export type { DispersionStats } from './solutionAnalysis.ts';
+
 // --- Types de données ---
 export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, ResourceEntry, ResourceData, ResourceGroupData, RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON, NeutralizedTaskInfoJSON, ResourceAvailabilitySnapshotJSON, EnforcedData, SchedulerConfig, LunchBreakConfig, LunchBreakNone, LunchBreakFixed, LunchBreakFloating, TaskGroupDeclaration } from './types.ts';
 export { DEFAULT_SCHEDULER_CONFIG } from './types.ts';

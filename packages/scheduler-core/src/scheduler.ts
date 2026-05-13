@@ -315,7 +315,6 @@ export class Scheduler {
 
     protected _computeScore(): number {
         // Score simple : nombre d'unités planifiées.
-        // À enrichir avec ScheduleAnalysis une fois le moteur validé.
         return this._solution.length;
     }
 
