@@ -152,32 +152,33 @@ function ResourceDetailCharts({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Usage journalier */}
-      <div>
-        <p className="text-sm font-medium mb-2">Utilisation journalière</p>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={usageData} margin={{ top: 4, right: 16, left: 24, bottom: 4 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="day" />
-            <YAxis tickFormatter={minutesTickFormatter} />
-            <Tooltip formatter={(v) => formatMinutes(Number(v))} />
-            <Bar dataKey="minutes" name="Utilisation" fill="#6366f1" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      {/* Usage journalier + Amplitude journalière côte à côte */}
+      <div className="flex gap-4">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium mb-2">Utilisation journalière</p>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={usageData} margin={{ top: 4, right: 16, left: 24, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="day" />
+              <YAxis tickFormatter={minutesTickFormatter} />
+              <Tooltip formatter={(v) => formatMinutes(Number(v))} />
+              <Bar dataKey="minutes" name="Utilisation" fill="#6366f1" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
 
-      {/* Amplitude journalière */}
-      <div>
-        <p className="text-sm font-medium mb-2">Amplitude journalière (1er cours → fin du dernier)</p>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={amplitudeData} margin={{ top: 4, right: 16, left: 24, bottom: 4 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="day" />
-            <YAxis tickFormatter={minutesTickFormatter} />
-            <Tooltip formatter={(v) => formatMinutes(Number(v))} />
-            <Bar dataKey="minutes" name="Amplitude" fill="#f59e0b" />
-          </BarChart>
-        </ResponsiveContainer>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium mb-2">Amplitude journalière (1er cours → fin du dernier)</p>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={amplitudeData} margin={{ top: 4, right: 16, left: 24, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="day" />
+              <YAxis tickFormatter={minutesTickFormatter} />
+              <Tooltip formatter={(v) => formatMinutes(Number(v))} />
+              <Bar dataKey="minutes" name="Amplitude" fill="#f59e0b" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {/* Dispersion hebdomadaire */}
@@ -364,15 +365,15 @@ export function StatisticsDialog({
         ) : (
           <div className="flex flex-1 overflow-hidden">
             {/* ── Sidebar ── */}
-            <aside className="w-52 shrink-0 border-r flex flex-col min-h-0">
+            <aside className="w-64 shrink-0 border-r flex flex-col min-h-0">
               {/* Sélecteur de type */}
-              <div className="flex gap-1 p-2 border-b shrink-0">
+              <div className="flex gap-1 p-3 border-b shrink-0">
                 {availableTypes.map((type) => (
                   <button
                     key={type}
                     type="button"
                     onClick={() => setSelection({ kind: 'all-type', type })}
-                    className={`flex-1 text-xs py-1 rounded-md border transition-colors ${
+                    className={`flex-1 text-xs py-2 px-1 rounded-md border font-medium transition-colors ${
                       activeType === type
                         ? 'bg-primary text-primary-foreground border-primary'
                         : 'bg-background text-muted-foreground border-border hover:bg-accent'
@@ -387,6 +388,20 @@ export function StatisticsDialog({
               <div className="flex-1 overflow-hidden min-h-0">
                 <ScrollArea className="h-full">
                   <div className="p-2 flex flex-col gap-0.5">
+                    {/* Entrée "Tous les [type]" */}
+                    {activeType && (
+                      <button
+                        type="button"
+                        onClick={() => setSelection({ kind: 'all-type', type: activeType })}
+                        className={`w-full text-left text-xs font-medium px-3 py-1.5 rounded-md truncate transition-colors ${
+                          selection?.kind === 'all-type'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'hover:bg-accent text-muted-foreground'
+                        }`}
+                      >
+                        Tous les {TYPE_LABELS[activeType].toLowerCase()}
+                      </button>
+                    )}
                     {activeType && byTypeFiltered[activeType].map((id) => (
                       <button
                         key={id}
