@@ -18,10 +18,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { StatisticsDialog } from '@/components/planning/modals/StatisticsDialog';
 
 export default function PlanningPage() {
   // ── Stores ──────────────────────────────────────────────────────────────
   const allCourses = useSchedulerStore((s) => s.allCourses);
+  const resources = useSchedulerStore((s) => s.resources);
 
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
   const scheduleResult = usePlanningStore((s) => s.scheduleResult);
@@ -29,11 +31,13 @@ export default function PlanningPage() {
   const setSelectedSolutionIndex = usePlanningStore((s) => s.setSelectedSolutionIndex);
   const resetCurrentSolution = usePlanningStore((s) => s.resetCurrentSolution);
   const activeSolution = usePlanningStore((s) => s.activeSolution);
+  const taskOverrides = usePlanningStore((s) => s.taskOverrides);
   const searchQuery = usePlanningStore((s) => s.searchQuery);
   const status = usePlanningStore((s) => s.status);
 
   // ── État local ──────────────────────────────────────────────────────────
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [statsDialogOpen, setStatsDialogOpen] = useState(false);
 
   // ── Cours dérivés pour la semaine courante ───────────────────────────────
   const parsedCourses: CourseTaskData[] = useMemo(
@@ -45,6 +49,25 @@ export default function PlanningPage() {
   const filteredSolutions = useMemo(
     () => filterSolutionsByQuery(activeSolution ?? [], searchQuery),
     [activeSolution, searchQuery],
+  );
+
+  // ── Solution effective (activeSolution + taskOverrides fusionnés) ────────
+  const effectiveSolution = useMemo(
+    () => activeSolution.map((task) => {
+      const ov = taskOverrides[task.taskId];
+      if (!ov) return task;
+      return {
+        ...task,
+        startTime: ov.startTime,
+        duration: ov.duration ?? task.duration,
+        resources: [
+          ...ov.teachers.map((id) => ({ id, type: 'teacher' })),
+          ...ov.groups.map((id) => ({ id, type: 'group' })),
+          ...ov.rooms.map((id) => ({ id, type: 'room' })),
+        ],
+      };
+    }),
+    [activeSolution, taskOverrides],
   );
 
   return (
@@ -75,9 +98,19 @@ export default function PlanningPage() {
               <Button
                 type="button"
                 size="sm"
+                variant="outline"
+                onClick={() => setStatsDialogOpen(true)}
+                className="text-xs h-7 px-3 ml-auto"
+                title="Afficher les statistiques de la solution"
+              >
+                Statistiques
+              </Button>
+              <Button
+                type="button"
+                size="sm"
                 variant="ghost"
                 onClick={() => setResetDialogOpen(true)}
-                className="text-xs h-7 px-3 text-muted-foreground hover:text-destructive ml-auto"
+                className="text-xs h-7 px-3 text-muted-foreground hover:text-destructive"
                 title="Remettre la solution à son état initial"
               >
                 ↺ Réinitialiser
@@ -109,6 +142,13 @@ export default function PlanningPage() {
       ) : (
         <div className="shrink-0 h-10.5 border-b border-border bg-background/50" />
       )}
+      {/* Dialog statistiques */}
+      <StatisticsDialog
+        open={statsDialogOpen}
+        onOpenChange={setStatsDialogOpen}
+        activeSolution={effectiveSolution}
+        resources={resources}
+      />
       {/* Dialog de réinitialisation de la solution */}
       <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
         <DialogContent>
