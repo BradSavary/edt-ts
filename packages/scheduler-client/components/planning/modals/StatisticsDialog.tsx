@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { SolutionAnalysis } from '@edt-ts/scheduler-common';
 import type { TaskSolutionJSON, ResourceGroupData } from '@edt-ts/scheduler-common';
 import {
@@ -344,11 +344,16 @@ export function StatisticsDialog({
     (t) => byTypeFiltered[t].length > 0,
   );
 
-  const defaultSelection: Selection | null = availableTypes.length > 0
-    ? { kind: 'all-type', type: availableTypes[0] }
-    : null;
+  const [selection, setSelection] = useState<Selection | null>(null);
 
-  const [selection, setSelection] = useState<Selection | null>(defaultSelection);
+  // Réinitialise la sélection à "Tous les enseignants" (ou 1er type dispo) à chaque ouverture
+  useEffect(() => {
+    if (open && availableTypes.length > 0) {
+      setSelection({ kind: 'all-type', type: availableTypes[0] });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   const activeType = selection?.type ?? availableTypes[0];
 
   return (
