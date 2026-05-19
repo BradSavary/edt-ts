@@ -52,6 +52,7 @@ export class Scheduler {
     private _initialized = false;                                                                     // verrou : solve() interdit avant initSolver()
     private _firstNonEnforcedIndex = 0;                                                               // index du premier élément non-enforced dans _units
     private _failureCounts = new Map<string, number>();                                               // nb d'échecs par unité — utilisé par solveWithElimination()
+    private _dailyBookedMinutes = new Map<string, Map<number, number>>();                             // durée bookée par jour par ressource — sert au filtre maxDailyMinutes
     private _floatingLB: { earliestMin: number; latestMin: number; duration: number } | null = null; // config pause flottante pré-calculée (null si inactive)
 
     protected _config: Required<SchedulerConfig> = {
@@ -284,15 +285,23 @@ export class Scheduler {
                 continue;
             }
 
+            // Filtre durée quotidienne maximale par ressource
+            if (!this._dailyLimitAllows(result, unit.duration)) {
+                fromTime = result.start + SLOT_STEP;
+                continue;
+            }
+
             // Réserver et descendre dans le backtrack
             this._solution.push({ unit, result });
             this._scheduled.set(unit.id, result);
             unit.book(result);
+            this._addDailyUsage(result, unit.duration);
 
             const subResult = this._backtrack(unitIndex + 1);
 
             // Toujours libérer (même en cas de succès — les snapshots sont pris avant)
             unit.unBook(result);
+            this._subtractDailyUsage(result, unit.duration);
             this._solution.pop();
             this._scheduled.delete(unit.id);
 
@@ -330,6 +339,7 @@ export class Scheduler {
         this._startTime = Date.now();
         this._failureCounts.clear();
         this._scheduled.clear();
+        this._dailyBookedMinutes.clear();
 
         // Pré-remplir les enforced (déjà bookées dans initSolver, on trace juste leur position)
         for (let i = 0; i < this._firstNonEnforcedIndex; i++) {
@@ -337,6 +347,7 @@ export class Scheduler {
             const result = unit.getEnforcedResult();
             this._scheduled.set(unit.id, result);
             this._solution.push({ unit, result });
+            this._addDailyUsage(result, unit.duration);
         }
     }
 
@@ -412,6 +423,40 @@ export class Scheduler {
             if (rightStart < clipEnd && clipEnd - rightStart >= duration) return true;
         }
         return false;
+    }
+
+    private _dailyLimitAllows(result: SchedulingResult, duration: number): boolean {
+        const MINUTES_PER_DAY = 24 * 60;
+        const dayIndex = Math.floor(result.start / MINUTES_PER_DAY);
+        for (const r of result.resources) {
+            if (r.maxDailyMinutes === undefined) continue;
+            const byDay = this._dailyBookedMinutes.get(r.id);
+            const alreadyBooked = byDay?.get(dayIndex) ?? 0;
+            if (alreadyBooked + duration > r.maxDailyMinutes) return false;
+        }
+        return true;
+    }
+
+    private _addDailyUsage(result: SchedulingResult, duration: number): void {
+        const MINUTES_PER_DAY = 24 * 60;
+        const dayIndex = Math.floor(result.start / MINUTES_PER_DAY);
+        for (const r of result.resources) {
+            if (r.maxDailyMinutes === undefined) continue;
+            let byDay = this._dailyBookedMinutes.get(r.id);
+            if (!byDay) { byDay = new Map(); this._dailyBookedMinutes.set(r.id, byDay); }
+            byDay.set(dayIndex, (byDay.get(dayIndex) ?? 0) + duration);
+        }
+    }
+
+    private _subtractDailyUsage(result: SchedulingResult, duration: number): void {
+        const MINUTES_PER_DAY = 24 * 60;
+        const dayIndex = Math.floor(result.start / MINUTES_PER_DAY);
+        for (const r of result.resources) {
+            if (r.maxDailyMinutes === undefined) continue;
+            const byDay = this._dailyBookedMinutes.get(r.id);
+            if (!byDay) continue;
+            byDay.set(dayIndex, Math.max(0, (byDay.get(dayIndex) ?? 0) - duration));
+        }
     }
 
     private _limitsReached(): boolean {
