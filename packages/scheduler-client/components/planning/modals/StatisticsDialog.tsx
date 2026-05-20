@@ -11,6 +11,9 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import {
   BarChart,
   Bar,
@@ -240,20 +243,20 @@ function AllResourcesView({
 
       {/* Sélecteur de métrique */}
       <div className="flex gap-2">
-        {(['usage', 'amplitude'] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => setMetric(m)}
-            className={`text-xs px-3 py-1 rounded-md border transition-colors ${
-              metric === m
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-background text-muted-foreground border-border hover:bg-accent'
-            }`}
-          >
-            {m === 'usage' ? 'Utilisation' : 'Amplitude'}
-          </button>
-        ))}
+        <Button
+          size="sm"
+          variant={metric === 'usage' ? 'default' : 'outline'}
+          onClick={() => setMetric('usage')}
+        >
+          Utilisation
+        </Button>
+        <Button
+          size="sm"
+          variant={metric === 'amplitude' ? 'default' : 'outline'}
+          onClick={() => setMetric('amplitude')}
+        >
+          Amplitude
+        </Button>
       </div>
 
       {/* Graphe empilé top 10 */}
@@ -372,21 +375,19 @@ export function StatisticsDialog({
             {/* ── Sidebar ── */}
             <aside className="w-64 shrink-0 border-r flex flex-col min-h-0">
               {/* Sélecteur de type */}
-              <div className="flex gap-1 p-3 border-b shrink-0">
-                {availableTypes.map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setSelection({ kind: 'all-type', type })}
-                    className={`flex-1 text-xs py-2 px-1 rounded-md border font-medium transition-colors ${
-                      activeType === type
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background text-muted-foreground border-border hover:bg-accent'
-                    }`}
-                  >
-                    {TYPE_LABELS[type]}
-                  </button>
-                ))}
+              <div className="p-3 border-b shrink-0">
+                <Tabs
+                  value={activeType}
+                  onValueChange={(v) => setSelection({ kind: 'all-type', type: v as ResourceType })}
+                >
+                  <TabsList className="w-full">
+                    {availableTypes.map((type) => (
+                      <TabsTrigger key={type} value={type} className="flex-1 text-xs">
+                        {TYPE_LABELS[type]}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
               </div>
 
               {/* Liste des ressources du type actif */}
@@ -395,32 +396,32 @@ export function StatisticsDialog({
                   <div className="p-2 flex flex-col gap-0.5">
                     {/* Entrée "Tous les [type]" */}
                     {activeType && (
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setSelection({ kind: 'all-type', type: activeType })}
-                        className={`w-full text-left text-xs font-medium px-3 py-1.5 rounded-md truncate transition-colors ${
-                          selection?.kind === 'all-type'
-                            ? 'bg-primary text-primary-foreground'
-                            : 'hover:bg-accent text-muted-foreground'
-                        }`}
+                        className={cn(
+                          'w-full justify-start font-medium text-xs',
+                          selection?.kind === 'all-type' && 'bg-accent text-accent-foreground',
+                        )}
                       >
                         Tous les {TYPE_LABELS[activeType].toLowerCase()}
-                      </button>
+                      </Button>
                     )}
                     {activeType && byTypeFiltered[activeType].map((id) => (
-                      <button
+                      <Button
                         key={id}
-                        type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setSelection({ kind: 'resource', id, type: activeType })}
-                        className={`w-full text-left text-xs px-3 py-1.5 rounded-md truncate transition-colors ${
-                          selection?.kind === 'resource' && selection.id === id
-                            ? 'bg-primary text-primary-foreground'
-                            : 'hover:bg-accent text-muted-foreground'
-                        }`}
+                        className={cn(
+                          'w-full justify-start font-normal text-xs',
+                          selection?.kind === 'resource' && selection.id === id && 'bg-accent text-accent-foreground',
+                        )}
                         title={id}
                       >
-                        {id}
-                      </button>
+                        <span className="truncate">{id}</span>
+                      </Button>
                     ))}
                   </div>
                 </ScrollArea>

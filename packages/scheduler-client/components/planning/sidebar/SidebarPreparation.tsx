@@ -110,7 +110,7 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
           Planification
         </p>
-        <form className="space-y-4">
+        <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
           <div className="space-y-1.5">
             <Label htmlFor="week-input">Semaine (1-52)</Label>
             <Input
