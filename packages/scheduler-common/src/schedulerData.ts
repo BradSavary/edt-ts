@@ -62,15 +62,23 @@ export class SchedulerData {
         switch (group.resourceType) {
           case 'teacher': {
             const info = r.info ? (JSON.parse(r.info) as { status?: string }) : {};
-            manager.addResource(new Resource(r.id, ResourceType.TEACHER, info.status));
+            const res = new Resource(r.id, ResourceType.TEACHER, info.status);
+            if (r.maxDailyMinutes !== undefined) res.maxDailyMinutes = r.maxDailyMinutes;
+            manager.addResource(res);
             break;
           }
-          case 'room':
-            manager.addResource(new Resource(r.id, ResourceType.ROOM));
+          case 'room': {
+            const res = new Resource(r.id, ResourceType.ROOM);
+            if (r.maxDailyMinutes !== undefined) res.maxDailyMinutes = r.maxDailyMinutes;
+            manager.addResource(res);
             break;
-          case 'group':
-            manager.addResource(new Resource(r.id, ResourceType.GROUP));
+          }
+          case 'group': {
+            const res = new Resource(r.id, ResourceType.GROUP);
+            if (r.maxDailyMinutes !== undefined) res.maxDailyMinutes = r.maxDailyMinutes;
+            manager.addResource(res);
             break;
+          }
         }
       }
     }

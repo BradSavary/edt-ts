@@ -23,6 +23,8 @@ class Resource {
   public readonly id: string;
   public readonly type: ResourceType;
   public readonly status: string | undefined;
+  /** Durée maximale d'utilisation quotidienne en minutes. Aucune limite si absent. */
+  public maxDailyMinutes?: number;
   private availabilityManager: Availability;
   private _tasks: Set<TaskLike> = new Set();
 

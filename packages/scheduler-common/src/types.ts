@@ -73,6 +73,8 @@ export interface CoursesData {
 export interface ResourceData {
   id: string;
   info?: string; // JSON string pour les métadonnées spécifiques au type (ex: '{"status":"VACATAIRE"}')
+  /** Durée maximale d'utilisation quotidienne en minutes. Aucune limite si absent. */
+  maxDailyMinutes?: number;
 }
 
 export interface ResourceGroupData {
