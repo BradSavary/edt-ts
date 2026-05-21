@@ -245,6 +245,8 @@ export interface ResourceConstraintEditorProps {
   isDefault?: boolean;
   alwaysExpanded?: boolean;
   csvWeeks?: number[];
+  maxDailyMinutes?: number;
+  onMaxDailyMinutesChange?: (v: number | undefined) => void;
   onChange: (newValue: ResourceConstraints | null) => void;
   onDelete?: () => void;
 }
@@ -256,6 +258,8 @@ export function ResourceConstraintEditor({
   isDefault,
   alwaysExpanded,
   csvWeeks = [],
+  maxDailyMinutes,
+  onMaxDailyMinutesChange,
   onChange,
   onDelete,
 }: ResourceConstraintEditorProps) {
@@ -264,6 +268,13 @@ export function ResourceConstraintEditor({
   const [newWeekKey, setNewWeekKey] = useState('');
   const [weekError, setWeekError] = useState('');
   const [confirmDisableOpen, setConfirmDisableOpen] = useState(false);
+  const [localHours, setLocalHours] = useState<string>(
+    () => maxDailyMinutes !== undefined ? String(maxDailyMinutes / 60) : '',
+  );
+
+  useEffect(() => {
+    setLocalHours(maxDailyMinutes !== undefined ? String(maxDailyMinutes / 60) : '');
+  }, [maxDailyMinutes]);
 
   const [localDefault, setLocalDefault] = useState<DayMap>(() =>
     value?.default ? slotsToDayMap(value.default) : emptyDayMap(),
@@ -399,6 +410,43 @@ export function ResourceConstraintEditor({
       {/* Body */}
       {(expanded || alwaysExpanded) && (
         <div className="border-t border-border bg-background">
+          {/* Max quotidien (hors Default) */}
+          {!isDefault && onMaxDailyMinutesChange && (
+            <div className="px-4 py-2 border-b border-border flex items-center gap-2">
+              <span className="text-xs text-muted-foreground shrink-0">Max. quotidien :</span>
+              <Input
+                type="number"
+                min={0}
+                step={0.5}
+                placeholder="illimité"
+                value={localHours}
+                onChange={(e) => setLocalHours(e.target.value)}
+                onBlur={() => {
+                  const n = parseFloat(localHours);
+                  if (localHours === '' || isNaN(n) || n <= 0) {
+                    setLocalHours('');
+                    onMaxDailyMinutesChange(undefined);
+                  } else {
+                    const mins = Math.round(n * 60);
+                    setLocalHours(String(mins / 60));
+                    onMaxDailyMinutesChange(mins);
+                  }
+                }}
+                className="h-7 w-24 text-xs"
+              />
+              <span className="text-xs text-muted-foreground shrink-0">h / jour</span>
+              {localHours !== '' && (
+                <button
+                  type="button"
+                  onClick={() => { setLocalHours(''); onMaxDailyMinutesChange(undefined); }}
+                  className="text-muted-foreground/60 hover:text-destructive text-base leading-none"
+                  aria-label="Supprimer la limite quotidienne"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          )}
           {value === null ? (
             <div className="p-4 flex items-center gap-4">
               <p className="text-sm text-muted-foreground flex-1">

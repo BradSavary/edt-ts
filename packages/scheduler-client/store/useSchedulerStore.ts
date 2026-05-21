@@ -39,6 +39,7 @@ interface SchedulerDataSlice {
   setSchoolYearConfig: (config: SchoolYearConfig | null) => void;
   setTightThreshold: (threshold: number) => void;
   setCriticalThreshold: (threshold: number) => void;
+  setResourceMaxDailyMinutes: (id: string, maxDailyMinutes: number | undefined) => void;
 }
 
 // ── Store combiné ──────────────────────────────────────────────────────────
@@ -73,6 +74,14 @@ export const useSchedulerStore = create<SchedulerStore>()(
       setSchoolYearConfig: (schoolYearConfig) => set({ schoolYearConfig }),
       setTightThreshold: (tightThreshold) => set({ tightThreshold }),
       setCriticalThreshold: (criticalThreshold) => set({ criticalThreshold }),
+      setResourceMaxDailyMinutes: (id, maxDailyMinutes) => set((state) => ({
+        resources: state.resources.map((group) => ({
+          ...group,
+          resources: group.resources.map((r) =>
+            r.id === id ? { ...r, maxDailyMinutes } : r
+          ),
+        })),
+      })),
     }),
     {
       name: 'edt-scheduler',

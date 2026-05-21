@@ -36,6 +36,7 @@ export function ConstraintsManager() {
   const setDefaultConstraint = useSchedulerStore((s) => s.setDefaultConstraint);
   const importConstraints  = useSchedulerStore((s) => s.importConstraints);
   const exportConstraints  = useSchedulerStore((s) => s.exportConstraints);
+  const setResourceMaxDailyMinutes = useSchedulerStore((s) => s.setResourceMaxDailyMinutes);
 
   // --- État local UI uniquement ---
   const [search, setSearch]           = useState('');
@@ -44,6 +45,15 @@ export function ConstraintsManager() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [importError, setImportError] = useState('');
   const importInputRef = useRef<HTMLInputElement>(null);
+
+  const selectedMaxDailyMinutes = useMemo(() => {
+    if (!selectedId || selectedId === 'Default') return undefined;
+    for (const group of storeResources) {
+      const found = group.resources.find((r) => r.id === selectedId);
+      if (found) return found.maxDailyMinutes;
+    }
+    return undefined;
+  }, [selectedId, storeResources]);
 
   // Lookup exact depuis les ressources chargées (plus fiable que les regex heuristiques).
   // Fallback sur detectResourceType pour les ressources ajoutées manuellement hors CSV.
@@ -318,6 +328,12 @@ export function ConstraintsManager() {
                 value={selectedValue}
                 alwaysExpanded
                 csvWeeks={resourceWeeks[selectedId] ?? []}
+                maxDailyMinutes={selectedMaxDailyMinutes}
+                onMaxDailyMinutesChange={
+                  storeResources.some((g) => g.resources.some((r) => r.id === selectedId))
+                    ? (v) => setResourceMaxDailyMinutes(selectedId, v)
+                    : undefined
+                }
                 onChange={(v) => handleResourceChange(selectedId, v)}
                 onDelete={() => handleResourceDelete(selectedId)}
               />
