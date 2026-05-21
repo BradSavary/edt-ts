@@ -28,7 +28,7 @@ import {
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven'];
-const TOP_N = 10;
+const TOP_N = 5;
 
 function formatMinutes(minutes: number): string {
   const h = Math.floor(minutes / 60);
@@ -60,11 +60,10 @@ function minutesTickFormatter(value: number): string {
 // ── Sous-composants de graphes ─────────────────────────────────────────────
 
 /**
- * 5 graphes côte à côte — un par jour — barre empilée unique (top N ressources de ce jour).
- * Domaine Y partagé (max = max total empilé sur la semaine).
- * Axe Y affiché uniquement sur le premier graphe (gauche).
+ * 5 graphes côte à côte — un par jour — barres individuelles (top N de ce jour, triées décroissant).
+ * Domaine Y fixe 0–12h (720 min). Axe Y affiché uniquement sur le premier graphe.
  */
-function DailyStackedCharts({
+function DailyGroupedCharts({
   analysis,
   resourceIds,
   metric,
@@ -72,37 +71,27 @@ function DailyStackedCharts({
   analysis: SolutionAnalysis;
   resourceIds: string[];
   metric: 'usage' | 'amplitude';
+  dailyTotals?: Record<number, number>;
 }) {
-  const { perDay, yMax } = useMemo(() => {
+  const perDay = useMemo(() => {
     const raw =
       metric === 'usage'
         ? analysis.dailyUsageMinutes(resourceIds)
         : analysis.dailyAmplitudeMinutes(resourceIds);
 
-    let max = 0;
-    const perDay = DAY_LABELS.map((label, dayIdx) => {
+    return DAY_LABELS.map((label, dayIdx) => {
       const entries = resourceIds
         .map((id) => ({ id, value: raw[id]?.[dayIdx] ?? 0 }))
         .filter((e) => e.value > 0)
         .sort((a, b) => b.value - a.value)
         .slice(0, TOP_N);
-
-      // Pour le domaine Y partagé : max = max total empilé
-      const total = entries.reduce((sum, e) => sum + e.value, 0);
-      if (total > max) max = total;
-
-      // Point de données unique pour ce jour
-      const dataPoint: Record<string, string | number> = { day: label };
-      for (const e of entries) dataPoint[e.id] = e.value;
-
-      return { label, entries, dataPoint };
+      return { label, dayIdx, entries };
     });
-    return { perDay, yMax: max };
   }, [analysis, resourceIds, metric]);
 
   return (
     <div className="flex gap-2">
-      {perDay.map(({ label, entries, dataPoint }, dayIdx) => (
+      {perDay.map(({ label, dayIdx, entries }) => (
         <div key={label} className="flex-1 min-w-0 flex flex-col">
           <p className="text-xs font-semibold text-center mb-1 text-muted-foreground">{label}</p>
           {entries.length === 0 ? (
@@ -110,28 +99,31 @@ function DailyStackedCharts({
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart
-                data={[dataPoint]}
-                margin={{ top: 4, right: 4, left: dayIdx === 0 ? 38 : 0, bottom: 8 }}
-                barSize={48}
+                data={entries}
+                margin={{ top: 4, right: 4, left: dayIdx === 0 ? 38 : 0, bottom: 58 }}
               >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="day" tick={{ fontSize: 10 }} />
+                <XAxis
+                  dataKey="id"
+                  angle={-40}
+                  textAnchor="end"
+                  interval={0}
+                  tick={{ fontSize: 9 }}
+                  tickLine={false}
+                />
                 <YAxis
                   tickFormatter={minutesTickFormatter}
-                  domain={[0, yMax]}
+                  domain={[0, 720]}
                   tick={dayIdx === 0 ? { fontSize: 9 } : false}
                   width={dayIdx === 0 ? 36 : 1}
                   axisLine={dayIdx === 0}
                   tickLine={dayIdx === 0}
                 />
                 <Tooltip
-                  formatter={(v, name) => [formatMinutes(Number(v)), name]}
+                  formatter={(v) => [formatMinutes(Number(v)), metric === 'usage' ? 'Utilisation' : 'Amplitude']}
                   contentStyle={{ fontSize: 11 }}
-                  itemSorter={(item) => -(item.value as number)}
                 />
-                {entries.map((e, i) => (
-                  <Bar key={e.id} dataKey={e.id} stackId="stack" fill={PALETTE[i % PALETTE.length]} />
-                ))}
+                <Bar dataKey="value" fill="#6366f1" radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -205,7 +197,7 @@ function ResourceDetailCharts({
             <BarChart data={usageData} margin={{ top: 4, right: 16, left: 24, bottom: 4 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="day" />
-              <YAxis tickFormatter={minutesTickFormatter} />
+              <YAxis tickFormatter={minutesTickFormatter} domain={[0, 720]} />
               <Tooltip formatter={(v) => formatMinutes(Number(v))} />
               <Bar dataKey="minutes" name="Utilisation" fill="#6366f1" />
             </BarChart>
@@ -218,7 +210,7 @@ function ResourceDetailCharts({
             <BarChart data={amplitudeData} margin={{ top: 4, right: 16, left: 24, bottom: 4 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="day" />
-              <YAxis tickFormatter={minutesTickFormatter} />
+              <YAxis tickFormatter={minutesTickFormatter} domain={[0, 720]} />
               <Tooltip formatter={(v) => formatMinutes(Number(v))} />
               <Bar dataKey="minutes" name="Amplitude" fill="#f59e0b" />
             </BarChart>
@@ -256,10 +248,12 @@ function AllResourcesView({
   analysis,
   resourceIds,
   label,
+  dailyTotals,
 }: {
   analysis: SolutionAnalysis;
   resourceIds: string[];
   label: string;
+  dailyTotals: Record<number, number>;
 }) {
   const [metric, setMetric] = useState<'usage' | 'amplitude'>('usage');
 
@@ -301,7 +295,7 @@ function AllResourcesView({
         <p className="text-sm font-medium mb-2">
           {metric === 'usage' ? 'Utilisation journalière' : 'Amplitude journalière'} — top {TOP_N} par jour
         </p>
-        <DailyStackedCharts analysis={analysis} resourceIds={resourceIds} metric={metric} />
+        <DailyGroupedCharts analysis={analysis} resourceIds={resourceIds} metric={metric} />
       </div>
 
       {/* Tableau récap usage total hebdomadaire */}
@@ -360,6 +354,18 @@ export function StatisticsDialog({
     }
     return map;
   }, [resources]);
+
+  // Total de minutes planifiées par jour (toutes tâches confondues, sans doublon)
+  const dailyTotals = useMemo(() => {
+    const totals: Record<number, number> = {};
+    for (const task of activeSolution) {
+      if (task.startTime >= 0) {
+        const day = Math.floor(task.startTime / (24 * 60));
+        totals[day] = (totals[day] ?? 0) + task.duration;
+      }
+    }
+    return totals;
+  }, [activeSolution]);
 
   // IDs des ressources réellement présentes dans la solution courante
   const usedResourceIds = useMemo(() => {
@@ -474,6 +480,7 @@ export function StatisticsDialog({
                     analysis={analysis}
                     resourceIds={byTypeFiltered[activeType]}
                     label={TYPE_LABELS[activeType]}
+                    dailyTotals={dailyTotals}
                   />
                 ) : (
                   <ResourceDetailCharts
