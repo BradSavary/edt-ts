@@ -28,6 +28,8 @@ import {
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven'];
+/** Ticks Y toutes les 2 heures (0h → 12h). */
+const Y_TICKS = [0, 120, 240, 360, 480, 600, 720];
 const TOP_N = 5;
 
 function formatMinutes(minutes: number): string {
@@ -100,7 +102,7 @@ function DailyGroupedCharts({
             <ResponsiveContainer width="100%" height={300}>
               <BarChart
                 data={entries}
-                margin={{ top: 4, right: 4, left: dayIdx === 0 ? 38 : 0, bottom: 58 }}
+                margin={{ top: 4, right: 4, left: 2, bottom: 58 }}
               >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis
@@ -114,10 +116,12 @@ function DailyGroupedCharts({
                 <YAxis
                   tickFormatter={minutesTickFormatter}
                   domain={[0, 720]}
-                  tick={dayIdx === 0 ? { fontSize: 9 } : false}
-                  width={dayIdx === 0 ? 36 : 1}
-                  axisLine={dayIdx === 0}
-                  tickLine={dayIdx === 0}
+                  ticks={Y_TICKS}
+                  tick={{ fontSize: 9 }}
+                  interval={0}
+                  width={36}
+                  axisLine={false}
+                  tickLine={false}
                 />
                 <Tooltip
                   formatter={(v) => [formatMinutes(Number(v)), metric === 'usage' ? 'Utilisation' : 'Amplitude']}
@@ -197,7 +201,7 @@ function ResourceDetailCharts({
             <BarChart data={usageData} margin={{ top: 4, right: 16, left: 24, bottom: 4 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="day" />
-              <YAxis tickFormatter={minutesTickFormatter} domain={[0, 720]} />
+              <YAxis tickFormatter={minutesTickFormatter} domain={[0, 720]} ticks={Y_TICKS} />
               <Tooltip formatter={(v) => formatMinutes(Number(v))} />
               <Bar dataKey="minutes" name="Utilisation" fill="#6366f1" />
             </BarChart>
@@ -210,7 +214,7 @@ function ResourceDetailCharts({
             <BarChart data={amplitudeData} margin={{ top: 4, right: 16, left: 24, bottom: 4 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="day" />
-              <YAxis tickFormatter={minutesTickFormatter} domain={[0, 720]} />
+              <YAxis tickFormatter={minutesTickFormatter} domain={[0, 720]} ticks={Y_TICKS} />
               <Tooltip formatter={(v) => formatMinutes(Number(v))} />
               <Bar dataKey="minutes" name="Amplitude" fill="#f59e0b" />
             </BarChart>
