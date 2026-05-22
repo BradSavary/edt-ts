@@ -51,6 +51,7 @@ interface Draft {
   lunchTab: LunchTab;
   lunchFixed: LunchFixedDraft;
   lunchFloating: LunchFloatingDraft;
+  ignoreDailyLimits: boolean;
 }
 
 // ── Helpers de conversion ────────────────────────────────────────────────────
@@ -83,6 +84,7 @@ function configToDraft(config: SchedulerConfig): Draft {
     lunchTab,
     lunchFixed,
     lunchFloating,
+    ignoreDailyLimits: config.ignoreDailyLimits ?? DEFAULT_SCHEDULER_CONFIG.ignoreDailyLimits,
   };
 }
 
@@ -109,6 +111,7 @@ function draftToConfig(draft: Draft): SchedulerConfig {
     maxEliminations: Math.max(1, parseInt(draft.maxEliminations, 10) || DEFAULT_SCHEDULER_CONFIG.maxEliminations),
     resourceSelection: draft.resourceSelection,
     lunchBreak,
+    ignoreDailyLimits: draft.ignoreDailyLimits,
   };
 }
 
@@ -213,6 +216,24 @@ export function SchedulerConfigDialog() {
                 <p className="text-xs text-muted-foreground">
                   Nombre de tâches que le moteur peut neutraliser pour
                   trouver une solution. A augmenter si la planification échoue.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 pt-1">
+              <input
+                id="cfg-ignoreDailyLimits"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+                checked={draft.ignoreDailyLimits}
+                onChange={(e) => setDraftField('ignoreDailyLimits', e.target.checked)}
+              />
+              <div className="space-y-0.5">
+                <Label htmlFor="cfg-ignoreDailyLimits" className="cursor-pointer">
+                  Ignorer les limites journalières des ressources
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Si coché, les limites journalières définies dans les contraintes de toutes les ressources sont ignorées.
                 </p>
               </div>
             </div>
