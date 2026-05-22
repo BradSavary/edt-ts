@@ -20,7 +20,18 @@ router.get('/config', defaultConfigHandler);
  * Nouveau moteur (Scheduler) avec élimination intégrée.
  *
  * Corps JSON : { week, resources, courses, constraints?, groups?, options? }
- * Si options.maxEliminations = 0, aucune élimination n'est tentée.
+ *
+ * Options disponibles (toutes optionnelles) :
+ *   - maxSolutions       : number   — nb max de solutions complètes (défaut : 6)
+ *   - timeoutSeconds     : number   — timeout du backtracking en secondes (défaut : 180)
+ *   - maxIterations      : number   — limite de sécurité sur les itérations (défaut : 1 000 000)
+ *   - maxEliminations    : number   — nb max de rounds d'élimination ; 0 = aucun (défaut : 3)
+ *   - resourceSelection  : 'deterministic' | 'random' — stratégie de sélection des ressources (défaut : 'deterministic')
+ *   - lunchBreak         : LunchBreakConfig — gestion de la pause méridienne (défaut : { type: 'none' })
+ *       { type: 'none' }
+ *       { type: 'fixed', from: 'HH:MM', to: 'HH:MM' }
+ *       { type: 'floating', duration: number, earliest: 'HH:MM', latest: 'HH:MM' }
+ *   - ignoreDailyLimits  : boolean  — ignore les maxDailyMinutes de toutes les ressources (défaut : false)
  *
  * Retourne un tableau de ScheduleSolutionJSON.
  */

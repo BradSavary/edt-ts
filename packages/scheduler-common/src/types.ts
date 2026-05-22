@@ -196,6 +196,8 @@ export interface SchedulerConfig {
   resourceSelection?: 'random' | 'deterministic';
   /** Gestion de la pause méridienne (défaut : aucune) */
   lunchBreak?: LunchBreakConfig;
+  /** Si true, ignore les limites maxDailyMinutes de toutes les ressources (défaut : false) */
+  ignoreDailyLimits?: boolean;
 }
 
 /** Valeurs par défaut appliquées par le solver lorsqu'une option n'est pas fournie. */
@@ -206,4 +208,5 @@ export const DEFAULT_SCHEDULER_CONFIG: Required<SchedulerConfig> = {
   maxEliminations: 3,
   resourceSelection: 'deterministic',
   lunchBreak: { type: 'none' },
+  ignoreDailyLimits: false,
 };

@@ -62,6 +62,7 @@ export class Scheduler {
         maxEliminations: 3,
         resourceSelection: 'deterministic',
         lunchBreak: { type: 'none' },
+        ignoreDailyLimits: false,
     };
 
     configure(config: SchedulerConfig): this {
@@ -426,6 +427,7 @@ export class Scheduler {
     }
 
     private _dailyLimitAllows(result: SchedulingResult, duration: number): boolean {
+        if (this._config.ignoreDailyLimits) return true;
         const MINUTES_PER_DAY = 24 * 60;
         const dayIndex = Math.floor(result.start / MINUTES_PER_DAY);
         for (const r of result.resources) {
