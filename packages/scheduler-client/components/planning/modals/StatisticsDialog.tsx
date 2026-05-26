@@ -235,7 +235,7 @@ function ResourceDetailCharts({
           <BarChart data={dailyDispData} margin={{ top: 4, right: 16, left: 24, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="day" />
-            <YAxis tickFormatter={minutesTickFormatter} />
+            <YAxis tickFormatter={minutesTickFormatter} domain={[0, 720]} ticks={Y_TICKS} />
             <Tooltip formatter={(v) => formatMinutes(Number(v))} />
             <Bar dataKey="etendue" name="Étendue" fill="#10b981" />
             <Bar dataKey="ecartType" name="Écart-type" fill="#3b82f6" />
