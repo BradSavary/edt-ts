@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { SolutionAnalysis } from '@edt-ts/scheduler-common';
 import type { TaskSolutionJSON, ResourceGroupData } from '@edt-ts/scheduler-common';
 import {
@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { Square, SquareCheck } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -62,77 +63,103 @@ function minutesTickFormatter(value: number): string {
 // ── Sous-composants de graphes ─────────────────────────────────────────────
 
 /**
- * 5 graphes côte à côte — un par jour — barres individuelles (top N de ce jour, triées décroissant).
- * Domaine Y fixe 0–12h (720 min). Axe Y affiché uniquement sur le premier graphe.
+ * 5 graphes côte à côte — un par jour — double barres (utilisation + amplitude)
+ * pour chaque ressource de la liste `resourceIds` (sélection libre par l'utilisateur).
+ * Domaine Y fixe 0–12h (720 min).
  */
 function DailyGroupedCharts({
   analysis,
   resourceIds,
-  metric,
 }: {
   analysis: SolutionAnalysis;
   resourceIds: string[];
-  metric: 'usage' | 'amplitude';
-  dailyTotals?: Record<number, number>;
 }) {
   const perDay = useMemo(() => {
-    const raw =
-      metric === 'usage'
-        ? analysis.dailyUsageMinutes(resourceIds)
-        : analysis.dailyAmplitudeMinutes(resourceIds);
+    if (resourceIds.length === 0) {
+      return DAY_LABELS.map((label) => ({ label, entries: [] as { id: string; usage: number; amplitude: number }[] }));
+    }
+    const usageRaw = analysis.dailyUsageMinutes(resourceIds);
+    const amplRaw = analysis.dailyAmplitudeMinutes(resourceIds);
 
     return DAY_LABELS.map((label, dayIdx) => {
       const entries = resourceIds
-        .map((id) => ({ id, value: raw[id]?.[dayIdx] ?? 0 }))
-        .filter((e) => e.value > 0)
-        .sort((a, b) => b.value - a.value)
-        .slice(0, TOP_N);
-      return { label, dayIdx, entries };
+        .map((id) => ({
+          id,
+          usage: usageRaw[id]?.[dayIdx] ?? 0,
+          amplitude: amplRaw[id]?.[dayIdx] ?? 0,
+        }))
+        .filter((e) => e.usage > 0 || e.amplitude > 0);
+      return { label, entries };
     });
-  }, [analysis, resourceIds, metric]);
+  }, [analysis, resourceIds]);
+
+  if (resourceIds.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-75 text-sm text-muted-foreground">
+        Aucune ressource sélectionnée pour le graphe.
+      </div>
+    );
+  }
 
   return (
-    <div className="flex gap-2">
-      {perDay.map(({ label, dayIdx, entries }) => (
-        <div key={label} className="flex-1 min-w-0 flex flex-col">
-          <p className="text-xs font-semibold text-center mb-1 text-muted-foreground">{label}</p>
-          {entries.length === 0 ? (
-            <div className="flex items-center justify-center h-[300px] text-xs text-muted-foreground">—</div>
-          ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart
-                data={entries}
-                margin={{ top: 4, right: 4, left: 2, bottom: 58 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="id"
-                  angle={-40}
-                  textAnchor="end"
-                  interval={0}
-                  tick={{ fontSize: 9 }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tickFormatter={minutesTickFormatter}
-                  domain={[0, 720]}
-                  ticks={Y_TICKS}
-                  tick={{ fontSize: 9 }}
-                  interval={0}
-                  width={36}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip
-                  formatter={(v) => [formatMinutes(Number(v)), metric === 'usage' ? 'Utilisation' : 'Amplitude']}
-                  contentStyle={{ fontSize: 11 }}
-                />
-                <Bar dataKey="value" fill="#6366f1" radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      ))}
+    <div className="flex flex-col gap-1">
+      {/* Légende partagée unique */}
+      <div className="flex items-center gap-4 text-xs text-muted-foreground px-1">
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-3 rounded-sm bg-[#6366f1]" />
+          Utilisation
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-3 rounded-sm bg-[#f59e0b]" />
+          Amplitude
+        </span>
+      </div>
+      <div className="flex gap-2">
+        {perDay.map(({ label, entries }) => (
+          <div key={label} className="flex-1 min-w-0 flex flex-col">
+            <p className="text-xs font-semibold text-center mb-1 text-muted-foreground">{label}</p>
+            {entries.length === 0 ? (
+              <div className="flex items-center justify-center h-75 text-xs text-muted-foreground">—</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={entries}
+                  margin={{ top: 4, right: 4, left: 2, bottom: 58 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    dataKey="id"
+                    angle={-40}
+                    textAnchor="end"
+                    interval={0}
+                    tick={{ fontSize: 9 }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tickFormatter={minutesTickFormatter}
+                    domain={[0, 720]}
+                    ticks={Y_TICKS}
+                    tick={{ fontSize: 9 }}
+                    interval={0}
+                    width={36}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    formatter={(v, name) => [
+                      formatMinutes(Number(v)),
+                      name === 'usage' ? 'Utilisation' : 'Amplitude',
+                    ]}
+                    contentStyle={{ fontSize: 11 }}
+                  />
+                  <Bar dataKey="usage" name="Utilisation" fill="#6366f1" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="amplitude" name="Amplitude" fill="#f59e0b" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -247,20 +274,18 @@ function ResourceDetailCharts({
   );
 }
 
-/** Vue comparative "Toutes" avec sélecteur de métrique et top N */
+/** Vue comparative "Toutes" avec double barres et sélection libre des ressources */
 function AllResourcesView({
   analysis,
   resourceIds,
+  selectedResourceIds,
   label,
-  dailyTotals,
 }: {
   analysis: SolutionAnalysis;
   resourceIds: string[];
+  selectedResourceIds: string[];
   label: string;
-  dailyTotals: Record<number, number>;
 }) {
-  const [metric, setMetric] = useState<'usage' | 'amplitude'>('usage');
-
   const weeklyUsageSorted = useMemo(() => {
     const raw = analysis.dailyUsageMinutes(resourceIds);
     return resourceIds
@@ -276,30 +301,17 @@ function AllResourcesView({
     <div className="flex flex-col gap-4">
       <p className="text-base font-semibold">{label}</p>
 
-      {/* Sélecteur de métrique */}
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          variant={metric === 'usage' ? 'default' : 'outline'}
-          onClick={() => setMetric('usage')}
-        >
-          Utilisation
-        </Button>
-        <Button
-          size="sm"
-          variant={metric === 'amplitude' ? 'default' : 'outline'}
-          onClick={() => setMetric('amplitude')}
-        >
-          Amplitude
-        </Button>
-      </div>
-
-      {/* Top 10 par jour — domaine Y partagé */}
+      {/* Double bar charts per day */}
       <div>
         <p className="text-sm font-medium mb-2">
-          {metric === 'usage' ? 'Utilisation journalière' : 'Amplitude journalière'} — top {TOP_N} par jour
+          Utilisation &amp; Amplitude journalières
+          {selectedResourceIds.length > 0 && (
+            <span className="ml-2 text-xs text-muted-foreground font-normal">
+              ({selectedResourceIds.length} ressource{selectedResourceIds.length > 1 ? 's' : ''} sélectionnée{selectedResourceIds.length > 1 ? 's' : ''})
+            </span>
+          )}
         </p>
-        <DailyGroupedCharts analysis={analysis} resourceIds={resourceIds} metric={metric} />
+        <DailyGroupedCharts analysis={analysis} resourceIds={selectedResourceIds} />
       </div>
 
       {/* Tableau récap usage total hebdomadaire */}
@@ -359,18 +371,6 @@ export function StatisticsDialog({
     return map;
   }, [resources]);
 
-  // Total de minutes planifiées par jour (toutes tâches confondues, sans doublon)
-  const dailyTotals = useMemo(() => {
-    const totals: Record<number, number> = {};
-    for (const task of activeSolution) {
-      if (task.startTime >= 0) {
-        const day = Math.floor(task.startTime / (24 * 60));
-        totals[day] = (totals[day] ?? 0) + task.duration;
-      }
-    }
-    return totals;
-  }, [activeSolution]);
-
   // IDs des ressources réellement présentes dans la solution courante
   const usedResourceIds = useMemo(() => {
     const ids = new Set<string>();
@@ -396,15 +396,46 @@ export function StatisticsDialog({
 
   const [selection, setSelection] = useState<Selection | null>(null);
 
-  // Réinitialise la sélection à "Tous les enseignants" (ou 1er type dispo) à chaque ouverture
+  /** Ressources cochées pour les graphes "Tous les [type]", indexées par type. */
+  const [checkedByType, setCheckedByType] = useState<Partial<Record<ResourceType, string[]>>>({});
+
+  const toggleResourceCheck = useCallback((type: ResourceType, id: string) => {
+    setCheckedByType((prev) => {
+      const current = prev[type] ?? [];
+      const next = current.includes(id)
+        ? current.filter((x) => x !== id)
+        : [...current, id];
+      return { ...prev, [type]: next };
+    });
+  }, []);
+
+  // Réinitialise la sélection et calcule le top 5 (max usage/amplitude) à chaque ouverture
   useEffect(() => {
     if (open && availableTypes.length > 0) {
       setSelection({ kind: 'all-type', type: availableTypes[0] });
+      const initial: Partial<Record<ResourceType, string[]>> = {};
+      for (const type of availableTypes) {
+        const ids = byTypeFiltered[type];
+        if (ids.length === 0) continue;
+        const usageRaw = analysis.dailyUsageMinutes(ids);
+        const amplRaw = analysis.dailyAmplitudeMinutes(ids);
+        const scored = ids
+          .map((id) => {
+            const totalU = Object.values(usageRaw[id] ?? {}).reduce((a, b) => a + b, 0);
+            const totalA = Object.values(amplRaw[id] ?? {}).reduce((a, b) => a + b, 0);
+            return { id, score: Math.max(totalU, totalA) };
+          })
+          .sort((a, b) => b.score - a.score);
+        initial[type] = scored.slice(0, TOP_N).map((r) => r.id);
+      }
+      setCheckedByType(initial);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const activeType = selection?.type ?? availableTypes[0];
+  const checkedIds = checkedByType[activeType] ?? [];
+  const allTypeIds = byTypeFiltered[activeType] ?? [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -453,23 +484,85 @@ export function StatisticsDialog({
                         )}
                       >
                         Tous les {TYPE_LABELS[activeType].toLowerCase()}
+                        {selection?.kind === 'all-type' && (
+                          <span className="ml-auto text-[10px] text-muted-foreground font-normal">
+                            {checkedIds.length}/{allTypeIds.length}
+                          </span>
+                        )}
                       </Button>
                     )}
-                    {activeType && byTypeFiltered[activeType].map((id) => (
-                      <Button
-                        key={id}
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelection({ kind: 'resource', id, type: activeType })}
-                        className={cn(
-                          'w-full justify-start font-normal text-xs',
-                          selection?.kind === 'resource' && selection.id === id && 'bg-accent text-accent-foreground',
-                        )}
-                        title={id}
-                      >
-                        <span className="truncate">{id}</span>
-                      </Button>
-                    ))}
+
+                    {/* Contrôles Tout / Aucun (mode "all-type" uniquement) */}
+                    {selection?.kind === 'all-type' && activeType && (
+                      <div className="flex items-center gap-1.5 px-1 py-0.5 mb-0.5">
+                        <span className="text-[10px] text-muted-foreground">Graphe :</span>
+                        <button
+                          className="text-[10px] underline text-muted-foreground hover:text-foreground"
+                          onClick={() =>
+                            setCheckedByType((prev) => ({ ...prev, [activeType]: [...allTypeIds] }))
+                          }
+                        >
+                          Tout
+                        </button>
+                        <span className="text-[10px] text-muted-foreground">/</span>
+                        <button
+                          className="text-[10px] underline text-muted-foreground hover:text-foreground"
+                          onClick={() =>
+                            setCheckedByType((prev) => ({ ...prev, [activeType]: [] }))
+                          }
+                        >
+                          Aucun
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Ressources individuelles */}
+                    {activeType &&
+                      byTypeFiltered[activeType].map((id) => {
+                        const isDetailSelected =
+                          selection?.kind === 'resource' && selection.id === id;
+                        const isAllTypeMode = selection?.kind === 'all-type';
+                        const isChecked = checkedIds.includes(id);
+
+                        return (
+                          <div
+                            key={id}
+                            className={cn(
+                              'flex items-center rounded-sm min-w-0',
+                              isDetailSelected && 'bg-accent',
+                            )}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                setSelection({ kind: 'resource', id, type: activeType })
+                              }
+                              className={cn(
+                                'flex-1 justify-start font-normal text-xs h-7 min-w-0',
+                                isDetailSelected && 'bg-accent text-accent-foreground',
+                              )}
+                              title={id}
+                            >
+                              <span className="truncate">{id}</span>
+                            </Button>
+                            {/* Case à cocher graphe (mode all-type uniquement) — à droite pour éviter le décalage */}
+                            {isAllTypeMode && (
+                              <button
+                                className="p-1 shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                                onClick={() => toggleResourceCheck(activeType, id)}
+                                title={isChecked ? 'Retirer du graphe' : 'Ajouter au graphe'}
+                              >
+                                {isChecked ? (
+                                  <SquareCheck size={14} className="text-primary" />
+                                ) : (
+                                  <Square size={14} />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                   </div>
                 </ScrollArea>
               </div>
@@ -483,8 +576,8 @@ export function StatisticsDialog({
                   <AllResourcesView
                     analysis={analysis}
                     resourceIds={byTypeFiltered[activeType]}
+                    selectedResourceIds={checkedIds}
                     label={TYPE_LABELS[activeType]}
-                    dailyTotals={dailyTotals}
                   />
                 ) : (
                   <ResourceDetailCharts
