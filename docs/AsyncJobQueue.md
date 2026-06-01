@@ -48,7 +48,7 @@ DELETE /api/schedule/jobs/abc-123  →  204
 packages/scheduler-api/src/
   jobs/
     JobStore.ts           # Stockage en mémoire + TTL
-    JobQueue.ts           # File FIFO + pool de workers
+    JobQueue.ts           # File FIFO + worker unique
     scheduler.worker.ts   # Script worker_thread (moteur isolé)
   controllers/
     jobsController.ts     # Handlers HTTP pour les routes /jobs
@@ -59,8 +59,20 @@ packages/scheduler-api/src/
 ```
 packages/scheduler-api/src/
   routes/
-    schedule.ts           # Ajout des nouvelles routes
-  index.ts                # Initialisation du JobQueue au démarrage
+    schedule.ts           # Ajout des nouvelles routes (même router, préfixe /api/schedule)
+  index.ts                # Import JobQueue singleton + appel startTTLCleanup() avant app.listen()
+packages/scheduler-client/
+  next.config.ts          # Suppression de proxyTimeout (obsolète avec l'async)
+  lib/api/
+    scheduleApi.ts        # Extraction _buildPayload() + nouvelles fonctions async
+    clientId.ts           # Nouveau : génération/lecture du clientId
+  store/
+    usePlanningStore.ts   # État job + runSchedule modifié + cancelCurrentJob
+  components/planning/
+    JobNotificationBanner.tsx  # Nouveau : bandeau de fin de job (importé dans NavBar)
+packages/scheduler-common/src/
+  types.ts                # Ajout JobStatus, JobSubmitResponse, JobStatusResponse
+  index.ts                # Export des nouveaux types
 ```
 
 ---
@@ -75,7 +87,9 @@ Stockage en mémoire (`Map<string, JobEntry>`) avec TTL de 7 jours.
 interface JobEntry {
   id: string;
   clientId: string;
+  week: number;          // Extrait de payload.week au moment de createJob()
   status: 'pending' | 'running' | 'done' | 'error' | 'cancelled';
+  payload: RawScheduleData & { options?: Record<string, unknown> }; // conservé pour le worker
   createdAt: Date;
   startedAt?: Date;
   finishedAt?: Date;
@@ -83,6 +97,8 @@ interface JobEntry {
   error?: string;
 }
 ```
+
+**`createJob(clientId, payload)`** extrait `payload.week` et le stocke directement dans `JobEntry.week` — c'est la valeur renvoyée dans `JobStatusResponse.week` pour permettre au client de router vers la bonne semaine.
 
 **Fonctions exposées :**
 
@@ -101,23 +117,25 @@ interface JobEntry {
 
 ### `JobQueue.ts`
 
-File FIFO avec un pool de workers limité à `os.cpus().length`.
+File FIFO avec **un seul worker actif à la fois**. L'objectif n'est pas de paralléliser les calculs, mais de ne pas bloquer le thread principal Express pendant qu'un job tourne.
+
+> **Pourquoi un seul worker ?**
+> Le moteur de planification est CPU-intensif. Lancer plusieurs workers en parallèle n'apporterait pas un gain proportionnel (context switching, pression mémoire, hyperthreading virtuel) et risquerait de saturer la machine. Le thread principal Node.js (Express) reste disponible pour recevoir les requêtes de polling pendant que le worker calcule.
 
 ```ts
 class JobQueue {
-  private queue: string[];           // IDs de jobs en attente
-  private activeWorkers: Map<string, Worker>; // jobId → Worker actif
-  private maxWorkers: number;        // os.cpus().length
+  private queue: string[];        // IDs de jobs en attente (FIFO)
+  private activeWorker: Worker | null; // worker en cours (null si aucun)
 
-  enqueue(jobId: string): void       // Ajoute à la file, démarre si slot dispo
-  cancel(jobId: string): void        // Retire de la file ou termine le worker
-  private processNext(): void        // Dépile et lance un worker
-  private runWorker(jobId): void     // Crée le worker_thread, gère les messages
+  enqueue(jobId: string): void    // Ajoute à la file, démarre si aucun worker actif
+  cancel(jobId: string): void     // Retire de la file ou termine le worker actif
+  private processNext(): void     // Dépile et lance le worker suivant
+  private runWorker(jobId): void  // Crée le worker_thread, gère les messages
 }
 ```
 
 **Gestion de la concurrence :**
-- Si `activeWorkers.size < maxWorkers` → démarre immédiatement
+- Si `activeWorker === null` → démarre immédiatement
 - Sinon → reste en `pending` dans la file FIFO
 - À chaque fin de worker → `processNext()` est appelé
 
@@ -149,6 +167,47 @@ Handlers Express minces qui délèguent à `JobStore` et `JobQueue`.
 | `submitJobHandler` | `POST /v2/async` | Valide le payload, vérifie `hasActiveJobForClient`, crée le job, enqueue, retourne `202 { jobId }` |
 | `getJobHandler` | `GET /jobs/:id` | Retourne le job (sans le `result` si `status != 'done'`) |
 | `cancelJobHandler` | `DELETE /jobs/:id` | Annule/supprime le job, `queue.cancel(id)` |
+
+---
+
+## Modifications dans `routes/schedule.ts`
+
+Les nouvelles routes s'ajoutent dans le **même router** que `/v2`, car `app.use('/api/schedule', scheduleRouter)` est déjà en place. Les routes jobs deviennent naturellement `/api/schedule/v2/async` et `/api/schedule/jobs/:id`.
+
+```ts
+// Ajouts dans schedule.ts
+import { submitJobHandler, getJobHandler, cancelJobHandler } from '../controllers/jobsController.js';
+
+router.post('/v2/async', submitJobHandler);      // POST /api/schedule/v2/async
+router.get('/jobs/:id', getJobHandler);          // GET  /api/schedule/jobs/:id
+router.delete('/jobs/:id', cancelJobHandler);    // DELETE /api/schedule/jobs/:id
+```
+
+La route synchrone `POST /v2` est **conservée** (voir section ci-dessous).
+
+---
+
+## Coexistence de la route synchrone `/v2`
+
+La route `POST /api/schedule/v2` et la fonction `runScheduleRequestFromData` dans `scheduleApi.ts` sont **conservées en parallèle**. L'UI bascule vers le mode async dans `runSchedule`, mais la route sync reste disponible (tests, usage direct via curl, etc.).
+
+---
+
+## Modifications dans `index.ts` (API)
+
+```ts
+import { jobQueue } from './jobs/JobQueue.js';   // singleton
+import { startTTLCleanup } from './jobs/JobStore.js';
+
+// Avant app.listen() :
+startTTLCleanup();   // purge automatique toutes les heures
+
+app.listen(PORT, () => {
+  console.log(`🚀 scheduler-api démarré sur http://localhost:${PORT}`);
+});
+```
+
+`jobQueue` est un singleton exporté depuis `JobQueue.ts` — instancié une fois au chargement du module, utilisé par `jobsController.ts`.
 
 ---
 
@@ -296,19 +355,37 @@ export function getClientId(): string {
 
 ---
 
-### `scheduleApi.ts` — nouvelles fonctions
+### `scheduleApi.ts` — refacto + nouvelles fonctions
+
+La construction du payload (enforcedMap, blockedZones, options…) est actuellement dupliquée dans `_callScheduleApi`. Puisque `submitJobAsync` a besoin du même payload, **extraire une fonction `_buildPayload()`** partagée :
+
+```ts
+// Extraction interne — non exportée
+function _buildPayload(
+  weekNum: number,
+  resources: ResourceGroupData[],
+  courses: CourseTaskData[],
+  constraintsData: ConstraintsData | null,
+  enforcedMap: Record<string, EnforcedData>,
+  blockedZones: BlockedZone[],
+  schedulerConfig?: SchedulerConfig,
+  groups?: TaskGroupDeclaration[],
+): RawScheduleData & { options?: Record<string, unknown> } { /* ... */ }
+
+// _callScheduleApi et submitJobAsync appellent tous les deux _buildPayload()
+```
 
 Trois fonctions s'ajoutent à côté de `runScheduleRequestFromData` :
 
 | Fonction | Description |
 |---|---|
-| `submitJobAsync(payload, clientId)` | `POST /api/schedule/v2/async` avec header `X-Client-Id` → `JobSubmitResponse` |
+| `submitJobAsync(params, clientId)` | `POST /api/schedule/v2/async` avec header `X-Client-Id` → `JobSubmitResponse` |
 | `pollJob(jobId)` | `GET /api/schedule/jobs/:id` → `JobStatusResponse` |
 | `cancelJob(jobId)` | `DELETE /api/schedule/jobs/:id` → void |
 
-**`submitJobAsync`** construit le payload exactement comme `_callScheduleApi` (enforcedMap, blockedZones, etc.) mais appelle `/api/schedule/v2/async` au lieu de `/api/schedule/v2`.
-
 Les types `JobSubmitResponse` et `JobStatusResponse` sont importés depuis `@edt-ts/scheduler-common`.
+
+`runScheduleRequestFromData` et `_callScheduleApi` sont **conservés** (route sync `/v2` reste disponible).
 
 ---
 
@@ -361,23 +438,42 @@ si currentJobId
 
 ---
 
-### Notification sur la page d'accueil `/`
+### Notification — `JobNotificationBanner.tsx` (nouveau composant)
 
-Quand un job est terminé (`currentJobStatus.status === 'done'`) et que l'utilisateur se trouve sur `/`, afficher un bandeau ou une alerte :
+Créer un composant `components/planning/JobNotificationBanner.tsx` dédié, importé dans `NavBar.tsx`. `NavBar` a déjà `'use client'` et peut accéder au store directement.
 
 ```tsx
-// Dans NavBar.tsx ou layout.tsx
-{currentJobStatus?.status === 'done' && !resultApplied && (
-  <div role="alert">
-    Planification semaine {currentJobStatus.week} terminée !
-    <Button onClick={() => router.push(`/planning?week=${currentJobStatus.week}`)}>
-      Voir le résultat
-    </Button>
-  </div>
-)}
+// components/planning/JobNotificationBanner.tsx
+'use client';
+import { usePlanningStore } from '@/store/usePlanningStore';
+import { useRouter } from 'next/navigation';
+
+export function JobNotificationBanner() {
+  const router = useRouter();
+  const currentJobStatus = usePlanningStore((s) => s.currentJobStatus);
+  const pendingJobResult = usePlanningStore((s) => s.pendingJobResult);
+
+  if (currentJobStatus?.status !== 'done' || !pendingJobResult) return null;
+
+  return (
+    <div role="alert" className="...">
+      Planification semaine {currentJobStatus.week} terminée !
+      <Button onClick={() => router.push(`/planning?week=${currentJobStatus.week}`)}>
+        Voir le résultat
+      </Button>
+    </div>
+  );
+}
 ```
 
-Le bouton redirige vers `/planning` avec la semaine en query param. À l'arrivée sur la page, `runSchedule` (ou un `useEffect`) détecte `pendingJobResult` pour la bonne semaine et applique le résultat.
+```tsx
+// NavBar.tsx — ajout de l'import
+import { JobNotificationBanner } from '@/components/planning/JobNotificationBanner';
+// ... dans le JSX, après les liens de navigation :
+<JobNotificationBanner />
+```
+
+Le bouton redirige vers `/planning?week=XX`. À l'arrivée sur la page, un `useEffect` détecte `pendingJobResult` pour la bonne semaine et applique le résultat.
 
 ---
 
@@ -406,12 +502,62 @@ Dans le composant qui contient le bouton "Planifier" :
 
 ---
 
+## Worker threads : local vs serveur
+
+### Un seul worker — en local comme sur serveur
+
+L'architecture retient **un seul worker actif à la fois**, que ce soit en dev local ou en production. Ce choix est délibéré :
+
+- Un thread = un élément logiciel. Lancer N workers ne garantit pas N fois plus de vitesse : le système répartit le temps CPU entre tous les threads, et le changement de contexte (chargement des données en mémoire pour chaque thread) a un coût.
+- La RAM est souvent le premier facteur limitant, pas le CPU. Chaque worker charge l'intégralité du moteur et des données en mémoire.
+- L'hyperthreading (cœurs logiques virtuels) ne double pas les performances réelles.
+- **L'objectif premier** est de ne pas bloquer le thread principal Express, pas de paralléliser les calculs. Un seul worker suffit pour ça.
+
+Les jobs supplémentaires attendent en file FIFO — ils seront traités séquentiellement.
+
+---
+
+### TypeScript + `worker_threads` : le loader tsx
+
+Le script `api:dev` (et `api:start`) utilise `tsx` — il n'y a **pas de compilation JS** dans le workflow actuel. Un worker `new Worker(file)` démarre un contexte Node.js isolé **sans le loader tsx** par défaut.
+
+**Solution : propager `process.execArgv`**, qui contient le loader tsx injecté par `npx tsx` :
+
+```ts
+// Dans JobQueue.ts → runWorker()
+const worker = new Worker(
+  new URL('./scheduler.worker.ts', import.meta.url),
+  {
+    workerData: { jobId, payload },
+    execArgv: process.execArgv,   // propage --import tsx/esm automatiquement
+  }
+);
+```
+
+Si un jour un script `build` est ajouté à `scheduler-api` (compilation `tsc` → `dist/`), le chemin `.ts` devient `.js` et `execArgv` devient vide en production — mais ce changement n'est pas nécessaire aujourd'hui.
+
+---
+
+## Modification de `next.config.ts`
+
+L'option `proxyTimeout: 300_000` (5 min) avait été ajoutée pour absorber les longues réponses de la route synchrone `/v2`. Avec le mode async, les appels de polling (`GET /jobs/:id`) sont quasi-instantanés — ce timeout est **obsolète et doit être retiré** :
+
+```ts
+// Avant
+experimental: {
+  proxyTimeout: 300_000, // À supprimer
+},
+
+// Après : bloc experimental supprimé (ou conservé vide si d'autres options y sont)
+```
+
+---
+
 ## Dépendances Node.js nécessaires
 
 | Module | Nature | Usage |
 |---|---|---|
-| `node:worker_threads` | Built-in Node.js | Exécution parallèle isolée du moteur |
-| `node:os` | Built-in Node.js | `os.cpus().length` pour la taille du pool |
+| `node:worker_threads` | Built-in Node.js | Exécution isolée du moteur (hors thread principal) |
 | `node:crypto` | Built-in Node.js | `crypto.randomUUID()` pour les job IDs |
 
 Aucune dépendance externe (ni Redis, ni BullMQ) — stockage 100% en mémoire. Si la persistance survit au redémarrage serveur devient nécessaire, migrer vers Redis + BullMQ.
