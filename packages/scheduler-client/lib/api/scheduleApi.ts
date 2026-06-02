@@ -24,6 +24,45 @@ export interface RunScheduleParamsFromData {
   groups?: TaskGroupDeclaration[];
 }
 
+function _buildPayload(
+  weekNum: number,
+  resources: ResourceGroupData[],
+  courses: CourseTaskData[],
+  constraintsData: ConstraintsData | null,
+  enforcedMap: Record<string, EnforcedData>,
+  blockedZones: BlockedZone[],
+  schedulerConfig?: SchedulerConfig,
+  groups?: TaskGroupDeclaration[],
+): RawScheduleData & { options?: Record<string, unknown> } {
+  const coursesWithEnforced = courses.map((course, i) => {
+    const enforced = enforcedMap[String(i)];
+    return enforced ? { ...course, enforced } : course;
+  });
+
+  let resolvedConstraintsData = constraintsData;
+  if (resolvedConstraintsData && resolvedConstraintsData.Default !== undefined && !Array.isArray(resolvedConstraintsData.Default)) {
+    const rc = resolvedConstraintsData.Default as import('@edt-ts/scheduler-common').ResourceConstraints;
+    const weekKey = `S${weekNum}`;
+    resolvedConstraintsData = {
+      ...resolvedConstraintsData,
+      Default: (rc[weekKey] ?? rc.default ?? []) as import('@edt-ts/scheduler-common').TimeSlot[],
+    };
+  }
+
+  const effectiveConstraints = applyBlockedZonesToConstraints(resources, resolvedConstraintsData, blockedZones, weekNum);
+  const hasConstraints = !!constraintsData || blockedZones.length > 0;
+  const options: Record<string, unknown> = { ...schedulerConfig };
+
+  return {
+    week: weekNum,
+    resources,
+    courses: coursesWithEnforced,
+    ...(hasConstraints ? { constraints: effectiveConstraints } : {}),
+    ...(groups && groups.length > 0 ? { groups } : {}),
+    ...(Object.keys(options).length > 0 ? { options } : {}),
+  };
+}
+
 /**
  * Logique commune : applique enforcedMap + blockedZones, construit le payload,
  * appelle l'API et normalise la réponse.
@@ -38,45 +77,8 @@ async function _callScheduleApi(
   schedulerConfig?: SchedulerConfig,
   groups?: TaskGroupDeclaration[],
 ): Promise<ScheduleResult> {
-  const coursesWithEnforced = courses.map((course, i) => {
-    const enforced = enforcedMap[String(i)];
-    return enforced ? { ...course, enforced } : course;
-  });
+  const payload = _buildPayload(weekNum, resources, courses, constraintsData, enforcedMap, blockedZones, schedulerConfig, groups);
 
-  // Résoudre constraints.Default vers TimeSlot[] avant d'appliquer les zones bloquées,
-  // car applyBlockedZonesToConstraints l'utilise comme valeur de fallback pour les ressources.
-  // Nécessaire si Default est stocké comme ResourceConstraints (cas où l'utilisateur a configuré
-  // des overrides par semaine pour le Default).
-  let resolvedConstraintsData = constraintsData;
-  if (resolvedConstraintsData && resolvedConstraintsData.Default !== undefined && !Array.isArray(resolvedConstraintsData.Default)) {
-    const rc = resolvedConstraintsData.Default as import('@edt-ts/scheduler-common').ResourceConstraints;
-    const weekKey = `S${weekNum}`;
-    resolvedConstraintsData = {
-      ...resolvedConstraintsData,
-      Default: (rc[weekKey] ?? rc.default ?? []) as import('@edt-ts/scheduler-common').TimeSlot[],
-    };
-  }
-
-  const effectiveConstraints = applyBlockedZonesToConstraints(
-    resources,
-    resolvedConstraintsData,
-    blockedZones,
-    weekNum,
-  );
-
-  const hasConstraints = !!constraintsData || blockedZones.length > 0;
-
-  const options: Record<string, unknown> = { ...schedulerConfig };
-
-  const payload: RawScheduleData & { options?: Record<string, unknown> } = {
-    week: weekNum,
-    resources,
-    courses: coursesWithEnforced,
-    ...(hasConstraints ? { constraints: effectiveConstraints } : {}),
-    ...(groups && groups.length > 0 ? { groups } : {}),
-    ...(Object.keys(options).length > 0 ? { options } : {}),
-  };
-  
   const endpoint = '/api/schedule/v2';
   console.groupCollapsed(`📤 Requête ${endpoint}`);
   console.log(payload);
@@ -172,40 +174,7 @@ export async function submitJobAsync(
   clientId: string,
 ): Promise<JobSubmitResponse> {
   const { week, courses, resources, constraintsData, enforcedMap, blockedZones, schedulerConfig, groups } = params;
-
-  const coursesWithEnforced = courses.map((course, i) => {
-    const enforced = enforcedMap[String(i)];
-    return enforced ? { ...course, enforced } : course;
-  });
-
-  let resolvedConstraintsData = constraintsData;
-  if (resolvedConstraintsData && resolvedConstraintsData.Default !== undefined && !Array.isArray(resolvedConstraintsData.Default)) {
-    const rc = resolvedConstraintsData.Default as import('@edt-ts/scheduler-common').ResourceConstraints;
-    const weekKey = `S${week}`;
-    resolvedConstraintsData = {
-      ...resolvedConstraintsData,
-      Default: (rc[weekKey] ?? rc.default ?? []) as import('@edt-ts/scheduler-common').TimeSlot[],
-    };
-  }
-
-  const effectiveConstraints = applyBlockedZonesToConstraints(
-    resources,
-    resolvedConstraintsData,
-    blockedZones,
-    week,
-  );
-
-  const hasConstraints = !!constraintsData || blockedZones.length > 0;
-  const options: Record<string, unknown> = { ...schedulerConfig };
-
-  const payload: RawScheduleData & { options?: Record<string, unknown> } = {
-    week,
-    resources,
-    courses: coursesWithEnforced,
-    ...(hasConstraints ? { constraints: effectiveConstraints } : {}),
-    ...(groups && groups.length > 0 ? { groups } : {}),
-    ...(Object.keys(options).length > 0 ? { options } : {}),
-  };
+  const payload = _buildPayload(week, resources, courses, constraintsData, enforcedMap, blockedZones, schedulerConfig, groups);
 
   const response = await fetch('/api/schedule/v2/async', {
     method: 'POST',
