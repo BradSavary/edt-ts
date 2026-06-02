@@ -30,6 +30,7 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
   const currentJobId = usePlanningStore((s) => s.currentJobId);
   const currentJobStatus = usePlanningStore((s) => s.currentJobStatus);
   const cancelCurrentJob = usePlanningStore((s) => s.cancelCurrentJob);
+  const pendingJobResult = usePlanningStore((s) => s.pendingJobResult);
   const enforcedMap = usePlanningStore((s) => s.enforcedMap);
   const blockedZones = usePlanningStore((s) => s.blockedZones);
   const taskGroups = usePlanningStore((s) => s.taskGroups);
@@ -130,7 +131,7 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
             <Button
               type="button"
               onClick={() => runSchedule()}
-              disabled={isLoading}
+              disabled={isLoading || pendingJobResult !== null}
               className="flex-1 bg-black hover:bg-zinc-800 text-white dark:bg-zinc-900 dark:hover:bg-zinc-700"
             >
               {isLoading
@@ -149,6 +150,11 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
             )}
             <SchedulerConfigDialog />
           </div>
+          {pendingJobResult !== null && !isLoading && (
+            <p className="text-xs text-muted-foreground">
+              Résultat semaine {pendingJobResult.week} en attente — récupérez-le via la barre de navigation.
+            </p>
+          )}
         </form>
       </div>
 

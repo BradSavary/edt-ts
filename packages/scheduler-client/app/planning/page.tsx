@@ -36,6 +36,15 @@ export default function PlanningPage() {
   const placedNeutralizedTasks = usePlanningStore((s) => s.placedNeutralizedTasks);
   const searchQuery = usePlanningStore((s) => s.searchQuery);
   const status = usePlanningStore((s) => s.status);
+  const pendingJobResult = usePlanningStore((s) => s.pendingJobResult);
+  const applyPendingResult = usePlanningStore((s) => s.applyPendingResult);
+
+  // ── Auto-application du résultat en attente si on est sur la bonne semaine ──
+  useEffect(() => {
+    if (pendingJobResult && pendingJobResult.week === selectedWeek) {
+      applyPendingResult();
+    }
+  }, [pendingJobResult, selectedWeek, applyPendingResult]);
 
   // ── État local ──────────────────────────────────────────────────────────
   const [resetDialogOpen, setResetDialogOpen] = useState(false);

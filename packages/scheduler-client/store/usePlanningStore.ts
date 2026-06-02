@@ -73,6 +73,8 @@ export interface PlanningStore extends NeutralizedSlice, BlockedZonesSlice, Task
   pendingJobResult: { week: number; result: ScheduleResult; syntheticNeutralized: NeutralizedTaskInfoJSON[] } | null;
   runSchedule: () => Promise<void>;
   cancelCurrentJob: () => Promise<void>;
+  /** Applique le résultat en attente pour la semaine donnée et vide pendingJobResult. */
+  applyPendingResult: () => void;
 
   // Cours forcés (reçoit la map MANUELLE — la propagation de groupes est calculée automatiquement)
   handleEnforceChange: (map: Record<string, EnforcedData>) => void;
@@ -98,7 +100,6 @@ export type DraggingResources = NonNullable<PlanningStore['draggingExternal']>;
 
 // ── Etat interne du polling (hors store React) ──────────────────────────────
 let _pollingInterval: ReturnType<typeof setInterval> | null = null;
-let _pendingJobSyntheticNeutralized: NeutralizedTaskInfoJSON[] = [];
 
 // ── Store ──────────────────────────────────────────────────────────────────
 
@@ -264,9 +265,13 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   toggleGroupDrawer: () => set((s) => ({ groupDrawerOpen: !s.groupDrawerOpen })),
 
   runSchedule: async () => {
-    const { selectedWeek, enforcedMap, blockedZones, taskGroups, preNeutralizedKeys } = get();
+    const { selectedWeek, enforcedMap, blockedZones, taskGroups, preNeutralizedKeys, pendingJobResult, currentJobId } = get();
     if (selectedWeek === null) {
       set({ status: { message: '❌ Semaine non sélectionnée.', kind: 'err' } });
+      return;
+    }
+    if (currentJobId !== null || pendingJobResult !== null) {
+      set({ status: { message: '⏳ Récupérez le résultat en attente avant de lancer une nouvelle planification.', kind: 'inf' } });
       return;
     }
     const { allCourses, resources, constraints, schedulerConfig } = useSchedulerStore.getState();
@@ -315,7 +320,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     const { coursesWithGroups, declarations } = buildTaskGroupData(filteredCourses, remappedTaskGroups);
 
     // Pré-calculer les entrées synthétiques pour les tâches pré-neutralisées
-    _pendingJobSyntheticNeutralized = preNeutEntries.map(({ oldKey, course }) => ({
+    const syntheticNeutralized = preNeutEntries.map(({ oldKey, course }) => ({
       task: {
         taskId: `pre-neutral-${oldKey}`,
         code: course.code,
@@ -355,88 +360,37 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
 
       set({ currentJobId: jobId, status: { message: 'Planification en cours…', kind: 'inf' } });
 
-      if (_pollingInterval !== null) clearInterval(_pollingInterval);
-
-      _pollingInterval = setInterval(() => {
-        void (async () => {
-          try {
-            const jobStatus = await pollJob(jobId);
-            set({ currentJobStatus: jobStatus });
-
-            if (jobStatus.status === 'done') {
-              clearInterval(_pollingInterval!);
-              _pollingInterval = null;
-
-              const rawResult = jobStatus.result!;
-              const normalized = rawResult.map((s) => ({
-                isComplete: s.isComplete,
-                score: s.score,
-                tasks: s.solutions,
-                neutralizedTasks: s.neutralizedTasks,
-              }));
-              const result: ScheduleResult = { solutions: normalized, week: jobStatus.week };
-              const syntheticNeutralized = _pendingJobSyntheticNeutralized;
-              _pendingJobSyntheticNeutralized = [];
-
-              await cancelJob(jobId); // nettoyage côté API
-
-              const currentWeek = usePlanningStore.getState().selectedWeek;
-              if (currentWeek === jobStatus.week) {
-                const best = result.solutions[0];
-                set({
-                  scheduleResult: result,
-                  selectedSolutionIndex: 0,
-                  activeSolution: best.tasks,
-                  activeNeutralizedTasks: [...(best.neutralizedTasks ?? []), ...syntheticNeutralized],
-                  syntheticNeutralizedTasks: syntheticNeutralized,
-                  solutionStates: {},
-                  taskOverrides: {},
-                  placedNeutralizedTasks: [],
-                  manuallyNeutralizedTasks: [],
-                  isLoading: false,
-                  status: buildScheduleStatus(result),
-                  currentJobId: null,
-                  currentJobStatus: null,
-                  pendingJobResult: null,
-                });
-              } else {
-                set({
-                  isLoading: false,
-                  currentJobId: null,
-                  pendingJobResult: { week: jobStatus.week, result, syntheticNeutralized },
-                  status: { message: `✅ Planification semaine ${jobStatus.week} terminée`, kind: 'ok' },
-                });
-              }
-            } else if (jobStatus.status === 'error') {
-              clearInterval(_pollingInterval!);
-              _pollingInterval = null;
-              await cancelJob(jobId);
-              set({
-                isLoading: false,
-                status: { message: `❌ ${jobStatus.error ?? 'Erreur inconnue'}`, kind: 'err' },
-                currentJobId: null,
-                currentJobStatus: null,
-              });
-            } else if (jobStatus.status === 'cancelled') {
-              clearInterval(_pollingInterval!);
-              _pollingInterval = null;
-              set({
-                isLoading: false,
-                status: { message: 'Planification annulée.', kind: 'inf' },
-                currentJobId: null,
-                currentJobStatus: null,
-              });
-            }
-          } catch (pollErr) {
-            console.warn('Erreur de polling (réseau?) :', pollErr);
-          }
-        })();
-      }, 5000);
+      _saveJobToStorage(jobId, syntheticNeutralized);
+      _startPolling(jobId, syntheticNeutralized);
 
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       set({ isLoading: false, status: { message: `❌ ${message}`, kind: 'err' }, currentJobId: null, currentJobStatus: null });
     }
+  },
+
+  applyPendingResult: () => {
+    const { pendingJobResult } = get();
+    if (!pendingJobResult) return;
+    const { result, syntheticNeutralized, week } = pendingJobResult;
+    const best = result.solutions[0];
+    set({
+      selectedWeek: week,
+      scheduleResult: result,
+      selectedSolutionIndex: 0,
+      activeSolution: best.tasks,
+      activeNeutralizedTasks: [...(best.neutralizedTasks ?? []), ...syntheticNeutralized],
+      syntheticNeutralizedTasks: syntheticNeutralized,
+      solutionStates: {},
+      taskOverrides: {},
+      placedNeutralizedTasks: [],
+      manuallyNeutralizedTasks: [],
+      isLoading: false,
+      status: buildScheduleStatus(result),
+      currentJobId: null,
+      currentJobStatus: null,
+      pendingJobResult: null,
+    });
   },
 
   cancelCurrentJob: async () => {
@@ -447,6 +401,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       _pollingInterval = null;
     }
     await cancelJob(currentJobId);
+    _clearJobFromStorage();
     set({
       isLoading: false,
       currentJobId: null,
@@ -595,6 +550,122 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   };
 });
 
+// ── Persistence du job en cours (survit à un rechargement de page) ────────
+
+const JOB_PERSISTENCE_KEY = 'edt-pending-job';
+
+function _saveJobToStorage(jobId: string, syntheticNeutralized: NeutralizedTaskInfoJSON[]) {
+  try { localStorage.setItem(JOB_PERSISTENCE_KEY, JSON.stringify({ jobId, syntheticNeutralized })); } catch {}
+}
+
+function _clearJobFromStorage() {
+  try { localStorage.removeItem(JOB_PERSISTENCE_KEY); } catch {}
+}
+
+function _loadJobFromStorage(): { jobId: string; syntheticNeutralized: NeutralizedTaskInfoJSON[] } | null {
+  try {
+    const raw = localStorage.getItem(JOB_PERSISTENCE_KEY);
+    return raw ? (JSON.parse(raw) as { jobId: string; syntheticNeutralized: NeutralizedTaskInfoJSON[] }) : null;
+  } catch { return null; }
+}
+
+function _startPolling(jobId: string, syntheticNeutralized: NeutralizedTaskInfoJSON[]) {
+  if (_pollingInterval !== null) clearInterval(_pollingInterval);
+  _pollingInterval = setInterval(() => {
+    void (async () => {
+      try {
+        const jobStatus = await pollJob(jobId);
+        usePlanningStore.setState({ currentJobStatus: jobStatus });
+        if (jobStatus.status === 'done') {
+          clearInterval(_pollingInterval!);
+          _pollingInterval = null;
+          _clearJobFromStorage();
+          const result: ScheduleResult = {
+            solutions: jobStatus.result!.map((s) => ({
+              isComplete: s.isComplete,
+              score: s.score,
+              tasks: s.solutions,
+              neutralizedTasks: s.neutralizedTasks,
+            })),
+            week: jobStatus.week,
+          };
+          await cancelJob(jobId);
+          usePlanningStore.setState({
+            isLoading: false,
+            currentJobId: null,
+            currentJobStatus: null,
+            pendingJobResult: { week: jobStatus.week, result, syntheticNeutralized },
+            status: { message: `✅ Planification semaine ${jobStatus.week} terminée`, kind: 'ok' },
+          });
+        } else if (jobStatus.status === 'error') {
+          clearInterval(_pollingInterval!);
+          _pollingInterval = null;
+          _clearJobFromStorage();
+          await cancelJob(jobId);
+          usePlanningStore.setState({
+            isLoading: false,
+            status: { message: `❌ ${jobStatus.error ?? 'Erreur inconnue'}`, kind: 'err' },
+            currentJobId: null,
+            currentJobStatus: null,
+          });
+        } else if (jobStatus.status === 'cancelled') {
+          clearInterval(_pollingInterval!);
+          _pollingInterval = null;
+          _clearJobFromStorage();
+          usePlanningStore.setState({
+            isLoading: false,
+            status: { message: 'Planification annulée.', kind: 'inf' },
+            currentJobId: null,
+            currentJobStatus: null,
+          });
+        }
+      } catch (pollErr) {
+        console.warn('Erreur de polling (réseau?) :', pollErr);
+      }
+    })();
+  }, 5000);
+}
+
+async function _resumePendingJob() {
+  const persisted = _loadJobFromStorage();
+  if (!persisted) return;
+  const { jobId, syntheticNeutralized } = persisted;
+  try {
+    const jobStatus = await pollJob(jobId);
+    if (jobStatus.status === 'done') {
+      _clearJobFromStorage();
+      const result: ScheduleResult = {
+        solutions: jobStatus.result!.map((s) => ({
+          isComplete: s.isComplete,
+          score: s.score,
+          tasks: s.solutions,
+          neutralizedTasks: s.neutralizedTasks,
+        })),
+        week: jobStatus.week,
+      };
+      await cancelJob(jobId);
+      usePlanningStore.setState({
+        pendingJobResult: { week: jobStatus.week, result, syntheticNeutralized },
+        status: { message: `✅ Planification semaine ${jobStatus.week} terminée`, kind: 'ok' },
+      });
+    } else if (jobStatus.status === 'pending' || jobStatus.status === 'running') {
+      usePlanningStore.setState({
+        currentJobId: jobId,
+        currentJobStatus: jobStatus,
+        isLoading: true,
+        status: { message: 'Planification en cours…', kind: 'inf' },
+      });
+      _startPolling(jobId, syntheticNeutralized);
+    } else {
+      // error ou cancelled — job terminé côté serveur, on vide le storage
+      _clearJobFromStorage();
+    }
+  } catch {
+    // 404 ou erreur réseau : job disparu (redémarrage serveur) — on vide le storage
+    _clearJobFromStorage();
+  }
+}
+
 // ── Auto-save de la préparation de semaine ────────────────────────────────
 
 function _saveCurrentWeekSnapshot() {
@@ -622,6 +693,8 @@ function _saveCurrentWeekSnapshot() {
 }
 
 if (typeof window !== 'undefined') {
+  void _resumePendingJob();
+
   // Sauvegarde déclenchée par une modification dans usePlanningStore
   usePlanningStore.subscribe((state, prev) => {
     // Ignorer les changements de semaine (setSelectedWeek gère la restauration)

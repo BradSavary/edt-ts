@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { JobNotificationBanner } from '@/components/planning/JobNotificationBanner';
+import { usePlanningStore } from '@/store/usePlanningStore';
+import { Button } from '@/components/ui/button';
 
 const NAV_LINKS = [
   { href: '/', label: 'Config' },
@@ -13,11 +14,18 @@ const NAV_LINKS = [
 
 export function NavBar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const pendingJobResult = usePlanningStore((s) => s.pendingJobResult);
+  const applyPendingResult = usePlanningStore((s) => s.applyPendingResult);
+
+  function handleViewResult() {
+    applyPendingResult();
+    router.push('/planning');
+  }
 
   return (
-    <>
-    <nav className="shrink-0 border-b border-border bg-card flex items-end gap-0 px-6">
-      <span className="text-sm font-bold tracking-tight text-foreground mr-6 pb-2.5">EDT-TS</span>
+    <nav className="shrink-0 border-b border-border bg-card flex items-center gap-0 px-6">
+      <span className="text-sm font-bold tracking-tight text-foreground mr-6">EDT-TS</span>
       {NAV_LINKS.map(({ href, label }) => {
         const active = pathname === href;
         return (
@@ -35,8 +43,14 @@ export function NavBar() {
           </Link>
         );
       })}
+      {pendingJobResult && (
+        <div className="ml-auto flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+          <span>✅ Semaine {pendingJobResult.week} planifiée</span>
+          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={handleViewResult}>
+            Voir le résultat
+          </Button>
+        </div>
+      )}
     </nav>
-    <JobNotificationBanner />
-    </>
   );
 }
