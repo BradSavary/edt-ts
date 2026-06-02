@@ -27,6 +27,9 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
   const setSelectedWeek = usePlanningStore((s) => s.setSelectedWeek);
   const isLoading = usePlanningStore((s) => s.isLoading);
   const runSchedule = usePlanningStore((s) => s.runSchedule);
+  const currentJobId = usePlanningStore((s) => s.currentJobId);
+  const currentJobStatus = usePlanningStore((s) => s.currentJobStatus);
+  const cancelCurrentJob = usePlanningStore((s) => s.cancelCurrentJob);
   const enforcedMap = usePlanningStore((s) => s.enforcedMap);
   const blockedZones = usePlanningStore((s) => s.blockedZones);
   const taskGroups = usePlanningStore((s) => s.taskGroups);
@@ -130,8 +133,20 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
               disabled={isLoading}
               className="flex-1 bg-black hover:bg-zinc-800 text-white dark:bg-zinc-900 dark:hover:bg-zinc-700"
             >
-              {isLoading ? 'Traitement…' : 'Planifier'}
+              {isLoading
+                ? (currentJobStatus?.status === 'pending' ? 'En attente…' : 'Planification…')
+                : 'Planifier'}
             </Button>
+            {currentJobId && (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => cancelCurrentJob()}
+                className="shrink-0"
+              >
+                Annuler
+              </Button>
+            )}
             <SchedulerConfigDialog />
           </div>
         </form>

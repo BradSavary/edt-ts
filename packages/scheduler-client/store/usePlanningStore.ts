@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import type { EnforcedData, TaskSolutionJSON, NeutralizedTaskInfoJSON, ConstraintsData } from '@edt-ts/scheduler-common';
+import type { EnforcedData, TaskSolutionJSON, NeutralizedTaskInfoJSON, ConstraintsData, JobStatusResponse } from '@edt-ts/scheduler-common';
 import type { BlockedZone } from '@/lib/calendar/blockedZones';
-import { runScheduleRequestFromData, buildScheduleStatus, type ScheduleResult, type ScheduleStatus } from '@/lib/api/scheduleApi';
+import { runScheduleRequestFromData, submitJobAsync, pollJob, cancelJob, buildScheduleStatus, type ScheduleResult, type ScheduleStatus } from '@/lib/api/scheduleApi';
+import { getClientId } from '@/lib/api/clientId';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { type TaskGroupConfig, type GroupType, buildTaskGroupData, getCourseGroupInfo, computeGroupEnforcements } from '@/lib/taskGroupUtils';
 import { computeHolidayZonesForWeek } from '@/lib/schoolHolidays';
@@ -66,8 +67,12 @@ export interface PlanningStore extends NeutralizedSlice, BlockedZonesSlice, Task
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
-  // Planification
+  // Planification asynchrone
+  currentJobId: string | null;
+  currentJobStatus: JobStatusResponse | null;
+  pendingJobResult: { week: number; result: ScheduleResult; syntheticNeutralized: NeutralizedTaskInfoJSON[] } | null;
   runSchedule: () => Promise<void>;
+  cancelCurrentJob: () => Promise<void>;
 
   // Cours forcés (reçoit la map MANUELLE — la propagation de groupes est calculée automatiquement)
   handleEnforceChange: (map: Record<string, EnforcedData>) => void;
@@ -90,6 +95,10 @@ export interface PlanningStore extends NeutralizedSlice, BlockedZonesSlice, Task
 
 // ── Type export pour les hooks ──────────────────────────────────────────────
 export type DraggingResources = NonNullable<PlanningStore['draggingExternal']>;
+
+// ── Etat interne du polling (hors store React) ──────────────────────────────
+let _pollingInterval: ReturnType<typeof setInterval> | null = null;
+let _pendingJobSyntheticNeutralized: NeutralizedTaskInfoJSON[] = [];
 
 // ── Store ──────────────────────────────────────────────────────────────────
 
@@ -245,6 +254,9 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
 
   isLoading: false,
   status: null,
+  currentJobId: null,
+  currentJobStatus: null,
+  pendingJobResult: null,
   draggingExternal: null,
   setDraggingExternal: (r) => set({ draggingExternal: r }),
 
@@ -301,9 +313,36 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     }));
 
     const { coursesWithGroups, declarations } = buildTaskGroupData(filteredCourses, remappedTaskGroups);
-    set({ isLoading: true, status: { message: 'Planification en cours…', kind: 'inf' } });
+
+    // Pré-calculer les entrées synthétiques pour les tâches pré-neutralisées
+    _pendingJobSyntheticNeutralized = preNeutEntries.map(({ oldKey, course }) => ({
+      task: {
+        taskId: `pre-neutral-${oldKey}`,
+        code: course.code,
+        name: course.name,
+        type: course.type,
+        week: selectedWeek,
+        duration: course.duration,
+        startTime: 0,
+        resources: [
+          ...course.teacher.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e])).filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'teacher' })),
+          ...course.groups.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e])).filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'group' })),
+          ...course.rooms.flat().filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'room' })),
+        ],
+      },
+      eliminationRound: 0,
+      failureCount: 0,
+      requiredMinutes: course.duration,
+      schedulableMinutes: 0,
+      resourceSnapshots: [],
+      reason: 'Neutralisée manuellement avant planification',
+    }));
+
+    set({ isLoading: true, status: { message: 'Soumission de la planification…', kind: 'inf' }, currentJobId: null, currentJobStatus: null });
+
     try {
-      const result = await runScheduleRequestFromData({
+      const clientId = getClientId();
+      const { jobId } = await submitJobAsync({
         week: selectedWeek,
         courses: coursesWithGroups,
         resources,
@@ -312,50 +351,108 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         blockedZones,
         schedulerConfig,
         groups: declarations.length > 0 ? declarations : undefined,
-      });
-      const best = result.solutions[0];
+      }, clientId);
 
-      // Entrées synthétiques pour les tâches pré-neutralisées
-      const syntheticNeutralized: NeutralizedTaskInfoJSON[] = preNeutEntries.map(({ oldKey, course }) => ({
-        task: {
-          taskId: `pre-neutral-${oldKey}`,
-          code: course.code,
-          name: course.name,
-          type: course.type,
-          week: selectedWeek,
-          duration: course.duration,
-          startTime: 0,
-          resources: [
-            ...course.teacher.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e])).filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'teacher' })),
-            ...course.groups.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e])).filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'group' })),
-            ...course.rooms.flat().filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'room' })),
-          ],
-        },
-        eliminationRound: 0,
-        failureCount: 0,
-        requiredMinutes: course.duration,
-        schedulableMinutes: 0,
-        resourceSnapshots: [],
-        reason: 'Neutralisée manuellement avant planification',
-      }));
+      set({ currentJobId: jobId, status: { message: 'Planification en cours…', kind: 'inf' } });
 
-      set({
-        scheduleResult: result,
-        selectedSolutionIndex: 0,
-        activeSolution: best.tasks,
-        activeNeutralizedTasks: [...(best.neutralizedTasks ?? []), ...syntheticNeutralized],
-        syntheticNeutralizedTasks: syntheticNeutralized,
-        solutionStates: {},
-        taskOverrides: {},
-        placedNeutralizedTasks: [],
-        manuallyNeutralizedTasks: [],
-        isLoading: false,
-        status: buildScheduleStatus(result),
-      });
+      if (_pollingInterval !== null) clearInterval(_pollingInterval);
+
+      _pollingInterval = setInterval(() => {
+        void (async () => {
+          try {
+            const jobStatus = await pollJob(jobId);
+            set({ currentJobStatus: jobStatus });
+
+            if (jobStatus.status === 'done') {
+              clearInterval(_pollingInterval!);
+              _pollingInterval = null;
+
+              const rawResult = jobStatus.result!;
+              const normalized = rawResult.map((s) => ({
+                isComplete: s.isComplete,
+                score: s.score,
+                tasks: s.solutions,
+                neutralizedTasks: s.neutralizedTasks,
+              }));
+              const result: ScheduleResult = { solutions: normalized, week: jobStatus.week };
+              const syntheticNeutralized = _pendingJobSyntheticNeutralized;
+              _pendingJobSyntheticNeutralized = [];
+
+              await cancelJob(jobId); // nettoyage côté API
+
+              const currentWeek = usePlanningStore.getState().selectedWeek;
+              if (currentWeek === jobStatus.week) {
+                const best = result.solutions[0];
+                set({
+                  scheduleResult: result,
+                  selectedSolutionIndex: 0,
+                  activeSolution: best.tasks,
+                  activeNeutralizedTasks: [...(best.neutralizedTasks ?? []), ...syntheticNeutralized],
+                  syntheticNeutralizedTasks: syntheticNeutralized,
+                  solutionStates: {},
+                  taskOverrides: {},
+                  placedNeutralizedTasks: [],
+                  manuallyNeutralizedTasks: [],
+                  isLoading: false,
+                  status: buildScheduleStatus(result),
+                  currentJobId: null,
+                  currentJobStatus: null,
+                  pendingJobResult: null,
+                });
+              } else {
+                set({
+                  isLoading: false,
+                  currentJobId: null,
+                  pendingJobResult: { week: jobStatus.week, result, syntheticNeutralized },
+                  status: { message: `✅ Planification semaine ${jobStatus.week} terminée`, kind: 'ok' },
+                });
+              }
+            } else if (jobStatus.status === 'error') {
+              clearInterval(_pollingInterval!);
+              _pollingInterval = null;
+              await cancelJob(jobId);
+              set({
+                isLoading: false,
+                status: { message: `❌ ${jobStatus.error ?? 'Erreur inconnue'}`, kind: 'err' },
+                currentJobId: null,
+                currentJobStatus: null,
+              });
+            } else if (jobStatus.status === 'cancelled') {
+              clearInterval(_pollingInterval!);
+              _pollingInterval = null;
+              set({
+                isLoading: false,
+                status: { message: 'Planification annulée.', kind: 'inf' },
+                currentJobId: null,
+                currentJobStatus: null,
+              });
+            }
+          } catch (pollErr) {
+            console.warn('Erreur de polling (réseau?) :', pollErr);
+          }
+        })();
+      }, 5000);
+
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      set({ isLoading: false, status: { message: `❌ ${message}`, kind: 'err' } });
+      set({ isLoading: false, status: { message: `❌ ${message}`, kind: 'err' }, currentJobId: null, currentJobStatus: null });
     }
+  },
+
+  cancelCurrentJob: async () => {
+    const { currentJobId } = get();
+    if (!currentJobId) return;
+    if (_pollingInterval !== null) {
+      clearInterval(_pollingInterval);
+      _pollingInterval = null;
+    }
+    await cancelJob(currentJobId);
+    set({
+      isLoading: false,
+      currentJobId: null,
+      currentJobStatus: null,
+      status: { message: 'Planification annulée.', kind: 'inf' },
+    });
   },
 
   handleEnforceChange: (manualMap) => {
@@ -466,6 +563,9 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     solutionStates: {},
     syntheticNeutralizedTasks: [],
     enforcedViolations: {},
+    currentJobId: null,
+    currentJobStatus: null,
+    pendingJobResult: null,
     status: null,
   }),
 
@@ -488,6 +588,9 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     isLoading: false,
     status: null,
     taskGroups: [],
+    currentJobId: null,
+    currentJobStatus: null,
+    pendingJobResult: null,
   }),
   };
 });

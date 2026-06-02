@@ -1,4 +1,4 @@
-import type { RawScheduleData, TaskSolutionJSON, NeutralizedTaskInfoJSON, CourseTaskData, EnforcedData, ConstraintsData, ResourceGroupData, SchedulerConfig, TaskGroupDeclaration } from '@edt-ts/scheduler-common';
+import type { RawScheduleData, TaskSolutionJSON, NeutralizedTaskInfoJSON, CourseTaskData, EnforcedData, ConstraintsData, ResourceGroupData, SchedulerConfig, TaskGroupDeclaration, JobSubmitResponse, JobStatusResponse } from '@edt-ts/scheduler-common';
 import { type BlockedZone, applyBlockedZonesToConstraints } from '@/lib/calendar/blockedZones';
 
 export interface NormalizedSolution {
@@ -157,4 +157,83 @@ export function buildScheduleStatus(result: ScheduleResult): ScheduleStatus {
     message: `${best.isComplete ? '✅ Planification complète' : '⚠️ Incomplète'} — ${result.solutions.length} solution(s)${neutralizedMsg}`,
     kind: best.isComplete ? 'ok' : 'err',
   };
+}
+
+// --------------------------------------------------------------------------
+// API asynchrone (job queue)
+// --------------------------------------------------------------------------
+
+/**
+ * Soumet un job de planification asynchrone.
+ * Retourne immédiatement un { jobId } — le calcul s'effectue en arrière-plan.
+ */
+export async function submitJobAsync(
+  params: RunScheduleParamsFromData,
+  clientId: string,
+): Promise<JobSubmitResponse> {
+  const { week, courses, resources, constraintsData, enforcedMap, blockedZones, schedulerConfig, groups } = params;
+
+  const coursesWithEnforced = courses.map((course, i) => {
+    const enforced = enforcedMap[String(i)];
+    return enforced ? { ...course, enforced } : course;
+  });
+
+  let resolvedConstraintsData = constraintsData;
+  if (resolvedConstraintsData && resolvedConstraintsData.Default !== undefined && !Array.isArray(resolvedConstraintsData.Default)) {
+    const rc = resolvedConstraintsData.Default as import('@edt-ts/scheduler-common').ResourceConstraints;
+    const weekKey = `S${week}`;
+    resolvedConstraintsData = {
+      ...resolvedConstraintsData,
+      Default: (rc[weekKey] ?? rc.default ?? []) as import('@edt-ts/scheduler-common').TimeSlot[],
+    };
+  }
+
+  const effectiveConstraints = applyBlockedZonesToConstraints(
+    resources,
+    resolvedConstraintsData,
+    blockedZones,
+    week,
+  );
+
+  const hasConstraints = !!constraintsData || blockedZones.length > 0;
+  const options: Record<string, unknown> = { ...schedulerConfig };
+
+  const payload: RawScheduleData & { options?: Record<string, unknown> } = {
+    week,
+    resources,
+    courses: coursesWithEnforced,
+    ...(hasConstraints ? { constraints: effectiveConstraints } : {}),
+    ...(groups && groups.length > 0 ? { groups } : {}),
+    ...(Object.keys(options).length > 0 ? { options } : {}),
+  };
+
+  const response = await fetch('/api/schedule/v2/async', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Client-Id': clientId,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({})) as { error?: string; existingJobId?: string };
+    throw new Error(data?.error ?? `Erreur ${response.status}`);
+  }
+
+  return response.json() as Promise<JobSubmitResponse>;
+}
+
+/** Interroge le statut d'un job. */
+export async function pollJob(jobId: string): Promise<JobStatusResponse> {
+  const response = await fetch(`/api/schedule/jobs/${jobId}`);
+  if (!response.ok) {
+    throw new Error(`Erreur lors du polling (${response.status})`);
+  }
+  return response.json() as Promise<JobStatusResponse>;
+}
+
+/** Annule ou supprime un job. */
+export async function cancelJob(jobId: string): Promise<void> {
+  await fetch(`/api/schedule/jobs/${jobId}`, { method: 'DELETE' });
 }

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { JobNotificationBanner } from '@/components/planning/JobNotificationBanner';
 
 const NAV_LINKS = [
   { href: '/', label: 'Config' },
@@ -14,6 +15,7 @@ export function NavBar() {
   const pathname = usePathname();
 
   return (
+    <>
     <nav className="shrink-0 border-b border-border bg-card flex items-end gap-0 px-6">
       <span className="text-sm font-bold tracking-tight text-foreground mr-6 pb-2.5">EDT-TS</span>
       {NAV_LINKS.map(({ href, label }) => {
@@ -34,5 +36,7 @@ export function NavBar() {
         );
       })}
     </nav>
+    <JobNotificationBanner />
+    </>
   );
 }

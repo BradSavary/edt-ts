@@ -297,7 +297,7 @@ export interface JobStatusResponse {
 ### Exports à ajouter dans `index.ts`
 
 ```ts
-export type { JobStatus, JobSubmitResponse, JobStatusResponse } from './types.ts';
+export type { JobStatus, JobSubmitResponse, JobStatusResponse } from './types.js';
 ```
 
 ### Ce qui n'a pas besoin d'aller dans `common`

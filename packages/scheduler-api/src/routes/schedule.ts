@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { healthHandler, defaultConfigHandler, schedulerV2Handler } from '../controllers/scheduleController.js';
+import { submitJobHandler, getJobHandler, cancelJobHandler } from '../controllers/jobsController.js';
 
 const router = Router();
 
@@ -36,5 +37,9 @@ router.get('/config', defaultConfigHandler);
  * Retourne un tableau de ScheduleSolutionJSON.
  */
 router.post('/v2', schedulerV2Handler);
+
+router.post('/v2/async', submitJobHandler);   // POST  /api/schedule/v2/async
+router.get('/jobs/:id', getJobHandler);        // GET   /api/schedule/jobs/:id
+router.delete('/jobs/:id', cancelJobHandler);  // DELETE /api/schedule/jobs/:id
 
 export default router;

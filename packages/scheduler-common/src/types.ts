@@ -142,6 +142,31 @@ export interface ScheduleSolutionJSON {
   neutralizedTasks?: NeutralizedTaskInfoJSON[];
 }
 
+// --------------------------------------------------------------------------
+// Types pour le système de jobs asynchrones
+// --------------------------------------------------------------------------
+
+/** Statuts possibles d'un job de planification asynchrone. */
+export type JobStatus = 'pending' | 'running' | 'done' | 'error' | 'cancelled';
+
+/** Réponse à POST /api/schedule/v2/async — retournée immédiatement après soumission. */
+export interface JobSubmitResponse {
+  jobId: string;
+}
+
+/** Réponse à GET /api/schedule/jobs/:id. Le champ `result` n'est présent que si status === 'done'. */
+export interface JobStatusResponse {
+  jobId: string;
+  clientId: string;
+  status: JobStatus;
+  week: number;
+  createdAt: string;
+  startedAt?: string;
+  finishedAt?: string;
+  result?: ScheduleSolutionJSON[];
+  error?: string;
+}
+
 /**
 /**
  * Aucune gestion particulière de la pause méridienne.

@@ -1,5 +1,7 @@
 import express from 'express';
 import scheduleRouter from './routes/schedule.js';
+import { startTTLCleanup } from './jobs/JobStore.js';
+import './jobs/JobQueue.js'; // initialise le singleton jobQueue au démarrage
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -23,6 +25,8 @@ app.get('/', (_req, res) => {
 });
 
 // ── Démarrage ────────────────────────────────────────────────────────────────
+startTTLCleanup(); // purge automatique des jobs expirés toutes les heures
+
 app.listen(PORT, () => {
   console.log(`🚀 scheduler-api démarré sur http://localhost:${PORT}`);
 });

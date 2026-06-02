@@ -17,6 +17,7 @@
   "devDependencies": {
     "@types/express": "^5.0.1",
     "@types/node": "^22.18.3",
+    "esbuild": "*",
     "typescript": "~5.8.3"
   }
 }
