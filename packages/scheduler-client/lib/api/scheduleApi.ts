@@ -1,6 +1,10 @@
 import type { RawScheduleData, TaskSolutionJSON, NeutralizedTaskInfoJSON, CourseTaskData, EnforcedData, ConstraintsData, ResourceGroupData, SchedulerConfig, TaskGroupDeclaration, JobSubmitResponse, JobStatusResponse } from '@edt-ts/scheduler-common';
 import { type BlockedZone, applyBlockedZonesToConstraints } from '@/lib/calendar/blockedZones';
 
+// En dev : vide → les rewrites Next.js proxifient /api/* vers localhost:3000
+// En prod : '/edtts' → les appels vont vers /edtts/api/* (proxifié par Apache .htaccess)
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? '';
+
 export interface NormalizedSolution {
   isComplete: boolean;
   score?: number;
@@ -79,7 +83,7 @@ async function _callScheduleApi(
 ): Promise<ScheduleResult> {
   const payload = _buildPayload(weekNum, resources, courses, constraintsData, enforcedMap, blockedZones, schedulerConfig, groups);
 
-  const endpoint = '/api/schedule/v2';
+  const endpoint = `${API_BASE}/api/schedule/v2`;
   console.groupCollapsed(`📤 Requête ${endpoint}`);
   console.log(payload);
   console.groupEnd();
@@ -176,7 +180,7 @@ export async function submitJobAsync(
   const { week, courses, resources, constraintsData, enforcedMap, blockedZones, schedulerConfig, groups } = params;
   const payload = _buildPayload(week, resources, courses, constraintsData, enforcedMap, blockedZones, schedulerConfig, groups);
 
-  const response = await fetch('/api/schedule/v2/async', {
+  const response = await fetch(`${API_BASE}/api/schedule/v2/async`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -195,7 +199,7 @@ export async function submitJobAsync(
 
 /** Interroge le statut d'un job. */
 export async function pollJob(jobId: string): Promise<JobStatusResponse> {
-  const response = await fetch(`/api/schedule/jobs/${jobId}`);
+  const response = await fetch(`${API_BASE}/api/schedule/jobs/${jobId}`);
   if (!response.ok) {
     throw new Error(`Erreur lors du polling (${response.status})`);
   }
@@ -204,5 +208,5 @@ export async function pollJob(jobId: string): Promise<JobStatusResponse> {
 
 /** Annule ou supprime un job. */
 export async function cancelJob(jobId: string): Promise<void> {
-  await fetch(`/api/schedule/jobs/${jobId}`, { method: 'DELETE' });
+  await fetch(`${API_BASE}/api/schedule/jobs/${jobId}`, { method: 'DELETE' });
 }

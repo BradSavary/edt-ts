@@ -1,28 +1,36 @@
 import { Worker } from 'node:worker_threads';
 import { fileURLToPath } from 'node:url';
-import { buildSync } from 'esbuild';
+import { readFileSync } from 'node:fs';
 import { getJob, updateJob } from './JobStore.js';
 import type { ScheduleSolutionJSON } from '@edt-ts/scheduler-common';
 
-// Le bundle du worker est produit paresseusement au premier job pour ne pas
-// bloquer la boucle événementielle (et donc app.listen()) au démarrage.
-const WORKER_TS_PATH = fileURLToPath(new URL('./scheduler.worker.ts', import.meta.url));
 let _workerCode: string | null = null;
 
 function _getWorkerCode(): string {
-  if (_workerCode === null) {
-    const { outputFiles } = buildSync({
-      entryPoints: [WORKER_TS_PATH],
-      bundle: true,
-      format: 'cjs',
-      platform: 'node',
-      write: false,
-      external: ['node:*'],
-      logLevel: 'warning',
-    });
-    _workerCode = outputFiles[0].text;
-    console.log('[JobQueue] Worker bundlé avec esbuild (%d bytes)', _workerCode.length);
+  if (_workerCode !== null) return _workerCode;
+
+  // Production : worker pré-compilé, chemin fourni via SCHEDULER_WORKER_PATH
+  if (process.env.SCHEDULER_WORKER_PATH) {
+    _workerCode = readFileSync(process.env.SCHEDULER_WORKER_PATH, 'utf-8');
+    console.log('[JobQueue] Worker chargé depuis', process.env.SCHEDULER_WORKER_PATH);
+    return _workerCode;
   }
+
+  // Dev (tsx) : esbuild disponible, import.meta.url valide
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { buildSync } = require('esbuild') as typeof import('esbuild');
+  const workerPath = fileURLToPath(new URL('./scheduler.worker.ts', import.meta.url));
+  const { outputFiles } = buildSync({
+    entryPoints: [workerPath],
+    bundle: true,
+    format: 'cjs',
+    platform: 'node',
+    write: false,
+    external: ['node:*'],
+    logLevel: 'warning',
+  });
+  _workerCode = outputFiles[0].text;
+  console.log('[JobQueue] Worker bundlé avec esbuild (%d bytes)', _workerCode.length);
   return _workerCode;
 }
 

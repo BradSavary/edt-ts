@@ -23,16 +23,17 @@ export interface SchoolYearConfig {
 
 // ── Fetch depuis la route API interne ─────────────────────────────────────
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? '';
+
 /**
- * Appelle /api/holidays?year=2025-2026&zone=A
- * La route Next.js proxifie vers les APIs gouvernementales.
+ * Appelle /api/holidays?year=2025-2026&zone=A (proxifié vers l'API Express).
  */
 export async function fetchSchoolHolidayConfig(
   year: string,
   zone: 'A' | 'B' | 'C',
 ): Promise<SchoolYearConfig> {
   const params = new URLSearchParams({ year, zone });
-  const res = await fetch(`/api/holidays?${params.toString()}`);
+  const res = await fetch(`${API_BASE}/api/holidays?${params.toString()}`);
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     throw new Error(`Erreur chargement vacances (${res.status})${body ? ': ' + body : ''}`);

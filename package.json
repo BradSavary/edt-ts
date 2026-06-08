@@ -10,6 +10,7 @@
     "test-ar": "npm run test-ar --workspace=packages/scheduler-core",
     "test-ar-elimination": "npm run test-ar-elimination --workspace=packages/scheduler-core",
     "api:dev": "npm run dev --workspace=packages/scheduler-api",
+    "api:build": "npm run build --workspace=packages/scheduler-api",
     "api:start": "npm run start --workspace=packages/scheduler-api",
     "client:dev": "npm run dev --workspace=packages/scheduler-client",
     "client:build": "npm run build --workspace=packages/scheduler-client",
