@@ -1,6 +1,7 @@
 import { Worker } from 'node:worker_threads';
 import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { getJob, updateJob } from './JobStore.js';
 import type { ScheduleSolutionJSON } from '@edt-ts/scheduler-common';
 
@@ -17,8 +18,9 @@ function _getWorkerCode(): string {
   }
 
   // Dev (tsx) : esbuild disponible, import.meta.url valide
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { buildSync } = require('esbuild') as typeof import('esbuild');
+  // createRequire est nécessaire car le package est "type": "module" (require n'existe pas en ESM natif)
+  const _require = createRequire(import.meta.url);
+  const { buildSync } = _require('esbuild') as typeof import('esbuild');
   const workerPath = fileURLToPath(new URL('./scheduler.worker.ts', import.meta.url));
   const { outputFiles } = buildSync({
     entryPoints: [workerPath],
@@ -62,6 +64,13 @@ class JobQueue {
       this.activeJobId = null;
       updateJob(jobId, { status: 'cancelled', finishedAt: new Date() });
       this.processNext();
+      return;
+    }
+
+    // Cas 3 : job marqué running/pending mais sans worker actif (état zombie)
+    const entry = getJob(jobId);
+    if (entry && (entry.status === 'running' || entry.status === 'pending')) {
+      updateJob(jobId, { status: 'cancelled', finishedAt: new Date() });
     }
   }
 
@@ -82,7 +91,15 @@ class JobQueue {
     }
 
     updateJob(jobId, { status: 'running', startedAt: new Date() });
-    this.runWorker(jobId);
+    try {
+      this.runWorker(jobId);
+    } catch (err) {
+      console.error(`[JobQueue] Échec démarrage worker pour job ${jobId}:`, err);
+      updateJob(jobId, { status: 'error', error: String(err), finishedAt: new Date() });
+      this.activeWorker = null;
+      this.activeJobId = null;
+      this.processNext();
+    }
   }
 
   private runWorker(jobId: string): void {

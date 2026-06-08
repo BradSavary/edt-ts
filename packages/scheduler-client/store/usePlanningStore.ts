@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { EnforcedData, TaskSolutionJSON, NeutralizedTaskInfoJSON, ConstraintsData, JobStatusResponse } from '@edt-ts/scheduler-common';
 import type { BlockedZone } from '@/lib/calendar/blockedZones';
-import { runScheduleRequestFromData, submitJobAsync, pollJob, cancelJob, buildScheduleStatus, type ScheduleResult, type ScheduleStatus } from '@/lib/api/scheduleApi';
+import { runScheduleRequestFromData, submitJobAsync, pollJob, cancelJob, buildScheduleStatus, JobConflictError, type ScheduleResult, type ScheduleStatus } from '@/lib/api/scheduleApi';
 import { getClientId } from '@/lib/api/clientId';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { type TaskGroupConfig, type GroupType, buildTaskGroupData, getCourseGroupInfo, computeGroupEnforcements } from '@/lib/taskGroupUtils';
@@ -343,29 +343,74 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       reason: 'Neutralisée manuellement avant planification',
     }));
 
+    const clientId = getClientId();
+    const submitParams = {
+      week: selectedWeek,
+      courses: coursesWithGroups,
+      resources,
+      constraintsData: constraints as ConstraintsData | null,
+      enforcedMap: remappedEnforced,
+      blockedZones,
+      schedulerConfig,
+      groups: declarations.length > 0 ? declarations : undefined,
+    };
+
     set({ isLoading: true, status: { message: 'Soumission de la planification…', kind: 'inf' }, currentJobId: null, currentJobStatus: null });
 
     try {
-      const clientId = getClientId();
-      const { jobId } = await submitJobAsync({
-        week: selectedWeek,
-        courses: coursesWithGroups,
-        resources,
-        constraintsData: constraints as ConstraintsData | null,
-        enforcedMap: remappedEnforced,
-        blockedZones,
-        schedulerConfig,
-        groups: declarations.length > 0 ? declarations : undefined,
-      }, clientId);
+      const { jobId } = await submitJobAsync(submitParams, clientId);
 
       set({ currentJobId: jobId, status: { message: 'Planification en cours…', kind: 'inf' } });
-
       _saveJobToStorage(jobId, syntheticNeutralized);
       _startPolling(jobId, syntheticNeutralized);
 
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      set({ isLoading: false, status: { message: `❌ ${message}`, kind: 'err' }, currentJobId: null, currentJobStatus: null });
+      if (err instanceof JobConflictError && err.existingJobId) {
+        const existingId = err.existingJobId;
+        try {
+          const jobStatus = await pollJob(existingId);
+          if (jobStatus.status === 'error' || jobStatus.status === 'cancelled') {
+            await cancelJob(existingId);
+            // Job précédent échoué/annulé : on réessaie automatiquement
+            try {
+              const { jobId: newJobId } = await submitJobAsync(submitParams, clientId);
+              set({ currentJobId: newJobId, status: { message: 'Planification en cours…', kind: 'inf' } });
+              _saveJobToStorage(newJobId, syntheticNeutralized);
+              _startPolling(newJobId, syntheticNeutralized);
+            } catch (retryErr: unknown) {
+              const msg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+              set({ isLoading: false, status: { message: `❌ ${msg}`, kind: 'err' }, currentJobId: null, currentJobStatus: null });
+            }
+          } else if (jobStatus.status === 'pending' || jobStatus.status === 'running') {
+            // Job actif : l'annuler (l'utilisateur soumet de nouvelles données) puis relancer
+            await cancelJob(existingId);
+            try {
+              const { jobId: newJobId } = await submitJobAsync(submitParams, clientId);
+              set({ currentJobId: newJobId, status: { message: 'Planification en cours…', kind: 'inf' } });
+              _saveJobToStorage(newJobId, syntheticNeutralized);
+              _startPolling(newJobId, syntheticNeutralized);
+            } catch (retryErr: unknown) {
+              const msg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+              set({ isLoading: false, status: { message: `❌ ${msg}`, kind: 'err' }, currentJobId: null, currentJobStatus: null });
+            }
+          } else if (jobStatus.status === 'done') {
+            _clearJobFromStorage();
+            set({
+              isLoading: false,
+              currentJobId: null,
+              currentJobStatus: null,
+              pendingJobResult: _normalizeJobResult(jobStatus, syntheticNeutralized),
+              status: { message: `✅ Planification semaine ${jobStatus.week} terminée`, kind: 'ok' },
+            });
+            void cancelJob(existingId);
+          }
+        } catch {
+          set({ isLoading: false, status: { message: '❌ Impossible de résoudre le conflit de job.', kind: 'err' }, currentJobId: null, currentJobStatus: null });
+        }
+      } else {
+        const message = err instanceof Error ? err.message : String(err);
+        set({ isLoading: false, status: { message: `❌ ${message}`, kind: 'err' }, currentJobId: null, currentJobStatus: null });
+      }
     }
   },
 

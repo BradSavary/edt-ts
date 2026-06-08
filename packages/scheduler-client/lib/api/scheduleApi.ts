@@ -169,6 +169,13 @@ export function buildScheduleStatus(result: ScheduleResult): ScheduleStatus {
 // API asynchrone (job queue)
 // --------------------------------------------------------------------------
 
+export class JobConflictError extends Error {
+  constructor(public readonly existingJobId: string) {
+    super('Un job est déjà en cours pour ce client.');
+    this.name = 'JobConflictError';
+  }
+}
+
 /**
  * Soumet un job de planification asynchrone.
  * Retourne immédiatement un { jobId } — le calcul s'effectue en arrière-plan.
@@ -189,8 +196,12 @@ export async function submitJobAsync(
     body: JSON.stringify(payload),
   });
 
-  if (!response.ok) {
+  if (response.status === 409) {
     const data = await response.json().catch(() => ({})) as { error?: string; existingJobId?: string };
+    throw new JobConflictError(data.existingJobId ?? '');
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({})) as { error?: string };
     throw new Error(data?.error ?? `Erreur ${response.status}`);
   }
 
