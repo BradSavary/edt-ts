@@ -25,6 +25,8 @@ export function CoursesImportBlock() {
         useSchedulerStore.getState().setCourses(courses, coursesCsvFile.name);
         useSchedulerStore.getState().setResources(extractedResources);
         useSchedulerStore.getState().setResourceWeeks(resourceWeeks);
+        const allNewIds = extractedResources.flatMap((g) => g.resources.map((r) => r.id));
+        useSchedulerStore.getState().pruneConstraints(allNewIds);
         usePlanningStore.getState().handleEnforceChange({});
         setImportStatus('success');
       } catch {

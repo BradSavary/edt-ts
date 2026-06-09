@@ -113,7 +113,18 @@ export function ConstraintsManager() {
   }
 
   // Group resource keys by detected type (excluding "Default")
-  const allIds = Object.keys(constraints).filter((k) => k !== 'Default');
+  // Merge: constraints entries + all CSV resources (visible même sans contraintes définies)
+  const allIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const k of Object.keys(constraints)) {
+      if (k !== 'Default') ids.add(k);
+    }
+    for (const group of storeResources) {
+      for (const r of group.resources) ids.add(r.id);
+    }
+    return [...ids];
+  }, [constraints, storeResources]);
+
   const byType: Record<ResourceTypeUI, string[]> = {
     teacher: [],
     room: [],
@@ -221,7 +232,7 @@ export function ConstraintsManager() {
             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 shrink-0">
               Ressources
             </span>
-            <span className="text-sm font-medium">Default</span>
+            <span className="text-sm font-medium">Défaut</span>
           </button>
 
           {/* Tabs by type */}

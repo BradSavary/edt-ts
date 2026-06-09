@@ -21,6 +21,8 @@ export interface ConstraintsSlice {
   importConstraints: (data: ConstraintsRecord) => void;
   exportConstraints: () => string;
   setResourceWeeks: (weeks: Record<string, number[]>) => void;
+  /** Supprime les contraintes des ressources absentes de validIds (conserve Default). */
+  pruneConstraints: (validIds: string[]) => void;
 }
 
 export const createConstraintsSlice: StateCreator<ConstraintsSlice> = (set, get) => {
@@ -86,6 +88,17 @@ export const createConstraintsSlice: StateCreator<ConstraintsSlice> = (set, get)
 
     setResourceWeeks: (weeks) => {
       set({ resourceWeeks: weeks });
+    },
+
+    pruneConstraints: (validIds) => {
+      const validSet = new Set(validIds);
+      const current = get().constraints;
+      const next: ConstraintsRecord = {};
+      if ('Default' in current) next.Default = current.Default;
+      for (const [id, value] of Object.entries(current)) {
+        if (id !== 'Default' && validSet.has(id)) next[id] = value;
+      }
+      set({ constraints: next });
     },
   };
 };
