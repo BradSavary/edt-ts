@@ -35,6 +35,7 @@ export interface WeekSavesSlice {
   loadWeekSave: (schoolYear: string, weekNumber: number) => PreparedWeekSnapshot | null;
   hasWeekSave: (schoolYear: string, weekNumber: number) => boolean;
   deleteWeekSave: (schoolYear: string, weekNumber: number) => void;
+  clearAllWeekSaves: () => void;
 }
 
 export const createWeekSavesSlice: StateCreator<WeekSavesSlice> = (set, get) => ({
@@ -71,5 +72,9 @@ export const createWeekSavesSlice: StateCreator<WeekSavesSlice> = (set, get) => 
         },
       };
     });
+  },
+
+  clearAllWeekSaves: () => {
+    set({ weekSaves: {} });
   },
 });

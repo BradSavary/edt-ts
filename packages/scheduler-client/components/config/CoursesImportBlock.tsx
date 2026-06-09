@@ -1,18 +1,42 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { parseCsvFull } from '@/lib/parseCsvCourses';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { usePlanningStore } from '@/store/usePlanningStore';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 export function CoursesImportBlock() {
-  const allCourses = useSchedulerStore((s) => s.allCourses);
-  const resources = useSchedulerStore((s) => s.resources);
+  const allCourses     = useSchedulerStore((s) => s.allCourses);
+  const resources      = useSchedulerStore((s) => s.resources);
   const coursesFileName = useSchedulerStore((s) => s.coursesFileName);
+  const weekSaves      = useSchedulerStore((s) => s.weekSaves);
+  const constraints    = useSchedulerStore((s) => s.constraints);
 
-  const [coursesCsvFile, setCoursesCsvFile] = useState<File | null>(null);
-  const [importStatus, setImportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [coursesCsvFile, setCoursesCsvFile]   = useState<File | null>(null);
+  const [pendingFile, setPendingFile]         = useState<File | null>(null);
+  const [showWarning, setShowWarning]         = useState(false);
+  const [importStatus, setImportStatus]       = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Nombre de semaines sauvegardées
+  const weekSaveCount = Object.values(weekSaves).reduce(
+    (acc, yearSaves) => acc + Object.keys(yearSaves).length, 0,
+  );
+
+  // Nombre de ressources avec des contraintes explicites (hors Default)
+  const constraintCount = Object.keys(constraints).filter(
+    (k) => k !== 'Default' && constraints[k] !== null && constraints[k] !== undefined,
+  ).length;
 
   useEffect(() => {
     if (!coursesCsvFile) return;
@@ -25,6 +49,7 @@ export function CoursesImportBlock() {
         useSchedulerStore.getState().setCourses(courses, coursesCsvFile.name);
         useSchedulerStore.getState().setResources(extractedResources);
         useSchedulerStore.getState().setResourceWeeks(resourceWeeks);
+        useSchedulerStore.getState().clearAllWeekSaves();
         const allNewIds = extractedResources.flatMap((g) => g.resources.map((r) => r.id));
         useSchedulerStore.getState().pruneConstraints(allNewIds);
         usePlanningStore.getState().handleEnforceChange({});
@@ -37,6 +62,31 @@ export function CoursesImportBlock() {
     });
     return () => { cancelled = true; };
   }, [coursesCsvFile]);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Si un CSV est déjà chargé, afficher l'avertissement avant d'importer
+    if (allCourses.length > 0) {
+      setPendingFile(file);
+      setShowWarning(true);
+    } else {
+      setCoursesCsvFile(file);
+    }
+    // Réinitialiser l'input pour permettre de re-sélectionner le même fichier
+    e.target.value = '';
+  }
+
+  function handleConfirmReplace() {
+    setShowWarning(false);
+    setCoursesCsvFile(pendingFile);
+    setPendingFile(null);
+  }
+
+  function handleCancelReplace() {
+    setShowWarning(false);
+    setPendingFile(null);
+  }
 
   const resourceCount = resources.reduce((acc, g) => acc + g.resources.length, 0);
 
@@ -90,9 +140,10 @@ export function CoursesImportBlock() {
         )}
 
         <input
+          ref={fileInputRef}
           type="file"
           accept=".csv"
-          onChange={(e) => setCoursesCsvFile(e.target.files?.[0] ?? null)}
+          onChange={handleFileChange}
           className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-secondary file:text-secondary-foreground hover:file:bg-secondary/80"
         />
         {importStatus === 'idle' && allCourses.length > 0 && (
@@ -106,6 +157,53 @@ export function CoursesImportBlock() {
           le module Contraintes
         </a>.
       </div>
+
+      {/* Dialog de confirmation de remplacement */}
+      <Dialog open={showWarning} onOpenChange={(open) => { if (!open) handleCancelReplace(); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Remplacer le fichier CSV ?</DialogTitle>
+            <DialogDescription>
+              Remplacer <span className="font-medium text-foreground">{coursesFileName}</span> par{' '}
+              <span className="font-medium text-foreground">{pendingFile?.name}</span> effacera les données suivantes :
+            </DialogDescription>
+          </DialogHeader>
+
+          <ul className="text-sm space-y-1.5 my-1">
+            {weekSaveCount > 0 && (
+              <li className="flex items-start gap-2">
+                <span className="text-amber-500 shrink-0 mt-0.5">⚠</span>
+                <span>
+                  <span className="font-medium">{weekSaveCount} semaine{weekSaveCount > 1 ? 's' : ''} sauvegardée{weekSaveCount > 1 ? 's' : ''}</span>
+                  {' '}(préparations, cours imposés, zones bloquées)
+                </span>
+              </li>
+            )}
+            {constraintCount > 0 && (
+              <li className="flex items-start gap-2">
+                <span className="text-amber-500 shrink-0 mt-0.5">⚠</span>
+                <span>
+                  Les contraintes des ressources absentes du nouveau CSV seront supprimées
+                  {' '}(<span className="font-medium">{constraintCount} ressource{constraintCount > 1 ? 's' : ''}</span> avec contraintes actuellement)
+                </span>
+              </li>
+            )}
+            <li className="flex items-start gap-2">
+              <span className="text-amber-500 shrink-0 mt-0.5">⚠</span>
+              <span>Résultats de planification et cours imposés en session</span>
+            </li>
+          </ul>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={handleCancelReplace}>
+              Annuler
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleConfirmReplace}>
+              Remplacer quand même
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
