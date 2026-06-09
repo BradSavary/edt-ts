@@ -187,7 +187,12 @@ export async function submitJobAsync(
   const { week, courses, resources, constraintsData, enforcedMap, blockedZones, schedulerConfig, groups } = params;
   const payload = _buildPayload(week, resources, courses, constraintsData, enforcedMap, blockedZones, schedulerConfig, groups);
 
-  const response = await fetch(`${API_BASE}/api/schedule/v2/async`, {
+  const endpoint = `${API_BASE}/api/schedule/v2/async`;
+  console.groupCollapsed(`📤 Requête ${endpoint}`);
+  console.log(payload);
+  console.groupEnd();
+
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -196,25 +201,42 @@ export async function submitJobAsync(
     body: JSON.stringify(payload),
   });
 
-  if (response.status === 409) {
-    const data = await response.json().catch(() => ({})) as { error?: string; existingJobId?: string };
-    throw new JobConflictError(data.existingJobId ?? '');
-  }
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(data?.error ?? `Erreur ${response.status}`);
+  const rawText = await response.text();
+  let data: unknown;
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    throw new Error(`L'API a répondu avec une erreur ${response.status} : ${rawText.slice(0, 200)}`);
   }
 
-  return response.json() as Promise<JobSubmitResponse>;
+  console.groupCollapsed(`📥 Réponse ${endpoint}`);
+  console.log(data);
+  console.groupEnd();
+
+  if (response.status === 409) {
+    const d = data as { error?: string; existingJobId?: string };
+    throw new JobConflictError(d.existingJobId ?? '');
+  }
+  if (!response.ok) {
+    const d = data as { error?: string };
+    throw new Error(d?.error ?? `Erreur ${response.status}`);
+  }
+
+  return data as JobSubmitResponse;
 }
 
 /** Interroge le statut d'un job. */
 export async function pollJob(jobId: string): Promise<JobStatusResponse> {
-  const response = await fetch(`${API_BASE}/api/schedule/jobs/${jobId}`);
+  const endpoint = `${API_BASE}/api/schedule/jobs/${jobId}`;
+  const response = await fetch(endpoint);
   if (!response.ok) {
     throw new Error(`Erreur lors du polling (${response.status})`);
   }
-  return response.json() as Promise<JobStatusResponse>;
+  const data = await response.json() as JobStatusResponse;
+  console.groupCollapsed(`📥 Poll ${endpoint}`);
+  console.log(data);
+  console.groupEnd();
+  return data;
 }
 
 /** Annule ou supprime un job. */
