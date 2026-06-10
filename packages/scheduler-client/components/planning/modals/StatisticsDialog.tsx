@@ -146,10 +146,7 @@ function DailyGroupedCharts({
                     tickLine={false}
                   />
                   <Tooltip
-                    formatter={(v, name) => [
-                      formatMinutes(Number(v)),
-                      name === 'usage' ? 'Utilisation' : 'Amplitude',
-                    ]}
+                    formatter={(v, name) => [formatMinutes(Number(v)), name]}
                     contentStyle={{ fontSize: 11 }}
                   />
                   <Bar dataKey="usage" name="Utilisation" fill="#6366f1" radius={[2, 2, 0, 0]} />
