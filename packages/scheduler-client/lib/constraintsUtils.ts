@@ -51,6 +51,12 @@ export function normalizeToRC(
   return value;
 }
 
+export const DEFAULT_SLOTS: TimeSlot[] = [
+  { days: 'lundi, mardi, mercredi, jeudi, vendredi', from: '08:00', to: '12:30' },
+  { days: 'lundi, mardi, mercredi', from: '13:30', to: '19:30' },
+  { days: 'vendredi', from: '13:30', to: '17:30' },
+];
+
 export function emptyDayMap(): DayMap {
   return { lundi: [], mardi: [], mercredi: [], jeudi: [], vendredi: [], samedi: [] };
 }

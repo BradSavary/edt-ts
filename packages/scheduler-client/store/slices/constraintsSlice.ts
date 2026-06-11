@@ -2,6 +2,7 @@ import type { ConstraintsData, ResourceConstraints, TimeSlot } from '@edt-ts/sch
 import type { StateCreator } from 'zustand';
 import {
   exportAsJSON, // utilisé uniquement pour l'export/import JSON (pas de localStorage)
+  DEFAULT_SLOTS,
 } from '@/lib/constraintsUtils';
 
 // Type interne correspondant au format JSON réel des contraintes
@@ -37,7 +38,7 @@ export const createConstraintsSlice: StateCreator<ConstraintsSlice> = (set, get)
   }
 
   return {
-    constraints: {},
+    constraints: { Default: DEFAULT_SLOTS },
     resourceWeeks: {},
     saveNotice: false,
 
