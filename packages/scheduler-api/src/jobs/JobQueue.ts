@@ -152,3 +152,17 @@ class JobQueue {
 }
 
 export const jobQueue = new JobQueue();
+
+/**
+ * Pré-chauffe le code du worker (compile via esbuild) au démarrage du serveur.
+ * À appeler AVANT app.listen() pour éviter que le premier job ne bloque l'event loop
+ * et ne soit interrompu par un redémarrage tsx --watch.
+ */
+export function warmupWorkerCode(): void {
+  try {
+    _getWorkerCode();
+    console.log('[JobQueue] Worker code pré-chargé avec succès.');
+  } catch (err) {
+    console.warn('[JobQueue] Avertissement lors du pré-chargement du worker :', err);
+  }
+}
