@@ -41,8 +41,17 @@ class JobQueue {
   private activeWorker: Worker | null = null;
   private activeJobId: string | null = null;
 
+  private _log(event: string): void {
+    const active = this.activeJobId ? `running:${this.activeJobId.slice(0, 8)}` : 'idle';
+    const pending = this.queue.length > 0
+      ? this.queue.map(id => id.slice(0, 8)).join(', ')
+      : '—';
+    console.log(`[JobQueue] ${event} | actif=${active} | file(${this.queue.length})=[${pending}]`);
+  }
+
   enqueue(jobId: string): void {
     this.queue.push(jobId);
+    this._log(`+enqueue ${jobId.slice(0, 8)}`);
     if (this.activeWorker === null) {
       this.processNext();
     }
@@ -54,6 +63,7 @@ class JobQueue {
     if (idx !== -1) {
       this.queue.splice(idx, 1);
       updateJob(jobId, { status: 'cancelled', finishedAt: new Date() });
+      this._log(`cancel(pending) ${jobId.slice(0, 8)}`);
       return;
     }
 
@@ -63,6 +73,7 @@ class JobQueue {
       this.activeWorker = null;
       this.activeJobId = null;
       updateJob(jobId, { status: 'cancelled', finishedAt: new Date() });
+      this._log(`cancel(running) ${jobId.slice(0, 8)}`);
       this.processNext();
       return;
     }
@@ -71,6 +82,7 @@ class JobQueue {
     const entry = getJob(jobId);
     if (entry && (entry.status === 'running' || entry.status === 'pending')) {
       updateJob(jobId, { status: 'cancelled', finishedAt: new Date() });
+      console.log(`[JobQueue] cancel(zombie) ${jobId.slice(0, 8)}`);
     }
   }
 
@@ -106,7 +118,7 @@ class JobQueue {
     const entry = getJob(jobId);
     if (!entry) return;
 
-    console.log(`[JobQueue] Démarrage worker pour job ${jobId}`);
+    this._log(`→ start ${jobId.slice(0, 8)}`);
     const worker = new Worker(_getWorkerCode(), {
       eval: true,
       workerData: { jobId, payload: entry.payload },
@@ -125,6 +137,7 @@ class JobQueue {
       }
       this.activeWorker = null;
       this.activeJobId = null;
+      this._log(`✓ done ${msg.jobId.slice(0, 8)} (${msg.type})`);
       this.processNext();
     });
 
