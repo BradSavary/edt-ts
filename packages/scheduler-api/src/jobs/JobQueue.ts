@@ -114,18 +114,23 @@ class JobQueue {
     }
   }
 
+  // Lance un worker pour exécuter le job spécifié. Le worker est créé avec le code pré-bundlé par esbuild.
   private runWorker(jobId: string): void {
     const entry = getJob(jobId);
     if (!entry) return;
 
-    this._log(`→ start ${jobId.slice(0, 8)}`);
     const worker = new Worker(_getWorkerCode(), {
       eval: true,
       workerData: { jobId, payload: entry.payload },
+      // Le worker tourne sur du CJS pré-bundlé par esbuild : les hooks tsx hérités
+      // du processus parent sont inutiles et déclenchent des écritures cache qui
+      // font redémarrer tsx --watch, tuant le job en cours.
+      execArgv: [],
     });
 
     this.activeWorker = worker;
     this.activeJobId = jobId;
+    this._log(`→ start ${jobId.slice(0, 8)}`);
 
     worker.on('message', (msg: { type: string; jobId: string; result?: ScheduleSolutionJSON[]; error?: string }) => {
       // Ignorer les messages d'un worker annulé (stale message après terminate())

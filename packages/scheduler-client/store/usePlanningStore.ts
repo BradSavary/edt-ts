@@ -605,8 +605,10 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
 
 const JOB_PERSISTENCE_KEY = 'edt-pending-job';
 
+const JOB_TTL_MS = 24 * 60 * 60 * 1000; // 8 heures
+
 function _saveJobToStorage(jobId: string, syntheticNeutralized: NeutralizedTaskInfoJSON[]) {
-  try { localStorage.setItem(JOB_PERSISTENCE_KEY, JSON.stringify({ jobId, syntheticNeutralized })); } catch {}
+  try { localStorage.setItem(JOB_PERSISTENCE_KEY, JSON.stringify({ jobId, syntheticNeutralized, savedAt: Date.now() })); } catch {}
 }
 
 function _clearJobFromStorage() {
@@ -616,7 +618,13 @@ function _clearJobFromStorage() {
 function _loadJobFromStorage(): { jobId: string; syntheticNeutralized: NeutralizedTaskInfoJSON[] } | null {
   try {
     const raw = localStorage.getItem(JOB_PERSISTENCE_KEY);
-    return raw ? (JSON.parse(raw) as { jobId: string; syntheticNeutralized: NeutralizedTaskInfoJSON[] }) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { jobId: string; syntheticNeutralized: NeutralizedTaskInfoJSON[]; savedAt?: number };
+    if (parsed.savedAt && Date.now() - parsed.savedAt > JOB_TTL_MS) {
+      _clearJobFromStorage();
+      return null;
+    }
+    return { jobId: parsed.jobId, syntheticNeutralized: parsed.syntheticNeutralized };
   } catch { return null; }
 }
 
@@ -678,7 +686,20 @@ function _startPolling(jobId: string, syntheticNeutralized: NeutralizedTaskInfoJ
           });
         }
       } catch (pollErr) {
-        console.warn('Erreur de polling (réseau?) :', pollErr);
+        const is404 = pollErr instanceof Error && pollErr.message.includes('404');
+        if (is404) {
+          clearInterval(_pollingInterval!);
+          _pollingInterval = null;
+          _clearJobFromStorage();
+          usePlanningStore.setState({
+            isLoading: false,
+            status: { message: 'La session de planification a expiré (serveur redémarré).', kind: 'inf' },
+            currentJobId: null,
+            currentJobStatus: null,
+          });
+        } else {
+          console.warn('Erreur de polling (réseau?) :', pollErr);
+        }
       }
     })();
   }, 5000);
