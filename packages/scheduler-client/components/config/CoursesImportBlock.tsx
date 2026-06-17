@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { parseCsvFull } from '@/lib/parseCsvCourses';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { usePlanningStore } from '@/store/usePlanningStore';
+import { loadDemoData } from '@/lib/demoData';
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,7 @@ export function CoursesImportBlock() {
   const [coursesCsvFile, setCoursesCsvFile]   = useState<File | null>(null);
   const [pendingFile, setPendingFile]         = useState<File | null>(null);
   const [showWarning, setShowWarning]         = useState(false);
+  const [showDemoWarning, setShowDemoWarning] = useState(false);
   const [importStatus, setImportStatus]       = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -88,6 +90,25 @@ export function CoursesImportBlock() {
     setPendingFile(null);
   }
 
+  function handleResetToDemo() {
+    if (allCourses.length > 0) {
+      setShowDemoWarning(true);
+    } else {
+      setImportStatus('loading');
+      loadDemoData()
+        .then(() => setImportStatus('success'))
+        .catch(() => setImportStatus('error'));
+    }
+  }
+
+  function handleConfirmResetToDemo() {
+    setShowDemoWarning(false);
+    setImportStatus('loading');
+    loadDemoData()
+      .then(() => setImportStatus('success'))
+      .catch(() => setImportStatus('error'));
+  }
+
   const resourceCount = resources.reduce((acc, g) => acc + g.resources.length, 0);
 
   return (
@@ -149,6 +170,15 @@ export function CoursesImportBlock() {
         {importStatus === 'idle' && allCourses.length > 0 && (
           <p className="text-xs text-muted-foreground">Sélectionnez un nouveau fichier pour remplacer.</p>
         )}
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleResetToDemo}
+          className="w-full text-xs"
+        >
+          Revenir aux données de démo
+        </Button>
       </div>
 
       <div className="text-xs text-muted-foreground rounded-md border border-border bg-muted/30 px-3 py-2">
@@ -157,6 +187,43 @@ export function CoursesImportBlock() {
           le module Contraintes
         </a>.
       </div>
+
+      {/* Dialog confirmation retour aux données de démo */}
+      <Dialog open={showDemoWarning} onOpenChange={(open) => { if (!open) setShowDemoWarning(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Revenir aux données de démo ?</DialogTitle>
+            <DialogDescription>
+              Cela remplacera les données actuelles par le jeu de données de démonstration et effacera :
+            </DialogDescription>
+          </DialogHeader>
+
+          <ul className="text-sm space-y-1.5 my-1">
+            {weekSaveCount > 0 && (
+              <li className="flex items-start gap-2">
+                <span className="text-amber-500 shrink-0 mt-0.5">⚠</span>
+                <span>
+                  <span className="font-medium">{weekSaveCount} semaine{weekSaveCount > 1 ? 's' : ''} sauvegardée{weekSaveCount > 1 ? 's' : ''}</span>
+                  {' '}(préparations, cours imposés, zones bloquées)
+                </span>
+              </li>
+            )}
+            <li className="flex items-start gap-2">
+              <span className="text-amber-500 shrink-0 mt-0.5">⚠</span>
+              <span>Cours importés, contraintes personnalisées et résultats de planification</span>
+            </li>
+          </ul>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowDemoWarning(false)}>
+              Annuler
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleConfirmResetToDemo}>
+              Revenir aux données de démo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog de confirmation de remplacement */}
       <Dialog open={showWarning} onOpenChange={(open) => { if (!open) handleCancelReplace(); }}>
