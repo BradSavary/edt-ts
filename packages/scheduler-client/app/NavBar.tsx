@@ -43,14 +43,19 @@ export function NavBar() {
           </Link>
         );
       })}
-      {pendingJobResult && (
-        <div className="ml-auto flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
-          <span>✅ Semaine {pendingJobResult.week} planifiée</span>
-          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={handleViewResult}>
-            Voir le résultat
-          </Button>
-        </div>
-      )}
+      <div className="ml-auto flex items-center gap-3">
+        {pendingJobResult && (
+          <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+            <span>✅ Semaine {pendingJobResult.week} planifiée</span>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={handleViewResult}>
+              Voir le résultat
+            </Button>
+          </div>
+        )}
+        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700 select-none">
+          Version préliminaire — tests et démo
+        </span>
+      </div>
     </nav>
   );
 }

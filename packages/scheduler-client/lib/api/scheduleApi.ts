@@ -157,6 +157,14 @@ export interface ScheduleStatus {
  */
 export function buildScheduleStatus(result: ScheduleResult): ScheduleStatus {
   const best = result.solutions[0];
+  if (!best || best.tasks.length === 0) {
+    const neutralized = best?.neutralizedTasks?.length ?? 0;
+    const neutralizedMsg = neutralized ? ` — ${neutralized} cours neutralisé(s)` : '';
+    return {
+      message: `❌ Aucune solution trouvée${neutralizedMsg}`,
+      kind: 'err',
+    };
+  }
   const neutralizedMsg = best.neutralizedTasks?.length
     ? ` — ${best.neutralizedTasks.length} cours non placé(s)` : '';
   return {

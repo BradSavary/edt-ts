@@ -61,12 +61,10 @@ export function startTTLCleanup(intervalMs = 60 * 60 * 1000): void {
   setInterval(() => {
     const now = Date.now();
     for (const [id, entry] of store.entries()) {
-      if (
-        entry.finishedAt &&
-        (entry.status === 'done' || entry.status === 'error' || entry.status === 'cancelled') &&
-        now - entry.finishedAt.getTime() > TTL_MS
-      ) {
+      const refTime = entry.finishedAt ?? entry.createdAt;
+      if (now - refTime.getTime() > TTL_MS) {
         store.delete(id);
+        console.log(`[JobStore] TTL expiré — job supprimé : ${id.slice(0, 8)} (statut=${entry.status})`);
       }
     }
   }, intervalMs);

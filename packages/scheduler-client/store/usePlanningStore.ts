@@ -419,6 +419,22 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     if (!pendingJobResult) return;
     const { result, syntheticNeutralized, week } = pendingJobResult;
     const best = result.solutions[0];
+
+    // Si le moteur n'a placé aucune tâche, on reste en mode préparation
+    if (!best || best.tasks.length === 0) {
+      const neutralized = [...(best?.neutralizedTasks ?? []), ...syntheticNeutralized];
+      const neutralizedMsg = neutralized.length ? ` — ${neutralized.length} cours neutralisé(s)` : '';
+      set({
+        selectedWeek: week,
+        isLoading: false,
+        status: { message: `❌ Aucune solution trouvée${neutralizedMsg}`, kind: 'err' },
+        currentJobId: null,
+        currentJobStatus: null,
+        pendingJobResult: null,
+      });
+      return;
+    }
+
     set({
       selectedWeek: week,
       scheduleResult: result,

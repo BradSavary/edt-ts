@@ -227,10 +227,10 @@ export interface SchedulerConfig {
 
 /** Valeurs par défaut appliquées par le solver lorsqu'une option n'est pas fournie. */
 export const DEFAULT_SCHEDULER_CONFIG: Required<SchedulerConfig> = {
-  maxSolutions: 6,
-  timeoutSeconds: 180,
+  maxSolutions: 1,
+  timeoutSeconds: 8,
   maxIterations: 1_000_000,
-  maxEliminations: 3,
+  maxEliminations: 6,
   resourceSelection: 'deterministic',
   lunchBreak: { type: 'none' },
   ignoreDailyLimits: false,
