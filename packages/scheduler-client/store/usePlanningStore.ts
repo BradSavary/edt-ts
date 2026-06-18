@@ -265,12 +265,22 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   toggleGroupDrawer: () => set((s) => ({ groupDrawerOpen: !s.groupDrawerOpen })),
 
   runSchedule: async () => {
-    const { selectedWeek, enforcedMap, blockedZones, taskGroups, preNeutralizedKeys, pendingJobResult, currentJobId } = get();
+    // Nettoyage préventif : couper le polling et annuler tout job en cours (repris ou en attente).
+    // Cela évite que "session expirée" n'apparaisse lors du premier poll après une reprise zombie.
+    if (_pollingInterval !== null) { clearInterval(_pollingInterval); _pollingInterval = null; }
+    const prevJobId = get().currentJobId ?? _loadJobFromStorage()?.jobId;
+    if (prevJobId) {
+      await cancelJob(prevJobId).catch(() => {});
+      _clearJobFromStorage();
+      set({ currentJobId: null, currentJobStatus: null });
+    }
+
+    const { selectedWeek, enforcedMap, blockedZones, taskGroups, preNeutralizedKeys, pendingJobResult } = get();
     if (selectedWeek === null) {
       set({ status: { message: '❌ Semaine non sélectionnée.', kind: 'err' } });
       return;
     }
-    if (currentJobId !== null || pendingJobResult !== null) {
+    if (pendingJobResult !== null) {
       set({ status: { message: '⏳ Récupérez le résultat en attente avant de lancer une nouvelle planification.', kind: 'inf' } });
       return;
     }
