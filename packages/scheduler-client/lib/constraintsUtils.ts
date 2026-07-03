@@ -39,7 +39,7 @@ export function normalizeWeekKey(raw: string): string {
 
 /** Get week-specific keys from a ResourceConstraints (excludes "default") (example: "S36") */
 export function getWeekKeys(rc: ResourceConstraints): string[] {
-  return Object.keys(rc).filter((k) => k !== 'default');
+  return Object.keys(rc).filter((k) => /^S\d+$/.test(k));
 }
 
 /** Normalize TimeSlot[] | ResourceConstraints | null → ResourceConstraints | null */
