@@ -124,8 +124,13 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
 
   useEffect(() => {
     if (prevParsedCoursesRef.current !== parsedCourses) {
+      const prev = prevParsedCoursesRef.current;
       prevParsedCoursesRef.current = parsedCourses;
-      if (skipNextParsedCoursesResetRef.current || weekChangedRef.current) {
+      // Un ajout de cours (append) ne change pas les indices existants — pas de reset.
+      const isAppendOnly =
+        parsedCourses.length > prev.length &&
+        prev.every((c, i) => parsedCourses[i] === c);
+      if (skipNextParsedCoursesResetRef.current || weekChangedRef.current || isAppendOnly) {
         skipNextParsedCoursesResetRef.current = false;
         weekChangedRef.current = false;
       } else {
