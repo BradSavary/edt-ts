@@ -586,7 +586,6 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       activeNeutralizedTasks: [],
       taskOverrides: {},
       placedNeutralizedTasks: [],
-      preNeutralizedKeys: [],
       manuallyNeutralizedTasks: [],
       solutionStates: {},
       syntheticNeutralizedTasks: [],
