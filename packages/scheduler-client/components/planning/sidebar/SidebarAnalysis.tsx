@@ -11,7 +11,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Dialog,
   DialogContent,
@@ -20,7 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import TaskCard from '@/components/planning/courses/TaskCard';
+import NeutralizedTaskCard from '@/components/planning/courses/NeutralizedTaskCard';
+import { solutionToBaseProps, manuallyNeutralizedToBaseProps } from '@/lib/taskCardUtils';
 
 export function SidebarAnalysis() {
   const resetScheduleResult = usePlanningStore((s) => s.resetScheduleResult);
@@ -145,7 +145,6 @@ export function SidebarAnalysis() {
               {/* Tâches neutralisées par le moteur ou pré-neutralisées */}
               {unplacedNeutralized.map((neutralizedInfo) => {
                 const task = neutralizedInfo.task;
-
                 const isPreNeutralized = task.taskId.startsWith('pre-neutral-');
                 const tooltipLines: string[] = [neutralizedInfo.reason];
                 if (!isPreNeutralized) {
@@ -165,42 +164,23 @@ export function SidebarAnalysis() {
                     }
                   }
                 }
-
                 return (
-                  <Tooltip key={task.taskId}>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <TaskCard
-                          code={task.code}
-                          type={task.type}
-                          name={task.name}
-                          duration={task.duration}
-                          teachers={task.resources.filter((r) => r.type === 'teacher').map((r) => r.id)}
-                          groups={task.resources.filter((r) => r.type === 'group').map((r) => r.id)}
-                          rooms={task.resources.filter((r) => r.type === 'room').map((r) => r.id)}
-                          taskId={task.taskId}
-                        />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="right" color='light' className="max-w-72 whitespace-pre-line bg-background text-foreground border shadow-md">
-                      {tooltipLines.join('\n')}
-                    </TooltipContent>
-                  </Tooltip>
+                  <NeutralizedTaskCard
+                    key={task.taskId}
+                    {...solutionToBaseProps(task)}
+                    taskId={task.taskId}
+                    tooltipContent={tooltipLines.join('\n')}
+                  />
                 );
               })}
 
               {/* Tâches retirées manuellement du calendrier */}
               {manuallyNeutralizedTasks.map((task) => (
-                <TaskCard
+                <NeutralizedTaskCard
                   key={task.taskId}
-                  code={task.code}
-                  type={task.type}
-                  name={task.name}
-                  duration={task.duration}
-                  teachers={task.teachers}
-                  groups={task.groups}
-                  rooms={task.rooms}
+                  {...manuallyNeutralizedToBaseProps(task)}
                   taskId={task.taskId}
+                  tooltipContent="Retirée manuellement du calendrier"
                 />
               ))}
             </div>

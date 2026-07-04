@@ -1,9 +1,10 @@
 'use client';
 
-import type { CourseTaskData, ResourceEntry } from '@edt-ts/scheduler-common';
+import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { getCourseGroupInfo } from '@/lib/taskGroupUtils';
 import TaskCard from '@/components/planning/courses/TaskCard';
+import { normalizeResourceEntries } from '@/lib/taskCardUtils';
 
 interface Props {
   courseKey: string;
@@ -12,10 +13,6 @@ interface Props {
   onEdit?: () => void;
   onDuplicate?: () => void;
   onDelete?: () => void;
-}
-
-function normalizeEntries(entries: ResourceEntry[]): string[] {
-  return entries.map((e) => (Array.isArray(e) ? e.join(' | ') : e));
 }
 
 export default function CourseCard({ courseKey, course, enforced, onEdit, onDuplicate, onDelete }: Props) {
@@ -31,9 +28,9 @@ export default function CourseCard({ courseKey, course, enforced, onEdit, onDupl
       type={course.type}
       name={course.name}
       duration={course.duration}
-      teachers={normalizeEntries(course.teacher)}
-      groups={normalizeEntries(course.groups)}
-      rooms={normalizeEntries(course.rooms ?? [])}
+      teachers={normalizeResourceEntries(course.teacher)}
+      groups={normalizeResourceEntries(course.groups)}
+      rooms={normalizeResourceEntries(course.rooms ?? [])}
       isNeutralized={isNeutralized}
       isEnforced={enforced}
       groupInfo={groupInfo}
