@@ -40,6 +40,11 @@ interface SchedulerDataSlice {
   setTightThreshold: (threshold: number) => void;
   setCriticalThreshold: (threshold: number) => void;
   setResourceMaxDailyMinutes: (id: string, maxDailyMinutes: number | undefined) => void;
+  /**
+   * Action atomique d’import CSV : remplace cours et ressources, purge les sauvegardes
+   * de semaine, élague les contraintes obsolètes et remet à zéro les impositions.
+   */
+  importCsvData: (courses: CourseTaskData[], resources: ResourceGroupData[], fileName: string) => void;
 }
 
 // ── Store combiné ──────────────────────────────────────────────────────────
@@ -69,6 +74,25 @@ export const useSchedulerStore = create<SchedulerStore>()(
       setResources: (resources) => set({ resources }),
       addCourse: (course) => set((state) => ({ allCourses: [...state.allCourses, course] })),
       removeCourse: (index) => set((state) => ({ allCourses: state.allCourses.filter((_, i) => i !== index) })),
+      importCsvData: (courses, resources, fileName) => {
+        const validIds = resources.flatMap((g) => g.resources.map((r) => r.id));
+        set((state) => {
+          const validSet = new Set(validIds);
+          const current = state.constraints;
+          const prunedConstraints: typeof current = {};
+          if ('Default' in current) prunedConstraints.Default = current.Default;
+          for (const [id, value] of Object.entries(current)) {
+            if (id !== 'Default' && validSet.has(id)) prunedConstraints[id] = value;
+          }
+          return {
+            allCourses: courses,
+            resources,
+            coursesFileName: fileName,
+            weekSaves: {},
+            constraints: prunedConstraints,
+          };
+        });
+      },
       setSchedulerConfig: (schedulerConfig) => set({ schedulerConfig }),
       setYearColorConfig: (yearColorConfig) => set({ yearColorConfig }),
       setSchoolYearConfig: (schoolYearConfig) => set({ schoolYearConfig }),
