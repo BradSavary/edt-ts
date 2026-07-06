@@ -11,7 +11,6 @@ export type ConstraintsRecord = Record<string, ConstraintValue> & { Default?: Ti
 
 export interface ConstraintsSlice {
   constraints: ConstraintsRecord;
-  resourceWeeks: Record<string, number[]>;
   /** true pendant 2s après une modification (feedback UI) */
   saveNotice: boolean;
 
@@ -21,7 +20,6 @@ export interface ConstraintsSlice {
   setDefaultConstraint: (value: ResourceConstraints | null) => void;
   importConstraints: (data: ConstraintsRecord) => void;
   exportConstraints: () => string;
-  setResourceWeeks: (weeks: Record<string, number[]>) => void;
   /** Supprime les contraintes des ressources absentes de validIds (conserve Default). */
   pruneConstraints: (validIds: string[]) => void;
 }
@@ -39,7 +37,6 @@ export const createConstraintsSlice: StateCreator<ConstraintsSlice> = (set, get)
 
   return {
     constraints: { Default: DEFAULT_SLOTS },
-    resourceWeeks: {},
     saveNotice: false,
 
     setConstraint: (id, value) => {
@@ -85,10 +82,6 @@ export const createConstraintsSlice: StateCreator<ConstraintsSlice> = (set, get)
     exportConstraints: () => {
       // exportAsJSON formate les données pour le téléchargement — pas de localStorage
       return exportAsJSON(get().constraints as ConstraintsData);
-    },
-
-    setResourceWeeks: (weeks) => {
-      set({ resourceWeeks: weeks });
     },
 
     pruneConstraints: (validIds) => {

@@ -173,7 +173,6 @@ export function extractResourceWeeks(csvText: string): Record<string, number[]> 
 export interface ParseCsvFullResult {
   courses: CourseTaskData[];
   resources: ResourceGroupData[];
-  resourceWeeks: Record<string, number[]>;
 }
 
 /**
@@ -186,7 +185,7 @@ export interface ParseCsvFullResult {
  */
 export function parseCsvFull(csvText: string): ParseCsvFullResult {
   const lines = csvText.split(/\r?\n/);
-  if (lines.length < 2) return { courses: [], resources: [], resourceWeeks: {} };
+  if (lines.length < 2) return { courses: [], resources: [] };
 
   const headerLine = lines.find((l) => l.trim().length > 0) ?? '';
   const headers = parseCSVRow(headerLine);
@@ -201,13 +200,6 @@ export function parseCsvFull(csvText: string): ParseCsvFullResult {
   const teachers = new Set<string>();
   const groups = new Set<string>();
   const rooms = new Set<string>();
-  const resourceWeeksSets: Record<string, Set<number>> = {};
-
-  function addWeek(id: string, week: number) {
-    if (!id) return;
-    if (!resourceWeeksSets[id]) resourceWeeksSets[id] = new Set();
-    resourceWeeksSets[id].add(week);
-  }
 
   const dataStart = lines.findIndex((l) => l.trim().length > 0) + 1;
 
@@ -240,7 +232,7 @@ export function parseCsvFull(csvText: string): ParseCsvFullResult {
       roomList.forEach((r) => rooms.add(r));
     }
 
-    // Génération des cours + resourceWeeks par semaine active
+    // Génération des cours par semaine active
     for (const { index, week } of weekCols) {
       const rawHours = cols[index]?.trim() ?? '';
       if (!rawHours) continue;
@@ -259,16 +251,8 @@ export function parseCsvFull(csvText: string): ParseCsvFullResult {
         rooms: rooms_entry,
         duration: Math.round(hours * 60),
       });
-
-      if (teacher) addWeek(teacher, week);
-      groupList.forEach((g) => addWeek(g, week));
-      roomList.forEach((r) => addWeek(r, week));
     }
   }
-
-  const resourceWeeks = Object.fromEntries(
-    Object.entries(resourceWeeksSets).map(([id, set]) => [id, [...set].sort((a, b) => a - b)])
-  );
 
   return {
     courses,
@@ -277,7 +261,6 @@ export function parseCsvFull(csvText: string): ParseCsvFullResult {
       { resourceType: 'group',   resources: [...groups].sort().map((id) => ({ id })) },
       { resourceType: 'room',    resources: [...rooms].sort().map((id) => ({ id })) },
     ],
-    resourceWeeks,
   };
 }
 

@@ -45,10 +45,9 @@ export function CoursesImportBlock() {
       if (cancelled) return;
       setImportStatus('loading');
       try {
-        const { courses, resources: extractedResources, resourceWeeks } = parseCsvFull(text);
+        const { courses, resources: extractedResources } = parseCsvFull(text);
         useSchedulerStore.getState().setCourses(courses, coursesCsvFile.name);
         useSchedulerStore.getState().setResources(extractedResources);
-        useSchedulerStore.getState().setResourceWeeks(resourceWeeks);
         useSchedulerStore.getState().clearAllWeekSaves();
         const allNewIds = extractedResources.flatMap((g) => g.resources.map((r) => r.id));
         useSchedulerStore.getState().pruneConstraints(allNewIds);

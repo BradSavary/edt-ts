@@ -14,6 +14,7 @@ import {
   RESOURCE_TYPE_LABELS,
 } from '@/lib/constraintsUtils';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
+import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import { ResourceConstraintEditor } from './ResourceConstraintEditor';
 import { AddResourceModal } from './AddResourceModal';
 
@@ -27,7 +28,24 @@ const RESOURCE_TABS: { value: ResourceTypeUI; label: string }[] = [
 export function ConstraintsManager() {
   // --- Store Zustand (données partagées) ---
   const constraints        = useSchedulerStore((s) => s.constraints);
-  const resourceWeeks      = useSchedulerStore((s) => s.resourceWeeks);
+  const allCourses         = useSchedulerStore((s) => s.allCourses);
+
+  const resourceWeeks = useMemo(() => {
+    const map: Record<string, Set<number>> = {};
+    function add(id: string, week: number) {
+      if (!id) return;
+      (map[id] ??= new Set()).add(week);
+    }
+    for (const course of allCourses) {
+      const w = course.week;
+      (course.teacher as (string | string[])[]).flat().forEach((t) => add(t, w));
+      (course.groups  as (string | string[])[]).flat().forEach((g) => add(g, w));
+      (course.rooms   as (string | string[])[]).flat().forEach((r) => add(r, w));
+    }
+    const result: Record<string, number[]> = {};
+    for (const [id, set] of Object.entries(map)) result[id] = [...set].sort((a, b) => a - b);
+    return result;
+  }, [allCourses]);
   const saveNotice         = useSchedulerStore((s) => s.saveNotice);
   const storeResources     = useSchedulerStore((s) => s.resources);
   const setConstraint      = useSchedulerStore((s) => s.setConstraint);
