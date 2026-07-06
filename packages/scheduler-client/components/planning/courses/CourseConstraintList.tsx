@@ -1,6 +1,7 @@
 'use client';
 
 import type { CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
+import type { CourseTaskDataWithId } from '@/lib/courseId';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import CourseCard from '@/components/planning/courses/CourseCard';
 import type { TaskConstraintInfo, ConstraintLevel } from '@/lib/taskConstraintAnalysis';
@@ -14,9 +15,9 @@ const LEVEL_CONFIG: Record<ConstraintLevel, { label: string; className: string }
 interface Props {
   taskInfos: TaskConstraintInfo[];
   enforcedMap: Record<string, EnforcedData>;
-  onEditCourse?: (courseKey: string, course: CourseTaskData) => void;
+  onEditCourse?: (courseKey: string, course: CourseTaskDataWithId) => void;
   onDuplicateCourse?: (course: CourseTaskData) => void;
-  onDeleteCourse?: (index: number) => void;
+  onDeleteCourse?: (courseId: string) => void;
 }
 
 export default function CourseConstraintList({
@@ -43,7 +44,7 @@ export default function CourseConstraintList({
           <p className={`text-xs font-semibold px-1 mt-1 ${LEVEL_CONFIG[level].className}`}>
             {LEVEL_CONFIG[level].label} ({items.length})
           </p>
-          {items.map(({ courseKey, course, index, reasons }) => (
+          {items.map(({ courseKey, course, reasons }) => (
             <Tooltip key={courseKey}>
               <TooltipTrigger asChild>
                 <div>
@@ -53,7 +54,7 @@ export default function CourseConstraintList({
                     enforced={enforcedMap[courseKey] !== undefined}
                     onEdit={onEditCourse ? () => onEditCourse(courseKey, course) : undefined}
                     onDuplicate={onDuplicateCourse ? () => onDuplicateCourse(course) : undefined}
-                    onDelete={onDeleteCourse ? () => onDeleteCourse(index) : undefined}
+                    onDelete={onDeleteCourse ? () => onDeleteCourse(courseKey) : undefined}
                   />
                 </div>
               </TooltipTrigger>

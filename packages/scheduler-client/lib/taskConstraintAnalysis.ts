@@ -1,4 +1,5 @@
 import type { CourseTaskData, ResourceEntry } from '@edt-ts/scheduler-common';
+import type { CourseTaskDataWithId } from '@/lib/courseId';
 import { Availability, AvailabilityManager } from '@edt-ts/scheduler-common';
 import type { BlockedZone } from '@/lib/calendar/blockedZones';
 import { getMondayOfISOWeek } from '@/lib/calendar/calendarUtils';
@@ -7,8 +8,7 @@ export type ConstraintLevel = 'critical' | 'tight' | 'ok';
 
 export interface TaskConstraintInfo {
   courseKey: string;
-  course: CourseTaskData;
-  index: number;
+  course: CourseTaskDataWithId;
   level: ConstraintLevel;
   reasons: string[];
   /** Maximum fill ratio across all teacher entries of this task (demande / dispo conjointe) */
@@ -53,7 +53,7 @@ function formatMinutes(minutes: number): string {
  * The analysis is independent of enforced/non-enforced status.
  */
 export function analyzeConstraints(
-  courses: CourseTaskData[],
+  courses: CourseTaskDataWithId[],
   am: AvailabilityManager,
   weekNumber: number,
   blockedZones: BlockedZone[] = [],
@@ -118,8 +118,8 @@ export function analyzeConstraints(
   //    fill_ratio = global_teacher_demand / joint_effective_minutes
   const overloadMap = new Map<string, ResourceOverload>();
 
-  const taskInfos: TaskConstraintInfo[] = courses.map((course, index) => {
-    const courseKey = String(index);
+  const taskInfos: TaskConstraintInfo[] = courses.map((course) => {
+    const courseKey = course.id;
     const reasons: string[] = [];
     let level: ConstraintLevel = 'ok';
     let maxFillRatio = 0;
@@ -173,7 +173,7 @@ export function analyzeConstraints(
       }
     }
 
-    return { courseKey, course, index, level, reasons, fillRatio: maxFillRatio };
+    return { courseKey, course, level, reasons, fillRatio: maxFillRatio };
   });
 
   const overloadedResources = [...overloadMap.values()];

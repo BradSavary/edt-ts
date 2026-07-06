@@ -9,6 +9,7 @@ import { computeHolidayZonesForWeek } from '@/lib/schoolHolidays';
 import { createNeutralizedSlice, type NeutralizedSlice } from '@/store/slices/neutralizedSlice';
 import { createBlockedZonesSlice, type BlockedZonesSlice } from '@/store/slices/blockedZonesSlice';
 import { createTaskGroupsSlice, type TaskGroupsSlice } from '@/store/slices/taskGroupsSlice';
+import type { CourseTaskDataWithId } from '@/lib/courseId';
 
 export type { TaskGroupConfig };
 export type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, SolutionState } from './types';
@@ -289,7 +290,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       set({ status: { message: '❌ Ressources non chargées.', kind: 'err' } });
       return;
     }
-    const coursesForWeek = allCourses.filter((c) => c.week === selectedWeek);
+    const coursesForWeek = allCourses.filter((c) => c.week === selectedWeek) as CourseTaskDataWithId[];
     if (coursesForWeek.length === 0) {
       set({ status: { message: `❌ Aucun cours pour la semaine ${selectedWeek}. Importez le fichier CSV.`, kind: 'err' } });
       return;
@@ -297,31 +298,30 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
 
     // Filtrage des tâches pré-neutralisées
     const preNeutSet = new Set(preNeutralizedKeys);
-    const filteredCourses: typeof coursesForWeek = [];
-    const oldToNew = new Map<number, number>();
-    const preNeutEntries: { oldKey: string; course: typeof coursesForWeek[0] }[] = [];
+    const filteredCourses: CourseTaskDataWithId[] = [];
+    const idToNewIdx = new Map<string, number>();
+    const preNeutCourses: CourseTaskDataWithId[] = [];
 
-    coursesForWeek.forEach((course, oldIdx) => {
-      const key = String(oldIdx);
-      if (preNeutSet.has(key)) {
-        preNeutEntries.push({ oldKey: key, course });
+    for (const course of coursesForWeek) {
+      if (preNeutSet.has(course.id)) {
+        preNeutCourses.push(course);
       } else {
-        oldToNew.set(oldIdx, filteredCourses.length);
+        idToNewIdx.set(course.id, filteredCourses.length);
         filteredCourses.push(course);
       }
-    });
+    }
 
     // Remapping de enforcedMap et taskGroups vers les nouveaux indices
     const remappedEnforced: Record<string, EnforcedData> = {};
-    for (const [oldKey, data] of Object.entries(enforcedMap)) {
-      const newIdx = oldToNew.get(parseInt(oldKey, 10));
+    for (const [courseId, data] of Object.entries(enforcedMap)) {
+      const newIdx = idToNewIdx.get(courseId);
       if (newIdx !== undefined) remappedEnforced[String(newIdx)] = data;
     }
     const remappedTaskGroups: TaskGroupConfig[] = taskGroups.map((g) => ({
       ...g,
       courseKeys: g.courseKeys
         .map((k) => {
-          const newIdx = oldToNew.get(parseInt(k, 10));
+          const newIdx = idToNewIdx.get(k);
           return newIdx !== undefined ? String(newIdx) : null;
         })
         .filter((k): k is string => k !== null),
@@ -330,28 +330,30 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     const { coursesWithGroups, declarations } = buildTaskGroupData(filteredCourses, remappedTaskGroups);
 
     // Pré-calculer les entrées synthétiques pour les tâches pré-neutralisées
-    const syntheticNeutralized = preNeutEntries.map(({ oldKey, course }) => ({
-      task: {
-        taskId: `pre-neutral-${oldKey}`,
-        code: course.code,
-        name: course.name,
-        type: course.type,
-        week: selectedWeek,
-        duration: course.duration,
-        startTime: 0,
-        resources: [
-          ...course.teacher.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e])).filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'teacher' })),
-          ...course.groups.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e])).filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'group' })),
-          ...course.rooms.flat().filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'room' })),
-        ],
-      },
-      eliminationRound: 0,
-      failureCount: 0,
-      requiredMinutes: course.duration,
-      schedulableMinutes: 0,
-      resourceSnapshots: [],
-      reason: 'Neutralisée manuellement avant planification',
-    }));
+    const syntheticNeutralized = preNeutCourses.map((course) => {
+      return {
+        task: {
+          taskId: `pre-neutral-${course.id}`,
+          code: course.code,
+          name: course.name,
+          type: course.type,
+          week: selectedWeek,
+          duration: course.duration,
+          startTime: 0,
+          resources: [
+            ...course.teacher.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e])).filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'teacher' })),
+            ...course.groups.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e])).filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'group' })),
+            ...course.rooms.flat().filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'room' })),
+          ],
+        },
+        eliminationRound: 0,
+        failureCount: 0,
+        requiredMinutes: course.duration,
+        schedulableMinutes: 0,
+        resourceSnapshots: [],
+        reason: 'Neutralisée manuellement avant planification',
+      };
+    });
 
     const clientId = getClientId();
     const submitParams = {

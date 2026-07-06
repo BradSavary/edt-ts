@@ -1,4 +1,5 @@
 import type { CourseTaskData, ResourceGroupData } from '@edt-ts/scheduler-common';
+import { assignCsvCourseIds, type CourseTaskDataWithId } from '@/lib/courseId';
 
 /** Convertit un semestre textuel ("S1"…"S6") en numéro entier. */
 function parseSemester(raw: string): number {
@@ -171,7 +172,7 @@ export function extractResourceWeeks(csvText: string): Record<string, number[]> 
 }
 
 export interface ParseCsvFullResult {
-  courses: CourseTaskData[];
+  courses: CourseTaskDataWithId[];
   resources: ResourceGroupData[];
 }
 
@@ -196,7 +197,7 @@ export function parseCsvFull(csvText: string): ParseCsvFullResult {
     if (m) weekCols.push({ index: i, week: parseInt(m[1], 10) });
   }
 
-  const courses: CourseTaskData[] = [];
+  const rawCourses: CourseTaskData[] = [];
   const teachers = new Set<string>();
   const groups = new Set<string>();
   const rooms = new Set<string>();
@@ -239,7 +240,7 @@ export function parseCsvFull(csvText: string): ParseCsvFullResult {
       const hours = parseFloat(rawHours);
       if (isNaN(hours) || hours <= 0) continue;
 
-      courses.push({
+      rawCourses.push({
         week,
         semester,
         level,
@@ -253,6 +254,8 @@ export function parseCsvFull(csvText: string): ParseCsvFullResult {
       });
     }
   }
+
+  const courses = assignCsvCourseIds(rawCourses);
 
   return {
     courses,

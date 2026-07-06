@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect } from 'react';
 import { Draggable } from '@fullcalendar/interaction';
-import type { CourseTaskData } from '@edt-ts/scheduler-common';
+import type { CourseTaskDataWithId } from '@/lib/courseId';
 import { useExternalDragDetection } from '@/hooks/useExternalDragDetection';
 import type { DraggingResources } from '@/store/usePlanningStore';
 
 interface UseSidebarCourseDragOptions {
   container: HTMLDivElement | null;
-  courses: CourseTaskData[];
+  courses: CourseTaskDataWithId[];
 }
 
 /**
@@ -39,7 +39,7 @@ export function useSidebarCourseDrag({
   const getResources = useCallback((el: HTMLElement): DraggingResources | null => {
     const courseKey = el.getAttribute('data-course-key');
     if (!courseKey) return null;
-    const course = courses[parseInt(courseKey, 10)];
+    const course = courses.find((c) => c.id === courseKey);
     if (!course) return null;
     return {
       teachers: course.teacher.flatMap((r) => (Array.isArray(r) ? r : [r])),

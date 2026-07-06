@@ -1,7 +1,8 @@
 import type { StateCreator } from 'zustand';
-import type { EnforcedData, CourseTaskData } from '@edt-ts/scheduler-common';
+import type { EnforcedData } from '@edt-ts/scheduler-common';
 import type { TaskGroupConfig } from '@/lib/taskGroupUtils';
 import type { SerializedBlockedZone } from '@/store/types';
+import type { CourseTaskDataWithId } from '@/lib/courseId';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -21,7 +22,7 @@ export interface PreparedWeekSnapshot {
   preNeutralizedKeys: string[];
   manualEnforcedMap: Record<string, EnforcedData>;
   /** Snapshot des cours de la semaine au moment de la sauvegarde */
-  weeklyCourses: CourseTaskData[];
+  weeklyCourses: CourseTaskDataWithId[];
 }
 
 /** saves[schoolYear][weekNumber] */

@@ -3,7 +3,7 @@ import type { StateCreator } from 'zustand';
 import type { ManuallyNeutralizedTask } from '@/store/types';
 
 export interface NeutralizedSlice {
-  /** Clés (indices dans parsedCourses) des tâches pré-neutralisées avant planification. */
+  /** IDs (CourseTaskDataWithId.id) des tâches pré-neutralisées avant planification. */
   preNeutralizedKeys: string[];
   togglePreNeutralized: (courseKey: string) => void;
   /** Tâches planifiées déposées dans la zone de neutralisation ("pioche"). */

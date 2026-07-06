@@ -5,13 +5,14 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventContentArg } from '@fullcalendar/core';
 import type { TaskSolutionJSON, CourseTaskData } from '@edt-ts/scheduler-common';
+import type { CourseTaskDataWithId } from '@/lib/courseId';
 import EnforceModal from '@/components/planning/modals/EnforceModal';
 import TaskEditModal from '@/components/planning/modals/TaskEditModal';
 import { useCalendarCore } from '@/hooks/useCalendarCore';
 
 interface Props {
   solutions: TaskSolutionJSON[];
-  parsedCourses?: CourseTaskData[];
+  parsedCourses?: CourseTaskDataWithId[];
 }
 
 function renderEventContent(info: EventContentArg) {

@@ -6,6 +6,7 @@ import type { EventApi, EventDropArg } from '@fullcalendar/core';
 import type { EventReceiveArg, EventDragStopArg } from '@fullcalendar/interaction';
 import type { EventClickArg } from '@fullcalendar/core';
 import type { TaskSolutionJSON, CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
+import type { CourseTaskDataWithId } from '@/lib/courseId';
 import type { EnforceSelection } from '@/components/planning/modals/EnforceModal';
 import type { TaskEditUpdate } from '@/components/planning/modals/TaskEditModal';
 import { getMondayOfISOWeek, startTimeToDate, computeStaticConflicts, computeDragHighlights, computeConstraintViolation } from '@/lib/calendar/calendarUtils';
@@ -20,7 +21,7 @@ export type { PendingDrop, PendingNeutralizedDrop, CalendarEventExtProps, Calend
 
 // ── Hook principal ─────────────────────────────────────────────────────────
 
-export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: CourseTaskData[]) {
+export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: CourseTaskDataWithId[]) {
   // ── Store planning ──────────────────────────────────────────────────────
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
   const week = selectedWeek ?? 1;
@@ -77,10 +78,16 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
   const calendarWrapperRef = useRef<HTMLDivElement | null>(null);
   const pendingEventRef = useRef<EventApi | null>(null);
 
+  // ── Map ID → cours (O(1) lookup) ──────────────────────────────────────
+  const courseById = useMemo(
+    () => new Map(parsedCourses.map((c) => [c.id, c])),
+    [parsedCourses],
+  );
+
   // ── Événements imposés dérivés ─────────────────────────────────────────
   const enforcedEventsState = useMemo<CalendarEventData[]>(() => {
     return Object.entries(storeEnforcedMap).map(([courseKey, enforced]) => {
-      const course = parsedCourses[parseInt(courseKey, 10)];
+      const course = courseById.get(courseKey);
       const teacherStr = enforced.teacher.join(', ');
       const title = [course?.code ?? '?', course?.type ?? '', teacherStr].filter(Boolean).join(' • ');
       const startDate = new Date(monday.getTime() + enforced.startTime * 60 * 1000);
@@ -107,7 +114,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
         },
       };
     });
-  }, [storeEnforcedMap, parsedCourses, monday, yearColorConfig, enforcedViolations]);
+  }, [storeEnforcedMap, courseById, monday, yearColorConfig, enforcedViolations]);
 
   const prevParsedCoursesRef = useRef<CourseTaskData[]>(parsedCourses);
   const prevSelectedWeekRef = useRef<number | null>(selectedWeek);
@@ -279,8 +286,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     const startDate = info.event.start;
     if (!startDate || !courseKey) { info.event.remove(); return; }
 
-    const idx = parseInt(courseKey, 10);
-    const course = parsedCourses[idx];
+    const course = courseById.get(courseKey);
     if (!course) { info.event.remove(); return; }
 
     const startTime = Math.round((startDate.getTime() - monday.getTime()) / 60000);
@@ -374,8 +380,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
 
     // Mise à jour de allCourses pour que la CourseCard en sidebar reflète les changements
     if (pendingEdit.courseKey !== undefined) {
-      const courseIdx = parseInt(pendingEdit.courseKey, 10);
-      const course = parsedCourses[courseIdx];
+      const course = courseById.get(pendingEdit.courseKey);
       if (course) {
         const { allCourses, setCourses } = useSchedulerStore.getState();
         const updatedCourses = allCourses.map((c) =>

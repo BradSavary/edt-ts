@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
+import type { CourseTaskDataWithId } from '@/lib/courseId';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { useSidebarCourseDrag } from '@/hooks/useSidebarCourseDrag';
@@ -19,7 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
 interface SidebarPreparationProps {
-  parsedCourses: CourseTaskData[];
+  parsedCourses: CourseTaskDataWithId[];
 }
 
 export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
@@ -61,11 +62,11 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
   const [weekInput, setWeekInput] = useState<string>(selectedWeek !== null ? String(selectedWeek) : '');
 
   // ── Edit modal state ───────────────────────────────────────────────────
-  const [editingCourse, setEditingCourse] = useState<{ courseKey: string; course: CourseTaskData } | null>(null);
+  const [editingCourse, setEditingCourse] = useState<{ courseKey: string; course: CourseTaskDataWithId } | null>(null);
   // ── Create/duplicate modal state ───────────────────────────────────────
   const [createModal, setCreateModal] = useState<{ initialCourse?: CourseTaskData } | null>(null);
 
-  function handleEditCourse(courseKey: string, course: CourseTaskData) {
+  function handleEditCourse(courseKey: string, course: CourseTaskDataWithId) {
     setEditingCourse({ courseKey, course });
   }
 
@@ -226,9 +227,8 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
                     enforcedMap={enforcedMap}
                     onEditCourse={handleEditCourse}
                     onDuplicateCourse={(course) => setCreateModal({ initialCourse: course })}
-                    onDeleteCourse={(indexInParsed) => {
-                      const courseRef = parsedCourses[indexInParsed];
-                      const realIndex = allCourses.indexOf(courseRef);
+                  onDeleteCourse={(courseId) => {
+                      const realIndex = allCourses.findIndex((c) => c.id === courseId);
                       if (realIndex !== -1) removeCourse(realIndex);
                     }}
                   />
@@ -245,9 +245,8 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
                 enforcedMap={enforcedMap}
                 onEditCourse={handleEditCourse}
                 onDuplicateCourse={(course) => setCreateModal({ initialCourse: course })}
-                onDeleteCourse={(indexInParsed) => {
-                  const courseRef = parsedCourses[indexInParsed];
-                  const realIndex = allCourses.indexOf(courseRef);
+                onDeleteCourse={(courseId) => {
+                  const realIndex = allCourses.findIndex((c) => c.id === courseId);
                   if (realIndex !== -1) removeCourse(realIndex);
                 }}
               />

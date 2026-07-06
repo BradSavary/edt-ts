@@ -1,4 +1,5 @@
 import type { CourseTaskData, EnforcedData, TaskGroupDeclaration } from '@edt-ts/scheduler-common';
+import type { CourseTaskDataWithId } from '@/lib/courseId';
 
 export type GroupType = TaskGroupDeclaration['type'];
 
@@ -18,13 +19,14 @@ export interface ParallelGroupIssue {
  */
 export function validateParallelGroup(
   group: TaskGroupConfig,
-  courses: CourseTaskData[],
+  courses: CourseTaskDataWithId[],
 ): ParallelGroupIssue | null {
   if (group.type !== 'parallel' || group.courseKeys.length < 2) return null;
 
+  const courseById = new Map(courses.map((c) => [c.id, c]));
   const tasks = group.courseKeys
-    .map((key) => courses[parseInt(key, 10)])
-    .filter((t): t is CourseTaskData => Boolean(t));
+    .map((key) => courseById.get(key))
+    .filter((t): t is CourseTaskDataWithId => Boolean(t));
 
   if (tasks.length < 2) return null;
 
@@ -83,44 +85,41 @@ export function validateParallelGroup(
 
 /**
  * Config d'un groupe de tâches côté client (session uniquement, non persisté).
- * Les courseKeys sont des indices dans le tableau parsedCourses de la semaine courante.
+ * Les courseKeys sont des IDs de cours (CourseTaskDataWithId.id).
  */
 export interface TaskGroupConfig {
   id: string;           // ID unique pour l'UI (généré côté client) — utilisé comme taskGroupId
   type: GroupType;      // 'parallel' | 'sequential'
-  courseKeys: string[]; // Indices dans parsedCourses (même que courseKey dans CourseCard)
+  courseKeys: string[]; // IDs de cours (CourseTaskDataWithId.id)
 }
 
 /**
  * Injecte le taskGroupId dans les cours appartenant à un groupe,
  * et retourne les TaskGroupDeclaration[] correspondantes.
  *
- * @param courses - tableau original de CourseTaskData (ne sera pas muté)
- * @param groups  - configuration des groupes (courseKeys = indices dans courses)
+ * @param courses - tableau de CourseTaskDataWithId (ne sera pas muté)
+ * @param groups  - configuration des groupes (courseKeys = IDs de cours)
  * @returns { coursesWithGroups, declarations }
  */
 export function buildTaskGroupData(
-  courses: CourseTaskData[],
+  courses: CourseTaskDataWithId[],
   groups: TaskGroupConfig[],
 ): { coursesWithGroups: CourseTaskData[]; declarations: TaskGroupDeclaration[] } {
-  // Construire une map index → groupId
-  const keyToGroupId = new Map<number, string>();
+  // Construire une map courseId → groupId
+  const idToGroupId = new Map<string, string>();
   const declarations: TaskGroupDeclaration[] = [];
 
   for (const group of groups) {
     if (group.courseKeys.length < 2) continue;
     declarations.push({ id: group.id, type: group.type });
-    for (const key of group.courseKeys) {
-      const index = parseInt(key, 10);
-      if (!isNaN(index) && index >= 0 && index < courses.length) {
-        keyToGroupId.set(index, group.id);
-      }
+    for (const courseId of group.courseKeys) {
+      idToGroupId.set(courseId, group.id);
     }
   }
 
   // Créer une copie des cours avec taskGroupId injecté là où nécessaire
-  const coursesWithGroups = courses.map((c, i) => {
-    const groupId = keyToGroupId.get(i);
+  const coursesWithGroups = courses.map((c) => {
+    const groupId = idToGroupId.get(c.id);
     if (!groupId) return c;
     return { ...c, taskGroupId: groupId };
   });
@@ -166,18 +165,19 @@ export function computeGroupEnforcements(
   enforcedKey: string,
   enforcedData: EnforcedData,
   group: TaskGroupConfig,
-  courses: CourseTaskData[],
+  courses: CourseTaskDataWithId[],
 ): Record<string, EnforcedData> {
   const result: Record<string, EnforcedData> = {};
   const keyIndex = group.courseKeys.indexOf(enforcedKey);
   if (keyIndex < 0) return result;
 
+  const courseById = new Map(courses.map((c) => [c.id, c]));
+
   if (group.type === 'parallel') {
     for (const key of group.courseKeys) {
       if (key === enforcedKey) continue;
-      const idx = parseInt(key, 10);
-      if (isNaN(idx) || idx < 0 || idx >= courses.length) continue;
-      const c = courses[idx];
+      const c = courseById.get(key);
+      if (!c) continue;
       result[key] = {
         startTime: enforcedData.startTime,
         teacher: pickDefaultResources(c.teacher),
@@ -187,15 +187,13 @@ export function computeGroupEnforcements(
     }
   } else {
     // Sequential — forward propagation (tâches après dans la chaîne)
-    const enforcedIdx = parseInt(enforcedKey, 10);
-    if (!isNaN(enforcedIdx) && enforcedIdx >= 0 && enforcedIdx < courses.length) {
-      const enforcedCourse = courses[enforcedIdx];
+    const enforcedCourse = courseById.get(enforcedKey);
+    if (enforcedCourse) {
       let cumStart = enforcedData.startTime + enforcedCourse.duration;
       for (let i = keyIndex + 1; i < group.courseKeys.length; i++) {
         const key = group.courseKeys[i];
-        const idx = parseInt(key, 10);
-        if (isNaN(idx) || idx < 0 || idx >= courses.length) continue;
-        const c = courses[idx];
+        const c = courseById.get(key);
+        if (!c) continue;
         result[key] = {
           startTime: cumStart,
           teacher: pickDefaultResources(c.teacher),
@@ -208,9 +206,8 @@ export function computeGroupEnforcements(
       let cumEnd = enforcedData.startTime;
       for (let i = keyIndex - 1; i >= 0; i--) {
         const key = group.courseKeys[i];
-        const idx = parseInt(key, 10);
-        if (isNaN(idx) || idx < 0 || idx >= courses.length) continue;
-        const c = courses[idx];
+        const c = courseById.get(key);
+        if (!c) continue;
         const startTime = cumEnd - c.duration;
         result[key] = {
           startTime,

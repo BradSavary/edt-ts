@@ -5,6 +5,7 @@ import { createConstraintsSlice, type ConstraintsSlice } from './slices/constrai
 import { createWeekSavesSlice, type WeekSavesSlice } from './slices/weekSavesSlice';
 import type { CourseTaskData, ResourceGroupData, ConstraintsData, SchedulerConfig } from '@edt-ts/scheduler-common';
 import { AvailabilityManager, DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
+import { manualCourseId, type CourseTaskDataWithId } from '../lib/courseId';
 import { ClientSchedulerData } from '../lib/api/clientSchedulerData';
 import { type YearColorConfig, DEFAULT_YEAR_COLORS } from '../lib/calendar/yearColors';
 import type { SchoolYearConfig } from '../lib/schoolHolidays';
@@ -15,7 +16,7 @@ import type { SchoolYearConfig } from '../lib/schoolHolidays';
 // dès que constraints change, côté client uniquement.
 
 interface SchedulerDataSlice {
-  allCourses: CourseTaskData[];
+  allCourses: CourseTaskDataWithId[];
   resources: ResourceGroupData[];
   coursesFileName: string | null;
   schedulerConfig: SchedulerConfig;
@@ -30,7 +31,7 @@ interface SchedulerDataSlice {
   availabilityManager: AvailabilityManager | null;
   /** Instance ClientSchedulerData — non persistée, reconstruite quand allCourses ou resources change */
   clientSchedulerData: ClientSchedulerData | null;
-  setCourses: (courses: CourseTaskData[], fileName?: string) => void;
+  setCourses: (courses: CourseTaskDataWithId[], fileName?: string) => void;
   setResources: (resources: ResourceGroupData[]) => void;
   addCourse: (course: CourseTaskData) => void;
   removeCourse: (index: number) => void;
@@ -44,7 +45,7 @@ interface SchedulerDataSlice {
    * Action atomique d’import CSV : remplace cours et ressources, purge les sauvegardes
    * de semaine, élague les contraintes obsolètes et remet à zéro les impositions.
    */
-  importCsvData: (courses: CourseTaskData[], resources: ResourceGroupData[], fileName: string) => void;
+  importCsvData: (courses: CourseTaskDataWithId[], resources: ResourceGroupData[], fileName: string) => void;
 }
 
 // ── Store combiné ──────────────────────────────────────────────────────────
@@ -72,7 +73,9 @@ export const useSchedulerStore = create<SchedulerStore>()(
       clientSchedulerData: null, // Reconstruit par subscribe ci-dessous
       setCourses: (allCourses, fileName) => set({ allCourses, ...(fileName !== undefined ? { coursesFileName: fileName } : {}) }),
       setResources: (resources) => set({ resources }),
-      addCourse: (course) => set((state) => ({ allCourses: [...state.allCourses, course] })),
+      addCourse: (course) => set((state) => ({
+        allCourses: [...state.allCourses, { ...course, id: manualCourseId(), source: 'manual' as const }],
+      })),
       removeCourse: (index) => set((state) => ({ allCourses: state.allCourses.filter((_, i) => i !== index) })),
       importCsvData: (courses, resources, fileName) => {
         const validIds = resources.flatMap((g) => g.resources.map((r) => r.id));

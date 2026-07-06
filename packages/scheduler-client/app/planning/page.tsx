@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import type { CourseTaskData } from '@edt-ts/scheduler-common';
+import type { CourseTaskDataWithId } from '@/lib/courseId';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { SidebarLeft } from '@/components/planning/sidebar/SidebarLeft';
@@ -51,7 +51,7 @@ export default function PlanningPage() {
   const [statsDialogOpen, setStatsDialogOpen] = useState(false);
 
   // ── Cours dérivés pour la semaine courante ───────────────────────────────
-  const parsedCourses: CourseTaskData[] = useMemo(
+  const parsedCourses: CourseTaskDataWithId[] = useMemo(
     () => selectedWeek !== null ? allCourses.filter((c) => c.week === selectedWeek) : [],
     [allCourses, selectedWeek],
   );

@@ -1,12 +1,12 @@
 'use client';
 
-import type { CourseTaskData } from '@edt-ts/scheduler-common';
+import type { CourseTaskDataWithId } from '@/lib/courseId';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { SidebarPreparation } from '@/components/planning/sidebar/SidebarPreparation';
 import { SidebarAnalysis } from '@/components/planning/sidebar/SidebarAnalysis';
 
 interface SidebarLeftProps {
-  parsedCourses: CourseTaskData[];
+  parsedCourses: CourseTaskDataWithId[];
 }
 
 export function SidebarLeft({ parsedCourses }: SidebarLeftProps) {

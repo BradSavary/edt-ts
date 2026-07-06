@@ -1,25 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CourseTaskData } from '@edt-ts/scheduler-common';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { CourseTaskDataWithId } from '@/lib/courseId';
 import { usePlanningStore, type TaskGroupConfig } from '@/store/usePlanningStore';
 import { useSidebarCourseDrag } from '@/hooks/useSidebarCourseDrag';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { validateParallelGroup, type ParallelGroupIssue } from '@/lib/taskGroupUtils';
 
-type SimpleCourse = {
-  code: string;
-  type: string;
-  name: string;
-  duration: number;
-  groups?: string[];
-  teacher?: string[];
-  rooms?: string[];
-};
-
 interface GroupDrawerProps {
-  parsedCourses: CourseTaskData[];
+  parsedCourses: CourseTaskDataWithId[];
 }
 
 // ── GroupDropZone ──────────────────────────────────────────────────────────
@@ -122,7 +112,7 @@ function NewGroupSection() {
 
 interface GroupCardProps {
   group: TaskGroupConfig;
-  parsedCourses: SimpleCourse[];
+  parsedCourses: CourseTaskDataWithId[];
   validationIssue?: ParallelGroupIssue | null;
 }
 
@@ -187,8 +177,7 @@ function GroupCard({ group, parsedCourses, validationIssue }: GroupCardProps) {
       {/* Membres — drag & drop pour réordonner + drop sur calendrier */}
       <div className="flex flex-col gap-1">
         {group.courseKeys.map((key, idx) => {
-          const courseIdx = parseInt(key, 10);
-          const course = parsedCourses[courseIdx];
+          const course = parsedCourses.find((c) => c.id === key);
           return (
             <div
               key={key}
@@ -216,7 +205,7 @@ function GroupCard({ group, parsedCourses, validationIssue }: GroupCardProps) {
               >⠿</span>
               {/* Zone FC-draggable vers le calendrier */}
               <div
-                data-course-key={String(courseIdx)}
+                data-course-key={key}
                 data-title={`${course?.code ?? '?'} ${course?.type ?? ''}`}
                 data-duration={course?.duration ?? 60}
                 className="flex-1 min-w-0 cursor-grab active:cursor-grabbing"
@@ -263,20 +252,6 @@ export function GroupDrawer({ parsedCourses }: GroupDrawerProps) {
   const taskGroups = usePlanningStore((s) => s.taskGroups);
   const groupDrawerOpen = usePlanningStore((s) => s.groupDrawerOpen);
   const toggleGroupDrawer = usePlanningStore((s) => s.toggleGroupDrawer);
-
-  // Transformation interne : CourseTaskData → format simplifié pour GroupCard
-  const simplifiedCourses = useMemo<SimpleCourse[]>(
-    () => parsedCourses.map((c) => ({
-      code: c.code,
-      type: c.type,
-      name: c.name,
-      duration: c.duration,
-      groups: c.groups.flat() as string[],
-      teacher: c.teacher.flat() as string[],
-      rooms: c.rooms.flat() as string[],
-    })),
-    [parsedCourses],
-  );
 
   // Ref pour le container FC Draggable
   const [drawerContainer, setDrawerContainer] = useState<HTMLDivElement | null>(null);
@@ -329,7 +304,7 @@ export function GroupDrawer({ parsedCourses }: GroupDrawerProps) {
           {taskGroups.length > 0 && (
             <div className="flex flex-col gap-3">
               {taskGroups.map((group) => (
-                <GroupCard key={group.id} group={group} parsedCourses={simplifiedCourses} validationIssue={validateParallelGroup(group, parsedCourses)} />
+                <GroupCard key={group.id} group={group} parsedCourses={parsedCourses} validationIssue={validateParallelGroup(group, parsedCourses)} />
               ))}
             </div>
           )}
