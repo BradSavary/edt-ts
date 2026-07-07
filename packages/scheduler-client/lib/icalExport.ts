@@ -1,5 +1,6 @@
 import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
 import { getMondayOfISOWeek } from '@/lib/calendar/calendarUtils';
+import { resolveCalendarYear, type SchoolYearConfig } from '@/lib/schoolHolidays';
 
 /** Formatage iCal YYYYMMDDTHHMMSS (sans Z → heure locale). */
 function formatICalDate(date: Date): string {
@@ -125,11 +126,16 @@ function buildVEvent(task: TaskSolutionJSON, monday: Date, dtstamp: string): str
 /**
  * Génère le contenu iCal complet (RFC 5545) pour une liste de tâches planifiées.
  *
- * @param tasks  Tâches de la solution active (TaskSolutionJSON[])
- * @param week   Numéro de semaine ISO (1–53)
+ * @param tasks             Tâches de la solution active (TaskSolutionJSON[])
+ * @param week              Numéro de semaine ISO (1–53)
+ * @param schoolYearConfig  Année universitaire sélectionnée par l'utilisateur (pour dater les événements sur la bonne année civile)
  */
-export function generateIcalContent(tasks: TaskSolutionJSON[], week: number): string {
-  const monday = getMondayOfISOWeek(week);
+export function generateIcalContent(
+  tasks: TaskSolutionJSON[],
+  week: number,
+  schoolYearConfig?: SchoolYearConfig | null,
+): string {
+  const monday = getMondayOfISOWeek(week, resolveCalendarYear(schoolYearConfig, week));
   monday.setHours(0, 0, 0, 0);
   const dtstamp = formatICalDateUTC(new Date());
 
@@ -149,13 +155,17 @@ export function generateIcalContent(tasks: TaskSolutionJSON[], week: number): st
 /**
  * Déclenche le téléchargement d'un fichier .ics dans le navigateur.
  *
- * @param tasks  Tâches de la solution active
- * @param week   Numéro de semaine ISO
+ * @param tasks             Tâches de la solution active
+ * @param week              Numéro de semaine ISO
+ * @param schoolYearConfig  Année universitaire sélectionnée par l'utilisateur
  */
-export function downloadIcalSolution(tasks: TaskSolutionJSON[], week: number): void {
-  const now = new Date();
-  const year = now.getMonth() < 8 && week >= 35 ? now.getFullYear() - 1 : now.getFullYear();
-  const content = generateIcalContent(tasks, week);
+export function downloadIcalSolution(
+  tasks: TaskSolutionJSON[],
+  week: number,
+  schoolYearConfig?: SchoolYearConfig | null,
+): void {
+  const year = resolveCalendarYear(schoolYearConfig, week) ?? new Date().getFullYear();
+  const content = generateIcalContent(tasks, week, schoolYearConfig);
   const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   try {

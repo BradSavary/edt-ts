@@ -41,25 +41,44 @@ export async function fetchSchoolHolidayConfig(
   return res.json() as Promise<SchoolYearConfig>;
 }
 
+// ── Année civile d'une semaine ISO ─────────────────────────────────────────
+
+/**
+ * Dérive l'année civile (ex: 2025) correspondant à une semaine ISO donnée,
+ * à partir de l'année universitaire sélectionnée par l'utilisateur (`SchoolYearConfig.year`,
+ * ex: "2025-2026"). C'est le point unique de conversion "année universitaire → année civile" :
+ * tout code qui a besoin d'une date absolue pour une semaine doit passer par cette fonction
+ * plutôt que de reparser `config.year` lui-même.
+ *
+ *  - semaine >= 35 → première année (ex: 2025 pour "2025-2026")
+ *  - semaine < 35  → deuxième année (ex: 2026 pour "2025-2026")
+ *
+ * Retourne `undefined` si aucune config n'est disponible, laissant l'appelant
+ * (ex: `getMondayOfISOWeek`) retomber sur son heuristique par défaut.
+ */
+export function resolveCalendarYear(
+  config: SchoolYearConfig | null | undefined,
+  isoWeek: number,
+): number | undefined {
+  if (!config) return undefined;
+  const parts = config.year.split('-').map(Number);
+  const startYear = parts[0] ?? new Date().getFullYear();
+  const endYear = parts[1] ?? startYear + 1;
+  return isoWeek >= 35 ? startYear : endYear;
+}
+
 // ── Calcul des zones bloquées pour une semaine ─────────────────────────────
 
 /**
  * À partir d'un `SchoolYearConfig` et d'un numéro de semaine ISO,
  * retourne les `BlockedZone[]` correspondant aux vacances et jours fériés
  * qui chevauchent cette semaine.
- *
- * Le `year` de la semaine est déduit depuis `config.year` :
- *  - semaine >= 35 → première année (ex: 2025 pour "2025-2026")
- *  - semaine < 35  → deuxième année (ex: 2026 pour "2025-2026")
  */
 export function computeHolidayZonesForWeek(
   config: SchoolYearConfig,
   isoWeek: number,
 ): BlockedZone[] {
-  const parts = config.year.split('-').map(Number);
-  const startYear = parts[0] ?? new Date().getFullYear();
-  const endYear = parts[1] ?? startYear + 1;
-  const year = isoWeek >= 35 ? startYear : endYear;
+  const year = resolveCalendarYear(config, isoWeek);
 
   const monday = getMondayOfISOWeek(isoWeek, year);
   const weekEnd = new Date(monday);

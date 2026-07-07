@@ -78,6 +78,29 @@ describe('generateIcalContent', () => {
       expect(content).toContain('DTSTART:20251118T080000');
     });
 
+    it('avec schoolYearConfig "2026-2027", une semaine >= 35 est datée sur 2026 (et non sur l\'année civile courante)', () => {
+      // Sans schoolYearConfig, l'heuristique par défaut retombe sur l'année civile
+      // courante (voir describe ci-dessus, calée sur 2025). Un utilisateur qui a
+      // sélectionné explicitement l'année universitaire 2026-2027 doit obtenir des
+      // dates sur 2026 pour les semaines de rentrée, quelle que soit la date du jour.
+      const content = generateIcalContent(
+        [makeTask({ startTime: 480 })],
+        47,
+        { year: '2026-2027', zone: 'A', periods: [] },
+      );
+      expect(content).toContain('DTSTART:20261116T080000');
+    });
+
+    it('avec schoolYearConfig "2026-2027", une semaine < 35 est datée sur 2027', () => {
+      const content = generateIcalContent(
+        [makeTask({ startTime: 480 })],
+        10,
+        { year: '2026-2027', zone: 'A', periods: [] },
+      );
+      // Semaine ISO 10 2027 : lundi 8 mars 2027
+      expect(content).toContain('DTSTART:20270308T080000');
+    });
+
     it('le LOCATION contient la première salle', () => {
       const content = generateIcalContent([makeTask()], 47);
       expect(content).toContain('LOCATION:A101');

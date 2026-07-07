@@ -12,6 +12,7 @@ import type { TaskEditUpdate } from '@/components/planning/modals/TaskEditModal'
 import { getMondayOfISOWeek, startTimeToDate, computeStaticConflicts, computeDragHighlights, computeConstraintViolation } from '@/lib/calendar/calendarUtils';
 import type { ResourceEventInfo } from '@/lib/calendar/calendarUtils';
 import { computeConstraintUnavailableZones, subtractDateZones } from '@/lib/calendar/blockedZones';
+import { resolveCalendarYear } from '@/lib/schoolHolidays';
 import { levelFromCode, getEventColors } from '@/lib/calendar/yearColors';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useSchedulerStore } from '@/store/useSchedulerStore';
@@ -50,16 +51,10 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
   const yearColorConfig = useSchedulerStore((s) => s.yearColorConfig);
   const schoolYearConfig = useSchedulerStore((s) => s.schoolYearConfig);
 
-  const monday = useMemo(() => {
-    if (schoolYearConfig) {
-      const parts = schoolYearConfig.year.split('-').map(Number);
-      const startYear = parts[0] ?? new Date().getFullYear();
-      const endYear = parts[1] ?? startYear + 1;
-      const year = week >= 35 ? startYear : endYear;
-      return getMondayOfISOWeek(week, year);
-    }
-    return getMondayOfISOWeek(week);
-  }, [week, schoolYearConfig]);
+  const monday = useMemo(
+    () => getMondayOfISOWeek(week, resolveCalendarYear(schoolYearConfig, week)),
+    [week, schoolYearConfig],
+  );
 
   // ── Options de ressources (pour les modals d'édition) ─────────────────
   const resourceOptions = useMemo(() => ({

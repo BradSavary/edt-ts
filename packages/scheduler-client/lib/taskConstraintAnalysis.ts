@@ -3,6 +3,7 @@ import type { CourseTaskDataWithId } from '@/lib/courseId';
 import { Availability, AvailabilityManager } from '@edt-ts/scheduler-common';
 import type { BlockedZone } from '@/lib/calendar/blockedZones';
 import { getMondayOfISOWeek } from '@/lib/calendar/calendarUtils';
+import { resolveCalendarYear, type SchoolYearConfig } from '@/lib/schoolHolidays';
 
 export type ConstraintLevel = 'critical' | 'tight' | 'ok';
 
@@ -57,11 +58,14 @@ export function analyzeConstraints(
   am: AvailabilityManager,
   weekNumber: number,
   blockedZones: BlockedZone[] = [],
+  schoolYearConfig: SchoolYearConfig | null = null,
   tightThreshold = 0.5,
   criticalThreshold = 1.0,
 ): ConstraintAnalysisResult {
 
-  const mondayMs = blockedZones.length > 0 ? getMondayOfISOWeek(weekNumber).getTime() : 0;
+  const mondayMs = blockedZones.length > 0
+    ? getMondayOfISOWeek(weekNumber, resolveCalendarYear(schoolYearConfig, weekNumber)).getTime()
+    : 0;
 
   /**
    * Compute the union availability for a single resource entry (single or alternatives).
