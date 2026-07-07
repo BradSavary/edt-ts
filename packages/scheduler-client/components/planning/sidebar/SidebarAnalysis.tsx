@@ -123,7 +123,7 @@ export function SidebarAnalysis() {
               type="button"
               variant="outline"
               className="w-full"
-              onClick={() => downloadIcalSolution([...filteredSolutions, ...filteredPlacedNeutralized], iCalWeek, schoolYearConfig)}
+              onClick={() => downloadIcalSolution([...filteredSolutions, ...filteredPlacedNeutralized], iCalWeek, schoolYearConfig, searchQuery)}
             >
               {searchQuery.trim() ? 'Exporter (filtré) en iCal' : 'Exporter en iCal'}
             </Button>

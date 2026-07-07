@@ -152,26 +152,49 @@ export function generateIcalContent(
   return header + '\r\n' + events + '\r\nEND:VCALENDAR\r\n';
 }
 
+/** Retire les caractères invalides dans un nom de fichier (toutes plateformes). */
+function sanitizeFileNamePart(value: string): string {
+  return value.trim().replace(/[/\\:*?"<>|]/g, '');
+}
+
+/**
+ * Nom de fichier "{{Filtre}} S{{Week}} {{Year}}.ics" (le préfixe filtre est omis s'il est vide).
+ * `Year` reprend le libellé de l'année universitaire tel que sélectionné par l'utilisateur
+ * (ex: "2026-2027") ; à défaut de `schoolYearConfig`, il est reconstruit depuis l'année civile
+ * effectivement utilisée pour dater les événements (voir `resolveCalendarYear`).
+ */
+function buildIcalFileName(week: number, monday: Date, schoolYearConfig: SchoolYearConfig | null | undefined, filter: string): string {
+  const universityYear = schoolYearConfig?.year ?? (
+    week >= 35
+      ? `${monday.getFullYear()}-${monday.getFullYear() + 1}`
+      : `${monday.getFullYear() - 1}-${monday.getFullYear()}`
+  );
+  const filterPart = sanitizeFileNamePart(filter);
+  return `${filterPart ? filterPart + ' ' : ''}S${week} ${universityYear}.ics`;
+}
+
 /**
  * Déclenche le téléchargement d'un fichier .ics dans le navigateur.
  *
  * @param tasks             Tâches de la solution active
  * @param week              Numéro de semaine ISO
  * @param schoolYearConfig  Année universitaire sélectionnée par l'utilisateur
+ * @param filter            Filtre de recherche actif (utilisé dans le nom du fichier), vide si aucun
  */
 export function downloadIcalSolution(
   tasks: TaskSolutionJSON[],
   week: number,
   schoolYearConfig?: SchoolYearConfig | null,
+  filter = '',
 ): void {
-  const year = resolveCalendarYear(schoolYearConfig, week) ?? new Date().getFullYear();
+  const monday = getMondayOfISOWeek(week, resolveCalendarYear(schoolYearConfig, week));
   const content = generateIcalContent(tasks, week, schoolYearConfig);
   const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   try {
     const a = document.createElement('a');
     a.href = url;
-    a.download = `planning-semaine-${week}-${year}.ics`;
+    a.download = buildIcalFileName(week, monday, schoolYearConfig, filter);
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

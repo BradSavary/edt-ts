@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { generateIcalContent } from '../lib/icalExport';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { generateIcalContent, downloadIcalSolution } from '../lib/icalExport';
 import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
 
 function makeTask(overrides: Partial<TaskSolutionJSON> = {}): TaskSolutionJSON {
@@ -142,5 +142,76 @@ describe('generateIcalContent', () => {
       const content = generateIcalContent([task], 47);
       expect(content).not.toContain('LOCATION:');
     });
+  });
+});
+
+describe('downloadIcalSolution', () => {
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => 'blob:mock');
+    URL.revokeObjectURL = vi.fn();
+  });
+
+  afterEach(() => {
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+  });
+
+  function captureDownloadedFileName(...args: Parameters<typeof downloadIcalSolution>): string {
+    let fileName = '';
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        fileName = this.download;
+      });
+    downloadIcalSolution(...args);
+    clickSpy.mockRestore();
+    return fileName;
+  }
+
+  it('sans filtre : "S{{week}} {{year}}.ics", sans espace en tête', () => {
+    const fileName = captureDownloadedFileName(
+      [makeTask()],
+      44,
+      { year: '2026-2027', zone: 'A', periods: [] },
+    );
+    expect(fileName).toBe('S44 2026-2027.ics');
+  });
+
+  it('avec filtre : "{{filtre}} S{{week}} {{year}}.ics"', () => {
+    const fileName = captureDownloadedFileName(
+      [makeTask()],
+      44,
+      { year: '2026-2027', zone: 'A', periods: [] },
+      'Dupont',
+    );
+    expect(fileName).toBe('Dupont S44 2026-2027.ics');
+  });
+
+  it('un filtre composé uniquement d\'espaces est traité comme vide', () => {
+    const fileName = captureDownloadedFileName(
+      [makeTask()],
+      44,
+      { year: '2026-2027', zone: 'A', periods: [] },
+      '   ',
+    );
+    expect(fileName).toBe('S44 2026-2027.ics');
+  });
+
+  it('retire les caractères invalides pour un nom de fichier dans le filtre', () => {
+    const fileName = captureDownloadedFileName(
+      [makeTask()],
+      44,
+      { year: '2026-2027', zone: 'A', periods: [] },
+      'Groupe: A/B',
+    );
+    expect(fileName).toBe('Groupe AB S44 2026-2027.ics');
+  });
+
+  it('sans schoolYearConfig, reconstruit un libellé d\'année universitaire cohérent avec la date affichée', () => {
+    const fileName = captureDownloadedFileName([makeTask()], 47, null);
+    expect(fileName).toMatch(/^S47 \d{4}-\d{4}\.ics$/);
   });
 });
