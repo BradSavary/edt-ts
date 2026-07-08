@@ -54,11 +54,14 @@ export function courseIdentityKey(course: CourseTaskData): string {
 
 /**
  * Génère un ID déterministe pour un cours CSV.
+ * Exportée pour être réutilisée par `lib/csvMerge.ts` (génération d'id pour les cours
+ * "ajoutés" lors d'une fusion, avec une occurrence calculée pour ne jamais entrer en
+ * collision avec les ids déjà utilisés par les cours conservés).
  * @param course  Le cours source
  * @param occurrence  Rang parmi les doublons identiques (commence à 1).
  *                    occurrence = 1 → pas de suffixe ; occurrence > 1 → suffixe `_N`.
  */
-function csvCourseId(course: CourseTaskData, occurrence: number): string {
+export function csvCourseId(course: CourseTaskData, occurrence: number): string {
   const hash = djb2(courseIdentityKey(course)).toString(36);
   return occurrence > 1 ? `${hash}_${occurrence}` : hash;
 }

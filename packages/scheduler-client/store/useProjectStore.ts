@@ -12,8 +12,9 @@ import type { SchoolYearConfig } from '../lib/schoolHolidays';
 import { migrateLegacyProjectStorage } from '../lib/project/legacyMigration';
 import { createProjectStorage, PROJECT_STORAGE_KEY } from '../lib/project/projectFile';
 import { DEFAULT_SLOTS } from '../lib/constraintsUtils';
-import { getManualCoursesForWeek } from '../lib/weekCourses';
+import { getManualCoursesForWeek, pruneWeekSavesOfCourseIds } from '../lib/weekCourses';
 import type { WeekSavesMap } from './slices/weekSavesSlice';
+import { diffCsvCourses, diffCsvResources, type ResourceGroupDataWithStatus } from '../lib/csvMerge';
 
 // Migration one-shot AVANT que le storage engine ci-dessous ne lise `edt-project`.
 migrateLegacyProjectStorage();
@@ -30,7 +31,7 @@ interface ProjectDataSlice {
   /** Configuration année scolaire + vacances/jours fériés. Non-null si projectName non-null. */
   schoolYearConfig: SchoolYearConfig | null;
   allCourses: CourseTaskDataWithId[];
-  resources: ResourceGroupData[];
+  resources: ResourceGroupDataWithStatus[];
   coursesFileName: string | null;
   yearColorConfig: YearColorConfig;
   /** Taux de remplissage (demande/dispo) pour le niveau 'tight' dans analyzeConstraints (défaut : 0.5) */
@@ -51,7 +52,7 @@ interface ProjectDataSlice {
 
   setCourses: (courses: CourseTaskDataWithId[], fileName?: string) => void;
   setResources: (resources: ResourceGroupData[]) => void;
-  /** Retire un cours CSV par id. */
+  /** Retire un cours CSV par id, et élague les références à cet id dans weekSaves. */
   removeCourse: (id: string) => void;
   setYearColorConfig: (config: YearColorConfig) => void;
   /** Change l'année scolaire du projet actif (ex: rechargement des vacances). */
@@ -60,13 +61,20 @@ interface ProjectDataSlice {
   setCriticalThreshold: (threshold: number) => void;
   setResourceMaxDailyMinutes: (id: string, maxDailyMinutes: number | undefined) => void;
   /**
-   * Action atomique d'import CSV : remplace cours (CSV uniquement, `source` forcé) et ressources,
+   * "Tout remplacer" : remplace cours (CSV uniquement, `source` forcé) et ressources,
    * élague les contraintes obsolètes. Préserve les cours manuels de chaque semaine (`weekSaves`)
    * mais réinitialise le reste de leur préparation (taskGroups/zones/impositions manuelles),
-   * puisque ces champs référencent des ids de cours CSV invalidés par le réimport — la
-   * non-destructivité complète du diff CSV reste hors scope pour cette itération.
+   * puisque ces champs référencent des ids de cours CSV invalidés par le réimport.
    */
   importCsvData: (courses: CourseTaskDataWithId[], resources: ResourceGroupData[], fileName: string) => void;
+  /**
+   * "Fusionner" : diff intelligent par clé d'identité (voir lib/csvMerge.ts). Les cours appariés
+   * gardent leur ancien id (taskGroups/manualEnforcedMap/preNeutralizedKeys restent valides sans
+   * remapping), seules les références aux cours réellement supprimés sont élaguées. Les ressources
+   * disparues sont conservées et marquées `unused` plutôt que supprimées — `constraints` n'a donc
+   * jamais besoin d'être élaguée ici (contrairement à `importCsvData`).
+   */
+  mergeCsvData: (courses: CourseTaskDataWithId[], resources: ResourceGroupData[], fileName: string) => void;
 }
 
 // ── Store combiné ──────────────────────────────────────────────────────────
@@ -77,7 +85,7 @@ const EMPTY_PROJECT_FIELDS = {
   projectName: null as string | null,
   schoolYearConfig: null as SchoolYearConfig | null,
   allCourses: [] as CourseTaskDataWithId[],
-  resources: [] as ResourceGroupData[],
+  resources: [] as ResourceGroupDataWithStatus[],
   coursesFileName: null as string | null,
   yearColorConfig: DEFAULT_YEAR_COLORS,
   tightThreshold: 0.5,
@@ -114,7 +122,15 @@ export const useProjectStore = create<ProjectStore>()(
 
       setCourses: (allCourses, fileName) => set({ allCourses, ...(fileName !== undefined ? { coursesFileName: fileName } : {}) }),
       setResources: (resources) => set({ resources }),
-      removeCourse: (id) => set((state) => ({ allCourses: state.allCourses.filter((c) => c.id !== id) })),
+      removeCourse: (id) => set((state) => {
+        const course = state.allCourses.find((c) => c.id === id);
+        const removedIdsByWeek = new Map<number, Set<string>>();
+        if (course) removedIdsByWeek.set(course.week, new Set([id]));
+        return {
+          allCourses: state.allCourses.filter((c) => c.id !== id),
+          weekSaves: pruneWeekSavesOfCourseIds(state.weekSaves, removedIdsByWeek),
+        };
+      }),
       importCsvData: (courses, resources, fileName) => {
         const validIds = resources.flatMap((g) => g.resources.map((r) => r.id));
         set((state) => {
@@ -154,6 +170,29 @@ export const useProjectStore = create<ProjectStore>()(
             coursesFileName: fileName,
             weekSaves: nextWeekSaves,
             constraints: prunedConstraints,
+          };
+        });
+      },
+      mergeCsvData: (courses, resources, fileName) => {
+        set((state) => {
+          const courseDiff = diffCsvCourses(state.allCourses, courses);
+          const finalResources = diffCsvResources(state.resources, resources);
+
+          const removedIdsByWeek = new Map<number, Set<string>>();
+          for (const c of courseDiff.removed) {
+            const existing = removedIdsByWeek.get(c.week);
+            if (existing) existing.add(c.id);
+            else removedIdsByWeek.set(c.week, new Set([c.id]));
+          }
+
+          return {
+            allCourses: courseDiff.merged,
+            resources: finalResources,
+            coursesFileName: fileName,
+            weekSaves: pruneWeekSavesOfCourseIds(state.weekSaves, removedIdsByWeek),
+            // constraints délibérément NON prunées : en mode fusion aucune ressource n'est
+            // vraiment supprimée (juste marquée unused), donc aucune clé de constraints ne
+            // peut devenir orpheline — contrairement à importCsvData.
           };
         });
       },

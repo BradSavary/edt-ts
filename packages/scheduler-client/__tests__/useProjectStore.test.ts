@@ -140,4 +140,127 @@ describe('useProjectStore.removeCourse', () => {
     useProjectStore.getState().removeCourse('c1');
     expect(useProjectStore.getState().allCourses).toEqual([c2]);
   });
+
+  it('purge aussi les références à cet id dans weekSaves de la semaine du cours', () => {
+    const c1 = makeCourse({ id: 'c1', week: 44 });
+    useProjectStore.setState({
+      allCourses: [c1],
+      weekSaves: {
+        '44': makeSnapshot({
+          taskGroups: [{ id: 'g1', type: 'parallel', courseKeys: ['c1'] }],
+          manualEnforcedMap: { c1: { teacher: [], groups: [], rooms: [], startTime: 0 } },
+        }),
+      },
+    });
+    useProjectStore.getState().removeCourse('c1');
+    const snapshot = useProjectStore.getState().weekSaves['44'];
+    expect(snapshot.taskGroups).toEqual([]);
+    expect(snapshot.manualEnforcedMap).toEqual({});
+  });
+});
+
+describe('useProjectStore.mergeCsvData', () => {
+  it('cours conservé (clé identique, salle changée) : garde son id, manualEnforcedMap/taskGroups intacts', () => {
+    useProjectStore.setState({
+      allCourses: [makeCourse({ id: 'csv1' })], // week 44, R101, TD, DUPONT, G1, 60min, A101
+      resources: makeResources(),
+      weekSaves: { '44': makeSnapshot() }, // taskGroups + manualEnforcedMap référencent 'csv1'
+    });
+    const before = useProjectStore.getState().weekSaves['44'];
+
+    useProjectStore.getState().mergeCsvData(
+      [makeCourse({ id: 'ignored-fresh-id', rooms: ['B202'] })],
+      makeResources(),
+      'nouveau.csv',
+    );
+
+    const state = useProjectStore.getState();
+    expect(state.allCourses).toHaveLength(1);
+    expect(state.allCourses[0].id).toBe('csv1'); // ancien id préservé
+    expect(state.allCourses[0].rooms).toEqual(['B202']); // champ rafraîchi
+    // Semaine non affectée par une suppression : snapshot strictement inchangé
+    expect(state.weekSaves['44']).toBe(before);
+  });
+
+  it('cours supprimé : références amputées dans taskGroups/manualEnforcedMap/preNeutralizedKeys', () => {
+    useProjectStore.setState({
+      allCourses: [makeCourse({ id: 'csv1' })],
+      resources: makeResources(),
+      weekSaves: {
+        '44': makeSnapshot({
+          preNeutralizedKeys: ['csv1'],
+        }),
+      },
+    });
+
+    // Nouveau CSV avec un cours totalement différent (aucune correspondance de clé) -> csv1 supprimé
+    useProjectStore.getState().mergeCsvData(
+      [makeCourse({ id: 'other', code: 'R999' })],
+      makeResources(),
+      'nouveau.csv',
+    );
+
+    const state = useProjectStore.getState();
+    expect(state.allCourses.map((c) => c.code)).toEqual(['R999']);
+    const snapshot = state.weekSaves['44'];
+    expect(snapshot.taskGroups).toEqual([]);
+    expect(snapshot.manualEnforcedMap).toEqual({});
+    expect(snapshot.preNeutralizedKeys).toEqual([]);
+  });
+
+  it('manualCourses jamais touché (même référence), quel que soit le contenu du nouveau CSV', () => {
+    const manual = makeCourse({ id: 'm1', source: 'manual', code: 'MANUEL' });
+    const manualCourses = [manual];
+    useProjectStore.setState({
+      allCourses: [makeCourse({ id: 'csv1' })],
+      resources: makeResources(),
+      weekSaves: { '44': makeSnapshot({ manualCourses }) },
+    });
+
+    useProjectStore.getState().mergeCsvData([makeCourse({ code: 'R999' })], makeResources(), 'nouveau.csv');
+
+    expect(useProjectStore.getState().weekSaves['44'].manualCourses).toBe(manualCourses);
+  });
+
+  it('ressource disparue : conservée et marquée unused ; nouvelle ressource : ajoutée', () => {
+    useProjectStore.setState({
+      allCourses: [makeCourse({ id: 'csv1' })],
+      resources: makeResources(), // DUPONT / A101 / G1
+    });
+
+    useProjectStore.getState().mergeCsvData(
+      [makeCourse({ id: 'csv1', teacher: ['MARTIN'] })],
+      [
+        { resourceType: 'teacher', resources: [{ id: 'MARTIN' }] },
+        { resourceType: 'room', resources: [{ id: 'A101' }] },
+        { resourceType: 'group', resources: [{ id: 'G1' }] },
+      ],
+      'nouveau.csv',
+    );
+
+    const teacherGroup = useProjectStore.getState().resources.find((g) => g.resourceType === 'teacher')!;
+    const dupont = teacherGroup.resources.find((r) => r.id === 'DUPONT');
+    const martin = teacherGroup.resources.find((r) => r.id === 'MARTIN');
+    expect(dupont?.unused).toBe(true);
+    expect(martin?.unused).toBeUndefined();
+  });
+
+  it('ne pruner JAMAIS constraints (contrairement à importCsvData)', () => {
+    useProjectStore.setState({
+      allCourses: [makeCourse({ id: 'csv1' })],
+      resources: makeResources(),
+      constraints: { Default: [], DUPONT: null, DISPARU: null },
+    });
+
+    // DISPARU n'apparaît dans aucune ressource CSV, mais constraints doit rester intact
+    useProjectStore.getState().mergeCsvData([makeCourse({ code: 'R999' })], makeResources(), 'nouveau.csv');
+
+    expect(Object.keys(useProjectStore.getState().constraints).sort()).toEqual(['DISPARU', 'DUPONT', 'Default']);
+  });
+
+  it('met à jour coursesFileName', () => {
+    useProjectStore.setState({ allCourses: [makeCourse({ id: 'csv1' })], resources: makeResources() });
+    useProjectStore.getState().mergeCsvData([makeCourse()], makeResources(), 'fusionné.csv');
+    expect(useProjectStore.getState().coursesFileName).toBe('fusionné.csv');
+  });
 });

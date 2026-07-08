@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { CourseTaskDataWithId } from '../lib/courseId';
 import type { WeekSavesMap, PreparedWeekSnapshot } from '../store/slices/weekSavesSlice';
-import { getManualCoursesForWeek, getCoursesForWeek } from '../lib/weekCourses';
+import { getManualCoursesForWeek, getCoursesForWeek, pruneWeekSavesOfCourseIds } from '../lib/weekCourses';
 
 function makeCourse(overrides: Partial<CourseTaskDataWithId> = {}): CourseTaskDataWithId {
   return {
@@ -77,5 +77,71 @@ describe('getCoursesForWeek', () => {
   it('ne retourne que les cours CSV si aucun cours manuel pour la semaine', () => {
     const csv1 = makeCourse({ id: 'csv1', source: 'csv', week: 44 });
     expect(getCoursesForWeek([csv1], {}, 44)).toEqual([csv1]);
+  });
+});
+
+describe('pruneWeekSavesOfCourseIds', () => {
+  it('sans suppression, retourne la même référence weekSaves', () => {
+    const weekSaves: WeekSavesMap = { '44': makeSnapshot() };
+    const result = pruneWeekSavesOfCourseIds(weekSaves, new Map());
+    expect(result).toBe(weekSaves);
+  });
+
+  it('une semaine sans suppression garde sa référence de snapshot strictement inchangée', () => {
+    const untouched = makeSnapshot({ weekNumber: 10 });
+    const weekSaves: WeekSavesMap = { '10': untouched, '44': makeSnapshot() };
+    const result = pruneWeekSavesOfCourseIds(weekSaves, new Map([[44, new Set(['c1'])]]));
+    expect(result['10']).toBe(untouched);
+  });
+
+  it('filtre courseKeys des taskGroups, garde le groupe si >= 2 membres restants', () => {
+    const weekSaves: WeekSavesMap = {
+      '44': makeSnapshot({
+        taskGroups: [{ id: 'g1', type: 'parallel', courseKeys: ['c1', 'c2', 'c3'] }],
+      }),
+    };
+    const result = pruneWeekSavesOfCourseIds(weekSaves, new Map([[44, new Set(['c2'])]]));
+    expect(result['44'].taskGroups).toEqual([{ id: 'g1', type: 'parallel', courseKeys: ['c1', 'c3'] }]);
+  });
+
+  it('retire entièrement un groupe tombé à moins de 2 membres', () => {
+    const weekSaves: WeekSavesMap = {
+      '44': makeSnapshot({
+        taskGroups: [{ id: 'g1', type: 'parallel', courseKeys: ['c1', 'c2'] }],
+      }),
+    };
+    const result = pruneWeekSavesOfCourseIds(weekSaves, new Map([[44, new Set(['c2'])]]));
+    expect(result['44'].taskGroups).toEqual([]);
+  });
+
+  it('filtre preNeutralizedKeys et manualEnforcedMap', () => {
+    const weekSaves: WeekSavesMap = {
+      '44': makeSnapshot({
+        preNeutralizedKeys: ['c1', 'c2'],
+        manualEnforcedMap: {
+          c1: { startTime: 0, teacher: [], groups: [], rooms: [] },
+          c2: { startTime: 60, teacher: [], groups: [], rooms: [] },
+        },
+      }),
+    };
+    const result = pruneWeekSavesOfCourseIds(weekSaves, new Map([[44, new Set(['c2'])]]));
+    expect(result['44'].preNeutralizedKeys).toEqual(['c1']);
+    expect(Object.keys(result['44'].manualEnforcedMap)).toEqual(['c1']);
+  });
+
+  it('ne touche jamais manualCourses', () => {
+    const manual = makeCourse({ id: 'm1', source: 'manual' });
+    const weekSaves: WeekSavesMap = {
+      '44': makeSnapshot({ manualCourses: [manual], preNeutralizedKeys: ['c1'] }),
+    };
+    const result = pruneWeekSavesOfCourseIds(weekSaves, new Map([[44, new Set(['c1'])]]));
+    expect(result['44'].manualCourses).toBe(weekSaves['44'].manualCourses);
+  });
+
+  it("no-op si la semaine listée n'a pas de snapshot", () => {
+    const weekSaves: WeekSavesMap = { '44': makeSnapshot() };
+    const result = pruneWeekSavesOfCourseIds(weekSaves, new Map([[99, new Set(['x'])]]));
+    expect(result['44']).toBe(weekSaves['44']);
+    expect(result['99']).toBeUndefined();
   });
 });

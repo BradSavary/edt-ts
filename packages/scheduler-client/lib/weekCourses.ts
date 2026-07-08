@@ -29,3 +29,44 @@ export function getCoursesForWeek(
 ): CourseTaskDataWithId[] {
   return [...allCourses.filter((c) => c.week === week), ...getManualCoursesForWeek(weekSaves, week)];
 }
+
+/**
+ * Élague sélectivement, pour chaque semaine listée dans `removedIdsByWeek`, les références
+ * à des ids de cours supprimés dans `taskGroups[].courseKeys`, `manualEnforcedMap` et
+ * `preNeutralizedKeys`. Un groupe de tâches tombé à moins de 2 membres est retiré entièrement
+ * (un groupe à 1 membre n'a plus de sens). `manualCourses` n'est jamais touché.
+ *
+ * Les semaines absentes de `removedIdsByWeek` (ou sans snapshot) gardent leur référence
+ * d'objet strictement inchangée — important pour ne pas déclencher de re-render/re-save inutile.
+ */
+export function pruneWeekSavesOfCourseIds(
+  weekSaves: WeekSavesMap,
+  removedIdsByWeek: Map<number, Set<string>>,
+): WeekSavesMap {
+  if (removedIdsByWeek.size === 0) return weekSaves;
+
+  let changed = false;
+  const next: WeekSavesMap = { ...weekSaves };
+
+  for (const [week, removedIds] of removedIdsByWeek) {
+    if (removedIds.size === 0) continue;
+    const key = String(week);
+    const snapshot = weekSaves[key];
+    if (!snapshot) continue;
+
+    const taskGroups = snapshot.taskGroups
+      .map((g) => ({ ...g, courseKeys: g.courseKeys.filter((id) => !removedIds.has(id)) }))
+      .filter((g) => g.courseKeys.length >= 2);
+
+    const preNeutralizedKeys = snapshot.preNeutralizedKeys.filter((id) => !removedIds.has(id));
+
+    const manualEnforcedMap = Object.fromEntries(
+      Object.entries(snapshot.manualEnforcedMap).filter(([id]) => !removedIds.has(id)),
+    );
+
+    next[key] = { ...snapshot, taskGroups, preNeutralizedKeys, manualEnforcedMap };
+    changed = true;
+  }
+
+  return changed ? next : weekSaves;
+}

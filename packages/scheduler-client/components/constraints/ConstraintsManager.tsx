@@ -179,6 +179,17 @@ export function ConstraintsManager() {
     return { label: '—', className: 'text-muted-foreground/40' };
   }
 
+  // Ressource marquée `unused` par une fusion CSV (absente du dernier CSV réimporté, conservée
+  // avec ses contraintes). Signal indépendant de getStatusBadge : une ressource peut être `unused`
+  // au sens CSV tout en étant encore référencée par un cours manuel dans une semaine donnée.
+  function getResourceUnused(id: string): boolean {
+    for (const group of storeResources) {
+      const found = group.resources.find((r) => r.id === id);
+      if (found) return Boolean(found.unused);
+    }
+    return false;
+  }
+
   const isDefaultSelected = selectedId === 'Default';
   const selectedValue =
     selectedId && selectedId !== 'Default'
@@ -289,6 +300,7 @@ export function ConstraintsManager() {
                     <ul>
                       {ids.map((id) => {
                         const badge = getStatusBadge(id);
+                        const unused = getResourceUnused(id);
                         return (
                           <li key={id}>
                             <button
@@ -300,6 +312,14 @@ export function ConstraintsManager() {
                               )}
                             >
                               <span className="text-sm truncate flex-1">{id}</span>
+                              {unused && (
+                                <span
+                                  className="text-[9px] shrink-0 px-1 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+                                  title="Absente du dernier CSV importé — conservée avec ses contraintes"
+                                >
+                                  inutilisée
+                                </span>
+                              )}
                               <span className={cn('text-[10px] shrink-0', badge.className)}>
                                 {badge.label}
                               </span>
