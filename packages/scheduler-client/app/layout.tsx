@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { NavBar } from "./NavBar";
+import { RouteGuard } from "@/components/project/RouteGuard";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,7 +31,9 @@ export default function RootLayout({
     >
       <body className="h-full flex flex-col">
         <NavBar />
-        <div className="flex-1 overflow-y-auto">{children}</div>
+        <div className="flex-1 overflow-y-auto">
+          <RouteGuard>{children}</RouteGuard>
+        </div>
       </body>
     </html>
   );

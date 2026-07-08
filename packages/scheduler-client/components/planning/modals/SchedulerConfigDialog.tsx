@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { LunchBreakFixed, LunchBreakFloating, SchedulerConfig } from '@edt-ts/scheduler-common';
 import { DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
-import { useSchedulerStore } from '@/store/useSchedulerStore';
+import { useAppConfigStore } from '@/store/useAppConfigStore';
 import { Settings, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -118,8 +118,8 @@ function draftToConfig(draft: Draft): SchedulerConfig {
 // ── Composant ───────────────────────────────────────────────────────────────
 
 export function SchedulerConfigDialog() {
-  const config = useSchedulerStore((s) => s.schedulerConfig);
-  const setSchedulerConfig = useSchedulerStore((s) => s.setSchedulerConfig);
+  const config = useAppConfigStore((s) => s.schedulerConfig);
+  const setSchedulerConfig = useAppConfigStore((s) => s.setSchedulerConfig);
 
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(() => configToDraft(config));

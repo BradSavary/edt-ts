@@ -7,7 +7,8 @@ import { usePlanningStore } from '@/store/usePlanningStore';
 import { Button } from '@/components/ui/button';
 
 const NAV_LINKS = [
-  { href: '/', label: 'Config' },
+  { href: '/', label: 'Accueil' },
+  { href: '/project', label: 'Paramètres' },
   { href: '/planning', label: 'Planification' },
   { href: '/constraints', label: 'Contraintes' },
 ];

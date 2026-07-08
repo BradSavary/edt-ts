@@ -1,6 +1,6 @@
 'use client';
 
-import { useSchedulerStore } from '@/store/useSchedulerStore';
+import { useProjectStore } from '@/store/useProjectStore';
 import { YEAR_COLOR_PALETTE, getEventColors, type YearColorConfig } from '@/lib/calendar/yearColors';
 
 const YEAR_LABELS: { key: keyof YearColorConfig; label: string }[] = [
@@ -10,8 +10,8 @@ const YEAR_LABELS: { key: keyof YearColorConfig; label: string }[] = [
 ];
 
 export function YearColorBlock() {
-  const yearColorConfig = useSchedulerStore((s) => s.yearColorConfig);
-  const setYearColorConfig = useSchedulerStore((s) => s.setYearColorConfig);
+  const yearColorConfig = useProjectStore((s) => s.yearColorConfig);
+  const setYearColorConfig = useProjectStore((s) => s.setYearColorConfig);
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-6">

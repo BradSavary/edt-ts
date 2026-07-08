@@ -3,26 +3,34 @@ import { persist } from 'zustand/middleware';
 import type { StateCreator } from 'zustand';
 import { createConstraintsSlice, type ConstraintsSlice } from './slices/constraintsSlice';
 import { createWeekSavesSlice, type WeekSavesSlice } from './slices/weekSavesSlice';
-import type { CourseTaskData, ResourceGroupData, ConstraintsData, SchedulerConfig } from '@edt-ts/scheduler-common';
-import { AvailabilityManager, DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
+import type { CourseTaskData, ResourceGroupData, ConstraintsData } from '@edt-ts/scheduler-common';
+import { AvailabilityManager } from '@edt-ts/scheduler-common';
 import { manualCourseId, type CourseTaskDataWithId } from '../lib/courseId';
 import { ClientSchedulerData } from '../lib/api/clientSchedulerData';
 import { type YearColorConfig, DEFAULT_YEAR_COLORS } from '../lib/calendar/yearColors';
 import type { SchoolYearConfig } from '../lib/schoolHolidays';
+import { migrateLegacyProjectStorage } from '../lib/project/legacyMigration';
+import { createProjectStorage, PROJECT_STORAGE_KEY } from '../lib/project/projectFile';
+import { DEFAULT_SLOTS } from '../lib/constraintsUtils';
 
-// ── Slice : données brutes du planificateur ────────────────────────────────
-// allCourses, resources, constraints sont persistés (localStorage "edt-scheduler").
-// availabilityManager est NON persisté : reconstruit automatiquement via subscribe
-// dès que constraints change, côté client uniquement.
+// Migration one-shot AVANT que le storage engine ci-dessous ne lise `edt-project`.
+migrateLegacyProjectStorage();
 
-interface SchedulerDataSlice {
+// ── Slice : données du Projet actif ─────────────────────────────────────────
+// projectName === null ⇔ aucun projet chargé. Tous les autres champs sont
+// garantis cohérents avec cet état par convention (createProject/closeProject),
+// pas par le typage — le RouteGuard garantit leur usage seulement quand un
+// projet existe réellement.
+
+interface ProjectDataSlice {
+  /** Nom du projet, utilisé pour les exports. null ⇔ aucun projet chargé. */
+  projectName: string | null;
+  /** Configuration année scolaire + vacances/jours fériés. Non-null si projectName non-null. */
+  schoolYearConfig: SchoolYearConfig | null;
   allCourses: CourseTaskDataWithId[];
   resources: ResourceGroupData[];
   coursesFileName: string | null;
-  schedulerConfig: SchedulerConfig;
   yearColorConfig: YearColorConfig;
-  /** Configuration année scolaire + vacances/jours fériés (persistée) */
-  schoolYearConfig: SchoolYearConfig | null;
   /** Taux de remplissage (demande/dispo) pour le niveau 'tight' dans analyzeConstraints (défaut : 0.5) */
   tightThreshold: number;
   /** Taux de remplissage pour le niveau 'critical' dans analyzeConstraints (défaut : 1.0) */
@@ -31,46 +39,76 @@ interface SchedulerDataSlice {
   availabilityManager: AvailabilityManager | null;
   /** Instance ClientSchedulerData — non persistée, reconstruite quand allCourses ou resources change */
   clientSchedulerData: ClientSchedulerData | null;
+
+  /** Crée un nouveau projet (remplace entièrement l'état courant). */
+  createProject: (name: string, schoolYearConfig: SchoolYearConfig) => void;
+  /** Renomme le projet actif (utilisé pour les exports). */
+  renameProject: (name: string) => void;
+  /** Referme le projet actif : repasse à l'état "aucun projet". */
+  closeProject: () => void;
+
   setCourses: (courses: CourseTaskDataWithId[], fileName?: string) => void;
   setResources: (resources: ResourceGroupData[]) => void;
   addCourse: (course: CourseTaskData) => void;
   removeCourse: (index: number) => void;
-  setSchedulerConfig: (config: SchedulerConfig) => void;
   setYearColorConfig: (config: YearColorConfig) => void;
-  setSchoolYearConfig: (config: SchoolYearConfig | null) => void;
+  /** Change l'année scolaire du projet actif (ex: rechargement des vacances). */
+  setSchoolYearConfig: (config: SchoolYearConfig) => void;
   setTightThreshold: (threshold: number) => void;
   setCriticalThreshold: (threshold: number) => void;
   setResourceMaxDailyMinutes: (id: string, maxDailyMinutes: number | undefined) => void;
   /**
-   * Action atomique d’import CSV : remplace cours et ressources, purge les sauvegardes
-   * de semaine, élague les contraintes obsolètes et remet à zéro les impositions.
+   * Action atomique d'import CSV : remplace cours et ressources, purge les sauvegardes
+   * de semaine du projet actif, élague les contraintes obsolètes et remet à zéro les impositions.
+   * Comportement destructif volontairement conservé pour cette itération (voir plan de refactoring) :
+   * le diff non destructif course-par-course est hors scope.
    */
   importCsvData: (courses: CourseTaskDataWithId[], resources: ResourceGroupData[], fileName: string) => void;
 }
 
 // ── Store combiné ──────────────────────────────────────────────────────────
-// Correspond conceptuellement à SchedulerData côté serveur (common).
-// usePlanningStore (session, non persisté) contient les données de travail.
 
-export type SchedulerStore = ConstraintsSlice & SchedulerDataSlice & WeekSavesSlice;
+export type ProjectStore = ConstraintsSlice & ProjectDataSlice & WeekSavesSlice;
 
-export const useSchedulerStore = create<SchedulerStore>()(
+const EMPTY_PROJECT_FIELDS = {
+  projectName: null as string | null,
+  schoolYearConfig: null as SchoolYearConfig | null,
+  allCourses: [] as CourseTaskDataWithId[],
+  resources: [] as ResourceGroupData[],
+  coursesFileName: null as string | null,
+  yearColorConfig: DEFAULT_YEAR_COLORS,
+  tightThreshold: 0.5,
+  criticalThreshold: 1.0,
+  constraints: { Default: DEFAULT_SLOTS } as ConstraintsSlice['constraints'],
+  weekSaves: {} as WeekSavesSlice['weekSaves'],
+};
+
+export const useProjectStore = create<ProjectStore>()(
   persist(
     (set, get, api) => ({
-      ...(createConstraintsSlice as StateCreator<SchedulerStore, [], [], ConstraintsSlice>)(set, get, api),
-      ...(createWeekSavesSlice as StateCreator<SchedulerStore, [], [], WeekSavesSlice>)(set, get, api),
+      ...(createConstraintsSlice as StateCreator<ProjectStore, [], [], ConstraintsSlice>)(set, get, api),
+      ...(createWeekSavesSlice as StateCreator<ProjectStore, [], [], WeekSavesSlice>)(set, get, api),
 
-      // Scheduler data slice
+      // Project data slice
+      projectName: null,
       allCourses: [],
       resources: [],
       coursesFileName: null,
-      schedulerConfig: DEFAULT_SCHEDULER_CONFIG,
       yearColorConfig: DEFAULT_YEAR_COLORS,
       schoolYearConfig: null,
       tightThreshold: 0.5,
       criticalThreshold: 1.0,
       availabilityManager: null, // Reconstruit par subscribe ci-dessous
       clientSchedulerData: null, // Reconstruit par subscribe ci-dessous
+
+      createProject: (name, schoolYearConfig) => set({
+        ...EMPTY_PROJECT_FIELDS,
+        projectName: name,
+        schoolYearConfig,
+      }),
+      renameProject: (name) => set({ projectName: name }),
+      closeProject: () => set({ ...EMPTY_PROJECT_FIELDS }),
+
       setCourses: (allCourses, fileName) => set({ allCourses, ...(fileName !== undefined ? { coursesFileName: fileName } : {}) }),
       setResources: (resources) => set({ resources }),
       addCourse: (course) => set((state) => ({
@@ -96,7 +134,6 @@ export const useSchedulerStore = create<SchedulerStore>()(
           };
         });
       },
-      setSchedulerConfig: (schedulerConfig) => set({ schedulerConfig }),
       setYearColorConfig: (yearColorConfig) => set({ yearColorConfig }),
       setSchoolYearConfig: (schoolYearConfig) => set({ schoolYearConfig }),
       setTightThreshold: (tightThreshold) => set({ tightThreshold }),
@@ -111,15 +148,17 @@ export const useSchedulerStore = create<SchedulerStore>()(
       })),
     }),
     {
-      name: 'edt-scheduler',
+      name: PROJECT_STORAGE_KEY,
+      version: 1,
+      storage: createProjectStorage(),
       partialize: (state) => ({
+        projectName: state.projectName,
+        schoolYearConfig: state.schoolYearConfig,
         constraints: state.constraints,
         allCourses: state.allCourses,
         resources: state.resources,
         coursesFileName: state.coursesFileName,
-        schedulerConfig: state.schedulerConfig,
         yearColorConfig: state.yearColorConfig,
-        schoolYearConfig: state.schoolYearConfig,
         tightThreshold: state.tightThreshold,
         criticalThreshold: state.criticalThreshold,
         weekSaves: state.weekSaves,
@@ -134,7 +173,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
 // ce qui provoque le subscribe et construit le premier AvailabilityManager.
 // Ensuite, chaque modification de constraints via constraintsSlice le reconstruit.
 
-function buildClientSchedulerData(state: SchedulerStore): ClientSchedulerData | null {
+function buildClientSchedulerData(state: ProjectStore): ClientSchedulerData | null {
   if (state.allCourses.length === 0 || state.resources.length === 0) return null;
   const data = new ClientSchedulerData();
   data.initResources(state.resources);
@@ -178,7 +217,7 @@ if (typeof window !== 'undefined') {
   // Toujours créé (même avec constraints vides) pour que computeConstraintUnavailableZones
   // fonctionne dès le premier drag — les ressources sans contrainte définie seront ignorées.
   // Reconstruit le ClientSchedulerData à chaque changement de allCourses ou resources.
-  useSchedulerStore.subscribe((state, prevState) => {
+  useProjectStore.subscribe((state, prevState) => {
     const updates: Record<string, unknown> = {};
     if (state.constraints !== prevState.constraints) {
       updates.availabilityManager = new AvailabilityManager(normalizeConstraintsForAM(state.constraints));
@@ -187,14 +226,14 @@ if (typeof window !== 'undefined') {
       updates.clientSchedulerData = buildClientSchedulerData(state);
     }
     if (Object.keys(updates).length > 0) {
-      useSchedulerStore.setState(updates as Partial<SchedulerStore>);
+      useProjectStore.setState(updates as Partial<ProjectStore>);
     }
   });
 
   // Initialisation immédiate : gère le cas où persist a déjà hydraté le store
   // avant que le subscribe soit installé (navigation SPA, hot-reload).
-  const initialState = useSchedulerStore.getState();
-  useSchedulerStore.setState({
+  const initialState = useProjectStore.getState();
+  useProjectStore.setState({
     availabilityManager: new AvailabilityManager(normalizeConstraintsForAM(initialState.constraints)),
     clientSchedulerData: buildClientSchedulerData(initialState),
   });

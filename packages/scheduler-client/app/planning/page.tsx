@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
-import { useSchedulerStore } from '@/store/useSchedulerStore';
+import { useProjectStore } from '@/store/useProjectStore';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { SidebarLeft } from '@/components/planning/sidebar/SidebarLeft';
 import { GroupDrawer } from '@/components/planning/courses/GroupDrawer';
@@ -22,8 +22,8 @@ import { StatisticsDialog } from '@/components/planning/modals/StatisticsDialog'
 
 export default function PlanningPage() {
   // ── Stores ──────────────────────────────────────────────────────────────
-  const allCourses = useSchedulerStore((s) => s.allCourses);
-  const resources = useSchedulerStore((s) => s.resources);
+  const allCourses = useProjectStore((s) => s.allCourses);
+  const resources = useProjectStore((s) => s.resources);
 
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
   const scheduleResult = usePlanningStore((s) => s.scheduleResult);

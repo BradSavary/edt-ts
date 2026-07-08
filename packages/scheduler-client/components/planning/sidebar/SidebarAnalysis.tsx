@@ -2,7 +2,7 @@
 
 import { useRef, useMemo, useState } from 'react';
 import { usePlanningStore } from '@/store/usePlanningStore';
-import { useSchedulerStore } from '@/store/useSchedulerStore';
+import { useProjectStore } from '@/store/useProjectStore';
 import { useNeutralizedDraggable } from '@/hooks/useNeutralizedDraggable';
 import { downloadIcalSolution } from '@/lib/icalExport';
 import { filterSolutionsByQuery } from '@/lib/calendar/calendarUtils';
@@ -32,7 +32,7 @@ export function SidebarAnalysis() {
   const searchQuery = usePlanningStore((s) => s.searchQuery);
   const setSearchQuery = usePlanningStore((s) => s.setSearchQuery);
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
-  const schoolYearConfig = useSchedulerStore((s) => s.schoolYearConfig);
+  const schoolYearConfig = useProjectStore((s) => s.schoolYearConfig);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const neutralizedContainerRef = useRef<HTMLDivElement | null>(null);

@@ -15,7 +15,7 @@ import { computeConstraintUnavailableZones, subtractDateZones } from '@/lib/cale
 import { resolveCalendarYear } from '@/lib/schoolHolidays';
 import { levelFromCode, getEventColors } from '@/lib/calendar/yearColors';
 import { usePlanningStore } from '@/store/usePlanningStore';
-import { useSchedulerStore } from '@/store/useSchedulerStore';
+import { useProjectStore } from '@/store/useProjectStore';
 import type { PendingDrop, PendingNeutralizedDrop, CalendarEventExtProps, CalendarEventData, DraggingState, PendingEditData } from '@/lib/calendar/types';
 
 export type { PendingDrop, PendingNeutralizedDrop, CalendarEventExtProps, CalendarEventData, DraggingState, PendingEditData };
@@ -46,10 +46,10 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
   const handleBlockedZoneMove = usePlanningStore((s) => s.handleBlockedZoneMove);
   const externalDragging = usePlanningStore((s) => s.draggingExternal);
 
-  const availabilityManager = useSchedulerStore((s) => s.availabilityManager);
-  const resources = useSchedulerStore((s) => s.resources);
-  const yearColorConfig = useSchedulerStore((s) => s.yearColorConfig);
-  const schoolYearConfig = useSchedulerStore((s) => s.schoolYearConfig);
+  const availabilityManager = useProjectStore((s) => s.availabilityManager);
+  const resources = useProjectStore((s) => s.resources);
+  const yearColorConfig = useProjectStore((s) => s.yearColorConfig);
+  const schoolYearConfig = useProjectStore((s) => s.schoolYearConfig);
 
   const monday = useMemo(
     () => getMondayOfISOWeek(week, resolveCalendarYear(schoolYearConfig, week)),
@@ -377,7 +377,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     if (pendingEdit.courseKey !== undefined) {
       const course = courseById.get(pendingEdit.courseKey);
       if (course) {
-        const { allCourses, setCourses } = useSchedulerStore.getState();
+        const { allCourses, setCourses } = useProjectStore.getState();
         const updatedCourses = allCourses.map((c) =>
           c === course
             ? {

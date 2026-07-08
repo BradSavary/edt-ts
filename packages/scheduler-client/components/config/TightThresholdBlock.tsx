@@ -1,15 +1,15 @@
 'use client';
 
-import { useSchedulerStore } from '@/store/useSchedulerStore';
+import { useProjectStore } from '@/store/useProjectStore';
 
 const DEFAULT_TIGHT = 0.5;
 const DEFAULT_CRITICAL = 0.85;
 
 export function TightThresholdBlock() {
-  const tightThreshold = useSchedulerStore((s) => s.tightThreshold);
-  const setTightThreshold = useSchedulerStore((s) => s.setTightThreshold);
-  const criticalThreshold = useSchedulerStore((s) => s.criticalThreshold);
-  const setCriticalThreshold = useSchedulerStore((s) => s.setCriticalThreshold);
+  const tightThreshold = useProjectStore((s) => s.tightThreshold);
+  const setTightThreshold = useProjectStore((s) => s.setTightThreshold);
+  const criticalThreshold = useProjectStore((s) => s.criticalThreshold);
+  const setCriticalThreshold = useProjectStore((s) => s.setCriticalThreshold);
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-6">

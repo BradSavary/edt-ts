@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Label } from '@/components/ui/label';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { parseCsvFull } from '@/lib/parseCsvCourses';
-import { useSchedulerStore } from '@/store/useSchedulerStore';
+import { useProjectStore } from '@/store/useProjectStore';
 import { usePlanningStore } from '@/store/usePlanningStore';
+import { downloadJson } from '@/lib/downloadJson';
+import { CoursesImportField } from './CoursesImportField';
+import type { ParseCsvFullResult } from '@/lib/parseCsvCourses';
+import type { CourseTaskDataWithId } from '@/lib/courseId';
+import type { ResourceGroupData } from '@edt-ts/scheduler-common';
 import {
   Dialog,
   DialogContent,
@@ -15,75 +18,90 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 
+interface CoursesJsonFile {
+  courses: CourseTaskDataWithId[];
+  resources: ResourceGroupData[];
+  coursesFileName?: string | null;
+}
+
+function isCoursesJsonFile(value: unknown): value is CoursesJsonFile {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return Array.isArray(v.courses) && Array.isArray(v.resources);
+}
+
 export function CoursesImportBlock() {
-  const allCourses     = useSchedulerStore((s) => s.allCourses);
-  const resources      = useSchedulerStore((s) => s.resources);
-  const coursesFileName = useSchedulerStore((s) => s.coursesFileName);
-  const weekSaves      = useSchedulerStore((s) => s.weekSaves);
-  const constraints    = useSchedulerStore((s) => s.constraints);
+  const allCourses = useProjectStore((s) => s.allCourses);
+  const resources = useProjectStore((s) => s.resources);
+  const coursesFileName = useProjectStore((s) => s.coursesFileName);
+  const weekSaves = useProjectStore((s) => s.weekSaves);
+  const constraints = useProjectStore((s) => s.constraints);
+  const importCsvData = useProjectStore((s) => s.importCsvData);
 
-  const [coursesCsvFile, setCoursesCsvFile]   = useState<File | null>(null);
-  const [pendingFile, setPendingFile]         = useState<File | null>(null);
-  const [showWarning, setShowWarning]         = useState(false);
-  const [importStatus, setImportStatus]       = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [showWarning, setShowWarning] = useState(false);
+  const [jsonImportError, setJsonImportError] = useState('');
+  const resolveConfirmRef = useRef<((proceed: boolean) => void) | null>(null);
+  const jsonInputRef = useRef<HTMLInputElement>(null);
 
-  // Nombre de semaines sauvegardées
-  const weekSaveCount = Object.values(weekSaves).reduce(
-    (acc, yearSaves) => acc + Object.keys(yearSaves).length, 0,
-  );
+  // Nombre de semaines sauvegardées dans le projet actif (une seule année, donc à plat)
+  const weekSaveCount = Object.keys(weekSaves).length;
 
   // Nombre de ressources avec des contraintes explicites (hors Default)
   const constraintCount = Object.keys(constraints).filter(
     (k) => k !== 'Default' && constraints[k] !== null && constraints[k] !== undefined,
   ).length;
 
-  useEffect(() => {
-    if (!coursesCsvFile) return;
-    let cancelled = false;
-    coursesCsvFile.text().then((text) => {
-      if (cancelled) return;
-      setImportStatus('loading');
-      try {
-        const { courses, resources: extractedResources } = parseCsvFull(text);
-        useSchedulerStore.getState().importCsvData(courses, extractedResources, coursesCsvFile.name);
-        usePlanningStore.getState().handleEnforceChange({});
-        setImportStatus('success');
-      } catch {
-        useSchedulerStore.getState().setCourses([], undefined);
-        useSchedulerStore.getState().setResources([]);
-        setImportStatus('error');
-      }
-    });
-    return () => { cancelled = true; };
-  }, [coursesCsvFile]);
+  const resourceCount = resources.reduce((acc, g) => acc + g.resources.length, 0);
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    // Si un CSV est déjà chargé, afficher l'avertissement avant d'importer
-    if (allCourses.length > 0) {
-      setPendingFile(file);
-      setShowWarning(true);
-    } else {
-      setCoursesCsvFile(file);
-    }
-    // Réinitialiser l'input pour permettre de re-sélectionner le même fichier
-    e.target.value = '';
+  /** Passerelle commune CSV/JSON : demande confirmation avant de remplacer des cours déjà chargés. */
+  function confirmReplace(file: File): Promise<boolean> {
+    if (allCourses.length === 0) return Promise.resolve(true);
+    setPendingFile(file);
+    setShowWarning(true);
+    return new Promise((resolve) => { resolveConfirmRef.current = resolve; });
   }
 
   function handleConfirmReplace() {
     setShowWarning(false);
-    setCoursesCsvFile(pendingFile);
-    setPendingFile(null);
+    resolveConfirmRef.current?.(true);
+    resolveConfirmRef.current = null;
   }
 
   function handleCancelReplace() {
     setShowWarning(false);
+    resolveConfirmRef.current?.(false);
+    resolveConfirmRef.current = null;
     setPendingFile(null);
   }
 
-  const resourceCount = resources.reduce((acc, g) => acc + g.resources.length, 0);
+  function handleParsed(result: ParseCsvFullResult, fileName: string) {
+    importCsvData(result.courses, result.resources, fileName);
+    usePlanningStore.getState().handleEnforceChange({});
+    setPendingFile(null);
+  }
+
+  function handleExportCourses() {
+    downloadJson('cours.json', { courses: allCourses, resources, coursesFileName });
+  }
+
+  async function handleImportJsonFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setJsonImportError('');
+    const proceed = await confirmReplace(file);
+    if (!proceed) return;
+    try {
+      const parsed = JSON.parse(await file.text()) as unknown;
+      if (!isCoursesJsonFile(parsed)) throw new Error('format invalide');
+      importCsvData(parsed.courses, parsed.resources, parsed.coursesFileName ?? file.name);
+      usePlanningStore.getState().handleEnforceChange({});
+      setPendingFile(null);
+    } catch {
+      setJsonImportError('Fichier JSON invalide ou format non reconnu.');
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-6">
@@ -94,57 +112,38 @@ export function CoursesImportBlock() {
         </p>
       </div>
 
-      <div className="space-y-1.5">
-        <Label>
-          Cours <span className="text-muted-foreground font-normal">(CSV)</span>
-        </Label>
+      <CoursesImportField
+        initialSummary={
+          allCourses.length > 0
+            ? { fileName: coursesFileName ?? 'Fichier chargé', courseCount: allCourses.length, resourceCount }
+            : null
+        }
+        onParsed={handleParsed}
+        confirmReplace={confirmReplace}
+      />
 
-        {importStatus === 'loading' && (
-          <div className="flex items-center gap-2 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 px-3 py-2">
-            <span className="text-blue-600 dark:text-blue-400 text-xs shrink-0">⏳</span>
-            <span className="text-xs text-blue-700 dark:text-blue-300">Chargement en cours…</span>
-          </div>
-        )}
-        {importStatus === 'success' && (
-          <div className="flex items-center gap-2 rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-3 py-2">
-            <span className="text-green-600 dark:text-green-400 text-xs shrink-0">✅</span>
-            <span className="text-xs text-green-700 dark:text-green-300 truncate font-medium">
-              {coursesCsvFile?.name ?? coursesFileName ?? 'Fichier chargé'}
-            </span>
-            <span className="text-xs text-green-600 dark:text-green-400 shrink-0 ml-auto">
-              {allCourses.length} cours · {resourceCount} ressources
-            </span>
-          </div>
-        )}
-        {importStatus === 'error' && (
-          <div className="flex items-center gap-2 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-3 py-2">
-            <span className="text-red-600 dark:text-red-400 text-xs shrink-0">❌</span>
-            <span className="text-xs text-red-700 dark:text-red-300">Erreur lors du chargement du fichier CSV.</span>
-          </div>
-        )}
-        {importStatus === 'idle' && allCourses.length > 0 && (
-          <div className="flex items-center gap-2 rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-3 py-2">
-            <span className="text-green-600 dark:text-green-400 text-xs shrink-0">✅</span>
-            <span className="text-xs text-green-700 dark:text-green-300 truncate font-medium">
-              {coursesFileName ?? 'Fichier chargé'}
-            </span>
-            <span className="text-xs text-green-600 dark:text-green-400 shrink-0 ml-auto">
-              {allCourses.length} cours · {resourceCount} ressources
-            </span>
-          </div>
-        )}
-
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button type="button" variant="outline" size="sm" onClick={handleExportCourses} disabled={allCourses.length === 0}>
+          Exporter les cours (JSON)
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => jsonInputRef.current?.click()}>
+          Importer des cours (JSON)
+        </Button>
         <input
-          ref={fileInputRef}
+          ref={jsonInputRef}
           type="file"
-          accept=".csv"
-          onChange={handleFileChange}
-          className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-secondary file:text-secondary-foreground hover:file:bg-secondary/80"
+          accept=".json"
+          onChange={handleImportJsonFile}
+          className="sr-only"
+          aria-label="Importer un fichier de cours JSON"
         />
-        {importStatus === 'idle' && allCourses.length > 0 && (
-          <p className="text-xs text-muted-foreground">Sélectionnez un nouveau fichier pour remplacer.</p>
-        )}
       </div>
+      {jsonImportError && (
+        <p className="text-xs text-destructive">{jsonImportError}</p>
+      )}
+      <p className="text-xs text-muted-foreground">
+        L&apos;export JSON permet de réutiliser des cours d&apos;un projet à l&apos;autre sans repasser par le fichier CSV source.
+      </p>
 
       <div className="text-xs text-muted-foreground rounded-md border border-border bg-muted/30 px-3 py-2">
         Les contraintes horaires sont gérées dans{' '}
@@ -153,11 +152,11 @@ export function CoursesImportBlock() {
         </a>.
       </div>
 
-      {/* Dialog de confirmation de remplacement */}
+      {/* Dialog de confirmation de remplacement (déclenché par confirmReplace, CSV ou JSON) */}
       <Dialog open={showWarning} onOpenChange={(open) => { if (!open) handleCancelReplace(); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Remplacer le fichier CSV ?</DialogTitle>
+            <DialogTitle>Remplacer les cours actuels ?</DialogTitle>
             <DialogDescription>
               Remplacer <span className="font-medium text-foreground">{coursesFileName}</span> par{' '}
               <span className="font-medium text-foreground">{pendingFile?.name}</span> effacera les données suivantes :
@@ -178,7 +177,7 @@ export function CoursesImportBlock() {
               <li className="flex items-start gap-2">
                 <span className="text-amber-500 shrink-0 mt-0.5">⚠</span>
                 <span>
-                  Les contraintes des ressources absentes du nouveau CSV seront supprimées
+                  Les contraintes des ressources absentes du nouvel import seront supprimées
                   {' '}(<span className="font-medium">{constraintCount} ressource{constraintCount > 1 ? 's' : ''}</span> avec contraintes actuellement)
                 </span>
               </li>

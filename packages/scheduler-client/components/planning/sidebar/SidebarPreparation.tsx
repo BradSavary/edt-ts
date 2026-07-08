@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
 import { usePlanningStore } from '@/store/usePlanningStore';
-import { useSchedulerStore } from '@/store/useSchedulerStore';
+import { useProjectStore } from '@/store/useProjectStore';
 import { useSidebarCourseDrag } from '@/hooks/useSidebarCourseDrag';
 import CourseGroupList, { type GroupBy } from '@/components/planning/courses/CourseGroupList';
 import CourseConstraintList from '@/components/planning/courses/CourseConstraintList';
@@ -38,15 +38,15 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
   const groupDrawerOpen = usePlanningStore((s) => s.groupDrawerOpen);
   const toggleGroupDrawer = usePlanningStore((s) => s.toggleGroupDrawer);
 
-  const allCourses = useSchedulerStore((s) => s.allCourses);
-  const setCourses = useSchedulerStore((s) => s.setCourses);
-  const addCourse = useSchedulerStore((s) => s.addCourse);
-  const removeCourse = useSchedulerStore((s) => s.removeCourse);
-  const resources = useSchedulerStore((s) => s.resources);
-  const availabilityManager = useSchedulerStore((s) => s.availabilityManager);
-  const tightThreshold = useSchedulerStore((s) => s.tightThreshold);
-  const criticalThreshold = useSchedulerStore((s) => s.criticalThreshold);
-  const schoolYearConfig = useSchedulerStore((s) => s.schoolYearConfig);
+  const allCourses = useProjectStore((s) => s.allCourses);
+  const setCourses = useProjectStore((s) => s.setCourses);
+  const addCourse = useProjectStore((s) => s.addCourse);
+  const removeCourse = useProjectStore((s) => s.removeCourse);
+  const resources = useProjectStore((s) => s.resources);
+  const availabilityManager = useProjectStore((s) => s.availabilityManager);
+  const tightThreshold = useProjectStore((s) => s.tightThreshold);
+  const criticalThreshold = useProjectStore((s) => s.criticalThreshold);
+  const schoolYearConfig = useProjectStore((s) => s.schoolYearConfig);
 
   type SidebarTab = GroupBy | 'constraint';
   const [groupBy, setGroupBy] = useState<SidebarTab>('code');

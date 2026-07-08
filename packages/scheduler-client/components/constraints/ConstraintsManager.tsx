@@ -13,7 +13,8 @@ import {
   type ResourceTypeUI,
   RESOURCE_TYPE_LABELS,
 } from '@/lib/constraintsUtils';
-import { useSchedulerStore } from '@/store/useSchedulerStore';
+import { useProjectStore } from '@/store/useProjectStore';
+import { downloadJson } from '@/lib/downloadJson';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import { ResourceConstraintEditor } from './ResourceConstraintEditor';
 import { AddResourceModal } from './AddResourceModal';
@@ -27,8 +28,8 @@ const RESOURCE_TABS: { value: ResourceTypeUI; label: string }[] = [
 
 export function ConstraintsManager() {
   // --- Store Zustand (données partagées) ---
-  const constraints        = useSchedulerStore((s) => s.constraints);
-  const allCourses         = useSchedulerStore((s) => s.allCourses);
+  const constraints        = useProjectStore((s) => s.constraints);
+  const allCourses         = useProjectStore((s) => s.allCourses);
 
   const resourceWeeks = useMemo(() => {
     const map: Record<string, Set<number>> = {};
@@ -46,15 +47,14 @@ export function ConstraintsManager() {
     for (const [id, set] of Object.entries(map)) result[id] = [...set].sort((a, b) => a - b);
     return result;
   }, [allCourses]);
-  const saveNotice         = useSchedulerStore((s) => s.saveNotice);
-  const storeResources     = useSchedulerStore((s) => s.resources);
-  const setConstraint      = useSchedulerStore((s) => s.setConstraint);
-  const deleteConstraint   = useSchedulerStore((s) => s.deleteConstraint);
-  const addResource        = useSchedulerStore((s) => s.addResource);
-  const setDefaultConstraint = useSchedulerStore((s) => s.setDefaultConstraint);
-  const importConstraints  = useSchedulerStore((s) => s.importConstraints);
-  const exportConstraints  = useSchedulerStore((s) => s.exportConstraints);
-  const setResourceMaxDailyMinutes = useSchedulerStore((s) => s.setResourceMaxDailyMinutes);
+  const saveNotice         = useProjectStore((s) => s.saveNotice);
+  const storeResources     = useProjectStore((s) => s.resources);
+  const setConstraint      = useProjectStore((s) => s.setConstraint);
+  const deleteConstraint   = useProjectStore((s) => s.deleteConstraint);
+  const addResource        = useProjectStore((s) => s.addResource);
+  const setDefaultConstraint = useProjectStore((s) => s.setDefaultConstraint);
+  const importConstraints  = useProjectStore((s) => s.importConstraints);
+  const setResourceMaxDailyMinutes = useProjectStore((s) => s.setResourceMaxDailyMinutes);
 
   // --- État local UI uniquement ---
   const [search, setSearch]           = useState('');
@@ -104,14 +104,7 @@ export function ConstraintsManager() {
   }
 
   function handleExport() {
-    const json = exportConstraints();
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'contraintes.json';
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadJson('contraintes.json', constraints);
   }
 
   function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {

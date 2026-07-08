@@ -3,7 +3,8 @@ import type { EnforcedData, TaskSolutionJSON, NeutralizedTaskInfoJSON, Constrain
 import type { BlockedZone } from '@/lib/calendar/blockedZones';
 import { runScheduleRequestFromData, submitJobAsync, pollJob, cancelJob, buildScheduleStatus, JobConflictError, type ScheduleResult, type ScheduleStatus } from '@/lib/api/scheduleApi';
 import { getClientId } from '@/lib/api/clientId';
-import { useSchedulerStore } from '@/store/useSchedulerStore';
+import { useProjectStore } from '@/store/useProjectStore';
+import { useAppConfigStore } from '@/store/useAppConfigStore';
 import { type TaskGroupConfig, type GroupType, buildTaskGroupData, getCourseGroupInfo, computeGroupEnforcements } from '@/lib/taskGroupUtils';
 import { computeHolidayZonesForWeek } from '@/lib/schoolHolidays';
 import { createNeutralizedSlice, type NeutralizedSlice } from '@/store/slices/neutralizedSlice';
@@ -114,8 +115,8 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   selectedWeek: null,
   setSelectedWeek: (week) => {
     // Pré-charger les zones bloquées de vacances/jours fériés pour la semaine
-    const schedulerState = useSchedulerStore.getState();
-    const { schoolYearConfig } = schedulerState;
+    const projectState = useProjectStore.getState();
+    const { schoolYearConfig } = projectState;
     const initialBlockedZones: BlockedZone[] =
       week !== null && schoolYearConfig
         ? computeHolidayZonesForWeek(schoolYearConfig, week)
@@ -123,14 +124,14 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
 
     // Chercher une sauvegarde pour cette semaine
     const snapshot =
-      week !== null && schoolYearConfig
-        ? schedulerState.loadWeekSave(schoolYearConfig.year, week)
+      week !== null
+        ? projectState.loadWeekSave(week)
         : null;
 
     if (snapshot) {
       // Recompute enforcedMap depuis manualEnforcedMap + groupes (même logique que handleEnforceChange)
       const restoredCourses = snapshot.weeklyCourses;
-      let restoredEnforcedMap: Record<string, EnforcedData> = { ...snapshot.manualEnforcedMap };
+      const restoredEnforcedMap: Record<string, EnforcedData> = { ...snapshot.manualEnforcedMap };
       if (snapshot.taskGroups.length > 0 && restoredCourses.length > 0) {
         for (const [key, data] of Object.entries(snapshot.manualEnforcedMap)) {
           const info = getCourseGroupInfo(snapshot.taskGroups, key);
@@ -175,8 +176,8 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       });
 
       // Restaurer les cours de cette semaine dans allCourses
-      const otherCourses = schedulerState.allCourses.filter((c) => c.week !== week);
-      useSchedulerStore.setState({ allCourses: [...otherCourses, ...snapshot.weeklyCourses] });
+      const otherCourses = projectState.allCourses.filter((c) => c.week !== week);
+      useProjectStore.setState({ allCourses: [...otherCourses, ...snapshot.weeklyCourses] });
     } else {
       set({
         selectedWeek: week,
@@ -285,7 +286,8 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       set({ status: { message: '⏳ Récupérez le résultat en attente avant de lancer une nouvelle planification.', kind: 'inf' } });
       return;
     }
-    const { allCourses, resources, constraints, schedulerConfig } = useSchedulerStore.getState();
+    const { allCourses, resources, constraints } = useProjectStore.getState();
+    const { schedulerConfig } = useAppConfigStore.getState();
     if (!resources.length) {
       set({ status: { message: '❌ Ressources non chargées.', kind: 'err' } });
       return;
@@ -485,11 +487,11 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
 
   handleEnforceChange: (manualMap) => {
     const { taskGroups } = get();
-    const { allCourses } = useSchedulerStore.getState();
+    const { allCourses } = useProjectStore.getState();
     const week = get().selectedWeek;
     const courses = week !== null ? allCourses.filter((c) => c.week === week) : [];
 
-    let augmented = { ...manualMap };
+    const augmented = { ...manualMap };
     if (taskGroups.length > 0 && courses.length > 0) {
       for (const [key, data] of Object.entries(manualMap)) {
         const info = getCourseGroupInfo(taskGroups, key);
@@ -767,7 +769,7 @@ async function _resumePendingJob() {
 
 function _saveCurrentWeekSnapshot() {
   const ps = usePlanningStore.getState();
-  const ss = useSchedulerStore.getState();
+  const ss = useProjectStore.getState();
   if (ps.selectedWeek === null || !ss.schoolYearConfig) return;
   ss.saveWeek({
     weekNumber: ps.selectedWeek,
@@ -806,7 +808,7 @@ if (typeof window !== 'undefined') {
   });
 
   // Sauvegarde déclenchée par un changement de cours (import CSV, ajout manuel)
-  useSchedulerStore.subscribe((state, prev) => {
+  useProjectStore.subscribe((state, prev) => {
     if (state.allCourses === prev.allCourses) return;
     _saveCurrentWeekSnapshot();
   });

@@ -8,11 +8,12 @@ import type { CourseTaskDataWithId } from '@/lib/courseId';
 
 /**
  * Snapshot de préparation d'une semaine (pré-planification uniquement).
- * Clé de stockage : saves[schoolYear][weekNumber].
+ * Clé de stockage : saves[weekNumber]. Un Projet ne porte que sur une seule
+ * année scolaire (project.schoolYearConfig), donc plus besoin de clé année ici.
  */
 export interface PreparedWeekSnapshot {
   weekNumber: number;
-  /** Ex: "2025-2026" */
+  /** Ex: "2025-2026". Redondant avec project.schoolYearConfig.year, gardé comme métadonnée. */
   schoolYear: string;
   /** Timestamp de dernière sauvegarde */
   savedAt: number;
@@ -25,17 +26,17 @@ export interface PreparedWeekSnapshot {
   weeklyCourses: CourseTaskDataWithId[];
 }
 
-/** saves[schoolYear][weekNumber] */
-export type WeekSavesMap = Record<string, Record<string, PreparedWeekSnapshot>>;
+/** saves[weekNumber] */
+export type WeekSavesMap = Record<string, PreparedWeekSnapshot>;
 
 // ── Slice ──────────────────────────────────────────────────────────────────
 
 export interface WeekSavesSlice {
   weekSaves: WeekSavesMap;
   saveWeek: (snapshot: PreparedWeekSnapshot) => void;
-  loadWeekSave: (schoolYear: string, weekNumber: number) => PreparedWeekSnapshot | null;
-  hasWeekSave: (schoolYear: string, weekNumber: number) => boolean;
-  deleteWeekSave: (schoolYear: string, weekNumber: number) => void;
+  loadWeekSave: (weekNumber: number) => PreparedWeekSnapshot | null;
+  hasWeekSave: (weekNumber: number) => boolean;
+  deleteWeekSave: (weekNumber: number) => void;
   clearAllWeekSaves: () => void;
 }
 
@@ -46,32 +47,24 @@ export const createWeekSavesSlice: StateCreator<WeekSavesSlice> = (set, get) => 
     set((state) => ({
       weekSaves: {
         ...state.weekSaves,
-        [snapshot.schoolYear]: {
-          ...(state.weekSaves[snapshot.schoolYear] ?? {}),
-          [String(snapshot.weekNumber)]: snapshot,
-        },
+        [String(snapshot.weekNumber)]: snapshot,
       },
     }));
   },
 
-  loadWeekSave: (schoolYear, weekNumber) => {
-    return get().weekSaves[schoolYear]?.[String(weekNumber)] ?? null;
+  loadWeekSave: (weekNumber) => {
+    return get().weekSaves[String(weekNumber)] ?? null;
   },
 
-  hasWeekSave: (schoolYear, weekNumber) => {
-    return get().weekSaves[schoolYear]?.[String(weekNumber)] !== undefined;
+  hasWeekSave: (weekNumber) => {
+    return get().weekSaves[String(weekNumber)] !== undefined;
   },
 
-  deleteWeekSave: (schoolYear, weekNumber) => {
+  deleteWeekSave: (weekNumber) => {
     set((state) => {
-      const yearSaves = { ...(state.weekSaves[schoolYear] ?? {}) };
-      delete yearSaves[String(weekNumber)];
-      return {
-        weekSaves: {
-          ...state.weekSaves,
-          [schoolYear]: yearSaves,
-        },
-      };
+      const next = { ...state.weekSaves };
+      delete next[String(weekNumber)];
+      return { weekSaves: next };
     });
   },
 
