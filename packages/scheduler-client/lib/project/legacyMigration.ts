@@ -7,6 +7,11 @@ const LEGACY_KEY = 'edt-scheduler';
 const PROJECT_KEY = 'edt-project';
 const MIGRATION_BANNER_KEY = 'edt-migration-banner';
 
+/** Retire l'extension d'un nom de fichier (ex: "cours.csv" -> "cours"), pour un nom de projet lisible. */
+function stripExtension(fileName: string): string {
+  return fileName.replace(/\.[^./\\]+$/, '');
+}
+
 /**
  * Migration one-shot de l'ancien store `edt-scheduler` (pré-Projet) vers `edt-project`.
  * Exécutée en synchrone AVANT que `useProjectStore` ne lise `edt-project`, pour que
@@ -51,7 +56,7 @@ export function migrateLegacyProjectStorage(): void {
     const file: ProjectFileV1 = {
       formatVersion: PROJECT_FILE_VERSION,
       exportedAt: new Date().toISOString(),
-      name: coursesFileName ? `Projet — ${coursesFileName}` : 'Projet migré',
+      name: coursesFileName ? `Projet — ${stripExtension(coursesFileName)}` : 'Projet migré',
       schoolYearConfig,
       coursesFileName,
       allCourses: (oldState.allCourses as ProjectFileV1['allCourses'] | undefined) ?? [],

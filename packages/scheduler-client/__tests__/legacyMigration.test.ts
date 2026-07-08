@@ -70,7 +70,7 @@ describe('migrateLegacyProjectStorage', () => {
     const file = readProjectFile();
     expect(file).not.toBeNull();
     expect(file?.formatVersion).toBe(1);
-    expect(file?.name).toBe('Projet — ventilation.csv');
+    expect(file?.name).toBe('Projet — ventilation');
     expect(file?.schoolYearConfig).toEqual({ year: '2026-2027', zone: 'B', periods: [] });
     expect(file?.allCourses).toEqual([{ id: 'c1', code: 'R101' }]);
     expect(file?.tightThreshold).toBe(0.4);
