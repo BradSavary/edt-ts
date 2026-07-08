@@ -315,11 +315,32 @@ export class Scheduler {
 
     // ── Heuristiques ─────────────────────────────────────────────────────────
 
+    /**
+     * Trie les unités restantes par score MCV décroissant, puis fait remonter en tête
+     * les unités "prêtes" (sans dépendance, ou dépendance déjà planifiée) : le score
+     * mesure uniquement la contrainte réelle d'une unité, il ne garantit pas — et n'a
+     * pas à garantir — qu'un dépendant score toujours moins qu'une dépendance non
+     * encore planifiée. Sans cette partition, une unité très contrainte dont la
+     * dépendance ne l'est pas pourrait se retrouver choisie avant elle par `_backtrack`.
+     */
     protected _dynamicSort(startIndex: number): void {
         const remaining = this._units.slice(startIndex);
         remaining.sort((a, b) => b.getSchedulingPriority() - a.getSchedulingPriority());
-        for (let i = 0; i < remaining.length; i++) {
-            this._units[startIndex + i] = remaining[i];
+
+        const ready: ISchedulingUnit[] = [];
+        const notReady: ISchedulingUnit[] = [];
+        for (const unit of remaining) {
+            const dep = unit.getDependsOn();
+            if (dep === null || this._scheduled.has(dep.id)) {
+                ready.push(unit);
+            } else {
+                notReady.push(unit);
+            }
+        }
+
+        const sorted = ready.concat(notReady);
+        for (let i = 0; i < sorted.length; i++) {
+            this._units[startIndex + i] = sorted[i];
         }
     }
 

@@ -1,6 +1,7 @@
 import { Task, Resource } from '@edt-ts/scheduler-common';
 import { Loader } from './loader.js';
 import type { ISchedulingUnit, SchedulingResult, UnitSolution } from './schedulingUnit.js';
+import { DEPENDENTS_WEIGHT } from './schedulingHeuristics.js';
 
 /**
  * Adaptateur entre Task (scheduler-common) et ISchedulingUnit (scheduler-core).
@@ -118,28 +119,28 @@ export class TaskUnit implements ISchedulingUnit {
     // ── Priorité MCV ───────────────────────────────────────────────────────
 
     /**
-     * Score MCV basé sur l'état courant des ressources.
-     * Reflète la disponibilité résiduelle après les books déjà effectués.
+     * Score MCV (Most Constrained Variable) : plus le score est élevé, plus la
+     * tâche est prioritaire. Basé sur la meilleure disponibilité résiduelle
+     * parmi toutes les combinaisons de ressources applicables (pas seulement
+     * la combinaison actuellement décidée — voir `getBestApplicableAvailableTime`).
+     *
+     * Propagation aux dépendants par **max**, pas par somme : un dépendant très
+     * contraint doit rendre son bloqueur au moins aussi urgent que lui (le retarder
+     * retarde d'autant le dépendant), jamais moins urgent. Une somme de deux scores
+     * négatifs (l'échelle utilisée ici : moins de disponibilité ⇒ score moins négatif)
+     * ferait l'inverse — elle pénaliserait toute tâche ayant des dépendants par
+     * rapport à une tâche isolée, indépendamment de sa propre disponibilité.
      */
     getSchedulingPriority(): number {
-        let score = 0;
+        const ownScore = -this.task.getBestApplicableAvailableTime();
 
-        // Les vacataires sont ultra-prioritaires
-        const teacher = this.task.getTeacherResource();
-        if (teacher?.status === 'VACATAIRE') {
-            score += 5 * 24 * 60;
-        }
-
-        // Moins il reste de créneau, plus le score est élevé
-        const MAX_WEEK_MINUTES = (10 * 4 + 4.5) * 60;
-        score += MAX_WEEK_MINUTES - this.task.schedulable.getTotalAvailableTime();
-
-        // Propager la priorité aux dépendants (un parent hérite du score de ses enfants)
+        let bestDependentScore = -Infinity;
         for (const dep of this._dependentUnits) {
-            score += dep.getSchedulingPriority();
+            const score = DEPENDENTS_WEIGHT * dep.getSchedulingPriority();
+            if (score > bestDependentScore) bestDependentScore = score;
         }
 
-        return score;
+        return Math.max(ownScore, bestDependentScore);
     }
 
     // ── Dépendances ────────────────────────────────────────────────────────

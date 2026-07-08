@@ -1,5 +1,6 @@
 import { Task, Resource } from '@edt-ts/scheduler-common';
 import type { ISchedulingUnit, SchedulingResult, UnitSolution } from './schedulingUnit.js';
+import { DEPENDENTS_WEIGHT } from './schedulingHeuristics.js';
 
 const SLOT_STEP = 30;
 
@@ -193,28 +194,28 @@ export class TaskGroupUnit implements ISchedulingUnit {
     // ── Priorité MCV ───────────────────────────────────────────────────────
 
     /**
-     * Score MCV du groupe : somme des priorités de chaque tâche membre.
-     * Reflète l'état courant des ressources.
+     * Score MCV du groupe : basé sur son membre le plus contraint (min), pas la
+     * somme — qu'il soit parallel ou sequential, le groupe échoue si son membre
+     * le plus contraint échoue, donc le min est la mesure du vrai goulot
+     * d'étranglement (une somme dilue un membre très contraint derrière des
+     * membres très disponibles).
+     *
+     * Propagation aux dépendants par **max**, pas par somme — voir le commentaire
+     * de `TaskUnit.getSchedulingPriority` pour le raisonnement complet.
      */
     getSchedulingPriority(): number {
         if (this._tasks.length === 0) return 0;
 
-        let score = 0;
-        const MAX_WEEK_MINUTES = (10 * 4 + 4.5) * 60;
+        const minAvailability = Math.min(...this._tasks.map(t => t.getBestApplicableAvailableTime()));
+        const ownScore = -minAvailability;
 
-        for (const task of this._tasks) {
-            // Vacataire boost
-            const teacher = task.getTeacherResource();
-            if (teacher?.status === 'VACATAIRE') score += 5 * 24 * 60;
-            // Disponibilité résiduelle
-            score += MAX_WEEK_MINUTES - task.schedulable.getTotalAvailableTime();
-        }
-
+        let bestDependentScore = -Infinity;
         for (const dep of this._dependentUnits) {
-            score += dep.getSchedulingPriority();
+            const score = DEPENDENTS_WEIGHT * dep.getSchedulingPriority();
+            if (score > bestDependentScore) bestDependentScore = score;
         }
 
-        return score;
+        return Math.max(ownScore, bestDependentScore);
     }
 
     // ── Dépendances ────────────────────────────────────────────────────────
