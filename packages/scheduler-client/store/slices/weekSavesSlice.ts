@@ -1,8 +1,9 @@
 import type { StateCreator } from 'zustand';
-import type { EnforcedData } from '@edt-ts/scheduler-common';
+import type { CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
 import type { TaskGroupConfig } from '@/lib/taskGroupUtils';
 import type { SerializedBlockedZone } from '@/store/types';
-import type { CourseTaskDataWithId } from '@/lib/courseId';
+import { manualCourseId, type CourseTaskDataWithId } from '@/lib/courseId';
+import { getManualCoursesForWeek } from '@/lib/weekCourses';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -22,12 +23,25 @@ export interface PreparedWeekSnapshot {
   manualBlockedZones: SerializedBlockedZone[];
   preNeutralizedKeys: string[];
   manualEnforcedMap: Record<string, EnforcedData>;
-  /** Snapshot des cours de la semaine au moment de la sauvegarde */
-  weeklyCourses: CourseTaskDataWithId[];
+  /** Cours créés manuellement pour cette semaine (les cours CSV vivent dans allCourses, jamais dupliqués ici). */
+  manualCourses: CourseTaskDataWithId[];
 }
 
 /** saves[weekNumber] */
 export type WeekSavesMap = Record<string, PreparedWeekSnapshot>;
+
+function emptySnapshot(weekNumber: number, schoolYear: string): PreparedWeekSnapshot {
+  return {
+    weekNumber,
+    schoolYear,
+    savedAt: Date.now(),
+    taskGroups: [],
+    manualBlockedZones: [],
+    preNeutralizedKeys: [],
+    manualEnforcedMap: {},
+    manualCourses: [],
+  };
+}
 
 // ── Slice ──────────────────────────────────────────────────────────────────
 
@@ -38,6 +52,16 @@ export interface WeekSavesSlice {
   hasWeekSave: (weekNumber: number) => boolean;
   deleteWeekSave: (weekNumber: number) => void;
   clearAllWeekSaves: () => void;
+  /** Crée un nouveau cours manuel pour la semaine (crée le snapshot s'il n'existe pas encore). */
+  addManualCourse: (weekNumber: number, schoolYear: string, course: CourseTaskData) => void;
+  /** Retire un cours manuel de la semaine par id. No-op si la semaine n'a pas de snapshot. */
+  removeManualCourse: (weekNumber: number, courseId: string) => void;
+  /** Modifie les ressources/durée d'un cours manuel existant. No-op si la semaine n'a pas de snapshot. */
+  updateManualCourse: (
+    weekNumber: number,
+    courseId: string,
+    patch: Partial<Pick<CourseTaskData, 'teacher' | 'groups' | 'rooms' | 'duration'>>,
+  ) => void;
 }
 
 export const createWeekSavesSlice: StateCreator<WeekSavesSlice> = (set, get) => ({
@@ -70,5 +94,55 @@ export const createWeekSavesSlice: StateCreator<WeekSavesSlice> = (set, get) => 
 
   clearAllWeekSaves: () => {
     set({ weekSaves: {} });
+  },
+
+  addManualCourse: (weekNumber, schoolYear, course) => {
+    set((state) => {
+      const key = String(weekNumber);
+      // Lecture défensive via getManualCoursesForWeek (pas snapshot.manualCourses directement) :
+      // un snapshot legacy pas encore réécrit au nouveau format ne doit pas être lu comme vide.
+      const existingManual = getManualCoursesForWeek(state.weekSaves, weekNumber);
+      const newCourse: CourseTaskDataWithId = { ...course, id: manualCourseId(), source: 'manual' as const };
+      const base = state.weekSaves[key] ?? emptySnapshot(weekNumber, schoolYear);
+      return {
+        weekSaves: {
+          ...state.weekSaves,
+          [key]: { ...base, manualCourses: [...existingManual, newCourse] },
+        },
+      };
+    });
+  },
+
+  removeManualCourse: (weekNumber, courseId) => {
+    set((state) => {
+      const key = String(weekNumber);
+      const existing = state.weekSaves[key];
+      if (!existing) return {};
+      const existingManual = getManualCoursesForWeek(state.weekSaves, weekNumber);
+      return {
+        weekSaves: {
+          ...state.weekSaves,
+          [key]: { ...existing, manualCourses: existingManual.filter((c) => c.id !== courseId) },
+        },
+      };
+    });
+  },
+
+  updateManualCourse: (weekNumber, courseId, patch) => {
+    set((state) => {
+      const key = String(weekNumber);
+      const existing = state.weekSaves[key];
+      if (!existing) return {};
+      const existingManual = getManualCoursesForWeek(state.weekSaves, weekNumber);
+      return {
+        weekSaves: {
+          ...state.weekSaves,
+          [key]: {
+            ...existing,
+            manualCourses: existingManual.map((c) => (c.id === courseId ? { ...c, ...patch } : c)),
+          },
+        },
+      };
+    });
   },
 });

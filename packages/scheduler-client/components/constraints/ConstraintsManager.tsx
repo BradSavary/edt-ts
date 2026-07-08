@@ -15,6 +15,7 @@ import {
 } from '@/lib/constraintsUtils';
 import { useProjectStore } from '@/store/useProjectStore';
 import { downloadJson } from '@/lib/downloadJson';
+import { getManualCoursesForWeek } from '@/lib/weekCourses';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import { ResourceConstraintEditor } from './ResourceConstraintEditor';
 import { AddResourceModal } from './AddResourceModal';
@@ -30,6 +31,7 @@ export function ConstraintsManager() {
   // --- Store Zustand (données partagées) ---
   const constraints        = useProjectStore((s) => s.constraints);
   const allCourses         = useProjectStore((s) => s.allCourses);
+  const weekSaves          = useProjectStore((s) => s.weekSaves);
 
   const resourceWeeks = useMemo(() => {
     const map: Record<string, Set<number>> = {};
@@ -37,16 +39,20 @@ export function ConstraintsManager() {
       if (!id) return;
       (map[id] ??= new Set()).add(week);
     }
-    for (const course of allCourses) {
+    function addCourseResources(course: CourseTaskData) {
       const w = course.week;
       (course.teacher as (string | string[])[]).flat().forEach((t) => add(t, w));
       (course.groups  as (string | string[])[]).flat().forEach((g) => add(g, w));
       (course.rooms   as (string | string[])[]).flat().forEach((r) => add(r, w));
     }
+    for (const course of allCourses) addCourseResources(course);
+    for (const week of Object.keys(weekSaves)) {
+      for (const course of getManualCoursesForWeek(weekSaves, Number(week))) addCourseResources(course);
+    }
     const result: Record<string, number[]> = {};
     for (const [id, set] of Object.entries(map)) result[id] = [...set].sort((a, b) => a - b);
     return result;
-  }, [allCourses]);
+  }, [allCourses, weekSaves]);
   const saveNotice         = useProjectStore((s) => s.saveNotice);
   const storeResources     = useProjectStore((s) => s.resources);
   const setConstraint      = useProjectStore((s) => s.setConstraint);

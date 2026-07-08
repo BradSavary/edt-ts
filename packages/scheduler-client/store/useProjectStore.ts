@@ -3,15 +3,17 @@ import { persist } from 'zustand/middleware';
 import type { StateCreator } from 'zustand';
 import { createConstraintsSlice, type ConstraintsSlice } from './slices/constraintsSlice';
 import { createWeekSavesSlice, type WeekSavesSlice } from './slices/weekSavesSlice';
-import type { CourseTaskData, ResourceGroupData, ConstraintsData } from '@edt-ts/scheduler-common';
+import type { ResourceGroupData, ConstraintsData } from '@edt-ts/scheduler-common';
 import { AvailabilityManager } from '@edt-ts/scheduler-common';
-import { manualCourseId, type CourseTaskDataWithId } from '../lib/courseId';
+import type { CourseTaskDataWithId } from '../lib/courseId';
 import { ClientSchedulerData } from '../lib/api/clientSchedulerData';
 import { type YearColorConfig, DEFAULT_YEAR_COLORS } from '../lib/calendar/yearColors';
 import type { SchoolYearConfig } from '../lib/schoolHolidays';
 import { migrateLegacyProjectStorage } from '../lib/project/legacyMigration';
 import { createProjectStorage, PROJECT_STORAGE_KEY } from '../lib/project/projectFile';
 import { DEFAULT_SLOTS } from '../lib/constraintsUtils';
+import { getManualCoursesForWeek } from '../lib/weekCourses';
+import type { WeekSavesMap } from './slices/weekSavesSlice';
 
 // Migration one-shot AVANT que le storage engine ci-dessous ne lise `edt-project`.
 migrateLegacyProjectStorage();
@@ -49,8 +51,8 @@ interface ProjectDataSlice {
 
   setCourses: (courses: CourseTaskDataWithId[], fileName?: string) => void;
   setResources: (resources: ResourceGroupData[]) => void;
-  addCourse: (course: CourseTaskData) => void;
-  removeCourse: (index: number) => void;
+  /** Retire un cours CSV par id. */
+  removeCourse: (id: string) => void;
   setYearColorConfig: (config: YearColorConfig) => void;
   /** Change l'année scolaire du projet actif (ex: rechargement des vacances). */
   setSchoolYearConfig: (config: SchoolYearConfig) => void;
@@ -58,10 +60,11 @@ interface ProjectDataSlice {
   setCriticalThreshold: (threshold: number) => void;
   setResourceMaxDailyMinutes: (id: string, maxDailyMinutes: number | undefined) => void;
   /**
-   * Action atomique d'import CSV : remplace cours et ressources, purge les sauvegardes
-   * de semaine du projet actif, élague les contraintes obsolètes et remet à zéro les impositions.
-   * Comportement destructif volontairement conservé pour cette itération (voir plan de refactoring) :
-   * le diff non destructif course-par-course est hors scope.
+   * Action atomique d'import CSV : remplace cours (CSV uniquement, `source` forcé) et ressources,
+   * élague les contraintes obsolètes. Préserve les cours manuels de chaque semaine (`weekSaves`)
+   * mais réinitialise le reste de leur préparation (taskGroups/zones/impositions manuelles),
+   * puisque ces champs référencent des ids de cours CSV invalidés par le réimport — la
+   * non-destructivité complète du diff CSV reste hors scope pour cette itération.
    */
   importCsvData: (courses: CourseTaskDataWithId[], resources: ResourceGroupData[], fileName: string) => void;
 }
@@ -111,10 +114,7 @@ export const useProjectStore = create<ProjectStore>()(
 
       setCourses: (allCourses, fileName) => set({ allCourses, ...(fileName !== undefined ? { coursesFileName: fileName } : {}) }),
       setResources: (resources) => set({ resources }),
-      addCourse: (course) => set((state) => ({
-        allCourses: [...state.allCourses, { ...course, id: manualCourseId(), source: 'manual' as const }],
-      })),
-      removeCourse: (index) => set((state) => ({ allCourses: state.allCourses.filter((_, i) => i !== index) })),
+      removeCourse: (id) => set((state) => ({ allCourses: state.allCourses.filter((c) => c.id !== id) })),
       importCsvData: (courses, resources, fileName) => {
         const validIds = resources.flatMap((g) => g.resources.map((r) => r.id));
         set((state) => {
@@ -125,11 +125,34 @@ export const useProjectStore = create<ProjectStore>()(
           for (const [id, value] of Object.entries(current)) {
             if (id !== 'Default' && validSet.has(id)) prunedConstraints[id] = value;
           }
+
+          // Force source: 'csv' quel que soit ce qu'affirme l'entrée (ferme le vecteur de
+          // contamination si un fichier JSON de cours ré-importé contient des entrées 'manual').
+          const normalizedCourses = courses.map((c) => ({ ...c, source: 'csv' as const }));
+
+          // Préserve les cours manuels de chaque semaine ; réinitialise le reste (taskGroups/
+          // zones/impositions manuelles référencent des ids de cours CSV invalidés par le réimport).
+          const nextWeekSaves: WeekSavesMap = {};
+          for (const [week, snapshot] of Object.entries(state.weekSaves)) {
+            const manualCourses = getManualCoursesForWeek(state.weekSaves, Number(week));
+            if (manualCourses.length === 0) continue;
+            nextWeekSaves[week] = {
+              weekNumber: snapshot.weekNumber,
+              schoolYear: snapshot.schoolYear,
+              savedAt: Date.now(),
+              taskGroups: [],
+              manualBlockedZones: [],
+              preNeutralizedKeys: [],
+              manualEnforcedMap: {},
+              manualCourses,
+            };
+          }
+
           return {
-            allCourses: courses,
+            allCourses: normalizedCourses,
             resources,
             coursesFileName: fileName,
-            weekSaves: {},
+            weekSaves: nextWeekSaves,
             constraints: prunedConstraints,
           };
         });

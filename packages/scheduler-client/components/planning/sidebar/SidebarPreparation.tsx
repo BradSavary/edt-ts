@@ -40,8 +40,10 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
 
   const allCourses = useProjectStore((s) => s.allCourses);
   const setCourses = useProjectStore((s) => s.setCourses);
-  const addCourse = useProjectStore((s) => s.addCourse);
   const removeCourse = useProjectStore((s) => s.removeCourse);
+  const addManualCourse = useProjectStore((s) => s.addManualCourse);
+  const removeManualCourse = useProjectStore((s) => s.removeManualCourse);
+  const updateManualCourse = useProjectStore((s) => s.updateManualCourse);
   const resources = useProjectStore((s) => s.resources);
   const availabilityManager = useProjectStore((s) => s.availabilityManager);
   const tightThreshold = useProjectStore((s) => s.tightThreshold);
@@ -74,17 +76,24 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
   function handleEditConfirm(update: TaskEditUpdate) {
     if (!editingCourse) return;
     const courseRef = editingCourse.course;
-    const updated = allCourses.map((c) =>
-      c === courseRef
-        ? { ...c, teacher: update.teachers, groups: update.groups, rooms: update.rooms, ...(update.duration !== undefined ? { duration: update.duration } : {}) }
-        : c,
-    );
-    setCourses(updated);
+    const patch = {
+      teacher: update.teachers,
+      groups: update.groups,
+      rooms: update.rooms,
+      ...(update.duration !== undefined ? { duration: update.duration } : {}),
+    };
+    if (courseRef.source === 'manual') {
+      if (selectedWeek !== null) updateManualCourse(selectedWeek, courseRef.id, patch);
+    } else {
+      setCourses(allCourses.map((c) => (c === courseRef ? { ...c, ...patch } : c)));
+    }
     setEditingCourse(null);
   }
 
   function handleCreateConfirm(course: CourseTaskData) {
-    addCourse(course);
+    if (selectedWeek !== null && schoolYearConfig) {
+      addManualCourse(selectedWeek, schoolYearConfig.year, course);
+    }
     setCreateModal(null);
   }
 
@@ -229,8 +238,13 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
                     onEditCourse={handleEditCourse}
                     onDuplicateCourse={(course) => setCreateModal({ initialCourse: course })}
                   onDeleteCourse={(courseId) => {
-                      const realIndex = allCourses.findIndex((c) => c.id === courseId);
-                      if (realIndex !== -1) removeCourse(realIndex);
+                      const course = parsedCourses.find((c) => c.id === courseId);
+                      if (!course) return;
+                      if (course.source === 'manual') {
+                        if (selectedWeek !== null) removeManualCourse(selectedWeek, courseId);
+                      } else {
+                        removeCourse(courseId);
+                      }
                     }}
                   />
                 </>
@@ -247,8 +261,13 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
                 onEditCourse={handleEditCourse}
                 onDuplicateCourse={(course) => setCreateModal({ initialCourse: course })}
                 onDeleteCourse={(courseId) => {
-                  const realIndex = allCourses.findIndex((c) => c.id === courseId);
-                  if (realIndex !== -1) removeCourse(realIndex);
+                  const course = parsedCourses.find((c) => c.id === courseId);
+                  if (!course) return;
+                  if (course.source === 'manual') {
+                    if (selectedWeek !== null) removeManualCourse(selectedWeek, courseId);
+                  } else {
+                    removeCourse(courseId);
+                  }
                 }}
               />
             )}

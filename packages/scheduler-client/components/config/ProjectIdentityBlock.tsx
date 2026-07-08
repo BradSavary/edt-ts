@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,12 +8,19 @@ import { Label } from '@/components/ui/label';
 import { useProjectStore } from '@/store/useProjectStore';
 import { stateToProjectFile } from '@/lib/project/projectFile';
 import { downloadJson } from '@/lib/downloadJson';
+import { getManualCoursesForWeek } from '@/lib/weekCourses';
 
 export function ProjectIdentityBlock() {
   const projectName = useProjectStore((s) => s.projectName);
   const renameProject = useProjectStore((s) => s.renameProject);
   const schoolYearConfig = useProjectStore((s) => s.schoolYearConfig);
   const allCourses = useProjectStore((s) => s.allCourses);
+  const weekSaves = useProjectStore((s) => s.weekSaves);
+
+  const manualCourseCount = useMemo(
+    () => Object.keys(weekSaves).reduce((sum, week) => sum + getManualCoursesForWeek(weekSaves, Number(week)).length, 0),
+    [weekSaves],
+  );
 
   const [name, setName] = useState(projectName ?? '');
 
@@ -33,7 +40,7 @@ export function ProjectIdentityBlock() {
       <div>
         <h2 className="text-sm font-semibold mb-0.5">Projet</h2>
         <p className="text-xs text-muted-foreground">
-          {schoolYearConfig?.year ?? '—'} — Zone {schoolYearConfig?.zone ?? '—'} · {allCourses.length} cours
+          {schoolYearConfig?.year ?? '—'} — Zone {schoolYearConfig?.zone ?? '—'} · {allCourses.length + manualCourseCount} cours
         </p>
       </div>
 

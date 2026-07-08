@@ -132,7 +132,16 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       const isAppendOnly =
         parsedCourses.length > prev.length &&
         prev.every((c, i) => parsedCourses[i] === c);
-      if (skipNextParsedCoursesResetRef.current || weekChangedRef.current || isAppendOnly) {
+      // parsedCourses fusionne allCourses + weekSaves[week].manualCourses (getCoursesForWeek) :
+      // un nouveau tableau est reconstruit à chaque changement de weekSaves, y compris quand
+      // l'autosave de préparation de semaine réécrit weekSaves sans qu'aucun cours n'ait
+      // réellement changé (ex: juste après ce même handleEnforceChange({}) plus bas). Sans ce
+      // garde, ce rebuild "à contenu identique" serait pris pour un vrai changement et
+      // redéclencherait handleEnforceChange({}) indéfiniment (boucle infinie).
+      const sameContent =
+        parsedCourses.length === prev.length &&
+        prev.every((c, i) => parsedCourses[i] === c);
+      if (skipNextParsedCoursesResetRef.current || weekChangedRef.current || isAppendOnly || sameContent) {
         skipNextParsedCoursesResetRef.current = false;
         weekChangedRef.current = false;
       } else {
@@ -373,24 +382,23 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       });
     }
 
-    // Mise à jour de allCourses pour que la CourseCard en sidebar reflète les changements
+    // Mise à jour du cours pour que la CourseCard en sidebar reflète les changements
     if (pendingEdit.courseKey !== undefined) {
       const course = courseById.get(pendingEdit.courseKey);
       if (course) {
-        const { allCourses, setCourses } = useProjectStore.getState();
-        const updatedCourses = allCourses.map((c) =>
-          c === course
-            ? {
-                ...c,
-                teacher: update.teachers as typeof c.teacher,
-                groups: update.groups as typeof c.groups,
-                rooms: update.rooms as typeof c.rooms,
-                ...(update.duration !== undefined ? { duration: update.duration } : {}),
-              }
-            : c,
-        );
+        const patch = {
+          teacher: update.teachers as typeof course.teacher,
+          groups: update.groups as typeof course.groups,
+          rooms: update.rooms as typeof course.rooms,
+          ...(update.duration !== undefined ? { duration: update.duration } : {}),
+        };
         skipNextParsedCoursesResetRef.current = true;
-        setCourses(updatedCourses);
+        if (course.source === 'manual') {
+          if (selectedWeek !== null) useProjectStore.getState().updateManualCourse(selectedWeek, course.id, patch);
+        } else {
+          const { allCourses, setCourses } = useProjectStore.getState();
+          setCourses(allCourses.map((c) => (c === course ? { ...c, ...patch } : c)));
+        }
       }
     }
 

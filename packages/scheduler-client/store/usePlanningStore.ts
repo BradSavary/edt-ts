@@ -7,6 +7,7 @@ import { useProjectStore } from '@/store/useProjectStore';
 import { useAppConfigStore } from '@/store/useAppConfigStore';
 import { type TaskGroupConfig, type GroupType, buildTaskGroupData, getCourseGroupInfo, computeGroupEnforcements } from '@/lib/taskGroupUtils';
 import { computeHolidayZonesForWeek } from '@/lib/schoolHolidays';
+import { getCoursesForWeek, getManualCoursesForWeek } from '@/lib/weekCourses';
 import { createNeutralizedSlice, type NeutralizedSlice } from '@/store/slices/neutralizedSlice';
 import { createBlockedZonesSlice, type BlockedZonesSlice } from '@/store/slices/blockedZonesSlice';
 import { createTaskGroupsSlice, type TaskGroupsSlice } from '@/store/slices/taskGroupsSlice';
@@ -130,7 +131,10 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
 
     if (snapshot) {
       // Recompute enforcedMap depuis manualEnforcedMap + groupes (même logique que handleEnforceChange)
-      const restoredCourses = snapshot.weeklyCourses;
+      // Cours CSV toujours lus en direct depuis allCourses (jamais figés dans le snapshot) + cours
+      // manuels du snapshot — snapshot.weekNumber plutôt que le paramètre `week` pour que TS
+      // n'ait pas besoin d'une assertion non-null ici.
+      const restoredCourses = getCoursesForWeek(projectState.allCourses, projectState.weekSaves, snapshot.weekNumber);
       const restoredEnforcedMap: Record<string, EnforcedData> = { ...snapshot.manualEnforcedMap };
       if (snapshot.taskGroups.length > 0 && restoredCourses.length > 0) {
         for (const [key, data] of Object.entries(snapshot.manualEnforcedMap)) {
@@ -174,10 +178,8 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         preNeutralizedKeys: snapshot.preNeutralizedKeys,
         blockedZones: [...initialBlockedZones, ...restoredManualZones],
       });
-
-      // Restaurer les cours de cette semaine dans allCourses
-      const otherCourses = projectState.allCourses.filter((c) => c.week !== week);
-      useProjectStore.setState({ allCourses: [...otherCourses, ...snapshot.weeklyCourses] });
+      // Plus besoin de toucher allCourses : les cours CSV y restent en permanence,
+      // les cours manuels se lisent directement depuis weekSaves (getCoursesForWeek).
     } else {
       set({
         selectedWeek: week,
@@ -286,13 +288,13 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       set({ status: { message: '⏳ Récupérez le résultat en attente avant de lancer une nouvelle planification.', kind: 'inf' } });
       return;
     }
-    const { allCourses, resources, constraints } = useProjectStore.getState();
+    const { allCourses, weekSaves, resources, constraints } = useProjectStore.getState();
     const { schedulerConfig } = useAppConfigStore.getState();
     if (!resources.length) {
       set({ status: { message: '❌ Ressources non chargées.', kind: 'err' } });
       return;
     }
-    const coursesForWeek = allCourses.filter((c) => c.week === selectedWeek) as CourseTaskDataWithId[];
+    const coursesForWeek = getCoursesForWeek(allCourses, weekSaves, selectedWeek);
     if (coursesForWeek.length === 0) {
       set({ status: { message: `❌ Aucun cours pour la semaine ${selectedWeek}. Importez le fichier CSV.`, kind: 'err' } });
       return;
@@ -487,9 +489,9 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
 
   handleEnforceChange: (manualMap) => {
     const { taskGroups } = get();
-    const { allCourses } = useProjectStore.getState();
+    const { allCourses, weekSaves } = useProjectStore.getState();
     const week = get().selectedWeek;
-    const courses = week !== null ? allCourses.filter((c) => c.week === week) : [];
+    const courses = week !== null ? getCoursesForWeek(allCourses, weekSaves, week) : [];
 
     const augmented = { ...manualMap };
     if (taskGroups.length > 0 && courses.length > 0) {
@@ -787,7 +789,11 @@ function _saveCurrentWeekSnapshot() {
       })),
     preNeutralizedKeys: ps.preNeutralizedKeys,
     manualEnforcedMap: ps.manualEnforcedMap,
-    weeklyCourses: ss.allCourses.filter((c) => c.week === ps.selectedWeek),
+    // Read-back volontaire (pas une mutation) : les cours manuels sont désormais gérés par
+    // addManualCourse/removeManualCourse/updateManualCourse, qui écrivent directement dans
+    // weekSaves. saveWeek remplace tout le snapshot, donc il faut relire l'existant ici pour
+    // ne jamais le perdre lors d'une sauvegarde déclenchée par autre chose (taskGroups, etc.).
+    manualCourses: getManualCoursesForWeek(ss.weekSaves, ps.selectedWeek),
   });
 }
 
@@ -807,9 +813,8 @@ if (typeof window !== 'undefined') {
     _saveCurrentWeekSnapshot();
   });
 
-  // Sauvegarde déclenchée par un changement de cours (import CSV, ajout manuel)
-  useProjectStore.subscribe((state, prev) => {
-    if (state.allCourses === prev.allCourses) return;
-    _saveCurrentWeekSnapshot();
-  });
+  // Plus de subscribe sur useProjectStore.allCourses ici : les cours manuels n'y transitent
+  // plus (addManualCourse/removeManualCourse/updateManualCourse écrivent directement dans
+  // weekSaves), donc un changement d'allCourses (import CSV) n'a plus besoin de redéclencher
+  // une sauvegarde de snapshot.
 }

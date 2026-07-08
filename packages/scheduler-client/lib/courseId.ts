@@ -2,7 +2,8 @@ import type { CourseTaskData } from '@edt-ts/scheduler-common';
 
 /**
  * Extension client-only de CourseTaskData avec un identifiant stable.
- * - Cours CSV  : id = hash déterministe du contenu (+ suffixe d'occurrence pour les doublons)
+ * - Cours CSV  : id = hash déterministe de la clé d'identité (voir `courseIdentityKey`),
+ *   + suffixe d'occurrence pour les doublons
  * - Cours manuels : id = identifiant unique basé sur l'horodatage (non déterministe par nature)
  * Cette interface vit uniquement dans scheduler-client ; scheduler-common reste inchangé.
  */
@@ -24,23 +25,30 @@ function djb2(s: string): number {
 }
 
 /**
- * Clé de contenu déterministe d'un cours.
+ * Clé d'identité d'un cours : semaine + code + type + enseignant(s) + groupe(s) + durée.
+ * Deux cours partageant cette clé sont considérés interchangeables — c'est la même notion
+ * utilisée pour désambiguïser les doublons à l'import ET (plus tard) pour apparier les cours
+ * d'un CSV réimporté aux cours existants du projet (merge non destructif).
+ *
+ * Volontairement exclus :
+ * - `rooms` : une salle réassignée ne change pas la nature du cours (une contrainte de
+ *   planification, pas une identité).
+ * - `name` : purement cosmétique, et de toute façon unique par `code`.
+ * - `semester`/`level` : métadonnées de positionnement curriculaire, non pertinentes pour
+ *   la validité d'un placement déjà fait sur ce cours.
+ *
  * Les listes de ressources sont triées pour que l'ordre n'ait pas d'importance.
  */
-function contentKey(course: CourseTaskData): string {
+export function courseIdentityKey(course: CourseTaskData): string {
   const teachers = course.teacher.flat().sort().join(',');
   const groups = course.groups.flat().sort().join(',');
-  const rooms = course.rooms.flat().sort().join(',');
   return [
     course.week,
-    course.semester,
     course.code,
     course.type,
-    course.name,
     course.duration,
     teachers,
     groups,
-    rooms,
   ].join('\x00');
 }
 
@@ -51,7 +59,7 @@ function contentKey(course: CourseTaskData): string {
  *                    occurrence = 1 → pas de suffixe ; occurrence > 1 → suffixe `_N`.
  */
 function csvCourseId(course: CourseTaskData, occurrence: number): string {
-  const hash = djb2(contentKey(course)).toString(36);
+  const hash = djb2(courseIdentityKey(course)).toString(36);
   return occurrence > 1 ? `${hash}_${occurrence}` : hash;
 }
 
@@ -65,13 +73,14 @@ export function manualCourseId(): string {
 
 /**
  * Attribue des IDs déterministes à un tableau de cours CSV.
- * Les cours avec le même contenu (doublons interchangeables) reçoivent le même hash de base
- * et un suffixe d'occurrence (`_2`, `_3`, …) à partir du deuxième doublon.
+ * Les cours avec la même clé d'identité (doublons interchangeables — voir `courseIdentityKey`)
+ * reçoivent le même hash de base et un suffixe d'occurrence (`_2`, `_3`, …) à partir du
+ * deuxième doublon.
  */
 export function assignCsvCourseIds(courses: CourseTaskData[]): CourseTaskDataWithId[] {
   const counts = new Map<string, number>();
   return courses.map((course) => {
-    const key = contentKey(course);
+    const key = courseIdentityKey(course);
     const occ = (counts.get(key) ?? 0) + 1;
     counts.set(key, occ);
     return { ...course, id: csvCourseId(course, occ), source: 'csv' as const };

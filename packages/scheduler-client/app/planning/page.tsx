@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
+import { getCoursesForWeek } from '@/lib/weekCourses';
 import { useProjectStore } from '@/store/useProjectStore';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { SidebarLeft } from '@/components/planning/sidebar/SidebarLeft';
@@ -23,6 +24,7 @@ import { StatisticsDialog } from '@/components/planning/modals/StatisticsDialog'
 export default function PlanningPage() {
   // ── Stores ──────────────────────────────────────────────────────────────
   const allCourses = useProjectStore((s) => s.allCourses);
+  const weekSaves = useProjectStore((s) => s.weekSaves);
   const resources = useProjectStore((s) => s.resources);
 
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
@@ -52,8 +54,8 @@ export default function PlanningPage() {
 
   // ── Cours dérivés pour la semaine courante ───────────────────────────────
   const parsedCourses: CourseTaskDataWithId[] = useMemo(
-    () => selectedWeek !== null ? allCourses.filter((c) => c.week === selectedWeek) : [],
-    [allCourses, selectedWeek],
+    () => selectedWeek !== null ? getCoursesForWeek(allCourses, weekSaves, selectedWeek) : [],
+    [allCourses, weekSaves, selectedWeek],
   );
 
   // ── Solutions filtrées (recherche) ───────────────────────────────────────
