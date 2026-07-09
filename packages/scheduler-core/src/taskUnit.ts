@@ -1,7 +1,6 @@
-import { Task, Resource } from '@edt-ts/scheduler-common';
+import { Task, Resource, Availability, encodePriorityMeasure, measureProfile, truncateProfile, findLastSlot, type FloatingLunchWindow } from '@edt-ts/scheduler-common';
 import { Loader } from './loader.js';
 import type { ISchedulingUnit, SchedulingResult, UnitSolution } from './schedulingUnit.js';
-import { DEPENDENTS_WEIGHT } from './schedulingHeuristics.js';
 
 /**
  * Adaptateur entre Task (scheduler-common) et ISchedulingUnit (scheduler-core).
@@ -20,9 +19,15 @@ export class TaskUnit implements ISchedulingUnit {
     private _dependentUnits: ISchedulingUnit[] = [];
     /** Pile LIFO pour restaurer appliedResources lors des unBook. */
     private _savedResources: Resource[][] = [];
+    /** Fenêtre de pause flottante pour le calcul du score (§5.5) — voir setFloatingLunchBreak. */
+    private _floatingLunch: FloatingLunchWindow | null = null;
 
     constructor(task: Task) {
         this.task = task;
+    }
+
+    setFloatingLunchBreak(window: FloatingLunchWindow | null): void {
+        this._floatingLunch = window;
     }
 
     get id(): string { return this.task.id; }
@@ -119,28 +124,40 @@ export class TaskUnit implements ISchedulingUnit {
     // ── Priorité MCV ───────────────────────────────────────────────────────
 
     /**
+     * Profil de disponibilité effectif : le meilleur profil de la tâche (§5.3),
+     * tronqué par l'échéance qu'imposent ses dépendants (§5.6 de
+     * docs/HeuristiquePriorite-Conception.md — troncature par échéance, remplace
+     * entièrement l'ancienne propagation par `max`/somme de scores). Vue calculée,
+     * ne mute jamais la disponibilité réelle des ressources — `earlySchedule()`
+     * reste seul juge du placement réel. Pas de cache : profondeur d'arbre de
+     * dépendance faible en pratique (voir §5.6).
+     */
+    private _computeEffectiveProfile(): Availability {
+        const ownProfile = this.task.getBestSchedulingProfile(this._floatingLunch);
+        if (this._dependentUnits.length === 0) return ownProfile;
+
+        let deadline = Infinity;
+        for (const dep of this._dependentUnits) {
+            const ls = dep.getEffectiveLatestStart();
+            if (ls === null) return new Availability(); // dépendant infaisable → hérite l'infaisabilité
+            if (ls < deadline) deadline = ls;
+        }
+        return truncateProfile(ownProfile, deadline);
+    }
+
+    /**
      * Score MCV (Most Constrained Variable) : plus le score est élevé, plus la
-     * tâche est prioritaire. Basé sur la meilleure disponibilité résiduelle
-     * parmi toutes les combinaisons de ressources applicables (pas seulement
-     * la combinaison actuellement décidée — voir `getBestApplicableAvailableTime`).
-     *
-     * Propagation aux dépendants par **max**, pas par somme : un dépendant très
-     * contraint doit rendre son bloqueur au moins aussi urgent que lui (le retarder
-     * retarde d'autant le dépendant), jamais moins urgent. Une somme de deux scores
-     * négatifs (l'échelle utilisée ici : moins de disponibilité ⇒ score moins négatif)
-     * ferait l'inverse — elle pénaliserait toute tâche ayant des dépendants par
-     * rapport à une tâche isolée, indépendamment de sa propre disponibilité.
+     * tâche est prioritaire. Mesure à deux niveaux (§5.1) sur le profil effectif
+     * (ci-dessus), encodée en scalaire via `encodePriorityMeasure` (seul point de
+     * négation, voir priorityMeasure.ts).
      */
     getSchedulingPriority(): number {
-        const ownScore = -this.task.getBestApplicableAvailableTime();
+        return encodePriorityMeasure(measureProfile(this._computeEffectiveProfile(), this.task.duration));
+    }
 
-        let bestDependentScore = -Infinity;
-        for (const dep of this._dependentUnits) {
-            const score = DEPENDENTS_WEIGHT * dep.getSchedulingPriority();
-            if (score > bestDependentScore) bestDependentScore = score;
-        }
-
-        return Math.max(ownScore, bestDependentScore);
+    /** Voir ISchedulingUnit.getEffectiveLatestStart — utilisé par les ancêtres pour leur propre troncature. */
+    getEffectiveLatestStart(): number | null {
+        return findLastSlot(this._computeEffectiveProfile(), this.task.duration);
     }
 
     // ── Dépendances ────────────────────────────────────────────────────────

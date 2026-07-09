@@ -1,4 +1,4 @@
-import type { Resource, Task } from '@edt-ts/scheduler-common';
+import type { Resource, Task, FloatingLunchWindow } from '@edt-ts/scheduler-common';
 
 /**
  * Résultat d'un earlySchedule : premier créneau disponible + combinaison de ressources choisie.
@@ -84,6 +84,23 @@ export interface ISchedulingUnit {
      * Doit refléter l'état courant des ressources (après les books précédents).
      */
     getSchedulingPriority(): number;
+
+    /**
+     * Configure la fenêtre de pause méridienne flottante utilisée pour le calcul du
+     * score (getSchedulingPriority), si le moteur en a une (null sinon). Appelé une
+     * fois par Scheduler.initSolver(), après _applyLunchBreak(). Voir §5.5 de
+     * docs/HeuristiquePriorite-Conception.md.
+     */
+    setFloatingLunchBreak(window: FloatingLunchWindow | null): void;
+
+    /**
+     * Dernier instant de début valide pour cette unité, compte tenu de sa propre
+     * disponibilité ET de l'échéance imposée par ses dépendants (récursif, §5.6 de
+     * docs/HeuristiquePriorite-Conception.md). Retourne null si l'unité est infaisable
+     * (aucun créneau valide — y compris par héritage d'un dépendant lui-même infaisable).
+     * Utilisé par les ancêtres pour tronquer leur propre profil de disponibilité.
+     */
+    getEffectiveLatestStart(): number | null;
 
     // --- Dépendances séquentielles (ordre inter-unités) ---
 

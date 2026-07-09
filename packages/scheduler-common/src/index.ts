@@ -9,6 +9,26 @@
 export { Availability } from './availability.ts';
 export type { AvailableSlot } from './availability.ts';
 
+// --- Mesure de priorité MCV (§5.1 docs/HeuristiquePriorite-Conception.md) ---
+export {
+  SLOT_STEP,
+  INFEASIBLE_MEASURE,
+  measureProfile,
+  comparePriorityMeasure,
+  maxPriorityMeasure,
+  minPriorityMeasure,
+  encodePriorityMeasure,
+  splitFloatingLunchBreak,
+  truncateProfile,
+  findLastSlot,
+  reduceToAnchors,
+  shiftRanges,
+  intersectRanges,
+  truncateRanges,
+  countAnchorPositions,
+} from './priorityMeasure.ts';
+export type { PriorityMeasure, FloatingLunchWindow, TimeRange } from './priorityMeasure.ts';
+
 // --- Modèles de ressources et tâches ---
 export { Resource, ResourceType } from './resource.ts';
 export { Task } from './task.ts';

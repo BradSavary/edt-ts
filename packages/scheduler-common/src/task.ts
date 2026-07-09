@@ -2,6 +2,7 @@ import { Resource, ResourceType } from './resource.ts';
 import { Availability } from './availability.ts';
 import type { CourseTaskData, EnforcedData } from './types.ts';
 import type { ISchedulable } from './schedulable.ts';
+import { type PriorityMeasure, type FloatingLunchWindow, INFEASIBLE_MEASURE, measureProfile, comparePriorityMeasure, splitFloatingLunchBreak } from './priorityMeasure.ts';
 
 /** Type d'un groupe de tâches */
 export type GroupType = 'parallel' | 'sequential';
@@ -144,14 +145,73 @@ class Task implements ISchedulable {
   }
 
   private _computeSchedulable(): Availability {
-    const allResources = this.getAllResources();
-    if (allResources.length === 0) {
+    return this._intersectResources(this.getAllResources());
+  }
+
+  /**
+   * Meilleur profil de disponibilité (avant réduction par durée) parmi toutes les
+   * combinaisons de ressources applicables (`getApplicableResources()`), pas
+   * seulement la combinaison actuellement décidée (`appliedResources`, vide tant
+   * qu'aucun booking n'a eu lieu — voir `schedulable`). La tâche n'a besoin que
+   * d'une seule combinaison qui fonctionne : sa vraie marge de manœuvre est bornée
+   * par sa meilleure option. Voir §5.1/§5.3 de docs/HeuristiquePriorite-Conception.md.
+   *
+   * Retourne le profil lui-même (pas juste sa mesure) pour permettre la troncature
+   * par échéance des dépendants (§5.6, scheduler-core/taskUnit.ts) — pas de cache
+   * (profondeur d'arbre de dépendance faible en pratique, voir §5.6 du document).
+   *
+   * `floatingLunch`, si fourni, retranche une pause méridienne flottante des profils
+   * des ressources de type GROUP avant la mesure (§5.5) — correctif de lecture pour
+   * le score uniquement, voir `_intersectResourcesForScoring`.
+   */
+  getBestSchedulingProfile(floatingLunch: FloatingLunchWindow | null = null): Availability {
+    let bestProfile: Availability = new Availability();
+    let bestMeasure: PriorityMeasure = INFEASIBLE_MEASURE;
+    for (const combo of this.getApplicableResources()) {
+      const profile = this._intersectResourcesForScoring(combo, floatingLunch);
+      const measure = measureProfile(profile, this.duration);
+      if (comparePriorityMeasure(measure, bestMeasure) > 0) {
+        bestMeasure = measure;
+        bestProfile = profile;
+      }
+    }
+    return bestProfile;
+  }
+
+  private _intersectResources(resources: Resource[]): Availability {
+    if (resources.length === 0) {
       return new Availability();
     }
 
-    let result = allResources[0].availability.copy();
-    for (let i = 1; i < allResources.length; i++) {
-      result = result.intersect(allResources[i].availability);
+    let result = resources[0].availability.copy();
+    for (let i = 1; i < resources.length; i++) {
+      result = result.intersect(resources[i].availability);
+      if (result.isEmpty()) {
+        break;
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Variante de `_intersectResources` réservée au calcul du score (§5.1/§5.5) : applique
+   * le découpage de pause flottante (`splitFloatingLunchBreak`) aux ressources GROUP
+   * avant intersection. Délibérément dupliquée plutôt que de paramétrer
+   * `_intersectResources` : garde le chemin de placement réel (`_computeSchedulable`,
+   * utilisé par `earlySchedule`/`book`) totalement à l'écart de cette logique — aucun
+   * risque qu'un appel futur y injecte accidentellement la correction de score.
+   */
+  private _intersectResourcesForScoring(resources: Resource[], floatingLunch: FloatingLunchWindow | null): Availability {
+    if (resources.length === 0) {
+      return new Availability();
+    }
+
+    const profileFor = (r: Resource): Availability =>
+      (floatingLunch && r.type === ResourceType.GROUP) ? splitFloatingLunchBreak(r.availability, floatingLunch) : r.availability;
+
+    let result = profileFor(resources[0]).copy();
+    for (let i = 1; i < resources.length; i++) {
+      result = result.intersect(profileFor(resources[i]));
       if (result.isEmpty()) {
         break;
       }

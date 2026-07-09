@@ -1,6 +1,8 @@
-import { Task, Resource } from '@edt-ts/scheduler-common';
+import {
+    Task, Resource, type FloatingLunchWindow, type TimeRange,
+    encodePriorityMeasure, countAnchorPositions, reduceToAnchors, shiftRanges, intersectRanges, truncateRanges,
+} from '@edt-ts/scheduler-common';
 import type { ISchedulingUnit, SchedulingResult, UnitSolution } from './schedulingUnit.js';
-import { DEPENDENTS_WEIGHT } from './schedulingHeuristics.js';
 
 const SLOT_STEP = 30;
 
@@ -34,6 +36,8 @@ export class TaskGroupUnit implements ISchedulingUnit {
     private _pendingAssignment: TaskAssignment[] | null = null;
     /** Pile LIFO de sauvegardes pour unBook. */
     private _savedAssignments: TaskAssignment[][] = [];
+    /** Fenêtre de pause flottante pour le calcul du score (§5.5) — voir setFloatingLunchBreak. */
+    private _floatingLunch: FloatingLunchWindow | null = null;
 
     constructor(id: string, groupType: 'parallel' | 'sequential', tasks: Task[]) {
         this.id = id;
@@ -193,29 +197,86 @@ export class TaskGroupUnit implements ISchedulingUnit {
 
     // ── Priorité MCV ───────────────────────────────────────────────────────
 
+    setFloatingLunchBreak(window: FloatingLunchWindow | null): void {
+        this._floatingLunch = window;
+    }
+
     /**
-     * Score MCV du groupe : basé sur son membre le plus contraint (min), pas la
-     * somme — qu'il soit parallel ou sequential, le groupe échoue si son membre
-     * le plus contraint échoue, donc le min est la mesure du vrai goulot
-     * d'étranglement (une somme dilue un membre très contraint derrière des
-     * membres très disponibles).
+     * Profil de disponibilité "propre" du groupe (avant troncature par échéance) :
+     * intersection des profils de *débuts valides* de chaque membre (chaque membre
+     * réduit par sa propre durée — §5.6 de docs/HeuristiquePriorite-Conception.md).
+     * Une intersection réelle, pas un `min` de mesures indépendantes (approximation
+     * de la Phase 1, qui ne capturait pas la validité *simultanée* requise par un
+     * groupe `parallel` — contre-exemple : membre A libre à {8h,8h30,9h}, membre B
+     * à {10h,10h30} : un `min` suggérait de la marge, l'intersection réelle est vide).
      *
-     * Propagation aux dépendants par **max**, pas par somme — voir le commentaire
-     * de `TaskUnit.getSchedulingPriority` pour le raisonnement complet.
+     * `sequential` : chaque membre est en plus décalé de son offset cumulé dans la
+     * séquence, pour capturer l'absence de trou (début du suivant = fin du précédent).
+     *
+     * `TimeRange[]`, pas `Availability` : un membre ajusté pile à sa durée produit un
+     * intervalle de largeur 0 après réduction, que `Availability`/`TimeInterval`
+     * (start < end strict) ne peuvent pas représenter.
      */
-    getSchedulingPriority(): number {
-        if (this._tasks.length === 0) return 0;
+    private _computeOwnAnchors(): TimeRange[] {
+        if (this._tasks.length === 0) return [];
 
-        const minAvailability = Math.min(...this._tasks.map(t => t.getBestApplicableAvailableTime()));
-        const ownScore = -minAvailability;
-
-        let bestDependentScore = -Infinity;
-        for (const dep of this._dependentUnits) {
-            const score = DEPENDENTS_WEIGHT * dep.getSchedulingPriority();
-            if (score > bestDependentScore) bestDependentScore = score;
+        if (this._groupType === 'parallel') {
+            let anchors = reduceToAnchors(this._tasks[0].getBestSchedulingProfile(this._floatingLunch), this._tasks[0].duration);
+            for (let i = 1; i < this._tasks.length; i++) {
+                const memberAnchors = reduceToAnchors(this._tasks[i].getBestSchedulingProfile(this._floatingLunch), this._tasks[i].duration);
+                anchors = intersectRanges(anchors, memberAnchors);
+            }
+            return anchors;
         }
 
-        return Math.max(ownScore, bestDependentScore);
+        // sequential : chaque membre décalé de son offset cumulé (pas de trou, §5.6)
+        let anchors: TimeRange[] | null = null;
+        let offset = 0;
+        for (const task of this._tasks) {
+            const shifted = shiftRanges(reduceToAnchors(task.getBestSchedulingProfile(this._floatingLunch), task.duration), offset);
+            anchors = anchors === null ? shifted : intersectRanges(anchors, shifted);
+            offset += task.duration;
+        }
+        return anchors ?? [];
+    }
+
+    /** Profil "propre" du groupe, tronqué par l'échéance des dépendants (§5.6) — voir TaskUnit._computeEffectiveProfile. */
+    private _computeEffectiveAnchors(): TimeRange[] {
+        const own = this._computeOwnAnchors();
+        if (this._dependentUnits.length === 0) return own;
+
+        let deadline = Infinity;
+        for (const dep of this._dependentUnits) {
+            const ls = dep.getEffectiveLatestStart();
+            if (ls === null) return []; // dépendant infaisable → le groupe hérite l'infaisabilité
+            if (ls < deadline) deadline = ls;
+        }
+        // Les anchors représentent des DÉBUTS déjà réduits par durée (§5.6), mais
+        // `deadline` borne la FIN du groupe (ce que ses dépendants exigent) — il faut donc
+        // retrancher this.duration avant de tronquer, sous peine de comparer un début à une
+        // échéance de fin (bug trouvé en testant la combinaison pause fixe + groupe : sans
+        // ce retranchement, un groupe pouvait paraître faisable alors qu'il ne pouvait pas
+        // matériellement finir à temps pour son dépendant).
+        return truncateRanges(own, deadline - this.duration);
+    }
+
+    /**
+     * Score MCV du groupe : mesure à deux niveaux (§5.1) sur le profil effectif du
+     * groupe (ci-dessus), encodée en scalaire via `encodePriorityMeasure`.
+     */
+    getSchedulingPriority(): number {
+        return encodePriorityMeasure(countAnchorPositions(this._computeEffectiveAnchors()));
+    }
+
+    /**
+     * Voir ISchedulingUnit.getEffectiveLatestStart. Le dernier "anchor" du profil
+     * effectif EST déjà le dernier début valide (les anchors sont des débuts, déjà
+     * réduits par durée) — pas de soustraction supplémentaire, contrairement à
+     * TaskUnit.getEffectiveLatestStart (qui part d'un profil brut).
+     */
+    getEffectiveLatestStart(): number | null {
+        const anchors = this._computeEffectiveAnchors();
+        return anchors.length === 0 ? null : anchors[anchors.length - 1].end;
     }
 
     // ── Dépendances ────────────────────────────────────────────────────────

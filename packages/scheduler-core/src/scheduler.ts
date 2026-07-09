@@ -154,6 +154,9 @@ export class Scheduler {
         }
 
         this._applyLunchBreak();
+        for (const unit of this._units) {
+            unit.setFloatingLunchBreak(this._floatingLB);
+        }
         this._initialized = true;
         console.log(`✅ Scheduler initialisé : ${this._units.length} unités, ${this._resources.length} ressources\n`);
     }
