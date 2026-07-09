@@ -434,6 +434,21 @@ export class Scheduler {
         duration: number,
     ): boolean {
         const intervals = resource.availability.getAvailableIntervals();
+
+        // Si la disponibilité de la ressource ce jour-là ne recouvre déjà [winStart,winEnd]
+        // que sur moins de `duration` minutes AVANT tout booking, aucune pause n'a jamais pu
+        // être réservée dans cette fenêtre — la contrainte est structurellement inapplicable
+        // ce jour-là (pas de "après-midi" à protéger), pas violée par ce placement précis.
+        // Sans ce garde-fou, une journée trop courte (ex. jeudi 8h-12h30 face à une fenêtre
+        // de pause 12h-14h) se retrouve exclue en permanence, quel que soit l'horaire testé.
+        let totalOverlap = 0;
+        for (const interval of intervals) {
+            const clipStart = Math.max(interval.start, winStart);
+            const clipEnd = Math.min(interval.end, winEnd);
+            if (clipStart < clipEnd) totalOverlap += clipEnd - clipStart;
+        }
+        if (totalOverlap < duration) return true;
+
         for (const interval of intervals) {
             const clipStart = Math.max(interval.start, winStart);
             const clipEnd   = Math.min(interval.end,   winEnd);
