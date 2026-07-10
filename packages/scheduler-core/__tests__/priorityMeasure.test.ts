@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   Availability, measureProfile, comparePriorityMeasure, encodePriorityMeasure, splitFloatingLunchBreak, type FloatingLunchWindow,
-  truncateProfile, findLastSlot, reduceToAnchors, shiftRanges, intersectRanges, truncateRanges, countAnchorPositions, type TimeRange,
+  truncateProfile, findLastSlot, computeDependentsDeadline, reduceToAnchors, shiftRanges, intersectRanges, truncateRanges, countAnchorPositions, type TimeRange,
 } from '@edt-ts/scheduler-common';
 
 const SLOT_STEP = 30;
@@ -175,6 +175,46 @@ describe('truncateProfile / findLastSlot — §5.6 du document de conception', (
 
   it('findLastSlot sur un profil vide retourne null', () => {
     expect(findLastSlot(makeProfile([]), 60)).toBeNull();
+  });
+});
+
+describe('computeDependentsDeadline — §5.6, dépendants multiples (structure en éventail)', () => {
+  it('k=1 dégénère exactement en LS(D1) — comportement identique à l\'ancien min(...)', () => {
+    expect(computeDependentsDeadline([{ ls: 500, duration: 60 }])).toBe(500);
+  });
+
+  it('k=0 (liste vide) retourne Infinity — aucune contrainte', () => {
+    expect(computeDependentsDeadline([])).toBe(Infinity);
+  });
+
+  it('exemple chiffré du document de conception (CM/TD1/TD2, vérifié à la main)', () => {
+    // TD1 : durée 60, LS=640 ; TD2 : durée 200, LS=300 (le plus pressé).
+    // échéance(CM) = LS(TD2) - duration(TD1) = 300 - 60 = 240.
+    const deadline = computeDependentsDeadline([
+      { ls: 640, duration: 60 },
+      { ls: 300, duration: 200 },
+    ]);
+    expect(deadline).toBe(240);
+  });
+
+  it('k=3, cas symétrique (reproduit la structure du cas réel R1.04 qui a motivé la conception)', () => {
+    // Trois dépendants identiques : ls=180, duration=60 chacun.
+    // échéance = 180 - (60+60) = 60.
+    const deadline = computeDependentsDeadline([
+      { ls: 180, duration: 60 },
+      { ls: 180, duration: 60 },
+      { ls: 180, duration: 60 },
+    ]);
+    expect(deadline).toBe(60);
+  });
+
+  it('le dépendant le plus pressé est bien celui qui détermine m, quel que soit son ordre dans la liste', () => {
+    // Même exemple que ci-dessus mais avec le plus pressé en tête plutôt qu'en fin de liste.
+    const deadline = computeDependentsDeadline([
+      { ls: 300, duration: 200 },
+      { ls: 640, duration: 60 },
+    ]);
+    expect(deadline).toBe(240);
   });
 });
 

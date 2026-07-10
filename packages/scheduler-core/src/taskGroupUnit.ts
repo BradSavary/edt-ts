@@ -1,6 +1,7 @@
 import {
     Task, Resource, type FloatingLunchWindow, type TimeRange,
     encodePriorityMeasure, countAnchorPositions, reduceToAnchors, shiftRanges, intersectRanges, truncateRanges,
+    computeDependentsDeadline,
 } from '@edt-ts/scheduler-common';
 import type { ISchedulingUnit, SchedulingResult, UnitSolution } from './schedulingUnit.js';
 
@@ -245,12 +246,13 @@ export class TaskGroupUnit implements ISchedulingUnit {
         const own = this._computeOwnAnchors();
         if (this._dependentUnits.length === 0) return own;
 
-        let deadline = Infinity;
+        const deps: { ls: number; duration: number }[] = [];
         for (const dep of this._dependentUnits) {
             const ls = dep.getEffectiveLatestStart();
             if (ls === null) return []; // dépendant infaisable → le groupe hérite l'infaisabilité
-            if (ls < deadline) deadline = ls;
+            deps.push({ ls, duration: dep.duration });
         }
+        const deadline = computeDependentsDeadline(deps);
         // Les anchors représentent des DÉBUTS déjà réduits par durée (§5.6), mais
         // `deadline` borne la FIN du groupe (ce que ses dépendants exigent) — il faut donc
         // retrancher this.duration avant de tronquer, sous peine de comparer un début à une

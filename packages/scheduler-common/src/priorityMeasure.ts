@@ -128,6 +128,35 @@ export function findLastSlot(profile: Availability, duration: number): number | 
 }
 
 /**
+ * Échéance d'un nœud U compte tenu de ses dépendants directs — §5.6 de
+ * docs/HeuristiquePriorite-Conception.md, section "Dépendants multiples (structure en
+ * éventail) : correction de charge cumulée" (conception validée le 2026-07-10).
+ *
+ * Généralisation stricte de l'ancien `min(LS(D1),...,LS(Dk))` : celui-ci vérifiait que U
+ * finit avant le plus pressé de ses dépendants, mais ignorait que TOUS les dépendants
+ * doivent aussi tenir, cumulativement, dans le temps restant — indépendamment de quelle
+ * ressource chacun utilise (les dépendances n'expriment qu'une contrainte de précédence
+ * temporelle). Retranche donc la durée cumulée des AUTRES dépendants de la marge du plus
+ * pressé (même principe que l'ajustement tête/queue de Carlier & Pinson sur ressource
+ * disjonctive, appliqué ici directement à la structure de précédence).
+ *
+ * Dégénère exactement en `LS(D1)` quand il n'y a qu'un seul dépendant (k=1, cas chaîne
+ * CM/TD/TP déjà en production) — aucune régression sur ce cas.
+ */
+export function computeDependentsDeadline(dependents: readonly { ls: number; duration: number }[]): number {
+  if (dependents.length === 0) return Infinity;
+  let m = 0;
+  for (let i = 1; i < dependents.length; i++) {
+    if (dependents[i].ls < dependents[m].ls) m = i;
+  }
+  let othersSum = 0;
+  for (let i = 0; i < dependents.length; i++) {
+    if (i !== m) othersSum += dependents[i].duration;
+  }
+  return dependents[m].ls - othersSum;
+}
+
+/**
  * Plage temporelle légère, `start <= end` autorisé (contrairement à `TimeInterval`/
  * `Availability`, qui exigent `start < end` strict) — nécessaire pour représenter un
  * ajustement pile à la bonne taille (largeur 0) après réduction par durée. Usage

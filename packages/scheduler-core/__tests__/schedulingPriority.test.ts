@@ -246,6 +246,52 @@ describe('getSchedulingPriority — TaskUnit', () => {
     // [480,720] tronqué à 700 → [480,700] → LS(CM) = 700-60 = 640.
     expect(cmUnit.getEffectiveLatestStart()).toBe(640);
   });
+
+  it('§5.6 : dépendants multiples (structure en éventail, k=2) — exemple chiffré vérifié à la main du document de conception', () => {
+    // CM durée 90, profil [0,1000]. TD1 durée 60, profil [0,700] → LS(TD1)=640.
+    // TD2 durée 200, profil [0,500] → LS(TD2)=300 (le plus pressé, m=TD2).
+    // échéance(CM) = LS(TD2) - duration(TD1) = 300 - 60 = 240 → LS(CM) = 240-90 = 150.
+    // L'ancien mécanisme (min seul) aurait donné échéance=300 → LS(CM)=210, une valeur
+    // prouvée fausse à la main (viole LS(TD2)=300 dans le pire cas d'ordonnancement aval).
+    const cmTeacher = makeResource('fanout-cm-teacher', ResourceType.TEACHER, [[0, 1000]]);
+    const cmTask = makeTask('CM-fanout', { teacher: [[cmTeacher]] }, { duration: 90 });
+    const cmUnit = new TaskUnit(cmTask);
+
+    const td1Teacher = makeResource('fanout-td1-teacher', ResourceType.TEACHER, [[0, 700]]);
+    const td1Task = makeTask('TD1-fanout', { teacher: [[td1Teacher]] }, { duration: 60 });
+    const td1Unit = new TaskUnit(td1Task);
+
+    const td2Teacher = makeResource('fanout-td2-teacher', ResourceType.TEACHER, [[0, 500]]);
+    const td2Task = makeTask('TD2-fanout', { teacher: [[td2Teacher]] }, { duration: 200 });
+    const td2Unit = new TaskUnit(td2Task);
+
+    td1Unit.setDependsOn(cmUnit);
+    td2Unit.setDependsOn(cmUnit);
+
+    expect(td1Unit.getEffectiveLatestStart()).toBe(640);
+    expect(td2Unit.getEffectiveLatestStart()).toBe(300);
+    expect(cmUnit.getEffectiveLatestStart()).toBe(150);
+    expect(cmUnit.getEffectiveLatestStart()).not.toBe(210); // l'ancien résultat (faux) avec min(LS) seul
+  });
+
+  it('§5.6 : dépendants multiples, k=1 dégénère exactement en l\'ancien comportement (non-régression)', () => {
+    // Un seul dépendant : la somme des "autres" est vide, échéance(U) = LS(D1) — identique
+    // à l'ancien min(LS(D1)) sur un seul élément. TD est ici une feuille (pas de dépendant
+    // propre) : son LS effectif est son propre LS brut, 600-60=540.
+    const cmTeacher = makeResource('k1-cm-teacher', ResourceType.TEACHER, [[0, 1000]]);
+    const cmTask = makeTask('CM-k1', { teacher: [[cmTeacher]] }, { duration: 60 });
+    const cmUnit = new TaskUnit(cmTask);
+
+    const tdTeacher = makeResource('k1-td-teacher', ResourceType.TEACHER, [[500, 600]]);
+    const tdTask = makeTask('TD-k1', { teacher: [[tdTeacher]] }, { duration: 60 });
+    const tdUnit = new TaskUnit(tdTask);
+
+    tdUnit.setDependsOn(cmUnit);
+
+    expect(tdUnit.getEffectiveLatestStart()).toBe(540);
+    // k=1 : échéance(CM) = LS(TD) - 0 = 540 → LS(CM) = 540-60 = 480.
+    expect(cmUnit.getEffectiveLatestStart()).toBe(480);
+  });
 });
 
 describe('getSchedulingPriority — TaskGroupUnit (§5.6 : intersection réelle des profils, pas un min de mesures indépendantes)', () => {
@@ -366,5 +412,33 @@ describe('getSchedulingPriority — TaskGroupUnit (§5.6 : intersection réelle 
 
     expect(tdUnit.getEffectiveLatestStart()).toBe(700);
     expect(groupUnit.getEffectiveLatestStart()).toBe(640);
+  });
+
+  it('§5.6 : dépendants multiples (structure en éventail, k=2) — même exemple chiffré que TaskUnit, porté par un groupe', () => {
+    // Groupe à un seul membre, durée 90, largement disponible [0,2000] (own anchors quasi
+    // non contraignants) — le point testé ici est la propagation de l'échéance, pas
+    // l'agrégation des membres (déjà couverte par les tests parallel/sequential ci-dessus).
+    // Mêmes TD1/TD2 que le test TaskUnit équivalent : échéance(groupe) = 300-60 = 240
+    // → LS(groupe) = 240-90 = 150 (le groupe applique en plus le -duration déjà en place
+    // pour l'asymétrie début/fin des anchors — voir _computeEffectiveAnchors).
+    const memberTeacher = makeResource('fanout-grp-member-teacher', ResourceType.TEACHER, [[0, 2000]]);
+    const memberTask = makeTask('fanout-grp-member', { teacher: [[memberTeacher]] }, { duration: 90 });
+    const groupUnit = new TaskGroupUnit('fanout-group', 'parallel', [memberTask]);
+
+    const td1Teacher = makeResource('fanout-grp-td1-teacher', ResourceType.TEACHER, [[0, 700]]);
+    const td1Task = makeTask('TD1-fanout-grp', { teacher: [[td1Teacher]] }, { duration: 60 });
+    const td1Unit = new TaskUnit(td1Task);
+
+    const td2Teacher = makeResource('fanout-grp-td2-teacher', ResourceType.TEACHER, [[0, 500]]);
+    const td2Task = makeTask('TD2-fanout-grp', { teacher: [[td2Teacher]] }, { duration: 200 });
+    const td2Unit = new TaskUnit(td2Task);
+
+    td1Unit.setDependsOn(groupUnit);
+    td2Unit.setDependsOn(groupUnit);
+
+    expect(td1Unit.getEffectiveLatestStart()).toBe(640);
+    expect(td2Unit.getEffectiveLatestStart()).toBe(300);
+    expect(groupUnit.getEffectiveLatestStart()).toBe(150);
+    expect(groupUnit.getEffectiveLatestStart()).not.toBe(210); // l'ancien résultat (faux) avec min(LS) seul
   });
 });

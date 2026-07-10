@@ -21,6 +21,7 @@ export {
   splitFloatingLunchBreak,
   truncateProfile,
   findLastSlot,
+  computeDependentsDeadline,
   reduceToAnchors,
   shiftRanges,
   intersectRanges,
