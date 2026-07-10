@@ -2,7 +2,7 @@
 
 Ce document a une double vocation. **Historiquement**, c'est un document de conception : il part d'un cas réel observé en production (§2) pour identifier les limites du modèle de score existant (§3), les repositionner par rapport à la littérature CSP/RCPSP/CP-scheduling (§4), puis proposer et justifier un nouveau modèle (§5). **Aujourd'hui**, la majeure partie de ce modèle est implémentée et en production — ce document sert donc aussi de **référence** pour comprendre le fonctionnement réel du moteur de planification, section par section, avec des exemples et le pseudocode des méthodes effectivement en place.
 
-**État d'implémentation** (détail en §8) : §5.1 (mesure à deux niveaux), §5.3 (agrégation combo/groupe), §5.4 (signal d'infaisabilité), §5.5 (pause flottante) et §5.6 (troncature par échéance pour les dépendants, cas chaîne `k=1`) sont **implémentés, testés et en production**. §5.2 (criticité de ressource par demande ferme), la correction de charge cumulée pour les dépendants multiples (§5.6, structure en éventail `k>1`) et §5.7 (attribution du blâme dans `solveWithElimination`) restent des **propositions non implémentées** — signalées comme telles à chaque fois qu'elles apparaissent ci-dessous.
+**État d'implémentation** (détail en §8) : §5.1 (mesure à deux niveaux), §5.3 (agrégation combo/groupe), §5.4 (signal d'infaisabilité), §5.5 (pause flottante), §5.6 (troncature par échéance, chaîne et dépendants multiples) et §5.7 (attribution du blâme dans `solveWithElimination`) sont **implémentés, testés et en production**. Seul §5.2 (criticité de ressource par demande ferme) reste une **proposition non implémentée** — signalée comme telle à chaque fois qu'elle apparaît ci-dessous.
 
 ## 1. Contexte et historique
 
@@ -540,7 +540,7 @@ Si la profondeur des arbres de dépendance venait à augmenter significativement
 
 ### 5.7 `solveWithElimination()` : attribution du blâme par occupation réelle, pas par tour de rôle
 
-**Non implémenté à ce jour** (Phase 5, voir §8).
+**Implémenté et vérifié sur données réelles (2026-07-10)** — `Scheduler._incrementFailureBlame()`, `scheduler.ts`. Rejoué sur le payload réel THARAUD (semaine 36) qui a motivé ce point : THARAUD n'est plus blâmé du tout (`undefined`, contre 903 343 échecs comptabilisés à tort auparavant) ; l'unité effectivement éliminée est `AUBRY Bastien/BUT1-G1` — exactement la contention identifiée comme cause réelle du blocage ci-dessous. La résolution réussit désormais en un seul round d'élimination, dans le budget de recherche initial de 10s.
 
 **Constat (§3.5)** : `_failureCounts` incrémente l'unité *dont c'était le tour* au moment où `earlySchedule()` échoue définitivement — mais dans un backtracking chronologique, ce n'est pas forcément la cause réelle du blocage. Confirmé empiriquement sur le cas THARAUD (production) : 903 343 échecs comptabilisés contre THARAUD (zéro alternative), qui n'est pourtant pas la cause du blocage réel (contention AUBRY Bastien/BUT1 ailleurs dans le graphe).
 
@@ -550,13 +550,17 @@ Si la profondeur des arbres de dépendance venait à augmenter significativement
 
 **Mécanisme** : quand `unit.earlySchedule(fromTime)` échoue, au lieu de `failureCounts.get(unit.id)++`, identifier — pour les ressources candidates de `unit` — quelles réservations *actuellement actives* dans `_solution` occupent les créneaux qui auraient permis de placer `unit`, et incrémenter le compteur de **ces unités occupantes**, pas celui de `unit`. C'est une application ciblée du principe du *conflict set* (§4.5) : identifier les décisions réellement en conflit, mais seulement pour éclairer le choix de la cible d'élimination, sans changer l'ordre d'exploration lui-même.
 
-**Pseudocode de la proposition — non implémentée** :
+**Pseudocode — implémenté** (`Scheduler._incrementFailureBlame()`, `scheduler.ts`) :
 
 ```
 quand unit.earlySchedule(fromTime) échoue définitivement:
-    candidats = ressources candidates de unit
-    occupants = unités actuellement présentes dans _solution dont la réservation
-                chevauche une fenêtre où `unit` aurait pu tenir sur l'une de ces ressources
+    candidats = unit.getCandidateResources()   // déjà existant, réutilisé tel quel
+    occupants = unités de _solution dont une ressource réservée apparaît dans `candidats`
+                ET dont la réservation se termine APRÈS fromTime
+                // condition de fin ajoutée à la conception initiale : une réservation
+                // entièrement avant fromTime ne peut structurellement pas être la cause
+                // d'un échec de recherche qui démarre à fromTime (book() ne fait qu'un
+                // retrait d'intervalle, sans effet sur ce qui précède son propre début)
     si occupants non vide:
         pour chaque O dans occupants: failureCounts[O.id]++
     sinon:
@@ -580,17 +584,16 @@ Aucun. Tous les points précédemment listés sont désormais tranchés :
 
 ## 7. Fichiers et méthodes concernés
 
-**Réalisé (Phases 1-3 : §5.1, §5.3, §5.4, §5.5, §5.6)** :
-- `packages/scheduler-common/src/priorityMeasure.ts` — module entier : `PriorityMeasure`, `measureProfile`, `comparePriorityMeasure`/`maxPriorityMeasure`/`minPriorityMeasure`, `encodePriorityMeasure`, `splitFloatingLunchBreak`, `truncateProfile`/`findLastSlot`, `TimeRange`/`reduceToAnchors`/`shiftRanges`/`intersectRanges`/`truncateRanges`/`countAnchorPositions`.
+**Réalisé (Phases 1-3 et 5 : §5.1, §5.3, §5.4, §5.5, §5.6, §5.7)** :
+- `packages/scheduler-common/src/priorityMeasure.ts` — module entier : `PriorityMeasure`, `measureProfile`, `comparePriorityMeasure`/`maxPriorityMeasure`/`minPriorityMeasure`, `encodePriorityMeasure`, `splitFloatingLunchBreak`, `truncateProfile`/`findLastSlot`, `computeDependentsDeadline` (dépendants multiples), `TimeRange`/`reduceToAnchors`/`shiftRanges`/`intersectRanges`/`truncateRanges`/`countAnchorPositions`.
 - `packages/scheduler-common/src/task.ts` — `getBestSchedulingProfile()` (§5.3), remplace l'ancien `getBestApplicableAvailableTime()`/`getSchedulingMeasure()` (supprimés).
 - `packages/scheduler-core/src/schedulingUnit.ts` — `ISchedulingUnit` : `setFloatingLunchBreak()` (§5.5), `getEffectiveLatestStart()` (§5.6).
-- `packages/scheduler-core/src/taskUnit.ts`, `taskGroupUnit.ts` — `getSchedulingPriority()`/`getEffectiveLatestStart()` réécrits autour de la troncature de profil par échéance (§5.6, pseudocode ci-dessus).
-- `packages/scheduler-core/src/scheduler.ts` — propagation de la config de pause flottante aux unités, dans `initSolver()` (§5.5).
+- `packages/scheduler-core/src/taskUnit.ts`, `taskGroupUnit.ts` — `getSchedulingPriority()`/`getEffectiveLatestStart()` réécrits autour de la troncature de profil par échéance (§5.6, y compris dépendants multiples).
+- `packages/scheduler-core/src/scheduler.ts` — propagation de la config de pause flottante aux unités, dans `initSolver()` (§5.5) ; `_incrementFailureBlame()`, attribution du blâme par occupation réelle (§5.7).
 - `packages/scheduler-core/src/schedulingHeuristics.ts` — **supprimé** : l'ancien mécanisme `DEPENDENTS_WEIGHT` qu'il portait n'a plus d'appelant, remplacé intégralement par §5.6.
 
-**Restant — conception tranchée, non implémentée (Phases 4-5 : §5.2, §5.7)** :
+**Restant — conception tranchée, non implémentée (Phase 4 : §5.2)** :
 - §5.2 nécessiterait un index ressource → tâches pendantes à demande ferme, à construire en s'appuyant sur `Resource.getTasks()` (déjà utilisé pour l'invalidation du cache de disponibilité). Plus simple que prévu initialement : la demande optionnelle n'étant pas modélisée, pas besoin de suivre `nbAlternatives` par tâche pour cet index.
-- §5.7 concerne `packages/scheduler-core/src/scheduler.ts` (`_backtrack`, le point où `_failureCounts` est incrémenté ; `solveWithElimination`, la sélection de la cible). N'affecterait pas `getSchedulingPriority`/le modèle de score des §5.1-§5.6.
 
 **Fixtures de test disponibles** : cas réel THARAUD (semaine 36) dans `packages/scheduler-core/data/payload.json` (données réelles, non versionnées — voir `.gitignore`) ; cas synthétique `CM/TD/TP` (§5.6) couvert par `packages/scheduler-core/__tests__/schedulerDependentTruncation.test.ts` et `schedulingPriority.test.ts`.
 
@@ -605,8 +608,8 @@ Aucun. Tous les points précédemment listés sont désormais tranchés :
 | §5.4 | Signal d'infaisabilité natif | ✅ Implémenté (sous-produit de §5.1) |
 | §5.5 | Pause flottante, découpage en deux fenêtres | ✅ Implémenté, testé |
 | §5.6 | Troncature par échéance (`TaskUnit` et `TaskGroupUnit`), cas chaîne (`k=1`) | ✅ Implémenté, testé |
-| §5.6 | Dépendants multiples (structure en éventail, `k>1`), correction de charge cumulée | ⏳ Conception tranchée (2026-07-10), non implémentée |
+| §5.6 | Dépendants multiples (structure en éventail, `k>1`), correction de charge cumulée | ✅ Implémenté, testé (2026-07-10) |
+| §5.7 | Attribution du blâme (`solveWithElimination`) | ✅ Implémenté, testé (2026-07-10) |
 | §5.2 | Criticité de ressource (demande ferme) | ⏳ Conception tranchée, non implémentée |
-| §5.7 | Attribution du blâme (`solveWithElimination`) | ⏳ Conception tranchée, non implémentée |
 
-Prochaine étape, si elle est engagée : implémentation incrémentale de la correction de charge cumulée (§5.6), puis §5.2, puis §5.7 — chacune indépendante des autres (§5.6/multiple n'affecte que `_computeEffectiveProfile`/`_computeEffectiveAnchors` ; §5.2 n'affecte que le calcul de profil en amont de §5.1 ; §5.7 n'affecte que `solveWithElimination`, pas le modèle de score).
+Seul §5.2 reste non implémenté. Il n'affecte que le calcul de profil en amont de §5.1 — indépendant du reste, peut être engagé à tout moment.

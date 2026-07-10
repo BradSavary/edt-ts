@@ -277,9 +277,8 @@ export class Scheduler {
         while (true) {
             const result = unit.earlySchedule(fromTime);
             if (result === null) {
-                // Aucun créneau disponible → incrémente le compteur d'échecs et backtracke
-                const cnt = (this._failureCounts.get(unit.id) ?? 0) + 1;
-                this._failureCounts.set(unit.id, cnt);
+                // Aucun créneau disponible → attribue le blâme (§5.7) et backtracke
+                this._incrementFailureBlame(unit, fromTime);
                 return false;
             }
 
@@ -313,6 +312,30 @@ export class Scheduler {
 
             // Avancer au créneau suivant (pas de 30 min)
             fromTime = result.start + SLOT_STEP;
+        }
+    }
+
+    /**
+     * Incrémente le(s) compteur(s) d'échec responsables du blocage de `unit` — attribution
+     * du blâme par occupation réelle (§5.7 de docs/HeuristiquePriorite-Conception.md),
+     * plutôt que par tour de rôle chronologique. N'affecte que ce que `solveWithElimination`
+     * compte, jamais le flux d'exploration de `_backtrack` lui-même.
+     */
+    private _incrementFailureBlame(unit: ISchedulingUnit, fromTime: number): void {
+        const candidateResources = unit.getCandidateResources();
+        const occupants = new Set<ISchedulingUnit>();
+        for (const entry of this._solution) {
+            if (entry.result.start + entry.unit.duration <= fromTime) continue; // réservation antérieure, hors cause
+            if (entry.result.resources.some(r => candidateResources.includes(r))) {
+                occupants.add(entry.unit);
+            }
+        }
+        if (occupants.size > 0) {
+            for (const occ of occupants) {
+                this._failureCounts.set(occ.id, (this._failureCounts.get(occ.id) ?? 0) + 1);
+            }
+        } else {
+            this._failureCounts.set(unit.id, (this._failureCounts.get(unit.id) ?? 0) + 1); // repli, comportement actuel
         }
     }
 
