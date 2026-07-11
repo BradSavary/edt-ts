@@ -57,3 +57,55 @@ describe('Scheduler — ordre topologique respecté même quand le dépendant es
     expect(td.start).toBeGreaterThanOrEqual(cm.start + cm.unit.duration);
   });
 });
+
+/**
+ * Code de cours avec CM et TP mais SANS AUCUN TD — cas réel (payload semaine 38, R1.14 :
+ * 1 CM + 4 TP, 0 TD). `_determineDependencies()` ne rattachait le TP qu'au TD correspondant
+ * (`_findDependentTask(tp, tdTasks)`) ; sans TD du tout, le TP ne dépendait de RIEN, pas même
+ * indirectement du CM — reproduit sur données réelles : 3 TP sur 4 placés avant leur propre CM.
+ * Correctif : si aucun TD ne correspond, le TP retombe directement sur le CM.
+ */
+function buildScenarioNoTD(): RawScheduleData {
+  return {
+    week: 10,
+    resources: [
+      { resourceType: 'teacher', resources: [{ id: 'T_CM2' }, { id: 'T_TP2' }] },
+      { resourceType: 'group', resources: [{ id: 'G1' }] },
+      { resourceType: 'room', resources: [] },
+    ],
+    courses: [
+      { week: 10, semester: 1, level: 0, code: 'X2', type: 'CM', name: 'Cours magistral', teacher: ['T_CM2'], groups: ['G1'], rooms: [], duration: 60 },
+      { week: 10, semester: 1, level: 0, code: 'X2', type: 'TP', name: 'Travaux pratiques', teacher: ['T_TP2'], groups: ['G1'], rooms: [], duration: 60 },
+    ],
+    constraints: {
+      T_CM2: [{ days: 'lundi', from: '10:00', to: '20:00' }], // le CM ne peut pas commencer avant 10h
+      // Le TP est disponible dès 8h — sans rattachement au CM, rien ne l'empêche
+      // d'être placé à son propre créneau le plus tôt (8h), avant le CM (10h).
+      T_TP2: [{ days: 'lundi', from: '08:00', to: '20:00' }],
+      G1: [{ days: 'lundi', from: '08:00', to: '20:00' }],
+    },
+  };
+}
+
+describe('Scheduler — TP sans TD intermédiaire dépend directement du CM', () => {
+  it('planifie le TP après le CM même en l\'absence de TD dans le code de cours', () => {
+    Loader.loadFromRawData(buildScenarioNoTD());
+    const scheduler = new Scheduler();
+    scheduler.initSolver();
+
+    const results = scheduler.solve();
+
+    expect(results.length).toBeGreaterThan(0);
+    const solution = results[0].solutions;
+    expect(solution).toHaveLength(2);
+
+    const cm = solution.find((s) => (s.unit as TaskUnit).task.type === 'CM')!;
+    const tp = solution.find((s) => (s.unit as TaskUnit).task.type === 'TP')!;
+    expect(cm).toBeDefined();
+    expect(tp).toBeDefined();
+
+    // Sans le correctif, le TP serait placé à 8h (son propre créneau le plus tôt),
+    // avant le CM (contraint à ≥10h) — la dépendance directe CM->TP doit l'empêcher.
+    expect(tp.start).toBeGreaterThanOrEqual(cm.start + cm.unit.duration);
+  });
+});

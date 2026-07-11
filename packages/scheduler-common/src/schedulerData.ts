@@ -182,7 +182,10 @@ export class SchedulerData {
         if (dep) td.setDependsOn(dep);
       }
       for (const tp of tpTasks) {
-        const dep = this._findDependentTask(tp, tdTasks);
+        // Rattache le TP au TD correspondant (même groupes) ; si aucun TD ne
+        // correspond (ex. code sans TD du tout), retombe directement sur le CM —
+        // sinon le TP ne dépendrait de rien et pourrait être placé avant son CM.
+        const dep = this._findDependentTask(tp, tdTasks) ?? this._findDependentTask(tp, cmTasks);
         if (dep) tp.setDependsOn(dep);
       }
     }
