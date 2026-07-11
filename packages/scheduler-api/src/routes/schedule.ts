@@ -27,7 +27,6 @@ router.get('/config', defaultConfigHandler);
  *   - timeoutSeconds     : number   — timeout du backtracking en secondes (défaut : 180)
  *   - maxIterations      : number   — limite de sécurité sur les itérations (défaut : 1 000 000)
  *   - maxEliminations    : number   — nb max de rounds d'élimination ; 0 = aucun (défaut : 3)
- *   - resourceSelection  : 'deterministic' | 'random' — stratégie de sélection des ressources (défaut : 'deterministic')
  *   - lunchBreak         : LunchBreakConfig — gestion de la pause méridienne (défaut : { type: 'none' })
  *       { type: 'none' }
  *       { type: 'fixed', from: 'HH:MM', to: 'HH:MM' }

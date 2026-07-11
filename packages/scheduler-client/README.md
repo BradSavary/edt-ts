@@ -165,7 +165,6 @@ Accessible via le bouton engrenage dans la sidebar. Permet de configurer :
 - `maxSolutions` — nombre de solutions à générer
 - `timeoutSeconds` — limite de temps en secondes
 - `maxIterations` / `maxEliminations` — paramètres d'élimination
-- `resourceSelection` — `deterministic` ou `random`
 - **Pause déjeuner** : désactivée / fixe (`from`/`to`) / flottante (`duration`, `earliest`, `latest`)
 
 La config est persistée dans `useSchedulerStore.schedulerConfig`.

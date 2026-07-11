@@ -217,8 +217,6 @@ export interface SchedulerConfig {
   maxIterations?: number;
   /** Nombre de tâches à remonter/éliminer dans les stratégies priority-retry / elimination (défaut : 3) */
   maxEliminations?: number;
-  /** Stratégie de sélection initiale des ressources pour les tâches non-enforced (défaut : 'deterministic') */
-  resourceSelection?: 'random' | 'deterministic';
   /** Gestion de la pause méridienne (défaut : aucune) */
   lunchBreak?: LunchBreakConfig;
   /** Si true, ignore les limites maxDailyMinutes de toutes les ressources (défaut : false) */
@@ -231,7 +229,6 @@ export const DEFAULT_SCHEDULER_CONFIG: Required<SchedulerConfig> = {
   timeoutSeconds: 180,
   maxIterations: 1_000_000,
   maxEliminations: 3,
-  resourceSelection: 'deterministic',
   lunchBreak: { type: 'none' },
   ignoreDailyLimits: false,
 };

@@ -47,7 +47,6 @@ interface Draft {
   timeoutSeconds: string;
   maxIterations: string;
   maxEliminations: string;
-  resourceSelection: 'deterministic' | 'random';
   lunchTab: LunchTab;
   lunchFixed: LunchFixedDraft;
   lunchFloating: LunchFloatingDraft;
@@ -80,7 +79,6 @@ function configToDraft(config: SchedulerConfig): Draft {
     timeoutSeconds: String(config.timeoutSeconds ?? DEFAULT_SCHEDULER_CONFIG.timeoutSeconds),
     maxIterations: String(config.maxIterations ?? DEFAULT_SCHEDULER_CONFIG.maxIterations),
     maxEliminations: String(config.maxEliminations ?? DEFAULT_SCHEDULER_CONFIG.maxEliminations),
-    resourceSelection: config.resourceSelection ?? DEFAULT_SCHEDULER_CONFIG.resourceSelection,
     lunchTab,
     lunchFixed,
     lunchFloating,
@@ -109,7 +107,6 @@ function draftToConfig(draft: Draft): SchedulerConfig {
     timeoutSeconds: Math.max(1, parseInt(draft.timeoutSeconds, 10) || DEFAULT_SCHEDULER_CONFIG.timeoutSeconds),
     maxIterations: Math.max(1000, parseInt(draft.maxIterations, 10) || DEFAULT_SCHEDULER_CONFIG.maxIterations),
     maxEliminations: Math.max(1, parseInt(draft.maxEliminations, 10) || DEFAULT_SCHEDULER_CONFIG.maxEliminations),
-    resourceSelection: draft.resourceSelection,
     lunchBreak,
     ignoreDailyLimits: draft.ignoreDailyLimits,
   };
@@ -276,37 +273,6 @@ export function SchedulerConfigDialog() {
                   Nombre maximal d&apos;itérations de l&apos;algorithme de recherche.
                 </p>
               </div>
-            </div>
-          </section>
-
-          <Separator />
-
-          {/* ── Sélection des ressources ─────────────────────────────────── */}
-          <section className="space-y-4">
-            <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-              Sélection des ressources
-            </h3>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="cfg-resourceSelection">Stratégie initiale</Label>
-              <Select
-                value={draft.resourceSelection}
-                onValueChange={(v) => setDraftField('resourceSelection', v as 'deterministic' | 'random')}
-              >
-                <SelectTrigger id="cfg-resourceSelection" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="deterministic">Déterministe (recommandé)</SelectItem>
-                  <SelectItem value="random">Aléatoire</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                <strong>Déterministe</strong> — sélectionne toujours les mêmes ressources en
-                premier ; les résultats sont reproductibles. <strong>Aléatoire</strong> — explore
-                des combinaisons différentes à chaque lancement (utile si le mode déterministe
-                bute sur un conflit local).
-              </p>
             </div>
           </section>
 

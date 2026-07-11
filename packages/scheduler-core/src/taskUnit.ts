@@ -42,12 +42,22 @@ export class TaskUnit implements ISchedulingUnit {
 
         const savedResources = [...this.task.appliedResources];
         let best: SchedulingResult | null = null;
+        // Tie-break aléatoire (reservoir sampling) : à égalité de créneau, ne pas
+        // toujours favoriser le premier combo de la liste (ex. salle 101 avant 103).
+        let tieCount = 0;
 
         for (const combo of allCombinations) {
             this.task.appliedResources = combo;
             const slot = this._findFirstSlot(fromTime);
-            if (slot !== null && (best === null || slot < best.start)) {
+            if (slot === null) continue;
+            if (best === null || slot < best.start) {
                 best = { start: slot, resources: combo };
+                tieCount = 1;
+            } else if (slot === best.start) {
+                tieCount++;
+                if (Math.random() < 1 / tieCount) {
+                    best = { start: slot, resources: combo };
+                }
             }
         }
 

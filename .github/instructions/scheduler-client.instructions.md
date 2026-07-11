@@ -265,7 +265,6 @@ Utilisé par `useSidebarCourseDrag` et `useNeutralizedDraggable`.
 
 Dialog de configuration avancée du planificateur (dans `modals/`, pas à la racine `planning/`). Paramètres :
 - `maxSolutions`, `timeoutSeconds`, `maxIterations`, `maxEliminations`
-- `resourceSelection` : `'deterministic' | 'random'`
 - **Pause déjeuner** : désactivée / fixe (`LunchBreakFixed`) / flottante (`LunchBreakFloating`)
 
 La configuration est persistée dans `useSchedulerStore.schedulerConfig`.

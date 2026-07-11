@@ -43,7 +43,7 @@ interface RawScheduleData {
 }
 interface SchedulerConfig {
   maxSolutions?: number; timeoutSeconds?: number; maxIterations?: number;
-  maxEliminations?: number; resourceSelection?: 'random' | 'deterministic';
+  maxEliminations?: number;
   lunchBreak?: LunchBreakConfig; ignoreDailyLimits?: boolean;
 }
 ```

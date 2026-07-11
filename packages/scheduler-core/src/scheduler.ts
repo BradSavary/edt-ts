@@ -60,7 +60,6 @@ export class Scheduler {
         timeoutSeconds: 180,
         maxIterations: 1_000_000,
         maxEliminations: 3,
-        resourceSelection: 'deterministic',
         lunchBreak: { type: 'none' },
         ignoreDailyLimits: false,
     };

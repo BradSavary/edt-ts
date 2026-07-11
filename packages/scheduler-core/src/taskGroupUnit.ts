@@ -136,19 +136,20 @@ export class TaskGroupUnit implements ISchedulingUnit {
     }
 
     /**
-     * Cherche en lecture seule la première combinaison de ressources de `task`
-     * dont toutes les ressources sont disponibles sur [slotStart, slotEnd]
-     * et n'appartiennent pas à l'ensemble `claimed` (ressources déjà attribuées
-     * à d'autres tâches du même groupe pour ce créneau).
-     * Ne modifie pas l'état des ressources ni de la tâche.
+     * Cherche en lecture seule une combinaison de ressources de `task` dont toutes
+     * les ressources sont disponibles sur [slotStart, slotEnd] et n'appartiennent pas
+     * à l'ensemble `claimed` (ressources déjà attribuées à d'autres tâches du même
+     * groupe pour ce créneau). Tirée uniformément parmi les combos équivalents (pas
+     * toujours la première trouvée). Ne modifie pas l'état des ressources ni de la tâche.
      */
     private _findAvailableCombo(task: Task, slotStart: number, slotEnd: number, claimed: Set<Resource> = new Set()): Resource[] | null {
-        for (const combo of task.getApplicableResources()) {
-            if (combo.every(r => !claimed.has(r) && r.availability.isAvailable(slotStart, slotEnd))) {
-                return combo;
-            }
-        }
-        return null;
+        const feasible = task.getApplicableResources().filter(combo =>
+            combo.every(r => !claimed.has(r) && r.availability.isAvailable(slotStart, slotEnd))
+        );
+        if (feasible.length === 0) return null;
+        // Tirage uniforme parmi les combos équivalents plutôt que toujours le premier
+        // de la liste (même raison que TaskUnit.earlySchedule).
+        return feasible[Math.floor(Math.random() * feasible.length)];
     }
 
     book(_result: SchedulingResult): void {
