@@ -32,6 +32,7 @@ export type { PriorityMeasure, FloatingLunchWindow, TimeRange } from './priority
 
 // --- Modèles de ressources et tâches ---
 export { Resource, ResourceType } from './resource.ts';
+export { isPreferredCombo } from './resourceSelection.ts';
 export { Task } from './task.ts';
 export type { ISchedulable } from './schedulable.ts';
 export { ResourcesManager } from './resourcesManager.ts';
