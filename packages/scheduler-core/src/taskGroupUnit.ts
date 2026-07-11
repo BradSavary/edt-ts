@@ -1,6 +1,6 @@
 import {
     Task, Resource, type FloatingLunchWindow, type TimeRange,
-    encodePriorityMeasure, countAnchorPositions, reduceToAnchors, shiftRanges, intersectRanges, truncateRanges,
+    encodePriorityMeasure, countAnchorPositions, reduceToAnchors, shiftRanges, intersectRanges,
     computeDependentsDeadline,
 } from '@edt-ts/scheduler-common';
 import type { ISchedulingUnit, SchedulingResult, UnitSolution } from './schedulingUnit.js';
@@ -203,13 +203,13 @@ export class TaskGroupUnit implements ISchedulingUnit {
     }
 
     /**
-     * Profil de disponibilité "propre" du groupe (avant troncature par échéance) :
-     * intersection des profils de *débuts valides* de chaque membre (chaque membre
-     * réduit par sa propre durée — §5.6 de docs/HeuristiquePriorite-Conception.md).
-     * Une intersection réelle, pas un `min` de mesures indépendantes (approximation
-     * de la Phase 1, qui ne capturait pas la validité *simultanée* requise par un
-     * groupe `parallel` — contre-exemple : membre A libre à {8h,8h30,9h}, membre B
-     * à {10h,10h30} : un `min` suggérait de la marge, l'intersection réelle est vide).
+     * Profil de disponibilité "propre" du groupe : intersection des profils de
+     * *débuts valides* de chaque membre (chaque membre réduit par sa propre durée —
+     * §5.6 de docs/HeuristiquePriorite-Conception.md). Une intersection réelle, pas
+     * un `min` de mesures indépendantes (approximation de la Phase 1, qui ne
+     * capturait pas la validité *simultanée* requise par un groupe `parallel` —
+     * contre-exemple : membre A libre à {8h,8h30,9h}, membre B à {10h,10h30} : un
+     * `min` suggérait de la marge, l'intersection réelle est vide).
      *
      * `sequential` : chaque membre est en plus décalé de son offset cumulé dans la
      * séquence, pour capturer l'absence de trou (début du suivant = fin du précédent).
@@ -217,14 +217,28 @@ export class TaskGroupUnit implements ISchedulingUnit {
      * `TimeRange[]`, pas `Availability` : un membre ajusté pile à sa durée produit un
      * intervalle de largeur 0 après réduction, que `Availability`/`TimeInterval`
      * (start < end strict) ne peuvent pas représenter.
+     *
+     * `deadlineGroupe`, si fourni (échéance imposée par les dépendants du groupe),
+     * est convertie en échéance *par membre* (compte tenu de son offset et de sa
+     * propre durée) et transmise à `getBestSchedulingProfile()` de CHAQUE membre —
+     * pas appliquée après coup sur le résultat final. Comparer les combos d'un
+     * membre sur leur profil brut puis tronquer peut sélectionner un combo
+     * sous-optimal (vérifié à la main sur `TaskUnit`, même défaut ici) : le membre
+     * doit finir (son propre début + sa durée) avant que le groupe entier ne doive
+     * finir (`deadlineGroupe`), d'où `deadlineGroupe - this.duration + offset + task.duration`
+     * (valable pour `parallel`, offset=0, `this.duration = max` des durées, comme
+     * pour `sequential`, offset cumulé, `this.duration = somme` des durées).
      */
-    private _computeOwnAnchors(): TimeRange[] {
+    private _computeOwnAnchors(deadlineGroupe: number = Infinity): TimeRange[] {
         if (this._tasks.length === 0) return [];
 
+        const memberDeadline = (task: Task, offset: number): number =>
+            deadlineGroupe === Infinity ? Infinity : deadlineGroupe - this.duration + offset + task.duration;
+
         if (this._groupType === 'parallel') {
-            let anchors = reduceToAnchors(this._tasks[0].getBestSchedulingProfile(this._floatingLunch), this._tasks[0].duration);
+            let anchors = reduceToAnchors(this._tasks[0].getBestSchedulingProfile(this._floatingLunch, memberDeadline(this._tasks[0], 0)), this._tasks[0].duration);
             for (let i = 1; i < this._tasks.length; i++) {
-                const memberAnchors = reduceToAnchors(this._tasks[i].getBestSchedulingProfile(this._floatingLunch), this._tasks[i].duration);
+                const memberAnchors = reduceToAnchors(this._tasks[i].getBestSchedulingProfile(this._floatingLunch, memberDeadline(this._tasks[i], 0)), this._tasks[i].duration);
                 anchors = intersectRanges(anchors, memberAnchors);
             }
             return anchors;
@@ -234,17 +248,22 @@ export class TaskGroupUnit implements ISchedulingUnit {
         let anchors: TimeRange[] | null = null;
         let offset = 0;
         for (const task of this._tasks) {
-            const shifted = shiftRanges(reduceToAnchors(task.getBestSchedulingProfile(this._floatingLunch), task.duration), offset);
+            const shifted = shiftRanges(reduceToAnchors(task.getBestSchedulingProfile(this._floatingLunch, memberDeadline(task, offset)), task.duration), offset);
             anchors = anchors === null ? shifted : intersectRanges(anchors, shifted);
             offset += task.duration;
         }
         return anchors ?? [];
     }
 
-    /** Profil "propre" du groupe, tronqué par l'échéance des dépendants (§5.6) — voir TaskUnit._computeEffectiveProfile. */
+    /**
+     * Profil effectif du groupe : l'échéance des dépendants est calculée d'abord
+     * (elle ne dépend pas des combos des membres), puis transmise à
+     * `_computeOwnAnchors` pour que chaque membre en tienne compte AVANT de choisir
+     * son meilleur combo — voir `TaskUnit._computeEffectiveProfile` pour le même
+     * principe et le contre-exemple qui l'a motivé.
+     */
     private _computeEffectiveAnchors(): TimeRange[] {
-        const own = this._computeOwnAnchors();
-        if (this._dependentUnits.length === 0) return own;
+        if (this._dependentUnits.length === 0) return this._computeOwnAnchors();
 
         const deps: { ls: number; duration: number }[] = [];
         for (const dep of this._dependentUnits) {
@@ -252,14 +271,7 @@ export class TaskGroupUnit implements ISchedulingUnit {
             if (ls === null) return []; // dépendant infaisable → le groupe hérite l'infaisabilité
             deps.push({ ls, duration: dep.duration });
         }
-        const deadline = computeDependentsDeadline(deps);
-        // Les anchors représentent des DÉBUTS déjà réduits par durée (§5.6), mais
-        // `deadline` borne la FIN du groupe (ce que ses dépendants exigent) — il faut donc
-        // retrancher this.duration avant de tronquer, sous peine de comparer un début à une
-        // échéance de fin (bug trouvé en testant la combinaison pause fixe + groupe : sans
-        // ce retranchement, un groupe pouvait paraître faisable alors qu'il ne pouvait pas
-        // matériellement finir à temps pour son dépendant).
-        return truncateRanges(own, deadline - this.duration);
+        return this._computeOwnAnchors(computeDependentsDeadline(deps));
     }
 
     /**

@@ -292,6 +292,29 @@ describe('getSchedulingPriority — TaskUnit', () => {
     // k=1 : échéance(CM) = LS(TD) - 0 = 540 → LS(CM) = 540-60 = 480.
     expect(cmUnit.getEffectiveLatestStart()).toBe(480);
   });
+
+  it('§5.6 (correctif d\'ordre) : le meilleur combo doit être choisi APRÈS troncature par échéance, pas avant', () => {
+    // Combo A : 1 fenêtre large [0,1000]. Combo B : 2 fenêtres étroites [0,100]∪[5000,5100].
+    // Sur profils BRUTS (ancien comportement), B gagne (2 fenêtres > 1, critère primaire §5.1),
+    // peu importe que A ait bien plus de marge réelle. Une fois les deux tronqués par
+    // l'échéance du dépendant (200) : B tronqué ne garde que [0,100] (marge 2, l'autre
+    // fenêtre étant entièrement au-delà de l'échéance) ; A tronqué garde [0,200] (marge 5).
+    // A est réellement meilleur — sélectionner sur profils bruts puis tronquer le gagnant
+    // (ancien code) aurait retenu B à tort (LS=40) ; tronquer chaque combo avant de
+    // comparer (correctif) retient A (LS=140).
+    const teacherA = makeResource('multi-a', ResourceType.TEACHER, [[0, 1000]]);
+    const teacherB = makeResource('multi-b', ResourceType.TEACHER, [[0, 100], [5000, 5100]]);
+    const multiComboTask = makeTask('multi-combo', { teacher: [[teacherA, teacherB]] }, { duration: 60 });
+    const multiComboUnit = new TaskUnit(multiComboTask);
+
+    const depTeacher = makeResource('multi-dep-teacher', ResourceType.TEACHER, [[200, 260]]);
+    const depTask = makeTask('multi-dep', { teacher: [[depTeacher]] }, { duration: 60 });
+    const depUnit = new TaskUnit(depTask);
+    depUnit.setDependsOn(multiComboUnit);
+
+    expect(depUnit.getEffectiveLatestStart()).toBe(200);
+    expect(multiComboUnit.getEffectiveLatestStart()).toBe(140); // combo A retenu, pas B (aurait donné 40)
+  });
 });
 
 describe('getSchedulingPriority — TaskGroupUnit (§5.6 : intersection réelle des profils, pas un min de mesures indépendantes)', () => {
@@ -440,5 +463,23 @@ describe('getSchedulingPriority — TaskGroupUnit (§5.6 : intersection réelle 
     expect(td2Unit.getEffectiveLatestStart()).toBe(300);
     expect(groupUnit.getEffectiveLatestStart()).toBe(150);
     expect(groupUnit.getEffectiveLatestStart()).not.toBe(210); // l'ancien résultat (faux) avec min(LS) seul
+  });
+
+  it('§5.6 (correctif d\'ordre), même contre-exemple que TaskUnit mais porté par un membre de groupe', () => {
+    // Même configuration (combo A large vs combo B fragmenté, échéance=200) que le test
+    // équivalent pour TaskUnit — un seul membre, parallel, pour isoler le point testé
+    // (sélection de combo par membre) de l'agrégation entre membres, déjà couverte ailleurs.
+    const teacherA = makeResource('grp-multi-a', ResourceType.TEACHER, [[0, 1000]]);
+    const teacherB = makeResource('grp-multi-b', ResourceType.TEACHER, [[0, 100], [5000, 5100]]);
+    const memberTask = makeTask('grp-multi-combo', { teacher: [[teacherA, teacherB]] }, { duration: 60 });
+    const groupUnit = new TaskGroupUnit('grp-multi-combo-group', 'parallel', [memberTask]);
+
+    const depTeacher = makeResource('grp-multi-dep-teacher', ResourceType.TEACHER, [[200, 260]]);
+    const depTask = makeTask('grp-multi-dep', { teacher: [[depTeacher]] }, { duration: 60 });
+    const depUnit = new TaskUnit(depTask);
+    depUnit.setDependsOn(groupUnit);
+
+    expect(depUnit.getEffectiveLatestStart()).toBe(200);
+    expect(groupUnit.getEffectiveLatestStart()).toBe(140); // combo A retenu pour le membre, pas B (aurait donné 40)
   });
 });

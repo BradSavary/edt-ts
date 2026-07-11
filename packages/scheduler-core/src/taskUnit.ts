@@ -1,4 +1,4 @@
-import { Task, Resource, Availability, encodePriorityMeasure, measureProfile, truncateProfile, findLastSlot, computeDependentsDeadline, type FloatingLunchWindow } from '@edt-ts/scheduler-common';
+import { Task, Resource, Availability, encodePriorityMeasure, measureProfile, findLastSlot, computeDependentsDeadline, type FloatingLunchWindow } from '@edt-ts/scheduler-common';
 import { Loader } from './loader.js';
 import type { ISchedulingUnit, SchedulingResult, UnitSolution } from './schedulingUnit.js';
 
@@ -125,17 +125,21 @@ export class TaskUnit implements ISchedulingUnit {
 
     /**
      * Profil de disponibilité effectif : le meilleur profil de la tâche (§5.3),
-     * tronqué par l'échéance qu'imposent ses dépendants (§5.6 de
-     * docs/HeuristiquePriorite-Conception.md — troncature par échéance, remplace
-     * entièrement l'ancienne propagation par `max`/somme de scores ; `computeDependentsDeadline`
-     * gère aussi bien un dépendant unique que plusieurs, cf. "Dépendants multiples"). Vue
-     * calculée, ne mute jamais la disponibilité réelle des ressources — `earlySchedule()`
-     * reste seul juge du placement réel. Pas de cache : profondeur d'arbre de
-     * dépendance faible en pratique (voir §5.6).
+     * chaque combo étant d'abord tronqué par l'échéance qu'imposent ses dépendants
+     * (§5.6 de docs/HeuristiquePriorite-Conception.md — troncature par échéance,
+     * remplace entièrement l'ancienne propagation par `max`/somme de scores ;
+     * `computeDependentsDeadline` gère aussi bien un dépendant unique que plusieurs,
+     * cf. "Dépendants multiples") AVANT la comparaison entre combos, pas seulement
+     * le combo gagnant après coup — sinon la sélection du meilleur combo peut se
+     * tromper (vérifié à la main, voir la mémoire de suivi du projet). Vue calculée,
+     * ne mute jamais la disponibilité réelle des ressources — `earlySchedule()` reste
+     * seul juge du placement réel. Pas de cache : profondeur d'arbre de dépendance
+     * faible en pratique (voir §5.6).
      */
     private _computeEffectiveProfile(): Availability {
-        const ownProfile = this.task.getBestSchedulingProfile(this._floatingLunch);
-        if (this._dependentUnits.length === 0) return ownProfile;
+        if (this._dependentUnits.length === 0) {
+            return this.task.getBestSchedulingProfile(this._floatingLunch);
+        }
 
         const deps: { ls: number; duration: number }[] = [];
         for (const dep of this._dependentUnits) {
@@ -143,7 +147,13 @@ export class TaskUnit implements ISchedulingUnit {
             if (ls === null) return new Availability(); // dépendant infaisable → hérite l'infaisabilité
             deps.push({ ls, duration: dep.duration });
         }
-        return truncateProfile(ownProfile, computeDependentsDeadline(deps));
+        // L'échéance est calculée AVANT de choisir le combo — elle ne dépend pas du
+        // combo de cette tâche — puis transmise à getBestSchedulingProfile pour que
+        // CHAQUE combo soit tronqué avant comparaison, pas seulement le gagnant après
+        // coup (sinon un combo à plusieurs fenêtres étroites peut battre à tort un
+        // combo à une fenêtre large sur la comparaison brute — vérifié à la main).
+        const deadline = computeDependentsDeadline(deps);
+        return this.task.getBestSchedulingProfile(this._floatingLunch, deadline);
     }
 
     /**

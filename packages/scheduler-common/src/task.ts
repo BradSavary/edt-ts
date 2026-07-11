@@ -2,7 +2,7 @@ import { Resource, ResourceType } from './resource.ts';
 import { Availability } from './availability.ts';
 import type { CourseTaskData, EnforcedData } from './types.ts';
 import type { ISchedulable } from './schedulable.ts';
-import { type PriorityMeasure, type FloatingLunchWindow, INFEASIBLE_MEASURE, measureProfile, comparePriorityMeasure, splitFloatingLunchBreak } from './priorityMeasure.ts';
+import { type PriorityMeasure, type FloatingLunchWindow, INFEASIBLE_MEASURE, measureProfile, comparePriorityMeasure, splitFloatingLunchBreak, truncateProfile } from './priorityMeasure.ts';
 
 /** Type d'un groupe de tâches */
 export type GroupType = 'parallel' | 'sequential';
@@ -163,12 +163,21 @@ class Task implements ISchedulable {
    * `floatingLunch`, si fourni, retranche une pause méridienne flottante des profils
    * des ressources de type GROUP avant la mesure (§5.5) — correctif de lecture pour
    * le score uniquement, voir `_intersectResourcesForScoring`.
+   *
+   * `deadline`, si fourni (typiquement l'échéance imposée par les dépendants, §5.6),
+   * tronque CHAQUE combo avant de le mesurer et de le comparer aux autres — pas
+   * seulement le combo gagnant après coup. L'ordre importe : comparer des profils
+   * bruts puis tronquer le gagnant peut sélectionner un combo sous-optimal (ex. un
+   * combo à 2 fenêtres étroites bat à tort un combo à 1 fenêtre large sur la
+   * comparaison brute, alors qu'une fois tronqués par l'échéance, c'est l'inverse —
+   * vérifié à la main, voir la mémoire de suivi du projet).
    */
-  getBestSchedulingProfile(floatingLunch: FloatingLunchWindow | null = null): Availability {
+  getBestSchedulingProfile(floatingLunch: FloatingLunchWindow | null = null, deadline: number = Infinity): Availability {
     let bestProfile: Availability = new Availability();
     let bestMeasure: PriorityMeasure = INFEASIBLE_MEASURE;
     for (const combo of this.getApplicableResources()) {
-      const profile = this._intersectResourcesForScoring(combo, floatingLunch);
+      const raw = this._intersectResourcesForScoring(combo, floatingLunch);
+      const profile = deadline === Infinity ? raw : truncateProfile(raw, deadline);
       const measure = measureProfile(profile, this.duration);
       if (comparePriorityMeasure(measure, bestMeasure) > 0) {
         bestMeasure = measure;
