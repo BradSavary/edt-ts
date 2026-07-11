@@ -97,15 +97,15 @@ slack(t, profil) = Σ_intervalles max(0, intervalle.duration − duration(t))
 **Problème**, non directement lié au calcul du score mais observé sur le même cas réel :
 
 ```
-// Mécanisme réel actuel, toujours en production (scheduler.ts, _backtrack) :
+// Mécanisme d'origine (scheduler.ts, _backtrack), remplacé depuis par §5.7 :
 si earlySchedule(unit) échoue définitivement:
-    failureCounts[unit.id]++     // incrémente l'unité SUR LE POINT D'ÉCHOUER,
+    failureCounts[unit.id]++     // incrémentait l'unité SUR LE POINT D'ÉCHOUER,
                                   // pas forcément la cause réelle du blocage
 ```
 
-Dans un backtracking chronologique, l'unité qui « porte » l'échec final n'est pas forcément la cause réelle du blocage. THARAUD (zéro alternative) peut accumuler un nombre d'échecs disproportionné simplement parce qu'il est le premier à épuiser ses options quand *n'importe quelle* branche profonde échoue pour une tout autre raison (contention ailleurs, ex. AUBRY Bastien/BUT1). C'est une pathologie connue du backtracking chronologique — voir §4.5.
+Dans un backtracking chronologique, l'unité qui « porte » l'échec final n'est pas forcément la cause réelle du blocage. THARAUD (zéro alternative) pouvait accumuler un nombre d'échecs disproportionné simplement parce qu'il était le premier à épuiser ses options quand *n'importe quelle* branche profonde échouait pour une tout autre raison (contention ailleurs, ex. AUBRY Bastien/BUT1). C'est une pathologie connue du backtracking chronologique — voir §4.5.
 
-**Où c'est traité** : §5.7 (**non implémenté à ce jour**) — proposition d'attribution du blâme par occupation réelle.
+**Où c'est traité** : §5.7 (**implémenté**) — attribution du blâme par occupation réelle, vérifiée sur ce cas THARAUD précisément (THARAUD n'est plus blâmé, `AUBRY Bastien/BUT1-G1` est correctement identifié).
 
 ## 4. Concepts mobilisés de la littérature (CSP / RCPSP / CP scheduling)
 
@@ -425,7 +425,7 @@ Vérification sur l'exemple chiffré : `effectiveProfile(TP)=[560,620]` → `LS(
 
 #### Dépendants multiples (structure en éventail) : correction de charge cumulée
 
-**Conception validée (2026-07-10), non implémentée à ce jour** (voir §8).
+**Implémenté et vérifié sur données réelles (2026-07-10)** — `computeDependentsDeadline()`, `priorityMeasure.ts`. Rejoué sur le payload réel semaine 38 (cours `R1.04`, le cas qui a motivé ce point) : l'échéance effective du CM avance de vendredi 14h30 à vendredi 10h00 — exactement les 4h30 (`3×90min`) de charge cumulée des 3 autres TD désormais prises en compte.
 
 Le cas CM/TD/TP ci-dessus n'a qu'un seul dépendant à chaque niveau (`k=1`). La formule `échéance(U) = min(LS(D1),...,LS(Dk))` reste correcte quand `k=1`, mais devient insuffisante dès que U a **plusieurs** dépendants directs (`k>1`) : elle vérifie bien que U finit avant le plus pressé des `Di`, mais ignore que TOUS les `Di` doivent aussi tenir, cumulativement, dans le temps restant — indépendamment de quelle ressource précise chacun utilise (aucune hypothèse de ressource partagée n'est nécessaire ni souhaitable ici : les dépendances n'expriment qu'une contrainte de précédence temporelle, "tel cours ne doit pas débuter avant la fin de tel autre").
 
