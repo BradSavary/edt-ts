@@ -279,9 +279,9 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
       {editingCourse && (
         <TaskEditModal
           title={`${editingCourse.course.code} ${editingCourse.course.type} — ${editingCourse.course.name}`}
-          teachers={editingCourse.course.teacher.flat() as string[]}
-          groups={editingCourse.course.groups.flat() as string[]}
-          rooms={editingCourse.course.rooms.flat() as string[]}
+          teachers={editingCourse.course.teacher}
+          groups={editingCourse.course.groups}
+          rooms={editingCourse.course.rooms}
           duration={editingCourse.course.duration}
           showDuration={true}
           teacherOptions={teacherOptions}

@@ -11,25 +11,28 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ResourceSlots } from '@/components/planning/modals/ResourceSlots';
+import type { ResourceEntry } from '@edt-ts/scheduler-common';
 
 export interface TaskEditUpdate {
-  teachers: string[];
-  groups: string[];
-  rooms: string[];
+  teachers: ResourceEntry[];
+  groups: ResourceEntry[];
+  rooms: ResourceEntry[];
   duration?: number;
 }
 
 interface Props {
   title: string;
-  teachers: string[];
-  groups: string[];
-  rooms: string[];
+  teachers: ResourceEntry[];
+  groups: ResourceEntry[];
+  rooms: ResourceEntry[];
   teacherOptions: string[];
   groupOptions: string[];
   roomOptions: string[];
   duration?: number;
   showDuration?: boolean;
   isEnforced?: boolean;
+  /** Autorise le regroupement en alternative. false pour les placements concrets (calendrier). */
+  allowAlternatives?: boolean;
   onRemoveEnforced?: () => void;
   onConfirm: (update: TaskEditUpdate) => void;
   onCancel: () => void;
@@ -46,13 +49,14 @@ export default function TaskEditModal({
   duration,
   showDuration = false,
   isEnforced,
+  allowAlternatives = true,
   onRemoveEnforced,
   onConfirm,
   onCancel,
 }: Props) {
-  const [selTeachers, setSelTeachers] = useState<string[]>(teachers);
-  const [selGroups, setSelGroups] = useState<string[]>(groups);
-  const [selRooms, setSelRooms] = useState<string[]>(rooms);
+  const [selTeachers, setSelTeachers] = useState<ResourceEntry[]>(teachers);
+  const [selGroups, setSelGroups] = useState<ResourceEntry[]>(groups);
+  const [selRooms, setSelRooms] = useState<ResourceEntry[]>(rooms);
   const [selDuration, setSelDuration] = useState<string>(String(duration ?? 60));
 
   function handleConfirm() {
@@ -91,25 +95,22 @@ export default function TaskEditModal({
             label="Enseignant(s)"
             values={selTeachers}
             options={teacherOptions}
-            onChange={(i, v) => setSelTeachers((p) => p.map((x, j) => (j === i ? v : x)))}
-            onAdd={(v) => setSelTeachers((p) => [...p, v])}
-            onRemove={(i) => setSelTeachers((p) => p.filter((_, j) => j !== i))}
+            onChange={setSelTeachers}
+            allowAlternatives={allowAlternatives}
           />
           <ResourceSlots
             label="Groupe(s)"
             values={selGroups}
             options={groupOptions}
-            onChange={(i, v) => setSelGroups((p) => p.map((x, j) => (j === i ? v : x)))}
-            onAdd={(v) => setSelGroups((p) => [...p, v])}
-            onRemove={(i) => setSelGroups((p) => p.filter((_, j) => j !== i))}
+            onChange={setSelGroups}
+            allowAlternatives={allowAlternatives}
           />
           <ResourceSlots
             label="Salle(s)"
             values={selRooms}
             options={roomOptions}
-            onChange={(i, v) => setSelRooms((p) => p.map((x, j) => (j === i ? v : x)))}
-            onAdd={(v) => setSelRooms((p) => [...p, v])}
-            onRemove={(i) => setSelRooms((p) => p.filter((_, j) => j !== i))}
+            onChange={setSelRooms}
+            allowAlternatives={allowAlternatives}
           />
         </div>
 

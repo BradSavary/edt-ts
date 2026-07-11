@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { CourseTaskData } from '@edt-ts/scheduler-common';
+import type { CourseTaskData, ResourceEntry } from '@edt-ts/scheduler-common';
 import { ResourceSlots } from '@/components/planning/modals/ResourceSlots';
 
 interface Props {
@@ -39,15 +39,9 @@ export default function CourseCreateModal({
   const [name, setName] = useState(initialCourse?.name ?? '');
   const [type, setType] = useState(initialCourse?.type ?? 'CM');
   const [duration, setDuration] = useState(initialCourse?.duration ?? 60);
-  const [teachers, setTeachers] = useState<string[]>(
-    initialCourse ? (initialCourse.teacher.flat() as string[]) : []
-  );
-  const [groups, setGroups] = useState<string[]>(
-    initialCourse ? (initialCourse.groups.flat() as string[]) : []
-  );
-  const [rooms, setRooms] = useState<string[]>(
-    initialCourse ? (initialCourse.rooms.flat() as string[]) : []
-  );
+  const [teachers, setTeachers] = useState<ResourceEntry[]>(initialCourse?.teacher ?? []);
+  const [groups, setGroups] = useState<ResourceEntry[]>(initialCourse?.groups ?? []);
+  const [rooms, setRooms] = useState<ResourceEntry[]>(initialCourse?.rooms ?? []);
 
   const canConfirm = code.trim().length > 0 && duration > 0;
 
@@ -135,25 +129,19 @@ export default function CourseCreateModal({
             label="Enseignant(s)"
             values={teachers}
             options={teacherOptions}
-            onChange={(i, v) => setTeachers((p) => p.map((x, j) => (j === i ? v : x)))}
-            onAdd={(v) => setTeachers((p) => [...p, v])}
-            onRemove={(i) => setTeachers((p) => p.filter((_, j) => j !== i))}
+            onChange={setTeachers}
           />
           <ResourceSlots
             label="Groupe(s)"
             values={groups}
             options={groupOptions}
-            onChange={(i, v) => setGroups((p) => p.map((x, j) => (j === i ? v : x)))}
-            onAdd={(v) => setGroups((p) => [...p, v])}
-            onRemove={(i) => setGroups((p) => p.filter((_, j) => j !== i))}
+            onChange={setGroups}
           />
           <ResourceSlots
             label="Salle(s)"
             values={rooms}
             options={roomOptions}
-            onChange={(i, v) => setRooms((p) => p.map((x, j) => (j === i ? v : x)))}
-            onAdd={(v) => setRooms((p) => [...p, v])}
-            onRemove={(i) => setRooms((p) => p.filter((_, j) => j !== i))}
+            onChange={setRooms}
           />
         </div>
 

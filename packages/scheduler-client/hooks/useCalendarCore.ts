@@ -358,15 +358,15 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       const state = usePlanningStore.getState();
       const existing = state.manualEnforcedMap[courseKey] ?? state.enforcedMap[courseKey];
       if (existing) {
-        const updated: EnforcedData = { ...existing, teacher: update.teachers, groups: update.groups, rooms: update.rooms };
+        const updated: EnforcedData = { ...existing, teacher: update.teachers.flat(), groups: update.groups.flat(), rooms: update.rooms.flat() };
         const newMap = { ...state.manualEnforcedMap, [courseKey]: updated };
         handleEnforceChange({ ...newMap });
       }
     } else if (pendingEdit.isNeutralizedPlaced) {
       updatePlacedNeutralizedTask(pendingEdit.taskId, {
-        teachers: update.teachers,
-        groups: update.groups,
-        rooms: update.rooms,
+        teachers: update.teachers.flat(),
+        groups: update.groups.flat(),
+        rooms: update.rooms.flat(),
         ...(update.duration !== undefined ? { duration: update.duration } : {}),
       });
     } else {
@@ -374,24 +374,22 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       const existingOverride = taskOverrides[taskId];
       setTaskOverride(taskId, {
         startTime: existingOverride?.startTime ?? pendingEdit.startTime,
-        teachers: update.teachers,
-        groups: update.groups,
-        rooms: update.rooms,
+        teachers: update.teachers.flat(),
+        groups: update.groups.flat(),
+        rooms: update.rooms.flat(),
         ...(existingOverride?.constraintViolation !== undefined ? { constraintViolation: existingOverride.constraintViolation } : {}),
         ...(update.duration !== undefined ? { duration: update.duration } : (existingOverride?.duration !== undefined ? { duration: existingOverride.duration } : {})),
       });
     }
 
-    // Mise à jour du cours pour que la CourseCard en sidebar reflète les changements
-    if (pendingEdit.courseKey !== undefined) {
+    // Mise à jour de la durée du cours pour que la CourseCard en sidebar reflète le changement.
+    // teacher/groups/rooms ne sont volontairement PAS synchronisés ici : cette édition porte sur
+    // un placement concret (sans alternatives), alors que le cours-modèle peut en avoir — les y
+    // recopier écraserait silencieusement ses alternatives (cf. mémoire du projet).
+    if (pendingEdit.courseKey !== undefined && update.duration !== undefined) {
       const course = courseById.get(pendingEdit.courseKey);
       if (course) {
-        const patch = {
-          teacher: update.teachers as typeof course.teacher,
-          groups: update.groups as typeof course.groups,
-          rooms: update.rooms as typeof course.rooms,
-          ...(update.duration !== undefined ? { duration: update.duration } : {}),
-        };
+        const patch = { duration: update.duration };
         skipNextParsedCoursesResetRef.current = true;
         if (course.source === 'manual') {
           if (selectedWeek !== null) useProjectStore.getState().updateManualCourse(selectedWeek, course.id, patch);

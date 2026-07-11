@@ -195,6 +195,7 @@ export default function ScheduleCalendar({ solutions, parsedCourses = [] }: Prop
           groupOptions={pendingEdit.groupOptions}
           roomOptions={pendingEdit.roomOptions}
           isEnforced={pendingEdit.isEnforced}
+          allowAlternatives={false}
           duration={pendingEdit.durationMin}
           showDuration={pendingEdit.showDuration}
           onRemoveEnforced={
