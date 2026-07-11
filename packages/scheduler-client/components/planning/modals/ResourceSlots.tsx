@@ -82,23 +82,17 @@ export function ResourceSlots({ label, values, options, onChange, allowAlternati
             onClick={() => addSlot(nextDefault)}
             className="text-xs text-primary hover:underline"
           >
-            + Ajouter
+            + ET
           </button>
         )}
       </div>
       {values.map((slot, slotIndex) => {
         const alts = toAlts(slot);
-        const isGroup = alts.length > 1;
         return (
           <div
             key={slotIndex}
-            className={isGroup ? 'border rounded-md p-2 mb-2 space-y-1' : 'mb-1'}
+            className="border rounded-md bg-muted/40 p-2 mb-2 space-y-1"
           >
-            {isGroup && (
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Alternative — une seule requise
-              </div>
-            )}
             {alts.map((val, altIndex) => {
               const allOptions = [...new Set([...options, val])];
               return (
@@ -130,7 +124,7 @@ export function ResourceSlots({ label, values, options, onChange, allowAlternati
                 onClick={() => addAlternative(slotIndex)}
                 className="text-xs text-primary hover:underline"
               >
-                + alternative
+                + OU
               </button>
             )}
           </div>
