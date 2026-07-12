@@ -324,12 +324,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     }
     const remappedTaskGroups: TaskGroupConfig[] = taskGroups.map((g) => ({
       ...g,
-      courseKeys: g.courseKeys
-        .map((k) => {
-          const newIdx = idToNewIdx.get(k);
-          return newIdx !== undefined ? String(newIdx) : null;
-        })
-        .filter((k): k is string => k !== null),
+      courseKeys: g.courseKeys.filter((k) => idToNewIdx.has(k)),
     }));
 
     const { coursesWithGroups, declarations } = buildTaskGroupData(filteredCourses, remappedTaskGroups);
