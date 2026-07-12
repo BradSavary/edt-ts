@@ -8,6 +8,7 @@ import { useAppConfigStore } from '@/store/useAppConfigStore';
 import { type TaskGroupConfig, type GroupType, buildTaskGroupData, getCourseGroupInfo, computeGroupEnforcements } from '@/lib/taskGroupUtils';
 import { computeHolidayZonesForWeek } from '@/lib/schoolHolidays';
 import { getCoursesForWeek, getManualCoursesForWeek } from '@/lib/weekCourses';
+import { filterResourcesForCourses } from '@/lib/filterResourcesForCourses';
 import { createNeutralizedSlice, type NeutralizedSlice } from '@/store/slices/neutralizedSlice';
 import { createBlockedZonesSlice, type BlockedZonesSlice } from '@/store/slices/blockedZonesSlice';
 import { createTaskGroupsSlice, type TaskGroupsSlice } from '@/store/slices/taskGroupsSlice';
@@ -359,11 +360,17 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       };
     });
 
+    // Ne transmet au moteur que les ressources réellement référencées par les cours
+    // de cette semaine (+ celles imposées) — évite les avertissements "non trouvée
+    // dans les contraintes" pour des ressources sans rapport (ex. un enseignant qui
+    // n'intervient que d'autres semaines) et allège le payload.
+    const filteredResources = filterResourcesForCourses(resources, coursesWithGroups, remappedEnforced);
+
     const clientId = getClientId();
     const submitParams = {
       week: selectedWeek,
       courses: coursesWithGroups,
-      resources,
+      resources: filteredResources,
       constraintsData: constraints as ConstraintsData | null,
       enforcedMap: remappedEnforced,
       blockedZones,
