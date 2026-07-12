@@ -1,4 +1,4 @@
-import { Task, Resource, Availability, encodePriorityMeasure, measureProfile, findLastSlot, computeDependentsDeadline, isPreferredCombo, type FloatingLunchWindow } from '@edt-ts/scheduler-common';
+import { Task, Resource, Availability, encodePriorityMeasure, measureProfile, findLastSlot, computeDependentsDeadline, type FloatingLunchWindow } from '@edt-ts/scheduler-common';
 import { Loader } from './loader.js';
 import type { ISchedulingUnit, SchedulingResult, UnitSolution } from './schedulingUnit.js';
 
@@ -46,14 +46,7 @@ export class TaskUnit implements ISchedulingUnit {
         for (const combo of allCombinations) {
             this.task.appliedResources = combo;
             const slot = this._findFirstSlot(fromTime);
-            if (slot === null) continue;
-            if (best === null || slot < best.start) {
-                best = { start: slot, resources: combo };
-            } else if (slot === best.start && isPreferredCombo(combo, best.resources)) {
-                // Tie-break déterministe (charge cumulée puis id) : à égalité de créneau,
-                // ne pas toujours favoriser le premier combo de la liste (ex. salle 101
-                // avant 103) — reproductible d'un run à l'autre, contrairement à un tirage
-                // aléatoire (indispensable pour les tests/débogage sur données réelles).
+            if (slot !== null && (best === null || slot < best.start)) {
                 best = { start: slot, resources: combo };
             }
         }
