@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { Task, Resource, ResourceType, Availability, encodePriorityMeasure, type FloatingLunchWindow } from '@edt-ts/scheduler-common';
+import { Task, Resource, ResourceType, Availability } from '@edt-ts/scheduler-common';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
+import { encodePriorityMeasure, type FloatingLunchWindow } from '../src/priorityMeasure.js';
 import { TaskUnit } from '../src/taskUnit.js';
 import { TaskGroupUnit } from '../src/taskGroupUnit.js';
 

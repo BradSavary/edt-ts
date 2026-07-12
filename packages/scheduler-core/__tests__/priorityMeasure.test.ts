@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import { Availability } from '@edt-ts/scheduler-common';
 import {
-  Availability, measureProfile, comparePriorityMeasure, encodePriorityMeasure, splitFloatingLunchBreak, type FloatingLunchWindow,
+  measureProfile, comparePriorityMeasure, encodePriorityMeasure, splitFloatingLunchBreak, type FloatingLunchWindow,
   truncateProfile, findLastSlot, computeDependentsDeadline, reduceToAnchors, shiftRanges, intersectRanges, truncateRanges, countAnchorPositions, type TimeRange,
-} from '@edt-ts/scheduler-common';
+} from '../src/priorityMeasure.js';
 
 const SLOT_STEP = 30;
 

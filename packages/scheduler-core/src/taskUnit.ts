@@ -1,4 +1,6 @@
-import { Task, Resource, Availability, encodePriorityMeasure, measureProfile, findLastSlot, computeDependentsDeadline, type FloatingLunchWindow } from '@edt-ts/scheduler-common';
+import { Task, Resource, Availability } from '@edt-ts/scheduler-common';
+import { encodePriorityMeasure, measureProfile, findLastSlot, computeDependentsDeadline, type FloatingLunchWindow } from './priorityMeasure.js';
+import { getApplicableResources, getBestSchedulingProfile, intersectResources } from './taskScheduling.js';
 import { Loader } from './loader.js';
 import type { ISchedulingUnit, SchedulingResult, UnitSolution } from './schedulingUnit.js';
 
@@ -17,7 +19,9 @@ export class TaskUnit implements ISchedulingUnit {
     readonly task: Task;
     private _dependsOn: ISchedulingUnit | null = null;
     private _dependentUnits: ISchedulingUnit[] = [];
-    /** Pile LIFO pour restaurer appliedResources lors des unBook. */
+    /** Combinaison de ressources actuellement appliquée — état de recherche propre à cette unité, pas au domaine. */
+    private _appliedResources: Resource[] = [];
+    /** Pile LIFO pour restaurer _appliedResources lors des unBook. */
     private _savedResources: Resource[][] = [];
     /** Fenêtre de pause flottante pour le calcul du score (§5.5) — voir setFloatingLunchBreak. */
     private _floatingLunch: FloatingLunchWindow | null = null;
@@ -37,27 +41,23 @@ export class TaskUnit implements ISchedulingUnit {
     // ── Planification ──────────────────────────────────────────────────────
 
     earlySchedule(fromTime: number): SchedulingResult | null {
-        const allCombinations = this.task.getApplicableResources();
+        const allCombinations = getApplicableResources(this.task);
         if (allCombinations.length === 0) return null;
 
-        const savedResources = [...this.task.appliedResources];
         let best: SchedulingResult | null = null;
 
         for (const combo of allCombinations) {
-            this.task.appliedResources = combo;
-            const slot = this._findFirstSlot(fromTime);
+            const slot = this._findFirstSlot(combo, fromTime);
             if (slot !== null && (best === null || slot < best.start)) {
                 best = { start: slot, resources: combo };
             }
         }
 
-        // Restauration : earlySchedule est en lecture seule vis-à-vis de l'état externe
-        this.task.appliedResources = savedResources;
         return best;
     }
 
-    private _findFirstSlot(fromTime: number): number | null {
-        for (const interval of this.task.schedulable.getAvailableIntervals()) {
+    private _findFirstSlot(combo: Resource[], fromTime: number): number | null {
+        for (const interval of intersectResources(combo).getAvailableIntervals()) {
             const effectiveStart = Math.max(interval.start, fromTime);
             if (interval.end - effectiveStart >= this.task.duration) {
                 return effectiveStart;
@@ -67,25 +67,18 @@ export class TaskUnit implements ISchedulingUnit {
     }
 
     book(result: SchedulingResult): void {
-        this._savedResources.push([...this.task.appliedResources]);
-        this.task.appliedResources = result.resources;
+        this._savedResources.push(this._appliedResources);
+        this._appliedResources = result.resources;
         for (const r of result.resources) {
             r.availability.removeAvailability(result.start, result.start + this.task.duration);
-            // Invalider le schedulable de toutes les tâches partageant cette ressource
-            for (const t of r.getTasks() as Task[]) {
-                t.invalidateSchedulable();
-            }
         }
     }
 
     unBook(result: SchedulingResult): void {
         for (const r of result.resources) {
             r.availability.addAvailability(result.start, result.start + this.task.duration);
-            for (const t of r.getTasks() as Task[]) {
-                t.invalidateSchedulable();
-            }
         }
-        this.task.appliedResources = this._savedResources.pop() ?? [];
+        this._appliedResources = this._savedResources.pop() ?? [];
     }
 
     bookEnforced(): void {
@@ -98,7 +91,7 @@ export class TaskUnit implements ISchedulingUnit {
         ].map(id => rm.getResource(id))
          .filter((r): r is Resource => r !== undefined);
 
-        this.task.appliedResources = resources;
+        this._appliedResources = resources;
         for (const r of resources) {
             if (!r.availability.isAvailable(enforced.startTime, enforced.startTime + this.task.duration)) {
                 console.warn(
@@ -107,9 +100,6 @@ export class TaskUnit implements ISchedulingUnit {
                 );
             }
             r.availability.removeAvailability(enforced.startTime, enforced.startTime + this.task.duration);
-            for (const t of r.getTasks() as Task[]) {
-                t.invalidateSchedulable();
-            }
         }
     }
 
@@ -117,7 +107,7 @@ export class TaskUnit implements ISchedulingUnit {
         const enforced = this.task.enforced!;
         return {
             start: enforced.startTime,
-            resources: [...this.task.appliedResources],
+            resources: [...this._appliedResources],
         };
     }
 
@@ -138,7 +128,7 @@ export class TaskUnit implements ISchedulingUnit {
      */
     private _computeEffectiveProfile(): Availability {
         if (this._dependentUnits.length === 0) {
-            return this.task.getBestSchedulingProfile(this._floatingLunch);
+            return getBestSchedulingProfile(this.task, this._floatingLunch);
         }
 
         const deps: { ls: number; duration: number }[] = [];
@@ -153,7 +143,7 @@ export class TaskUnit implements ISchedulingUnit {
         // coup (sinon un combo à plusieurs fenêtres étroites peut battre à tort un
         // combo à une fenêtre large sur la comparaison brute — vérifié à la main).
         const deadline = computeDependentsDeadline(deps);
-        return this.task.getBestSchedulingProfile(this._floatingLunch, deadline);
+        return getBestSchedulingProfile(this.task, this._floatingLunch, deadline);
     }
 
     /**

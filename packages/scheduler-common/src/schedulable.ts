@@ -1,5 +1,3 @@
-import type { Availability } from './availability.ts';
-import type { Resource } from './resource.ts';
 import type { EnforcedData } from './types.ts';
 
 /**
@@ -8,8 +6,9 @@ import type { EnforcedData } from './types.ts';
  * Une unité planifiable est soit une tâche atomique (`Task`),
  * soit un groupe de tâches simultanées (`TaskGroup`, implémenté ultérieurement).
  *
- * Le moteur de planification (`Schedule`) travaille exclusivement avec cette interface,
- * sans connaître le type concret sous-jacent.
+ * Modèle de domaine pur — la logique de décision de planification (combinaisons de
+ * ressources, disponibilité calculée, état de recherche) vit exclusivement dans
+ * scheduler-core (`ISchedulingUnit`, `TaskUnit`, `TaskGroupUnit`), pas ici.
  */
 export interface ISchedulable {
   /** Identifiant unique de l'unité */
@@ -29,29 +28,6 @@ export interface ISchedulable {
   readonly name: string;
   readonly type: string;
   readonly week: number;
-
-  // --- Gestion des ressources ---
-
-  /** Combinaison de ressources actuellement appliquée */
-  appliedResources: Resource[];
-
-  /** Retourne toutes les combinaisons applicables (produit cartésien) */
-  getApplicableResources(): Resource[][];
-
-  /** Retourne les ressources de la combinaison courante */
-  getAllResources(): Resource[];
-
-  /** Invalide le cache de disponibilité calculé (schedulable) */
-  invalidateSchedulable(): void;
-
-  /** Disponibilité résultante de l'intersection des ressources courantes */
-  readonly schedulable: Availability;
-
-  /** Vrai si le schedulable contient au moins un créneau de durée suffisante */
-  hasSchedulableSlot(): boolean;
-
-  // --- Heuristique vacataire (optionnelle, spécifique à Task) ---
-  getTeacherResource?(): Resource | null;
 
   // --- Dépendances séquentielles ---
 

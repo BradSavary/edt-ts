@@ -1,4 +1,4 @@
-import { Availability } from './availability.ts';
+import { Availability } from '@edt-ts/scheduler-common';
 
 /** Granularité de recherche de créneau du moteur (scheduler-core/scheduler.ts). */
 export const SLOT_STEP = 30;

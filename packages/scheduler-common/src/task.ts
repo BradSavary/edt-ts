@@ -1,8 +1,6 @@
 import { Resource, ResourceType } from './resource.ts';
-import { Availability } from './availability.ts';
 import type { CourseTaskData, EnforcedData } from './types.ts';
 import type { ISchedulable } from './schedulable.ts';
-import { type PriorityMeasure, type FloatingLunchWindow, INFEASIBLE_MEASURE, measureProfile, comparePriorityMeasure, splitFloatingLunchBreak, truncateProfile } from './priorityMeasure.ts';
 
 /** Type d'un groupe de tâches */
 export type GroupType = 'parallel' | 'sequential';
@@ -11,9 +9,14 @@ export type GroupType = 'parallel' | 'sequential';
  * Classe représentant une tâche à planifier
  * Une tâche a une durée et peut nécessiter plusieurs ressources simultanément
  * Elle peut aussi dépendre d'autres tâches (ordre de planification)
+ *
+ * Modèle de domaine pur : décrit le problème (ressources applicables, dépendances,
+ * appartenance à un groupe) sans porter de logique de décision de planification —
+ * celle-ci vit exclusivement dans scheduler-core (voir `taskScheduling.ts`,
+ * `TaskUnit`, `TaskGroupUnit`).
  */
 class Task implements ISchedulable {
- 
+
   public readonly id: string;
   public readonly code: string;
   public readonly name: string;
@@ -24,11 +27,8 @@ class Task implements ISchedulable {
   public readonly level: number;
   public readonly enforced: EnforcedData | undefined;
   public readonly taskGroupId: string | undefined;
-  // Ressources actuellement appliquées à la tâche (une combinaison spécifique)
-  private _appliedResources: Resource[] | null = null;
   // Ressources applicables à la tâche (ressources alternatives incluses)
   public readonly resources: { [K in ResourceType]: Resource[][] };
-  private _schedulable: Availability | null = null;
   private dependsOn: ISchedulable | null = null;
   private dependentUnits: ISchedulable[] = [];
 
@@ -54,7 +54,7 @@ class Task implements ISchedulable {
     this.semester = courseData.semester;
     this.level = courseData.level;
     this.taskGroupId = courseData.taskGroupId;
- 
+
     this.resources = {
       [ResourceType.TEACHER]: [],
       [ResourceType.ROOM]: [],
@@ -91,141 +91,6 @@ class Task implements ISchedulable {
     }
     this._groupType = null;
     this._groupMembers = [];
-  }
-
-  get schedulable(): Availability {
-    if (this._schedulable === null) {
-      this._schedulable = this._computeSchedulable();
-    }
-    return this._schedulable;
-  }
-
-  get appliedResources(): Resource[] {
-    return (this._appliedResources || []) as Resource[];
-  }
-
-  set appliedResources(resources: Resource[] | null) {
-    this._appliedResources = resources;
-    this.invalidateSchedulable();
-  }
-
-  invalidateSchedulable(): void {
-    this._schedulable = null;
-  }
-
-  getAllResources(): Resource[] {
-    return this.appliedResources;
-  }
-
-  getApplicableResources(): Resource[][] {
-    const allGroups: Resource[][] = [
-      ...this.resources[ResourceType.TEACHER],
-      ...this.resources[ResourceType.ROOM],
-      ...this.resources[ResourceType.GROUP]
-    ];
-    
-    if (allGroups.length === 0) return [];
-
-    function cartesian(arrays: Resource[][]): Resource[][] {
-      return arrays.reduce<Resource[][]>((acc, curr) => {
-        if (acc.length === 0) {
-          return curr.map(resource => [resource]);
-        }
-        const result: Resource[][] = [];
-        for (const combination of acc) {
-          for (const resource of curr) {
-            result.push([...combination, resource]);
-          }
-        }
-        return result;
-      }, []);
-    }
-
-    return cartesian(allGroups);
-  }
-
-  private _computeSchedulable(): Availability {
-    return this._intersectResources(this.getAllResources());
-  }
-
-  /**
-   * Meilleur profil de disponibilité (avant réduction par durée) parmi toutes les
-   * combinaisons de ressources applicables (`getApplicableResources()`), pas
-   * seulement la combinaison actuellement décidée (`appliedResources`, vide tant
-   * qu'aucun booking n'a eu lieu — voir `schedulable`). La tâche n'a besoin que
-   * d'une seule combinaison qui fonctionne : sa vraie marge de manœuvre est bornée
-   * par sa meilleure option. Voir §5.1/§5.3 de docs/HeuristiquePriorite-Conception.md.
-   *
-   * Retourne le profil lui-même (pas juste sa mesure) pour permettre la troncature
-   * par échéance des dépendants (§5.6, scheduler-core/taskUnit.ts) — pas de cache
-   * (profondeur d'arbre de dépendance faible en pratique, voir §5.6 du document).
-   *
-   * `floatingLunch`, si fourni, retranche une pause méridienne flottante des profils
-   * des ressources de type GROUP avant la mesure (§5.5) — correctif de lecture pour
-   * le score uniquement, voir `_intersectResourcesForScoring`.
-   *
-   * `deadline`, si fourni (typiquement l'échéance imposée par les dépendants, §5.6),
-   * tronque CHAQUE combo avant de le mesurer et de le comparer aux autres — pas
-   * seulement le combo gagnant après coup. L'ordre importe : comparer des profils
-   * bruts puis tronquer le gagnant peut sélectionner un combo sous-optimal (ex. un
-   * combo à 2 fenêtres étroites bat à tort un combo à 1 fenêtre large sur la
-   * comparaison brute, alors qu'une fois tronqués par l'échéance, c'est l'inverse —
-   * vérifié à la main, voir la mémoire de suivi du projet).
-   */
-  getBestSchedulingProfile(floatingLunch: FloatingLunchWindow | null = null, deadline: number = Infinity): Availability {
-    let bestProfile: Availability = new Availability();
-    let bestMeasure: PriorityMeasure = INFEASIBLE_MEASURE;
-    for (const combo of this.getApplicableResources()) {
-      const raw = this._intersectResourcesForScoring(combo, floatingLunch);
-      const profile = deadline === Infinity ? raw : truncateProfile(raw, deadline);
-      const measure = measureProfile(profile, this.duration);
-      if (comparePriorityMeasure(measure, bestMeasure) > 0) {
-        bestMeasure = measure;
-        bestProfile = profile;
-      }
-    }
-    return bestProfile;
-  }
-
-  private _intersectResources(resources: Resource[]): Availability {
-    if (resources.length === 0) {
-      return new Availability();
-    }
-
-    let result = resources[0].availability.copy();
-    for (let i = 1; i < resources.length; i++) {
-      result = result.intersect(resources[i].availability);
-      if (result.isEmpty()) {
-        break;
-      }
-    }
-    return result;
-  }
-
-  /**
-   * Variante de `_intersectResources` réservée au calcul du score (§5.1/§5.5) : applique
-   * le découpage de pause flottante (`splitFloatingLunchBreak`) aux ressources GROUP
-   * avant intersection. Délibérément dupliquée plutôt que de paramétrer
-   * `_intersectResources` : garde le chemin de placement réel (`_computeSchedulable`,
-   * utilisé par `earlySchedule`/`book`) totalement à l'écart de cette logique — aucun
-   * risque qu'un appel futur y injecte accidentellement la correction de score.
-   */
-  private _intersectResourcesForScoring(resources: Resource[], floatingLunch: FloatingLunchWindow | null): Availability {
-    if (resources.length === 0) {
-      return new Availability();
-    }
-
-    const profileFor = (r: Resource): Availability =>
-      (floatingLunch && r.type === ResourceType.GROUP) ? splitFloatingLunchBreak(r.availability, floatingLunch) : r.availability;
-
-    let result = profileFor(resources[0]).copy();
-    for (let i = 1; i < resources.length; i++) {
-      result = result.intersect(profileFor(resources[i]));
-      if (result.isEmpty()) {
-        break;
-      }
-    }
-    return result;
   }
 
   getGroups(): string[] {
@@ -291,10 +156,6 @@ class Task implements ISchedulable {
     };
 
     return checkDependency(unit);
-  }
-
-  getTeacherResource(): Resource | null {
-    return this.appliedResources.find(r => r.type === ResourceType.TEACHER) || null;
   }
 
   // ---------------------------------------------------------------------------
@@ -383,14 +244,6 @@ class Task implements ISchedulable {
     for (const m of otherMembers) {
       m._groupRepresentative = newRepresentative;
     }
-  }
-
-  /**
-   * Vérifie si le schedulable de la tâche contient au moins un créneau
-   * d'une durée >= à la durée de la tâche (avec les ressources actuellement appliquées)
-   */
-  hasSchedulableSlot(): boolean {
-    return this.schedulable.hasSlotOfDuration(this.duration);
   }
 
 }

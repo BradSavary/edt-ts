@@ -1,8 +1,10 @@
+import { Task, Resource } from '@edt-ts/scheduler-common';
 import {
-    Task, Resource, type FloatingLunchWindow, type TimeRange,
+    type FloatingLunchWindow, type TimeRange,
     encodePriorityMeasure, countAnchorPositions, reduceToAnchors, shiftRanges, intersectRanges,
     computeDependentsDeadline,
-} from '@edt-ts/scheduler-common';
+} from './priorityMeasure.js';
+import { getApplicableResources, getBestSchedulingProfile } from './taskScheduling.js';
 import type { ISchedulingUnit, SchedulingResult, UnitSolution } from './schedulingUnit.js';
 
 const SLOT_STEP = 30;
@@ -37,6 +39,8 @@ export class TaskGroupUnit implements ISchedulingUnit {
     private _pendingAssignment: TaskAssignment[] | null = null;
     /** Pile LIFO de sauvegardes pour unBook. */
     private _savedAssignments: TaskAssignment[][] = [];
+    /** Ressources actuellement appliquées par tâche membre — état de recherche propre à cette unité. */
+    private _appliedResources = new Map<Task, Resource[]>();
     /** Fenêtre de pause flottante pour le calcul du score (§5.5) — voir setFloatingLunchBreak. */
     private _floatingLunch: FloatingLunchWindow | null = null;
 
@@ -143,7 +147,7 @@ export class TaskGroupUnit implements ISchedulingUnit {
      * Ne modifie pas l'état des ressources ni de la tâche.
      */
     private _findAvailableCombo(task: Task, slotStart: number, slotEnd: number, claimed: Set<Resource> = new Set()): Resource[] | null {
-        for (const combo of task.getApplicableResources()) {
+        for (const combo of getApplicableResources(task)) {
             if (combo.every(r => !claimed.has(r) && r.availability.isAvailable(slotStart, slotEnd))) {
                 return combo;
             }
@@ -160,12 +164,9 @@ export class TaskGroupUnit implements ISchedulingUnit {
         this._pendingAssignment = null;
 
         for (const { task, slotStart, slotEnd, resources } of assignment) {
-            task.appliedResources = resources;
+            this._appliedResources.set(task, resources);
             for (const r of resources) {
                 r.availability.removeAvailability(slotStart, slotEnd);
-                for (const t of r.getTasks() as Task[]) {
-                    t.invalidateSchedulable();
-                }
             }
         }
     }
@@ -178,11 +179,8 @@ export class TaskGroupUnit implements ISchedulingUnit {
         for (const { task, slotStart, slotEnd, resources } of assignment) {
             for (const r of resources) {
                 r.availability.addAvailability(slotStart, slotEnd);
-                for (const t of r.getTasks() as Task[]) {
-                    t.invalidateSchedulable();
-                }
             }
-            task.appliedResources = [];
+            this._appliedResources.set(task, []);
         }
     }
 
@@ -236,9 +234,9 @@ export class TaskGroupUnit implements ISchedulingUnit {
             deadlineGroupe === Infinity ? Infinity : deadlineGroupe - this.duration + offset + task.duration;
 
         if (this._groupType === 'parallel') {
-            let anchors = reduceToAnchors(this._tasks[0].getBestSchedulingProfile(this._floatingLunch, memberDeadline(this._tasks[0], 0)), this._tasks[0].duration);
+            let anchors = reduceToAnchors(getBestSchedulingProfile(this._tasks[0], this._floatingLunch, memberDeadline(this._tasks[0], 0)), this._tasks[0].duration);
             for (let i = 1; i < this._tasks.length; i++) {
-                const memberAnchors = reduceToAnchors(this._tasks[i].getBestSchedulingProfile(this._floatingLunch, memberDeadline(this._tasks[i], 0)), this._tasks[i].duration);
+                const memberAnchors = reduceToAnchors(getBestSchedulingProfile(this._tasks[i], this._floatingLunch, memberDeadline(this._tasks[i], 0)), this._tasks[i].duration);
                 anchors = intersectRanges(anchors, memberAnchors);
             }
             return anchors;
@@ -248,7 +246,7 @@ export class TaskGroupUnit implements ISchedulingUnit {
         let anchors: TimeRange[] | null = null;
         let offset = 0;
         for (const task of this._tasks) {
-            const shifted = shiftRanges(reduceToAnchors(task.getBestSchedulingProfile(this._floatingLunch, memberDeadline(task, offset)), task.duration), offset);
+            const shifted = shiftRanges(reduceToAnchors(getBestSchedulingProfile(task, this._floatingLunch, memberDeadline(task, offset)), task.duration), offset);
             anchors = anchors === null ? shifted : intersectRanges(anchors, shifted);
             offset += task.duration;
         }
@@ -322,7 +320,7 @@ export class TaskGroupUnit implements ISchedulingUnit {
             return tasks.map((task) => ({
                 unit: this,
                 start: result.start,
-                resources: task.appliedResources,
+                resources: this._appliedResources.get(task) ?? [],
                 task,
             }));
         }
@@ -330,7 +328,7 @@ export class TaskGroupUnit implements ISchedulingUnit {
         const solutions: UnitSolution[] = [];
         let offset = 0;
         for (const task of tasks) {
-            solutions.push({ unit: this, start: result.start + offset, resources: task.appliedResources, task });
+            solutions.push({ unit: this, start: result.start + offset, resources: this._appliedResources.get(task) ?? [], task });
             offset += task.duration;
         }
         return solutions;

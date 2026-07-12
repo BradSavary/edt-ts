@@ -1,4 +1,5 @@
-import type { Resource, Task, FloatingLunchWindow } from '@edt-ts/scheduler-common';
+import type { Resource, Task } from '@edt-ts/scheduler-common';
+import type { FloatingLunchWindow } from './priorityMeasure.js';
 
 /**
  * Résultat d'un earlySchedule : premier créneau disponible + combinaison de ressources choisie.
