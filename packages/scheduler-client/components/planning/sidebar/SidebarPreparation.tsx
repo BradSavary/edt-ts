@@ -115,7 +115,12 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
       return;
     }
     const n = parseInt(v, 10);
-    if (!isNaN(n) && n >= 1 && n <= 53) setSelectedWeek(n);
+    if (isNaN(n)) return;
+    // Cycle sur 52 semaines : au-delà de 52 on repart à 1, en dessous de 1 on reboucle sur 52
+    // (pas de bornes natives min/max — une année universitaire n'a pas de "semaine 1" logique).
+    const wrapped = ((n - 1) % 52 + 52) % 52 + 1;
+    setWeekInput(String(wrapped));
+    setSelectedWeek(wrapped);
   }
 
   return (
@@ -132,8 +137,6 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
             <Input
               id="week-input"
               type="number"
-              min="1"
-              max="52"
               value={weekInput}
               onChange={(e) => handleSetWeek(e.target.value)}
             />

@@ -21,6 +21,13 @@ export type { PreparedWeekSnapshot } from './slices/weekSavesSlice';
 
 export type Status = ScheduleStatus;
 
+/**
+ * Semaine ISO à laquelle démarre une année universitaire (ex: rentrée début septembre).
+ * Un Projet chevauche 2 années civiles (S35-52 puis S1-34) — 1 n'a donc pas de sens comme
+ * point de départ par défaut.
+ */
+export const DEFAULT_WEEK = 35;
+
 // ── Interface ──────────────────────────────────────────────────────────────
 // Contient les données "de travail" de la session : non persistées.
 
@@ -114,7 +121,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   ...createBlockedZonesSlice(...a),
   ...createTaskGroupsSlice(...a),
 
-  selectedWeek: null,
+  selectedWeek: DEFAULT_WEEK,
   setSelectedWeek: (week) => {
     // Pré-charger les zones bloquées de vacances/jours fériés pour la semaine
     const projectState = useProjectStore.getState();
@@ -608,7 +615,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   reset: () => {
     if (_pollingInterval !== null) { clearInterval(_pollingInterval); _pollingInterval = null; }
     set({
-      selectedWeek: null,
+      selectedWeek: DEFAULT_WEEK,
       scheduleResult: null,
       selectedSolutionIndex: 0,
       activeSolution: [],

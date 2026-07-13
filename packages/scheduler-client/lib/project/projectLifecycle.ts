@@ -1,5 +1,5 @@
 import { useProjectStore } from '@/store/useProjectStore';
-import { usePlanningStore } from '@/store/usePlanningStore';
+import { usePlanningStore, DEFAULT_WEEK } from '@/store/usePlanningStore';
 import type { SchoolYearConfig } from '@/lib/schoolHolidays';
 import { parseProjectFile } from './projectFile';
 
@@ -14,6 +14,9 @@ import { parseProjectFile } from './projectFile';
 export function createNewProject(name: string, schoolYearConfig: SchoolYearConfig): void {
   usePlanningStore.getState().reset();
   useProjectStore.getState().createProject(name, schoolYearConfig);
+  // Après reset() (semaine remise à DEFAULT_WEEK sans recalcul), reconstruit l'état dérivé
+  // (zones bloquées vacances, etc.) maintenant que le Projet est en place.
+  usePlanningStore.getState().setSelectedWeek(DEFAULT_WEEK);
 }
 
 /** Lit et valide un fichier de projet, puis remplace le projet actif par son contenu. */
@@ -34,6 +37,10 @@ export async function loadProjectFromFile(file: File): Promise<void> {
     tightThreshold: parsed.tightThreshold,
     criticalThreshold: parsed.criticalThreshold,
   });
+  // Reconstruit l'état dérivé pour DEFAULT_WEEK maintenant que allCourses/weekSaves du
+  // fichier importé sont en place — restaure au passage une éventuelle préparation
+  // déjà sauvegardée pour cette semaine dans le fichier importé.
+  usePlanningStore.getState().setSelectedWeek(DEFAULT_WEEK);
 }
 
 export function closeCurrentProject(): void {
