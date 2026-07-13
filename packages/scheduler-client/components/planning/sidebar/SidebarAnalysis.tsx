@@ -29,6 +29,9 @@ export function SidebarAnalysis() {
   const activeNeutralizedTasks = usePlanningStore((s) => s.activeNeutralizedTasks);
   const placedNeutralizedTasks = usePlanningStore((s) => s.placedNeutralizedTasks);
   const manuallyNeutralizedTasks = usePlanningStore((s) => s.manuallyNeutralizedTasks);
+  const autonomyDistributions = usePlanningStore((s) => s.autonomyDistributions);
+  const distributeAutonomy = usePlanningStore((s) => s.distributeAutonomy);
+  const cancelAutonomyDistribution = usePlanningStore((s) => s.cancelAutonomyDistribution);
   const searchQuery = usePlanningStore((s) => s.searchQuery);
   const setSearchQuery = usePlanningStore((s) => s.setSearchQuery);
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
@@ -166,25 +169,49 @@ export function SidebarAnalysis() {
                     }
                   }
                 }
+                const baseProps = solutionToBaseProps(task);
+                const dist = autonomyDistributions[task.taskId];
+                const isAutonomie = task.type === 'Autonomie';
                 return (
                   <NeutralizedTaskCard
                     key={task.taskId}
-                    {...solutionToBaseProps(task)}
+                    {...baseProps}
+                    duration={dist ? dist.remainingDuration : baseProps.duration}
                     taskId={task.taskId}
                     tooltipContent={tooltipLines.join('\n')}
+                    dragEnabled={!dist}
+                    onDistribute={
+                      isAutonomie
+                        ? () => (dist ? cancelAutonomyDistribution(task.taskId) : distributeAutonomy(task.taskId))
+                        : undefined
+                    }
+                    distributeLabel={dist ? 'Annuler la répartition' : 'Répartir'}
                   />
                 );
               })}
 
               {/* Tâches retirées manuellement du calendrier */}
-              {manuallyNeutralizedTasks.map((task) => (
-                <NeutralizedTaskCard
-                  key={task.taskId}
-                  {...manuallyNeutralizedToBaseProps(task)}
-                  taskId={task.taskId}
-                  tooltipContent="Retirée manuellement du calendrier"
-                />
-              ))}
+              {manuallyNeutralizedTasks.map((task) => {
+                const baseProps = manuallyNeutralizedToBaseProps(task);
+                const dist = autonomyDistributions[task.taskId];
+                const isAutonomie = task.type === 'Autonomie';
+                return (
+                  <NeutralizedTaskCard
+                    key={task.taskId}
+                    {...baseProps}
+                    duration={dist ? dist.remainingDuration : baseProps.duration}
+                    taskId={task.taskId}
+                    tooltipContent="Retirée manuellement du calendrier"
+                    dragEnabled={!dist}
+                    onDistribute={
+                      isAutonomie
+                        ? () => (dist ? cancelAutonomyDistribution(task.taskId) : distributeAutonomy(task.taskId))
+                        : undefined
+                    }
+                    distributeLabel={dist ? 'Annuler la répartition' : 'Répartir'}
+                  />
+                );
+              })}
             </div>
           </>
         )}

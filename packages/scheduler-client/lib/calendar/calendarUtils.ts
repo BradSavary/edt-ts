@@ -69,6 +69,13 @@ export function startTimeToDate(monday: Date, startTimeMinutes: number): Date {
   return date;
 }
 
+/**
+ * Convertit une Date absolue en startTime (minutes depuis lundi minuit) — inverse de startTimeToDate.
+ */
+export function dateToStartTime(monday: Date, date: Date): number {
+  return Math.round((date.getTime() - monday.getTime()) / 60000);
+}
+
 // Indexed by startTime dayIndex (0=Lundi … 5=Samedi)
 const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 

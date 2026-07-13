@@ -120,4 +120,15 @@ body {
     border-color: var(--border);
   }
 
+  /* Morceau d'Autonomie réparti automatiquement — hachures pour le distinguer visuellement */
+  & .fc-autonomy-piece {
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.35) 0px,
+      rgba(255, 255, 255, 0.35) 4px,
+      transparent 4px,
+      transparent 8px
+    );
+  }
+
 }

@@ -48,6 +48,35 @@ export interface PlacedNeutralizedTask {
 }
 
 /**
+ * Un morceau d'un cours Autonomie réparti automatiquement dans un créneau libre.
+ */
+export interface AutonomyPiece {
+  /** Identifiant stable du morceau (utilisé comme id d'event calendrier). */
+  id: string;
+  /** Minutes depuis lundi minuit. */
+  startTime: number;
+  duration: number;
+}
+
+/**
+ * Répartition automatique d'un cours Autonomie neutralisé. `totalDuration` (durée
+ * originale, jamais mutée) permet de restaurer l'état initial sans rien recalculer :
+ * "Annuler la répartition" ne fait que supprimer cette entrée.
+ */
+export interface AutonomyDistribution {
+  originalTaskId: string;
+  code: string;
+  name: string;
+  type: string;
+  teachers: string[];
+  groups: string[];
+  rooms: string[];
+  totalDuration: number;
+  pieces: AutonomyPiece[];
+  remainingDuration: number;
+}
+
+/**
  * État mutable par solution (overrides, placements, pioche).
  * Sauvegardé et restauré lors des changements de solution.
  */
@@ -55,6 +84,7 @@ export interface SolutionState {
   taskOverrides: Record<string, PlacedTaskOverride>;
   placedNeutralizedTasks: PlacedNeutralizedTask[];
   manuallyNeutralizedTasks: ManuallyNeutralizedTask[];
+  autonomyDistributions: Record<string, AutonomyDistribution>;
 }
 
 // ── Persistance de semaine (localStorage) ──────────────────────────────────

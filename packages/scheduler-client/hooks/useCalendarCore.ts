@@ -29,6 +29,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
   const taskOverrides = usePlanningStore((s) => s.taskOverrides);
   const placedNeutralizedTasks = usePlanningStore((s) => s.placedNeutralizedTasks);
   const manuallyNeutralizedTasks = usePlanningStore((s) => s.manuallyNeutralizedTasks);
+  const autonomyDistributions = usePlanningStore((s) => s.autonomyDistributions);
   const searchQuery = usePlanningStore((s) => s.searchQuery);
   const activeSolution = usePlanningStore((s) => s.activeSolution);
   const setTaskOverride = usePlanningStore((s) => s.setTaskOverride);
@@ -190,6 +191,10 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
   function handleEventClick(arg: EventClickArg) {
     const ext = arg.event.extendedProps as CalendarEventExtProps;
 
+    // Morceau d'Autonomie réparti automatiquement : non éditable individuellement
+    // (seule "Annuler la répartition" depuis la carte neutralisée l'affecte).
+    if (ext.isAutonomyPiece) return;
+
     if (ext.isBlockedZone && ext.blockedZoneId) {
       handleBlockedZoneRemove(ext.blockedZoneId);
       return;
@@ -217,7 +222,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
 
   function handleEventDragStart(info: { event: { id: string; extendedProps: unknown } }) {
     const ext = info.event.extendedProps as CalendarEventExtProps;
-    if (ext.isBlockedZone) return;
+    if (ext.isBlockedZone || ext.isAutonomyPiece) return;
     setDragging({
       id: info.event.id,
       teachers: ext.teachers ?? [],
@@ -407,6 +412,10 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     setDragging(null);
     const ext = info.event.extendedProps as CalendarEventExtProps;
 
+    // Garde défensive : les morceaux d'Autonomie sont créés avec editable:false (ne devrait
+    // donc jamais déclencher ce handler), mais on refuse quand même explicitement tout déplacement.
+    if (ext.isAutonomyPiece) { info.revert(); return; }
+
     if (ext.isBlockedZone && ext.blockedZoneId) {
       const start = info.event.start;
       const end = info.event.end;
@@ -483,6 +492,9 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     if (!isOutside) return;
 
     const ext = info.event.extendedProps as CalendarEventExtProps;
+
+    // Garde défensive : idem handleEventDrop, ne devrait jamais se déclencher (editable:false).
+    if (ext.isAutonomyPiece) return;
 
     if (ext.isEnforced && ext.courseKey) {
       const courseKey = ext.courseKey;
@@ -622,6 +634,43 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       };
     });
 
+    const autonomyPiecesEvts: CalendarEventData[] = Object.values(autonomyDistributions).flatMap((dist) =>
+      dist.pieces
+        .filter((piece) => {
+          const q = searchQuery.trim().toLowerCase();
+          if (!q) return true;
+          return (
+            dist.code.toLowerCase().includes(q) ||
+            dist.name.toLowerCase().includes(q) ||
+            dist.groups.some((g) => g.toLowerCase().includes(q))
+          );
+        })
+        .map((piece) => {
+          const start = startTimeToDate(monday, piece.startTime);
+          const end = new Date(start.getTime() + piece.duration * 60 * 1000);
+          return {
+            id: piece.id,
+            title: [dist.code, dist.type].filter(Boolean).join(' • '),
+            start,
+            end,
+            ...getEventColors(levelFromCode(dist.code), dist.type, yearColorConfig),
+            editable: false,
+            classNames: ['fc-autonomy-piece'],
+            extendedProps: {
+              name: dist.name,
+              code: dist.code,
+              type: dist.type,
+              teachers: dist.teachers,
+              groups: dist.groups,
+              rooms: dist.rooms,
+              durationMin: piece.duration,
+              isAutonomyPiece: true,
+              originalTaskId: dist.originalTaskId,
+            },
+          };
+        }),
+    );
+
     const resourceEvents: ResourceEventInfo[] = [
       ...solEvts.map((e) => ({
         id: e.id,
@@ -640,6 +689,14 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
         rooms: e.extendedProps.rooms ?? [],
       })),
       ...placedNeutralizedEvts.map((e) => ({
+        id: e.id,
+        start: e.start,
+        end: e.end,
+        teachers: e.extendedProps.teachers ?? [],
+        groups: e.extendedProps.groups ?? [],
+        rooms: e.extendedProps.rooms ?? [],
+      })),
+      ...autonomyPiecesEvts.map((e) => ({
         id: e.id,
         start: e.start,
         end: e.end,
@@ -720,9 +777,10 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       ...blockEvts,
       ...(!activeSolution || activeSolution.length === 0 ? enforcedEventsState.map(applyHighlight) : []),
       ...placedNeutralizedEvts.map(applyHighlight),
+      ...autonomyPiecesEvts.map(applyHighlight),
       ...constraintBgEvents,
     ];
-  }, [solutions, activeSolution, blockedZones, monday, enforcedEventsState, taskOverrides, placedNeutralizedTasks, manuallyNeutralizedTasks, searchQuery, enforcedViolations, dragging, externalDragging, availabilityManager, week, yearColorConfig]);
+  }, [solutions, activeSolution, blockedZones, monday, enforcedEventsState, taskOverrides, placedNeutralizedTasks, manuallyNeutralizedTasks, autonomyDistributions, searchQuery, enforcedViolations, dragging, externalDragging, availabilityManager, week, yearColorConfig]);
 
   return {
     week,

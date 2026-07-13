@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getMondayOfISOWeek, startTimeToDate } from '../lib/calendar/calendarUtils';
+import { getMondayOfISOWeek, startTimeToDate, dateToStartTime } from '../lib/calendar/calendarUtils';
 
 describe('getMondayOfISOWeek', () => {
   it('retourne un lundi (getDay() === 1)', () => {
@@ -58,6 +58,21 @@ describe('startTimeToDate', () => {
     expect(date.getDay()).toBe(3); // mercredi
     expect(date.getHours()).toBe(8);
     expect(date.getMinutes()).toBe(30);
+  });
+});
+
+describe('dateToStartTime', () => {
+  const monday = new Date(2025, 0, 6); // lundi 6 janvier 2025
+
+  it('est l\'inverse exact de startTimeToDate (round-trip)', () => {
+    for (const startTime of [0, 480, 570, 24 * 60, 2 * 24 * 60 + 510]) {
+      const date = startTimeToDate(monday, startTime);
+      expect(dateToStartTime(monday, date)).toBe(startTime);
+    }
+  });
+
+  it('lundi minuit → 0', () => {
+    expect(dateToStartTime(monday, monday)).toBe(0);
   });
 });
 

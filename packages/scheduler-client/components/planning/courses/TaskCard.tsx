@@ -49,6 +49,16 @@ export interface TaskCardProps {
   onDelete?: () => void;
   onToggleNeutralize?: () => void;
   neutralizeLabel?: string;
+  /** Répartition automatique de l'Autonomie dans les créneaux libres. */
+  onDistribute?: () => void;
+  distributeLabel?: string;
+  /**
+   * Si `false`, désactive le drag (même si `taskId` est fourni) en omettant les
+   * attributs `data-task-id`/`data-*` associés — utilisé pour empêcher de glisser
+   * une carte Autonomie déjà répartie (voir `useNeutralizedDraggable`, qui cible
+   * `[data-task-id]`). Par défaut `true`.
+   */
+  dragEnabled?: boolean;
 }
 
 export default function TaskCard({
@@ -69,6 +79,9 @@ export default function TaskCard({
   onDelete,
   onToggleNeutralize,
   neutralizeLabel = 'Neutraliser',
+  onDistribute,
+  distributeLabel = 'Répartir',
+  dragEnabled = true,
 }: TaskCardProps) {
   const teacherStr = teachers.join(', ');
   const groupsStr = groups.join(', ');
@@ -77,7 +90,8 @@ export default function TaskCard({
       ? rooms.slice(0, MAX_ROOMS).join(', ') + (rooms.length > MAX_ROOMS ? ', …' : '')
       : '';
 
-  const hasActions = !!(onEdit || onDuplicate || onDelete || onToggleNeutralize);
+  const hasActions = !!(onEdit || onDuplicate || onDelete || onToggleNeutralize || onDistribute);
+  const draggableTaskId = dragEnabled ? taskId : undefined;
 
   // Attributs drag : mode cours (préparation)
   const courseDataAttrs: Record<string, string | undefined> = courseKey
@@ -89,9 +103,9 @@ export default function TaskCard({
     : {};
 
   // Attributs drag : mode tâche neutralisée (analyse)
-  const taskDataAttrs: Record<string, string> = taskId
+  const taskDataAttrs: Record<string, string> = draggableTaskId
     ? {
-        'data-task-id': taskId,
+        'data-task-id': draggableTaskId,
         'data-title': `${code} ${type}`,
         'data-duration': String(duration),
         'data-teachers': JSON.stringify(teachers),
@@ -110,9 +124,11 @@ export default function TaskCard({
         ? 'opacity-70 cursor-default border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950'
         : groupInfo
           ? 'cursor-grab active:cursor-grabbing border-violet-300 dark:border-violet-700 hover:border-violet-400 hover:shadow-sm'
-          : taskId
+          : draggableTaskId
             ? 'cursor-grab active:cursor-grabbing hover:border-primary/50 hover:shadow-sm'
-            : 'cursor-grab active:cursor-grabbing hover:border-blue-400 hover:shadow-sm'
+            : taskId
+              ? 'cursor-default'
+              : 'cursor-grab active:cursor-grabbing hover:border-blue-400 hover:shadow-sm'
   }`;
 
   function MenuItems({
@@ -133,6 +149,9 @@ export default function TaskCard({
         {(onEdit || onDuplicate) && <Separator />}
         {onToggleNeutralize && (
           <Item onSelect={onToggleNeutralize}>⊘ {neutralizeLabel}</Item>
+        )}
+        {onDistribute && (
+          <Item onSelect={onDistribute}>🔀 {distributeLabel}</Item>
         )}
         {onDelete && (
           <>

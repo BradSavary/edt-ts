@@ -6,17 +6,22 @@ import { getClientId } from '@/lib/api/clientId';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useAppConfigStore } from '@/store/useAppConfigStore';
 import { type TaskGroupConfig, type GroupType, buildTaskGroupData, getCourseGroupInfo, computeGroupEnforcements } from '@/lib/taskGroupUtils';
-import { computeHolidayZonesForWeek } from '@/lib/schoolHolidays';
+import { computeHolidayZonesForWeek, resolveCalendarYear } from '@/lib/schoolHolidays';
 import { getCoursesForWeek, getManualCoursesForWeek } from '@/lib/weekCourses';
 import { filterResourcesForCourses } from '@/lib/filterResourcesForCourses';
 import { createNeutralizedSlice, type NeutralizedSlice } from '@/store/slices/neutralizedSlice';
 import { createBlockedZonesSlice, type BlockedZonesSlice } from '@/store/slices/blockedZonesSlice';
 import { createTaskGroupsSlice, type TaskGroupsSlice } from '@/store/slices/taskGroupsSlice';
+import { createAutonomyDistributionSlice, type AutonomyDistributionSlice } from '@/store/slices/autonomyDistributionSlice';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
+import { getMondayOfISOWeek, dateToStartTime } from '@/lib/calendar/calendarUtils';
+import { computeEffectiveSolution } from '@/lib/calendar/effectiveSolution';
+import { computeAutonomyDistribution, type OccupancyEntry } from '@/lib/calendar/autonomyDistribution';
+import { resolveNeutralizedTaskById } from '@/lib/taskCardUtils';
 
 export type { TaskGroupConfig };
-export type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, SolutionState } from './types';
-import type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, SolutionState } from './types';
+export type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, SolutionState, AutonomyPiece, AutonomyDistribution } from './types';
+import type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, SolutionState, AutonomyDistribution } from './types';
 export type { PreparedWeekSnapshot } from './slices/weekSavesSlice';
 
 export type Status = ScheduleStatus;
@@ -31,7 +36,7 @@ export const DEFAULT_WEEK = 35;
 // ── Interface ──────────────────────────────────────────────────────────────
 // Contient les données "de travail" de la session : non persistées.
 
-export interface PlanningStore extends NeutralizedSlice, BlockedZonesSlice, TaskGroupsSlice {
+export interface PlanningStore extends NeutralizedSlice, BlockedZonesSlice, TaskGroupsSlice, AutonomyDistributionSlice {
   // Sélection de la semaine
   selectedWeek: number | null;
   setSelectedWeek: (week: number | null) => void;
@@ -99,6 +104,9 @@ export interface PlanningStore extends NeutralizedSlice, BlockedZonesSlice, Task
   updatePlacedNeutralizedTask: (taskId: string, patch: Partial<Omit<PlacedNeutralizedTask, 'taskId'>>) => void;
   removePlacedNeutralizedTask: (taskId: string) => void;
 
+  /** Calcule et applique la répartition automatique d'un cours Autonomie neutralisé (taskId). */
+  distributeAutonomy: (taskId: string) => void;
+
   // Reset (ex: changement de semaine ou de fichiers)
   reset: () => void;
 
@@ -120,6 +128,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   ...createNeutralizedSlice(...a),
   ...createBlockedZonesSlice(...a),
   ...createTaskGroupsSlice(...a),
+  ...createAutonomyDistributionSlice(...a),
 
   selectedWeek: DEFAULT_WEEK,
   setSelectedWeek: (week) => {
@@ -177,6 +186,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         placedNeutralizedTasks: [],
         manuallyNeutralizedTasks: [],
         solutionStates: {},
+        autonomyDistributions: {},
         syntheticNeutralizedTasks: [],
         status: null,
         taskGroups: snapshot.taskGroups,
@@ -201,6 +211,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         preNeutralizedKeys: [],
         manuallyNeutralizedTasks: [],
         solutionStates: {},
+        autonomyDistributions: {},
         syntheticNeutralizedTasks: [],
         blockedZones: initialBlockedZones,
         status: null,
@@ -215,12 +226,12 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   scheduleResult: null,
   selectedSolutionIndex: 0,
   setSelectedSolutionIndex: (index) => {
-    const { scheduleResult, selectedSolutionIndex, taskOverrides, placedNeutralizedTasks, manuallyNeutralizedTasks, solutionStates, syntheticNeutralizedTasks } = get();
+    const { scheduleResult, selectedSolutionIndex, taskOverrides, placedNeutralizedTasks, manuallyNeutralizedTasks, autonomyDistributions, solutionStates, syntheticNeutralizedTasks } = get();
     if (!scheduleResult) return;
     // Sauvegarder l'état courant avant de changer de solution
     const newSolutionStates: Record<number, SolutionState> = {
       ...solutionStates,
-      [selectedSolutionIndex]: { taskOverrides, placedNeutralizedTasks, manuallyNeutralizedTasks },
+      [selectedSolutionIndex]: { taskOverrides, placedNeutralizedTasks, manuallyNeutralizedTasks, autonomyDistributions },
     };
     // Restaurer l'état sauvegardé pour la nouvelle solution (ou état initial)
     const saved = newSolutionStates[index];
@@ -233,6 +244,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       taskOverrides: saved?.taskOverrides ?? {},
       placedNeutralizedTasks: saved?.placedNeutralizedTasks ?? [],
       manuallyNeutralizedTasks: saved?.manuallyNeutralizedTasks ?? [],
+      autonomyDistributions: saved?.autonomyDistributions ?? {},
     });
   },
 
@@ -252,6 +264,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       taskOverrides: {},
       placedNeutralizedTasks: [],
       manuallyNeutralizedTasks: [],
+      autonomyDistributions: {},
       activeNeutralizedTasks: [...(solution?.neutralizedTasks ?? []), ...syntheticNeutralizedTasks],
     });
   },
@@ -471,6 +484,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       taskOverrides: {},
       placedNeutralizedTasks: [],
       manuallyNeutralizedTasks: [],
+      autonomyDistributions: {},
       isLoading: false,
       status: buildScheduleStatus(result),
       currentJobId: null,
@@ -527,6 +541,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       activeNeutralizedTasks: [],
       taskOverrides: {},
       placedNeutralizedTasks: [],
+      autonomyDistributions: {},
     });
   },
 
@@ -592,6 +607,67 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     }));
   },
 
+  distributeAutonomy: (taskId) => {
+    const {
+      activeSolution, taskOverrides, manuallyNeutralizedTasks, placedNeutralizedTasks,
+      activeNeutralizedTasks, autonomyDistributions, selectedWeek, blockedZones,
+    } = get();
+    if (selectedWeek === null) return;
+
+    const info = resolveNeutralizedTaskById(taskId, activeNeutralizedTasks, manuallyNeutralizedTasks);
+    if (!info || info.type !== 'Autonomie') return;
+
+    const { availabilityManager, schoolYearConfig } = useProjectStore.getState();
+    if (!availabilityManager) return;
+
+    const monday = getMondayOfISOWeek(selectedWeek, resolveCalendarYear(schoolYearConfig, selectedWeek));
+
+    // Ce qui occupe déjà le calendrier affiché : solution effective (moteur + overrides +
+    // neutralisées replacées manuellement) + morceaux déjà distribués pour D'AUTRES cours
+    // Autonomie susceptibles de partager un groupe.
+    const effective = computeEffectiveSolution({
+      activeSolution, taskOverrides, manuallyNeutralizedTasks, placedNeutralizedTasks, week: selectedWeek,
+    });
+    const occupancy: OccupancyEntry[] = [
+      ...effective.map((t) => ({
+        startTime: t.startTime,
+        duration: t.duration,
+        groups: t.resources.filter((r) => r.type === 'group').map((r) => r.id),
+      })),
+      ...Object.values(autonomyDistributions)
+        .filter((d) => d.originalTaskId !== taskId)
+        .flatMap((d) => d.pieces.map((p) => ({ startTime: p.startTime, duration: p.duration, groups: d.groups }))),
+    ];
+
+    const blockedZonesMinutes = blockedZones
+      .map((z) => ({ start: dateToStartTime(monday, z.start), end: dateToStartTime(monday, z.end) }))
+      .filter((z) => z.end > z.start);
+
+    const result = computeAutonomyDistribution({
+      groupIds: info.groups,
+      week: selectedWeek,
+      availabilityManager,
+      blockedZonesMinutes,
+      occupancy,
+      totalDuration: info.duration,
+    });
+
+    const distribution: AutonomyDistribution = {
+      originalTaskId: taskId,
+      code: info.code,
+      name: info.name,
+      type: info.type,
+      teachers: info.teachers,
+      groups: info.groups,
+      rooms: info.rooms,
+      totalDuration: info.duration,
+      pieces: result.pieces.map((p, i) => ({ id: `${taskId}-piece-${i}`, startTime: p.startTime, duration: p.duration })),
+      remainingDuration: result.remainingDuration,
+    };
+
+    set({ autonomyDistributions: { ...autonomyDistributions, [taskId]: distribution } });
+  },
+
   resetScheduleResult: () => {
     if (_pollingInterval !== null) { clearInterval(_pollingInterval); _pollingInterval = null; }
     set({
@@ -603,6 +679,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       placedNeutralizedTasks: [],
       manuallyNeutralizedTasks: [],
       solutionStates: {},
+      autonomyDistributions: {},
       syntheticNeutralizedTasks: [],
       enforcedViolations: {},
       currentJobId: null,
@@ -625,6 +702,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       preNeutralizedKeys: [],
       manuallyNeutralizedTasks: [],
       solutionStates: {},
+      autonomyDistributions: {},
       syntheticNeutralizedTasks: [],
       enforcedMap: {},
       enforcedViolations: {},

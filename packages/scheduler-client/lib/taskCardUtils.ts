@@ -1,4 +1,4 @@
-import type { CourseTaskData, TaskSolutionJSON, ResourceEntry } from '@edt-ts/scheduler-common';
+import type { CourseTaskData, TaskSolutionJSON, ResourceEntry, NeutralizedTaskInfoJSON } from '@edt-ts/scheduler-common';
 import type { TaskCardProps } from '@/components/planning/courses/TaskCard';
 import type { ManuallyNeutralizedTask } from '@/store/types';
 
@@ -46,4 +46,24 @@ export function manuallyNeutralizedToBaseProps(task: ManuallyNeutralizedTask): T
     groups: task.groups,
     rooms: task.rooms,
   };
+}
+
+/**
+ * Résout les infos d'un cours neutralisé par son taskId, quelle que soit la source :
+ * neutralisé par le moteur / pré-neutralisé (activeNeutralizedTasks), ou retiré
+ * manuellement du calendrier après coup (manuallyNeutralizedTasks). Retourne null si
+ * le taskId ne correspond à aucun des deux (ex: déjà replacé sur le calendrier).
+ */
+export function resolveNeutralizedTaskById(
+  taskId: string,
+  activeNeutralizedTasks: NeutralizedTaskInfoJSON[],
+  manuallyNeutralizedTasks: ManuallyNeutralizedTask[],
+): (TaskCardBaseProps & { taskId: string }) | null {
+  const fromSolution = activeNeutralizedTasks.find((t) => t.task.taskId === taskId);
+  if (fromSolution) return { ...solutionToBaseProps(fromSolution.task), taskId };
+
+  const fromManual = manuallyNeutralizedTasks.find((t) => t.taskId === taskId);
+  if (fromManual) return { ...manuallyNeutralizedToBaseProps(fromManual), taskId };
+
+  return null;
 }
