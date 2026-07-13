@@ -25,6 +25,8 @@ export interface PreparedWeekSnapshot {
   manualEnforcedMap: Record<string, EnforcedData>;
   /** Cours créés manuellement pour cette semaine (les cours CSV vivent dans allCourses, jamais dupliqués ici). */
   manualCourses: CourseTaskDataWithId[];
+  /** Note libre associée à la semaine (contexte de préparation, ex. contraintes ponctuelles). */
+  note?: string;
 }
 
 /** saves[weekNumber] */
@@ -62,6 +64,8 @@ export interface WeekSavesSlice {
     courseId: string,
     patch: Partial<Pick<CourseTaskData, 'teacher' | 'groups' | 'rooms' | 'duration'>>,
   ) => void;
+  /** Enregistre la note de la semaine (crée le snapshot s'il n'existe pas encore). */
+  setWeekNote: (weekNumber: number, schoolYear: string, note: string) => void;
 }
 
 export const createWeekSavesSlice: StateCreator<WeekSavesSlice> = (set, get) => ({
@@ -141,6 +145,19 @@ export const createWeekSavesSlice: StateCreator<WeekSavesSlice> = (set, get) => 
             ...existing,
             manualCourses: existingManual.map((c) => (c.id === courseId ? { ...c, ...patch } : c)),
           },
+        },
+      };
+    });
+  },
+
+  setWeekNote: (weekNumber, schoolYear, note) => {
+    set((state) => {
+      const key = String(weekNumber);
+      const base = state.weekSaves[key] ?? emptySnapshot(weekNumber, schoolYear);
+      return {
+        weekSaves: {
+          ...state.weekSaves,
+          [key]: { ...base, note },
         },
       };
     });

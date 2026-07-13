@@ -10,6 +10,7 @@ import CourseGroupList, { type GroupBy } from '@/components/planning/courses/Cou
 import CourseConstraintList from '@/components/planning/courses/CourseConstraintList';
 import { analyzeConstraints } from '@/lib/taskConstraintAnalysis';
 import { SchedulerConfigDialog } from '@/components/planning/modals/SchedulerConfigDialog';
+import { WeekNoteDialog } from '@/components/planning/modals/WeekNoteDialog';
 import TaskEditModal, { type TaskEditUpdate } from '@/components/planning/modals/TaskEditModal';
 import CourseCreateModal from '@/components/planning/modals/CourseCreateModal';
 import { Button } from '@/components/ui/button';
@@ -160,6 +161,7 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
               </Button>
             )}
             <SchedulerConfigDialog />
+            <WeekNoteDialog />
           </div>
           {pendingJobResult !== null && !isLoading && (
             <p className="text-xs text-muted-foreground">
