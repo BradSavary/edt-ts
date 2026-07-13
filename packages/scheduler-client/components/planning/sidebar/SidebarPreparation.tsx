@@ -118,10 +118,10 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
   }
 
   return (
-    <aside className="w-80 shrink-0 bg-card border-r border-border p-4 overflow-y-auto flex flex-col gap-4">
+    <aside className="w-80 shrink-0 bg-card border-r border-border p-4 overflow-hidden flex flex-col gap-4">
 
       {/* Formulaire de planification */}
-      <div>
+      <div className="shrink-0">
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
           Planification
         </p>
@@ -171,9 +171,9 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
 
       {/* Liste des cours */}
       {parsedCourses.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <Separator />
-          <div className="flex items-center justify-between">
+        <div className="flex-1 min-h-0 flex flex-col gap-2">
+          <Separator className="shrink-0" />
+          <div className="flex items-center justify-between shrink-0">
             {/* <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Cours {weekInput ? `S${weekInput}` : ''}
             </p> */}
@@ -212,10 +212,10 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
               </div>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground italic">
+          <p className="text-xs text-muted-foreground italic shrink-0">
             Glissez un cours sur le calendrier pour l&apos;imposer.
           </p>
-          <Tabs value={groupBy} onValueChange={(v) => setGroupBy(v as GroupBy | 'constraint')}>
+          <Tabs value={groupBy} onValueChange={(v) => setGroupBy(v as GroupBy | 'constraint')} className="shrink-0">
             <TabsList className="w-full">
               <TabsTrigger value="code" className="flex-1 text-[11px]">Par code</TabsTrigger>
               <TabsTrigger value="teacher" className="flex-1 text-[11px]">Par enseignant</TabsTrigger>
@@ -227,7 +227,7 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
               </TabsTrigger>
             </TabsList>
           </Tabs>
-          <div ref={cardContainerRef}>
+          <div ref={cardContainerRef} className="flex-1 min-h-0 overflow-y-auto">
             {groupBy === 'constraint' ? (
               constraintAnalysis ? (
                 <>
