@@ -249,6 +249,7 @@ export interface ResourceConstraintEditorProps {
   onMaxDailyMinutesChange?: (v: number | undefined) => void;
   onChange: (newValue: ResourceConstraints | null) => void;
   onDelete?: () => void;
+  className?: string;
 }
 
 export function ResourceConstraintEditor({
@@ -262,6 +263,7 @@ export function ResourceConstraintEditor({
   onMaxDailyMinutesChange,
   onChange,
   onDelete,
+  className,
 }: ResourceConstraintEditorProps) {
   const [expanded, setExpanded] = useState(alwaysExpanded ?? false);
   const [addingWeek, setAddingWeek] = useState(false);
@@ -358,9 +360,9 @@ export function ResourceConstraintEditor({
 
   return (
     <>
-    <div className="border border-border rounded-lg overflow-hidden">
+    <div className={cn('border border-border rounded-lg overflow-hidden flex flex-col', className)}>
       {/* Header */}
-      <div className="flex items-center bg-card">
+      <div className="flex items-center bg-card shrink-0">
         <button
           type="button"
           onClick={() => !alwaysExpanded && setExpanded((v) => !v)}
@@ -409,10 +411,10 @@ export function ResourceConstraintEditor({
 
       {/* Body */}
       {(expanded || alwaysExpanded) && (
-        <div className="border-t border-border bg-background">
+        <div className="border-t border-border bg-background flex-1 min-h-0 flex flex-col">
           {/* Max quotidien (hors Default) */}
           {!isDefault && onMaxDailyMinutesChange && (
-            <div className="px-4 py-2 border-b border-border flex items-center gap-2">
+            <div className="px-4 py-2 border-b border-border flex items-center gap-2 shrink-0">
               <span className="text-xs text-muted-foreground shrink-0">Max. quotidien :</span>
               <Input
                 type="number"
@@ -457,18 +459,18 @@ export function ResourceConstraintEditor({
               </Button>
             </div>
           ) : (
-            <div>
-              <div className="overflow-x-auto">
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-auto">
                 <table className="text-sm border-collapse w-full">
                   <thead>
                     <tr className="bg-muted/50">
-                      <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-muted-foreground sticky left-0 bg-muted/50 z-10 border-b border-r border-border w-20">
+                      <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-muted-foreground sticky left-0 top-0 bg-muted/50 z-20 border-b border-r border-border w-20">
                         Semaine
                       </th>
                       {DAYS.map((day) => (
                         <th
                           key={day}
-                          className="px-1.5 py-1.5 text-center text-[11px] font-semibold text-muted-foreground border-b border-r border-border last:border-r-0 min-w-35"
+                          className="px-1.5 py-1.5 text-center text-[11px] font-semibold text-muted-foreground sticky top-0 bg-muted/50 z-10 border-b border-r border-border last:border-r-0 min-w-35"
                         >
                           {DAY_LABELS[day]}
                         </th>
@@ -557,7 +559,7 @@ export function ResourceConstraintEditor({
               </div>
 
               {!isDefault && (
-                <div className="px-4 py-2 border-t border-border flex justify-end">
+                <div className="px-4 py-2 border-t border-border flex justify-end shrink-0">
                   <button
                     type="button"
                     onClick={handleDisable}

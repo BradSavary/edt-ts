@@ -341,7 +341,7 @@ export function ConstraintsManager() {
         </aside>
 
         {/* Main content panel */}
-        <main className="flex-1 overflow-y-auto bg-background">
+        <main className="flex-1 overflow-hidden bg-background flex flex-col">
           {!selectedId ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-8 gap-2">
               <p className="text-base font-medium text-muted-foreground">
@@ -353,8 +353,8 @@ export function ConstraintsManager() {
               </p>
             </div>
           ) : isDefaultSelected ? (
-            <div className="p-6">
-              <p className="text-sm text-muted-foreground mb-4">
+            <div className="p-6 flex-1 min-h-0 flex flex-col">
+              <p className="text-sm text-muted-foreground mb-4 shrink-0">
                 Disponibilité de référence appliquée à toutes les ressources sans contrainte propre.
               </p>
               <ResourceConstraintEditor
@@ -365,10 +365,11 @@ export function ConstraintsManager() {
                 alwaysExpanded
                 csvWeeks={allCsvWeeks}
                 onChange={handleDefaultChange}
+                className="flex-1 min-h-0"
               />
             </div>
           ) : (
-            <div className="p-6">
+            <div className="p-6 flex-1 min-h-0 flex flex-col">
               <ResourceConstraintEditor
                 key={selectedId}
                 id={selectedId}
@@ -384,6 +385,7 @@ export function ConstraintsManager() {
                 }
                 onChange={(v) => handleResourceChange(selectedId, v)}
                 onDelete={() => handleResourceDelete(selectedId)}
+                className="flex-1 min-h-0"
               />
             </div>
           )}
