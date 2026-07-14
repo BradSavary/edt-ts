@@ -157,26 +157,49 @@ export function computeDragHighlights(
 }
 
 /**
+ * Sépare une requête en groupes "OR" de niveau supérieur, chacun subdivisé en termes "AND"
+ * (AND prioritaire sur OR, comme la plupart des langages — "A AND B OR C" = "(A AND B) OR C").
+ * Les opérateurs ne sont reconnus qu'en MAJUSCULES et entourés d'espace(s) — "AND"/"OR" collés
+ * à un mot (ex: "GRAND", "ANDRE") ou en minuscules restent du texte de recherche normal.
+ * Groupes/termes vides (opérateur en trop, espaces multiples) sont ignorés silencieusement.
+ */
+function parseSearchQuery(query: string): string[][] {
+  return query
+    .split(/\s+OR\s+/)
+    .map((group) => group.split(/\s+AND\s+/).map((t) => t.trim()).filter((t) => t.length > 0))
+    .filter((terms) => terms.length > 0);
+}
+
+/**
+ * Vérifie si `fields` (valeurs recherchables d'un cours/tâche — code, nom, type, enseignants,
+ * salles, groupes...) satisfait la requête `query`. Recherche par sous-chaîne, insensible à la
+ * casse pour les termes eux-mêmes ; support des opérateurs AND/OR (voir `parseSearchQuery`).
+ * Une requête vide (ou ne contenant que des opérateurs) satisfait toujours (aucune restriction).
+ */
+export function matchesSearchQuery(fields: string[], query: string): boolean {
+  const orGroups = parseSearchQuery(query);
+  if (orGroups.length === 0) return true;
+  const lowerFields = fields.map((f) => f.toLowerCase());
+  return orGroups.some((andTerms) =>
+    andTerms.every((term) => {
+      const t = term.toLowerCase();
+      return lowerFields.some((f) => f.includes(t));
+    }),
+  );
+}
+
+/**
  * Filtre un tableau de tâches planifiées par une requête de recherche.
- * Cherche dans le code, le nom, les enseignants, les salles et les groupes.
+ * Cherche dans le code, le nom, le type (CM/TD/TP/Autonomie...), les enseignants, les salles
+ * et les groupes — voir `matchesSearchQuery` pour la syntaxe (AND/OR).
  * Retourne le tableau original si la requête est vide.
  */
-export function filterSolutionsByQuery<T extends { code: string; name: string; resources: { id: string; type: string }[] }>(
+export function filterSolutionsByQuery<T extends { code: string; name: string; type: string; resources: { id: string; type: string }[] }>(
   tasks: T[],
   query: string,
 ): T[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return tasks;
-  return tasks.filter((task) => {
-    const teachers = task.resources.filter((r) => r.type === 'teacher').map((r) => r.id.toLowerCase());
-    const rooms = task.resources.filter((r) => r.type === 'room').map((r) => r.id.toLowerCase());
-    const groups = task.resources.filter((r) => r.type === 'group').map((r) => r.id.toLowerCase());
-    return (
-      task.code.toLowerCase().includes(q) ||
-      task.name.toLowerCase().includes(q) ||
-      teachers.some((t) => t.includes(q)) ||
-      rooms.some((r) => r.includes(q)) ||
-      groups.some((g) => g.includes(q))
-    );
-  });
+  if (!query.trim()) return tasks;
+  return tasks.filter((task) =>
+    matchesSearchQuery([task.code, task.name, task.type, ...task.resources.map((r) => r.id)], query),
+  );
 }

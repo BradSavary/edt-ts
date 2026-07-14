@@ -9,7 +9,7 @@ import type { TaskSolutionJSON, CourseTaskData, EnforcedData } from '@edt-ts/sch
 import type { CourseTaskDataWithId } from '@/lib/courseId';
 import type { EnforceSelection } from '@/components/planning/modals/EnforceModal';
 import type { TaskEditUpdate } from '@/components/planning/modals/TaskEditModal';
-import { getMondayOfISOWeek, startTimeToDate, computeStaticConflicts, computeDragHighlights, computeConstraintViolation } from '@/lib/calendar/calendarUtils';
+import { getMondayOfISOWeek, startTimeToDate, computeStaticConflicts, computeDragHighlights, computeConstraintViolation, matchesSearchQuery } from '@/lib/calendar/calendarUtils';
 import type { ResourceEventInfo } from '@/lib/calendar/calendarUtils';
 import { computeConstraintUnavailableZones, subtractDateZones } from '@/lib/calendar/blockedZones';
 import { resolveCalendarYear } from '@/lib/schoolHolidays';
@@ -595,17 +595,9 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     });
 
     const placedNeutralizedEvts: CalendarEventData[] = placedNeutralizedTasks
-      .filter((task) => {
-        const q = searchQuery.trim().toLowerCase();
-        if (!q) return true;
-        return (
-          task.code.toLowerCase().includes(q) ||
-          task.name.toLowerCase().includes(q) ||
-          task.teachers.some((t) => t.toLowerCase().includes(q)) ||
-          task.rooms.some((r) => r.toLowerCase().includes(q)) ||
-          task.groups.some((g) => g.toLowerCase().includes(q))
-        );
-      })
+      .filter((task) =>
+        matchesSearchQuery([task.code, task.name, task.type, ...task.teachers, ...task.rooms, ...task.groups], searchQuery),
+      )
       .map((task) => {
       const start = startTimeToDate(monday, task.startTime);
       const end = new Date(start.getTime() + task.duration * 60 * 1000);
@@ -636,15 +628,9 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
 
     const autonomyPiecesEvts: CalendarEventData[] = Object.values(autonomyDistributions).flatMap((dist) =>
       dist.pieces
-        .filter((piece) => {
-          const q = searchQuery.trim().toLowerCase();
-          if (!q) return true;
-          return (
-            dist.code.toLowerCase().includes(q) ||
-            dist.name.toLowerCase().includes(q) ||
-            dist.groups.some((g) => g.toLowerCase().includes(q))
-          );
-        })
+        .filter(() =>
+          matchesSearchQuery([dist.code, dist.name, dist.type, ...dist.teachers, ...dist.rooms, ...dist.groups], searchQuery),
+        )
         .map((piece) => {
           const start = startTimeToDate(monday, piece.startTime);
           const end = new Date(start.getTime() + piece.duration * 60 * 1000);

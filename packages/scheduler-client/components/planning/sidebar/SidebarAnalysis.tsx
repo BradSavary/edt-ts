@@ -5,7 +5,7 @@ import { usePlanningStore } from '@/store/usePlanningStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useNeutralizedDraggable } from '@/hooks/useNeutralizedDraggable';
 import { downloadIcalSolution } from '@/lib/icalExport';
-import { filterSolutionsByQuery } from '@/lib/calendar/calendarUtils';
+import { filterSolutionsByQuery, matchesSearchQuery } from '@/lib/calendar/calendarUtils';
 import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,18 +53,10 @@ export function SidebarAnalysis() {
   );
 
   const filteredPlacedNeutralized = useMemo((): TaskSolutionJSON[] => {
-    const q = searchQuery.trim().toLowerCase();
     return placedNeutralizedTasks
-      .filter((task) => {
-        if (!q) return true;
-        return (
-          task.code.toLowerCase().includes(q) ||
-          task.name.toLowerCase().includes(q) ||
-          task.teachers.some((t) => t.toLowerCase().includes(q)) ||
-          task.rooms.some((r) => r.toLowerCase().includes(q)) ||
-          task.groups.some((g) => g.toLowerCase().includes(q))
-        );
-      })
+      .filter((task) =>
+        matchesSearchQuery([task.code, task.name, task.type, ...task.teachers, ...task.rooms, ...task.groups], searchQuery),
+      )
       .map((task) => ({
         taskId: task.taskId,
         code: task.code,
@@ -85,6 +77,13 @@ export function SidebarAnalysis() {
     (t) => !placedNeutralizedTasks.some((p) => p.taskId === t.task.taskId),
   );
   const hasAnyNeutralizedItems = unplacedNeutralized.length > 0 || manuallyNeutralizedTasks.length > 0;
+
+  const filteredUnplacedNeutralized = unplacedNeutralized.filter((t) =>
+    matchesSearchQuery([t.task.code, t.task.name, t.task.type, ...t.task.resources.map((r) => r.id)], searchQuery),
+  );
+  const filteredManuallyNeutralized = manuallyNeutralizedTasks.filter((task) =>
+    matchesSearchQuery([task.code, task.name, task.type, ...task.teachers, ...task.rooms, ...task.groups], searchQuery),
+  );
 
   function handleConfirmRetour() {
     setConfirmOpen(false);
@@ -111,7 +110,7 @@ export function SidebarAnalysis() {
           </Label>
           <Input
             type="search"
-            placeholder="Enseignant, salle, groupe, code, cours…"
+            placeholder="Enseignant, salle, groupe, code, type, cours… (AND / OR)"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -141,14 +140,14 @@ export function SidebarAnalysis() {
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Non placés
               </p>
-              <Badge variant="secondary">{unplacedNeutralized.length + manuallyNeutralizedTasks.length}</Badge>
+              <Badge variant="secondary">{filteredUnplacedNeutralized.length + filteredManuallyNeutralized.length}</Badge>
             </div>
             <p className="text-xs text-muted-foreground italic">
               Glissez un cours sur le calendrier pour le placer.
             </p>
             <div ref={neutralizedContainerRef} className="flex flex-col gap-2">
               {/* Tâches neutralisées par le moteur ou pré-neutralisées */}
-              {unplacedNeutralized.map((neutralizedInfo) => {
+              {filteredUnplacedNeutralized.map((neutralizedInfo) => {
                 const task = neutralizedInfo.task;
                 const isPreNeutralized = task.taskId.startsWith('pre-neutral-');
                 const tooltipLines: string[] = [neutralizedInfo.reason];
@@ -191,7 +190,7 @@ export function SidebarAnalysis() {
               })}
 
               {/* Tâches retirées manuellement du calendrier */}
-              {manuallyNeutralizedTasks.map((task) => {
+              {filteredManuallyNeutralized.map((task) => {
                 const baseProps = manuallyNeutralizedToBaseProps(task);
                 const dist = autonomyDistributions[task.taskId];
                 const isAutonomie = task.type === 'Autonomie';
