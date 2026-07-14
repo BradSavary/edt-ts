@@ -110,11 +110,12 @@ export interface EventColors {
  * Autres types → même traitement que CM
  */
 export function getEventColors(
-  level: 0 | 1 | 2,
+  level: number,
   type: string,
   config: YearColorConfig,
 ): EventColors {
-  const base = [config.but1, config.but2, config.but3][level];
+  const idx = Math.min(2, Math.max(0, Math.round(level))) as 0 | 1 | 2;
+  const base = [config.but1, config.but2, config.but3][idx];
   const t = type.toUpperCase().trim();
   let bg: string;
   if (t === 'TD') {

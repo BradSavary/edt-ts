@@ -94,7 +94,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
         title,
         start: startDate,
         end: endDate,
-        ...getEventColors(levelFromCode(course?.code ?? ''), course?.type ?? '', yearColorConfig),
+        ...getEventColors(course?.level ?? levelFromCode(course?.code ?? ''), course?.type ?? '', yearColorConfig),
         extendedProps: {
           name: course?.name ?? '',
           code: course?.code ?? '',

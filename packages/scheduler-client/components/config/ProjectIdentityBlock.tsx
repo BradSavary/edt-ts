@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useProjectStore } from '@/store/useProjectStore';
 import { stateToProjectFile } from '@/lib/project/projectFile';
-import { downloadJson } from '@/lib/downloadJson';
+import { downloadJson, filenameTimestamp } from '@/lib/downloadJson';
 import { getManualCoursesForWeek } from '@/lib/weekCourses';
 
 export function ProjectIdentityBlock() {
@@ -32,7 +32,7 @@ export function ProjectIdentityBlock() {
   function handleExportProject() {
     const file = stateToProjectFile(useProjectStore.getState());
     const safeName = file.name.replace(/[/\\:*?"<>|]/g, '').trim() || 'projet';
-    downloadJson(`${safeName}.json`, file);
+    downloadJson(`${safeName}_${filenameTimestamp(file.exportedAt)}.json`, file);
   }
 
   return (

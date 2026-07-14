@@ -122,7 +122,7 @@ export function ResourceSlots({ label, values, options, onChange, allowAlternati
               <button
                 type="button"
                 onClick={() => addAlternative(slotIndex)}
-                className="text-xs text-primary hover:underline"
+                className="text-[10px] leading-none text-primary hover:underline block"
               >
                 + OU
               </button>
