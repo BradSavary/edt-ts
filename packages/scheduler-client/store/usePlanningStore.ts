@@ -881,6 +881,9 @@ function _saveCurrentWeekSnapshot() {
     // weekSaves. saveWeek remplace tout le snapshot, donc il faut relire l'existant ici pour
     // ne jamais le perdre lors d'une sauvegarde déclenchée par autre chose (taskGroups, etc.).
     manualCourses: getManualCoursesForWeek(ss.weekSaves, ps.selectedWeek),
+    // Idem pour la note libre (setWeekNote écrit directement dans weekSaves) : sans cette
+    // relecture, tout changement de taskGroups/blockedZones/enforcedMap effacerait la note.
+    note: ss.weekSaves[String(ps.selectedWeek)]?.note,
   });
 }
 
