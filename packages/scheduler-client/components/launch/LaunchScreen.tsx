@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useHydrated } from '@/hooks/useHydrated';
 import { stateToProjectFile } from '@/lib/project/projectFile';
-import { downloadJson } from '@/lib/downloadJson';
+import { downloadJson, filenameTimestamp } from '@/lib/downloadJson';
 import { loadProjectFromFile } from '@/lib/project/projectLifecycle';
 import { ReplaceProjectWarningDialog } from './ReplaceProjectWarningDialog';
 
@@ -26,7 +26,7 @@ export function LaunchScreen() {
   function exportCurrentProject() {
     const file = stateToProjectFile(useProjectStore.getState());
     const safeName = file.name.replace(/[/\\:*?"<>|]/g, '').trim() || 'projet';
-    downloadJson(`${safeName}.json`, file);
+    downloadJson(`${safeName}_${filenameTimestamp(file.exportedAt)}.json`, file);
   }
 
   async function runPendingAction(action: PendingAction) {

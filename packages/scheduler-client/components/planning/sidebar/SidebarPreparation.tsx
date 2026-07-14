@@ -289,6 +289,7 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
           rooms={editingCourse.course.rooms}
           duration={editingCourse.course.duration}
           showDuration={true}
+          level={editingCourse.course.level}
           teacherOptions={teacherOptions}
           groupOptions={groupOptions}
           roomOptions={roomOptions}

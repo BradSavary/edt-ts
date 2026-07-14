@@ -10,8 +10,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { CourseTaskData, ResourceEntry } from '@edt-ts/scheduler-common';
 import { ResourceSlots } from '@/components/planning/modals/ResourceSlots';
+import { BUT_LEVEL_OPTIONS, semesterFromLevel, sortGroupsByLevel } from '@/lib/butLevel';
 
 interface Props {
   week: number;
@@ -38,6 +46,7 @@ export default function CourseCreateModal({
   const [code, setCode] = useState(initialCourse?.code ?? '');
   const [name, setName] = useState(initialCourse?.name ?? '');
   const [type, setType] = useState(initialCourse?.type ?? 'CM');
+  const [level, setLevel] = useState(initialCourse?.level ?? 0);
   const [duration, setDuration] = useState(initialCourse?.duration ?? 60);
   const [teachers, setTeachers] = useState<ResourceEntry[]>(initialCourse?.teacher ?? []);
   const [groups, setGroups] = useState<ResourceEntry[]>(initialCourse?.groups ?? []);
@@ -49,8 +58,8 @@ export default function CourseCreateModal({
     if (!canConfirm) return;
     const course: CourseTaskData = {
       week,
-      semester: initialCourse?.semester ?? 0,
-      level: initialCourse?.level ?? 0,
+      semester: semesterFromLevel(level),
+      level,
       code: code.trim(),
       name: name.trim(),
       type: type.trim(),
@@ -109,6 +118,23 @@ export default function CourseCreateModal({
             />
           </div>
 
+          {/* Niveau */}
+          <div>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1.5">
+              Niveau
+            </Label>
+            <Select value={String(level)} onValueChange={(v) => setLevel(Number(v))}>
+              <SelectTrigger className="h-8 text-sm w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {BUT_LEVEL_OPTIONS.map((l) => (
+                  <SelectItem key={l.value} value={String(l.value)}>{l.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Durée */}
           <div>
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1.5">
@@ -134,7 +160,7 @@ export default function CourseCreateModal({
           <ResourceSlots
             label="Groupe(s)"
             values={groups}
-            options={groupOptions}
+            options={sortGroupsByLevel(groupOptions, level)}
             onChange={setGroups}
           />
           <ResourceSlots

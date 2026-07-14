@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ResourceSlots } from '@/components/planning/modals/ResourceSlots';
 import type { ResourceEntry } from '@edt-ts/scheduler-common';
+import { sortGroupsByLevel } from '@/lib/butLevel';
 
 export interface TaskEditUpdate {
   teachers: ResourceEntry[];
@@ -30,6 +31,8 @@ interface Props {
   roomOptions: string[];
   duration?: number;
   showDuration?: boolean;
+  /** Niveau BUT du cours (fixé à la création, non modifiable ici) : sert uniquement à prioriser les groupes du même niveau dans la liste. */
+  level?: number;
   isEnforced?: boolean;
   /** Autorise le regroupement en alternative. false pour les placements concrets (calendrier). */
   allowAlternatives?: boolean;
@@ -48,6 +51,7 @@ export default function TaskEditModal({
   roomOptions,
   duration,
   showDuration = false,
+  level,
   isEnforced,
   allowAlternatives = true,
   onRemoveEnforced,
@@ -62,7 +66,12 @@ export default function TaskEditModal({
   function handleConfirm() {
     const parsedDuration = parseInt(selDuration, 10);
     const finalDuration = isNaN(parsedDuration) || parsedDuration < 15 ? 15 : parsedDuration;
-    onConfirm({ teachers: selTeachers, groups: selGroups, rooms: selRooms, ...(showDuration ? { duration: finalDuration } : {}) });
+    onConfirm({
+      teachers: selTeachers,
+      groups: selGroups,
+      rooms: selRooms,
+      ...(showDuration ? { duration: finalDuration } : {}),
+    });
   }
 
   return (
@@ -101,7 +110,7 @@ export default function TaskEditModal({
           <ResourceSlots
             label="Groupe(s)"
             values={selGroups}
-            options={groupOptions}
+            options={level !== undefined ? sortGroupsByLevel(groupOptions, level) : groupOptions}
             onChange={setSelGroups}
             allowAlternatives={allowAlternatives}
           />
