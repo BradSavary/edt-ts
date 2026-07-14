@@ -6,8 +6,9 @@
  */
 
 // --- Planificateur ---
-export { Scheduler } from './scheduler.js';
-export type { SchedulerSolution, NeutralizedUnitInfo } from './scheduler.js';
+export { Scheduler, SLOT_STEP } from './scheduler.js';
+export type { SchedulerSolution, NeutralizedUnitInfo, BacktrackOutcome } from './scheduler.js';
+export { BackjumpingScheduler, createScheduler } from './backjumpingScheduler.js';
 export { TaskUnit } from './taskUnit.js';
 export { TaskGroupUnit } from './taskGroupUnit.js';
 export type { ISchedulingUnit, SchedulingResult, UnitSolution } from './schedulingUnit.js';

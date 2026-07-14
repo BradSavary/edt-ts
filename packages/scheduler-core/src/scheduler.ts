@@ -6,7 +6,17 @@ import type { ISchedulingUnit, SchedulingResult, UnitSolution } from './scheduli
 import { TaskUnit } from './taskUnit.js';
 import { TaskGroupUnit } from './taskGroupUnit.js';
 
-const SLOT_STEP = 30; // minutes — granularité du backtracking
+export const SLOT_STEP = 30; // minutes — granularité du backtracking
+
+/**
+ * Résultat de `_backtrack()` : `true` = solution complète trouvée (ou objectif atteint),
+ * `false` = échec normal (retour arrière d'un seul niveau, rien à qui sauter), une chaîne
+ * = échec avec cible de saut (id de l'unité vers laquelle remonter directement — utilisé
+ * par BackjumpingScheduler, ignoré par Scheduler qui ne retourne jamais que boolean).
+ * Type primitif (pas d'objet) : `_backtrack` est appelée jusqu'à 1M de fois par résolution,
+ * éviter une allocation par appel.
+ */
+export type BacktrackOutcome = boolean | string;
 
 // ── Types de sortie ──────────────────────────────────────────────────────────
 
@@ -41,19 +51,22 @@ export interface SchedulerSolution {
 export class Scheduler {
     protected _units: ISchedulingUnit[] = [];                                                        // unités à planifier (enforced en tête)
     protected _resources: Resource[] = [];                                                            // toutes les ressources chargées (utilisé pour la pause fixe)
-    private _scheduled = new Map<string, SchedulingResult>();                                         // index id→résultat des unités placées dans la branche courante (accès O(1) pour les dépendances)
-    private _solution: Array<{ unit: ISchedulingUnit; result: SchedulingResult }> = [];               // pile ordonnée de la branche courante du backtrack
-    private _allSolutions: SchedulerSolution[] = [];                                                  // solutions complètes accumulées
-    private _bestScore = -Infinity;                                                                   // meilleur score parmi les solutions trouvées
-    private _solutionsFound = 0;                                                                      // compteur de solutions complètes trouvées
+    protected _scheduled = new Map<string, SchedulingResult>();                                       // index id→résultat des unités placées dans la branche courante (accès O(1) pour les dépendances)
+    protected _solution: Array<{ unit: ISchedulingUnit; result: SchedulingResult }> = [];             // pile ordonnée de la branche courante du backtrack
+    protected _allSolutions: SchedulerSolution[] = [];                                                // solutions complètes accumulées
+    protected _bestScore = -Infinity;                                                                 // meilleur score parmi les solutions trouvées
+    protected _solutionsFound = 0;                                                                    // compteur de solutions complètes trouvées
     private _startTime = 0;                                                                           // horodatage du début de solve() — sert au timeout
-    private _iterations = 0;                                                                          // compteur d'appels récursifs à _backtrack()
+    protected _iterations = 0;                                                                        // compteur d'appels récursifs à _backtrack()
     private _limitWarning = false;                                                                    // évite de logger le timeout/maxIterations plusieurs fois
     private _initialized = false;                                                                     // verrou : solve() interdit avant initSolver()
-    private _firstNonEnforcedIndex = 0;                                                               // index du premier élément non-enforced dans _units
-    private _failureCounts = new Map<string, number>();                                               // nb d'échecs par unité — utilisé par solveWithElimination()
+    protected _firstNonEnforcedIndex = 0;                                                             // index du premier élément non-enforced dans _units
+    protected _failureCounts = new Map<string, number>();                                             // nb d'échecs par unité — utilisé par solveWithElimination()
     private _dailyBookedMinutes = new Map<string, Map<number, number>>();                             // durée bookée par jour par ressource — sert au filtre maxDailyMinutes
     private _floatingLB: { earliestMin: number; latestMin: number; duration: number } | null = null; // config pause flottante pré-calculée (null si inactive)
+
+    /** Nom de l'algorithme de recherche — surchargé par les sous-classes (ex: BackjumpingScheduler). */
+    readonly algorithmName: string = 'backtracking';
 
     protected _config: Required<SchedulerConfig> = {
         maxSolutions: 6,
@@ -62,6 +75,7 @@ export class Scheduler {
         maxEliminations: 3,
         lunchBreak: { type: 'none' },
         ignoreDailyLimits: false,
+        algorithm: 'backtracking',
     };
 
     configure(config: SchedulerConfig): this {
@@ -229,7 +243,7 @@ export class Scheduler {
 
     // ── Backtracking ─────────────────────────────────────────────────────────
 
-    protected _backtrack(unitIndex: number): boolean {
+    protected _backtrack(unitIndex: number): BacktrackOutcome {
         this._iterations++;
 
         if ( this._limitsReached() ) return false;
@@ -321,6 +335,18 @@ export class Scheduler {
      * compte, jamais le flux d'exploration de `_backtrack` lui-même.
      */
     private _incrementFailureBlame(unit: ISchedulingUnit, fromTime: number): void {
+        this._blameConflictSet(unit, this._computeConflictSet(unit, fromTime));
+    }
+
+    /**
+     * Calcule l'ensemble de conflit réel (§4.5/§5.7) : les unités de `_solution` qui occupent
+     * actuellement une ressource candidate de `unit`, et dont la réservation empiète sur
+     * `fromTime` (donc potentiellement responsables de son échec à trouver un créneau).
+     * Lecture seule, aucun effet de bord — extrait de `_incrementFailureBlame` pour être
+     * réutilisable à la fois par le blâme (§5.7, ci-dessus) et par le backjumping
+     * (BackjumpingScheduler, qui l'utilise comme cible de saut plutôt que juste un compteur).
+     */
+    protected _computeConflictSet(unit: ISchedulingUnit, fromTime: number): Set<ISchedulingUnit> {
         const candidateResources = unit.getCandidateResources();
         const occupants = new Set<ISchedulingUnit>();
         for (const entry of this._solution) {
@@ -329,6 +355,14 @@ export class Scheduler {
                 occupants.add(entry.unit);
             }
         }
+        return occupants;
+    }
+
+    /**
+     * Incrémente les compteurs de blâme à partir d'un ensemble de conflit déjà calculé —
+     * repli sur `unit` elle-même si l'ensemble est vide (comportement inchangé depuis §5.7).
+     */
+    protected _blameConflictSet(unit: ISchedulingUnit, occupants: Set<ISchedulingUnit>): void {
         if (occupants.size > 0) {
             for (const occ of occupants) {
                 this._failureCounts.set(occ.id, (this._failureCounts.get(occ.id) ?? 0) + 1);
@@ -428,7 +462,7 @@ export class Scheduler {
      * méridienne flottante pour au moins une ressource GROUP.
      * Retourne toujours true quand aucune contrainte flottante n'est configurée.
      */
-    private _floatingLBAllows(result: SchedulingResult, duration: number): boolean {
+    protected _floatingLBAllows(result: SchedulingResult, duration: number): boolean {
         if (this._floatingLB === null) return true;
         const flb = this._floatingLB;
         const slotStart = result.start;
@@ -487,7 +521,7 @@ export class Scheduler {
         return false;
     }
 
-    private _dailyLimitAllows(result: SchedulingResult, duration: number): boolean {
+    protected _dailyLimitAllows(result: SchedulingResult, duration: number): boolean {
         if (this._config.ignoreDailyLimits) return true;
         const MINUTES_PER_DAY = 24 * 60;
         const dayIndex = Math.floor(result.start / MINUTES_PER_DAY);
@@ -500,7 +534,7 @@ export class Scheduler {
         return true;
     }
 
-    private _addDailyUsage(result: SchedulingResult, duration: number): void {
+    protected _addDailyUsage(result: SchedulingResult, duration: number): void {
         const MINUTES_PER_DAY = 24 * 60;
         const dayIndex = Math.floor(result.start / MINUTES_PER_DAY);
         for (const r of result.resources) {
@@ -511,7 +545,7 @@ export class Scheduler {
         }
     }
 
-    private _subtractDailyUsage(result: SchedulingResult, duration: number): void {
+    protected _subtractDailyUsage(result: SchedulingResult, duration: number): void {
         const MINUTES_PER_DAY = 24 * 60;
         const dayIndex = Math.floor(result.start / MINUTES_PER_DAY);
         for (const r of result.resources) {
@@ -522,7 +556,7 @@ export class Scheduler {
         }
     }
 
-    private _limitsReached(): boolean {
+    protected _limitsReached(): boolean {
         const elapsed = Date.now() - this._startTime;
         if (elapsed > this._config.timeoutSeconds * 1000) {
             if (!this._limitWarning) {
