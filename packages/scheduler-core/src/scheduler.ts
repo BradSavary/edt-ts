@@ -76,6 +76,8 @@ export class Scheduler {
         lunchBreak: { type: 'none' },
         ignoreDailyLimits: false,
         algorithm: 'backtracking',
+        conflictSetDailyLimitAware: false,
+        conflictSetSlotAware: false,
     };
 
     configure(config: SchedulerConfig): this {
@@ -345,17 +347,91 @@ export class Scheduler {
      * Lecture seule, aucun effet de bord — extrait de `_incrementFailureBlame` pour être
      * réutilisable à la fois par le blâme (§5.7, ci-dessus) et par le backjumping
      * (BackjumpingScheduler, qui l'utilise comme cible de saut plutôt que juste un compteur).
+     *
+     * Angle mort connu (par défaut) : ce scan ne voit que `Resource.availability` (chevauchement
+     * direct d'intervalles) — il ignore totalement `_dailyBookedMinutes`. Un échec causé par le
+     * CUMUL du plafond quotidien d'une ressource (plusieurs réservations distinctes, chacune
+     * antérieure à `fromTime` donc filtrée ci-dessus) ne blâme alors personne de pertinent.
+     * Correctif optionnel ci-dessous, gardé derrière `conflictSetDailyLimitAware` (défaut false)
+     * le temps de valider qu'il n'introduit pas de régression sur le projet réel.
+     *
+     * Sur-inclusion connue (par défaut) : le scan blâme toute entrée partageant NE SERAIT-CE
+     * QU'UNE ressource candidate, même si `unit` avait plusieurs autres alternatives libres pour
+     * ce même slot (ex: 4 profs libres sur 5) — la vraie cause est alors ailleurs. Mode alternatif
+     * `conflictSetSlotAware` (défaut false) : ne blâme un slot que s'il est collectivement saturé
+     * (toutes ses alternatives occupées) — approximation moins précise qu'une re-simulation par
+     * combo (ne détecte pas les slots partiellement libres mais jamais alignés dans le temps
+     * entre eux), retenue en premier pour son coût plus faible.
      */
     protected _computeConflictSet(unit: ISchedulingUnit, fromTime: number): Set<ISchedulingUnit> {
-        const candidateResources = unit.getCandidateResources();
         const occupants = new Set<ISchedulingUnit>();
-        for (const entry of this._solution) {
-            if (entry.result.start + entry.unit.duration <= fromTime) continue; // réservation antérieure, hors cause
-            if (entry.result.resources.some(r => candidateResources.includes(r))) {
-                occupants.add(entry.unit);
+
+        if (this._config.conflictSetSlotAware) {
+            this._addSlotSaturatedOccupants(unit, fromTime, occupants);
+        } else {
+            const candidateResources = unit.getCandidateResources();
+            for (const entry of this._solution) {
+                if (entry.result.start + entry.unit.duration <= fromTime) continue; // réservation antérieure, hors cause
+                if (entry.result.resources.some(r => candidateResources.includes(r))) {
+                    occupants.add(entry.unit);
+                }
             }
         }
+
+        if (this._config.conflictSetDailyLimitAware) {
+            this._addDailyLimitOccupants(unit, unit.getCandidateResources(), occupants);
+        }
+
         return occupants;
+    }
+
+    /**
+     * Mode `conflictSetSlotAware` de `_computeConflictSet` : pour chaque slot de ressources
+     * candidates de `unit` (ex: le slot "prof", avec ses N alternatives), ne blâme les entrées
+     * occupant ce slot que si TOUTES ses alternatives sont occupées à `fromTime` — un slot avec
+     * au moins une alternative encore libre n'est, par définition, pas la cause de l'échec.
+     */
+    private _addSlotSaturatedOccupants(unit: ISchedulingUnit, fromTime: number, occupants: Set<ISchedulingUnit>): void {
+        const isOccupiedAt = (r: Resource): boolean =>
+            this._solution.some(entry =>
+                entry.result.start + entry.unit.duration > fromTime &&
+                entry.result.resources.includes(r)
+            );
+
+        for (const slot of unit.getCandidateResourceSlots()) {
+            if (!slot.every(isOccupiedAt)) continue; // au moins une alternative libre : slot non saturé
+            for (const r of slot) {
+                for (const entry of this._solution) {
+                    if (entry.result.start + entry.unit.duration <= fromTime) continue;
+                    if (entry.result.resources.includes(r)) occupants.add(entry.unit);
+                }
+            }
+        }
+    }
+
+    /**
+     * Extension de `_computeConflictSet` (§5.7) : pour chaque ressource candidate plafonnée
+     * (`maxDailyMinutes`), si un jour est déjà saturé au point d'empêcher `unit` d'y tenir,
+     * blâme TOUTES les unités ayant consommé du temps sur cette ressource ce jour-là — même
+     * celles dont la réservation est terminée depuis longtemps (le filtre temporel ci-dessus
+     * ne s'applique pas ici : le cumul quotidien, contrairement au chevauchement d'intervalle,
+     * ne dépend pas de l'ordre chronologique des réservations dans la journée).
+     */
+    private _addDailyLimitOccupants(unit: ISchedulingUnit, candidateResources: Resource[], occupants: Set<ISchedulingUnit>): void {
+        const MINUTES_PER_DAY = 24 * 60;
+        for (const r of candidateResources) {
+            if (r.maxDailyMinutes === undefined) continue;
+            const byDay = this._dailyBookedMinutes.get(r.id);
+            if (!byDay) continue;
+            for (const [dayIndex, minutesBooked] of byDay) {
+                if (minutesBooked + unit.duration <= r.maxDailyMinutes) continue; // ce jour n'est pas saturé pour r
+                for (const entry of this._solution) {
+                    if (!entry.result.resources.includes(r)) continue;
+                    if (Math.floor(entry.result.start / MINUTES_PER_DAY) !== dayIndex) continue;
+                    occupants.add(entry.unit);
+                }
+            }
+        }
     }
 
     /**

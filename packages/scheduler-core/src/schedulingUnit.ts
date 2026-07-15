@@ -136,6 +136,15 @@ export interface ISchedulingUnit {
     getCandidateResources(): Resource[];
 
     /**
+     * Retourne les ressources candidates groupées par slot (un tableau par slot — ex: un slot
+     * "prof" avec ses N profs alternatifs, un slot "salle" avec ses M salles alternatives —
+     * plutôt que la liste aplatie de getCandidateResources()). Utilisée par _computeConflictSet
+     * (§5.7, mode conflictSetSlotAware) pour ne blâmer un slot que s'il est collectivement
+     * saturé (toutes ses alternatives occupées), pas juste partiellement touché.
+     */
+    getCandidateResourceSlots(): Resource[][];
+
+    /**
      * Retourne les tâches membres individuelles de l'unité.
      * Pour une TaskUnit : [this.task]. Pour un TaskGroupUnit : toutes les tâches du groupe.
      * Permet à la sérialisation d'éclater un groupe neutralisé en N entrées.
