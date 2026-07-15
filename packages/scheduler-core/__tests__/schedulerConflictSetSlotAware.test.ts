@@ -14,15 +14,15 @@ function findUnit(units: ISchedulingUnit[], codePrefix: string): ISchedulingUnit
   return unit;
 }
 
-describe('Scheduler — sur-inclusion de _computeConflictSet (conflictSetSlotAware)', () => {
+describe('Scheduler — _computeConflictSet ne blâme un slot que s\'il est collectivement saturé', () => {
   /**
    * ROOM_HOG (enforced) monopolise SALLE toute la journée — vraie cause de l'échec de A.
    * OCCT1 (enforced) occupe juste T1, une alternative parmi cinq pour A (T2..T5 libres) — sans
-   * aucun rapport avec la salle. Sans le mode slot-aware, OCCT1 est blâmée à tort aux côtés de
-   * ROOM_HOG simplement parce qu'elle partage une ressource candidate.
+   * aucun rapport avec la salle. OCCT1 ne doit PAS être blâmée : le slot "prof" de A a quatre
+   * autres alternatives libres, donc T1 n'était jamais la cause du blocage.
    */
-  function buildScenario(): RawScheduleData {
-    return {
+  it('une unité occupant une alternative parmi plusieurs libres n\'est pas blâmée à tort', () => {
+    const scenario: RawScheduleData = {
       week: 30,
       resources: [
         { resourceType: 'teacher', resources: [{ id: 'T1' }, { id: 'T2' }, { id: 'T3' }, { id: 'T4' }, { id: 'T5' }, { id: 'THOG' }] },
@@ -44,10 +44,8 @@ describe('Scheduler — sur-inclusion de _computeConflictSet (conflictSetSlotAwa
         SALLE: [{ days: 'lundi', from: '08:00', to: '18:00' }], ROOM_X: [{ days: 'lundi', from: '08:00', to: '18:00' }],
       },
     };
-  }
 
-  it('flag désactivé (défaut) : sur-inclusion documentée — OCCT1 est blâmée à tort aux côtés de ROOM_HOG', () => {
-    Loader.loadFromRawData(buildScenario());
+    Loader.loadFromRawData(scenario);
     const scheduler = new InspectableScheduler();
     scheduler.initSolver();
     scheduler.solve();
@@ -56,28 +54,13 @@ describe('Scheduler — sur-inclusion de _computeConflictSet (conflictSetSlotAwa
     const roomHog = findUnit(units, 'ROOMHOG'), occt1 = findUnit(units, 'OCCT1');
     const counts = scheduler.getTaskFailureCounts();
 
-    expect(counts.get(roomHog.id)).toBe(1);
-    expect(counts.get(occt1.id)).toBe(1); // faux positif : T1 n'était qu'une alternative parmi cinq
-  });
-
-  it('flag activé : seule ROOM_HOG (slot salle collectivement saturé) est blâmée ; OCCT1 ne l\'est plus (slot prof avait 4 alternatives libres)', () => {
-    Loader.loadFromRawData(buildScenario());
-    const scheduler = new InspectableScheduler();
-    scheduler.configure({ conflictSetSlotAware: true });
-    scheduler.initSolver();
-    scheduler.solve();
-
-    const units = scheduler.getUnits();
-    const roomHog = findUnit(units, 'ROOMHOG'), occt1 = findUnit(units, 'OCCT1');
-    const counts = scheduler.getTaskFailureCounts();
-
-    expect(counts.get(roomHog.id)).toBe(1);
-    expect(counts.get(occt1.id)).toBeUndefined();
+    expect(counts.get(roomHog.id)).toBe(1); // vraie cause : slot salle saturé (1 seule salle, occupée)
+    expect(counts.get(occt1.id)).toBeUndefined(); // slot prof avait 4 autres alternatives libres
   });
 
   /**
-   * Limite connue et documentée du mode slot-aware (approximation, pas une re-simulation par
-   * combo). A a besoin de (T1 OU T2) ET (R1 OU R2), 60min :
+   * Limite connue et documentée (approximation, pas une re-simulation par combo). A a besoin
+   * de (T1 OU T2) ET (R1 OU R2), 60min :
    *  - T1 n'est disponible QUE 8h-9h, entièrement consommée par X (enforced, exactement 8h-9h)
    *    → combo (T1,*) toujours impossible, quelle que soit la salle : X est la vraie cause.
    *  - T2 n'est disponible QUE 14h-15h.
@@ -123,7 +106,6 @@ describe('Scheduler — sur-inclusion de _computeConflictSet (conflictSetSlotAwa
 
     Loader.loadFromRawData(scenario);
     const scheduler = new InspectableScheduler();
-    scheduler.configure({ conflictSetSlotAware: true });
     scheduler.initSolver();
     const results = scheduler.solve();
 

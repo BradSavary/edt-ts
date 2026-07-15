@@ -1,7 +1,7 @@
 import { workerData, parentPort } from 'node:worker_threads';
 import {
   Loader,
-  createScheduler,
+  Scheduler,
 } from '@edt-ts/scheduler-core';
 import type { RawScheduleData, SchedulerConfig, ScheduleSolutionJSON, ISchedulable } from '@edt-ts/scheduler-common';
 import type { SchedulerSolution } from '@edt-ts/scheduler-core';
@@ -33,11 +33,11 @@ try {
   const allTasks = Loader.tasksManager.getAllUnits();
   const taskMap = new Map<string, ISchedulable>(allTasks.map(t => [t.id, t]));
 
-  const scheduler = createScheduler(payload.options);
+  const scheduler = new Scheduler();
   if (payload.options) scheduler.configure(payload.options);
 
   const results: SchedulerSolution[] = scheduler.solveWithElimination();
-  const response: ScheduleSolutionJSON[] = results.map(r => serializeSchedulerSolution(r, taskMap, scheduler.algorithmName));
+  const response: ScheduleSolutionJSON[] = results.map(r => serializeSchedulerSolution(r, taskMap));
 
   parentPort.postMessage({ type: 'done', jobId, result: response });
 } catch (err: unknown) {

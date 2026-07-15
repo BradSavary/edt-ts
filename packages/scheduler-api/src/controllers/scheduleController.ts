@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import {
   Loader,
-  createScheduler,
+  Scheduler,
 } from '@edt-ts/scheduler-core';
 import type { RawScheduleData, ScheduleSolutionJSON, SchedulerConfig, ISchedulable } from '@edt-ts/scheduler-common';
 import { DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
@@ -42,12 +42,12 @@ export async function schedulerV2Handler(req: Request, res: Response): Promise<v
     const allTasks = Loader.tasksManager.getAllUnits();
     const taskMap = new Map<string, ISchedulable>(allTasks.map(t => [t.id, t]));
 
-    const scheduler = createScheduler(body.options);
+    const scheduler = new Scheduler();
     if (body.options) scheduler.configure(body.options);
 
     const results: SchedulerSolution[] = scheduler.solveWithElimination();
 
-    const response: ScheduleSolutionJSON[] = results.map(r => serializeSchedulerSolution(r, taskMap, scheduler.algorithmName));
+    const response: ScheduleSolutionJSON[] = results.map(r => serializeSchedulerSolution(r, taskMap));
     res.status(200).json(response);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

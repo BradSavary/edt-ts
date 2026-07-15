@@ -47,7 +47,7 @@ export function serializeNeutralizedUnit(info: NeutralizedUnitInfo): Neutralized
   });
 }
 
-export function serializeSchedulerSolution(result: SchedulerSolution, taskMap: Map<string, ISchedulable>, algorithmName?: string): ScheduleSolutionJSON {
+export function serializeSchedulerSolution(result: SchedulerSolution, taskMap: Map<string, ISchedulable>): ScheduleSolutionJSON {
   const out: ScheduleSolutionJSON = {
     solutions:  serializeUnitSolutions(result.solutions, taskMap),
     isComplete: result.isComplete,
@@ -56,6 +56,5 @@ export function serializeSchedulerSolution(result: SchedulerSolution, taskMap: M
   if (result.neutralizedUnits && result.neutralizedUnits.length > 0) {
     out.neutralizedTasks = result.neutralizedUnits.flatMap(u => serializeNeutralizedUnit(u));
   }
-  if (algorithmName) out.algorithmName = algorithmName;
   return out;
 }

@@ -130,16 +130,9 @@ export interface ISchedulingUnit {
     toSolutions(result: SchedulingResult): UnitSolution[];
 
     /**
-     * Retourne la liste aplatie des ressources candidates (toutes alternatives confondues).
-     * Utilisée pour sérialiser une unité neutralisée (non placée).
-     */
-    getCandidateResources(): Resource[];
-
-    /**
      * Retourne les ressources candidates groupées par slot (un tableau par slot — ex: un slot
-     * "prof" avec ses N profs alternatifs, un slot "salle" avec ses M salles alternatives —
-     * plutôt que la liste aplatie de getCandidateResources()). Utilisée par _computeConflictSet
-     * (§5.7, mode conflictSetSlotAware) pour ne blâmer un slot que s'il est collectivement
+     * "prof" avec ses N profs alternatifs, un slot "salle" avec ses M salles alternatives).
+     * Utilisée par _computeConflictSet (§5.7) pour ne blâmer un slot que s'il est collectivement
      * saturé (toutes ses alternatives occupées), pas juste partiellement touché.
      */
     getCandidateResourceSlots(): Resource[][];

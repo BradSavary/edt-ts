@@ -140,8 +140,6 @@ export interface ScheduleSolutionJSON {
   isComplete: boolean;
   score?: number;
   neutralizedTasks?: NeutralizedTaskInfoJSON[];
-  /** Algorithme de recherche ayant produit ce résultat (ex: 'backtracking', 'backjumping') */
-  algorithmName?: string;
 }
 
 // --------------------------------------------------------------------------
@@ -223,28 +221,6 @@ export interface SchedulerConfig {
   lunchBreak?: LunchBreakConfig;
   /** Si true, ignore les limites maxDailyMinutes de toutes les ressources (défaut : false) */
   ignoreDailyLimits?: boolean;
-  /** Algorithme de recherche : backtracking chronologique ou backjumping dirigé par les conflits (défaut : 'backtracking') */
-  algorithm?: 'backtracking' | 'backjumping';
-  /**
-   * Paramètre transitoire (§5.7) : si true, `_computeConflictSet` détecte aussi les échecs
-   * causés par la saturation du plafond quotidien (`maxDailyMinutes`) d'une ressource, pas
-   * seulement le chevauchement direct d'intervalles — voir docs/HeuristiquePriorite-Conception.md
-   * §5.7. Défaut : false (comportement historique inchangé) — à activer explicitement pour
-   * comparer avec/sans avant de généraliser, par prudence (cf. incidents DailyUsageReader et
-   * tie-break popularité, tous deux revertés après régression sur le projet réel).
-   */
-  conflictSetDailyLimitAware?: boolean;
-  /**
-   * Paramètre transitoire (§5.7) : si true, `_computeConflictSet` ne blâme un slot de ressource
-   * (ex: le slot "prof") que si TOUTES ses alternatives sont occupées (saturation collective),
-   * au lieu de blâmer toute entrée partageant ne serait-ce qu'une seule ressource — évite de
-   * blâmer à tort une unité qui occupe une alternative parmi plusieurs quand la vraie cause de
-   * l'échec est ailleurs. Version volontairement moins précise qu'une re-simulation par combo
-   * (ne détecte pas les cas où des alternatives libres existent mais ne s'alignent jamais dans
-   * le temps entre slots différents) — testée en premier pour son coût plus faible. Défaut :
-   * false (comportement historique inchangé).
-   */
-  conflictSetSlotAware?: boolean;
 }
 
 /** Valeurs par défaut appliquées par le solver lorsqu'une option n'est pas fournie. */
@@ -255,7 +231,4 @@ export const DEFAULT_SCHEDULER_CONFIG: Required<SchedulerConfig> = {
   maxEliminations: 3,
   lunchBreak: { type: 'none' },
   ignoreDailyLimits: false,
-  algorithm: 'backtracking',
-  conflictSetDailyLimitAware: false,
-  conflictSetSlotAware: false,
 };

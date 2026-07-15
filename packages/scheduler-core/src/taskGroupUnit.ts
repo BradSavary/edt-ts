@@ -334,21 +334,6 @@ export class TaskGroupUnit implements ISchedulingUnit {
         return solutions;
     }
 
-    getCandidateResources(): Resource[] {
-        const seen = new Set<Resource>();
-        const out: Resource[] = [];
-        for (const task of this._tasks) {
-            for (const alternatives of Object.values(task.resources)) {
-                for (const combo of alternatives as Resource[][]) {
-                    for (const r of combo) {
-                        if (!seen.has(r)) { seen.add(r); out.push(r); }
-                    }
-                }
-            }
-        }
-        return out;
-    }
-
     getCandidateResourceSlots(): Resource[][] {
         const slots: Resource[][] = [];
         for (const task of this._tasks) {

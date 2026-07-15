@@ -192,19 +192,6 @@ export class TaskUnit implements ISchedulingUnit {
         return [{ unit: this, start: result.start, resources: result.resources }];
     }
 
-    getCandidateResources(): Resource[] {
-        const seen = new Set<Resource>();
-        const out: Resource[] = [];
-        for (const alternatives of Object.values(this.task.resources)) {
-            for (const combo of alternatives as Resource[][]) {
-                for (const r of combo) {
-                    if (!seen.has(r)) { seen.add(r); out.push(r); }
-                }
-            }
-        }
-        return out;
-    }
-
     getCandidateResourceSlots(): Resource[][] {
         const slots: Resource[][] = [];
         for (const alternatives of Object.values(this.task.resources)) {
