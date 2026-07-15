@@ -204,14 +204,24 @@ export class Scheduler {
             if (targetIdx === -1) break;
 
             const eliminated = this._units[targetIdx];
-            console.log(`🗑️  Élimination round ${round + 1} : unité "${eliminated.id}" (${maxCount} échec(s))`);
+            const dependents = this._collectDependents(eliminated);
+            console.log(`🗑️  Élimination round ${round + 1} : unité "${eliminated.id}" (${maxCount} échec(s))${dependents.length > 0 ? ` + ${dependents.length} dépendant(s) neutralisé(s) en chaîne` : ''}`);
             neutralizedList.push({
                 unit: eliminated,
                 eliminationRound: round + 1,
                 failureCount: maxCount,
                 reason: `Unité la plus bloquante : ${maxCount} échec(s) au backtracking`,
             });
-            this._units.splice(targetIdx, 1);
+            for (const dep of dependents) {
+                neutralizedList.push({
+                    unit: dep,
+                    eliminationRound: round + 1,
+                    failureCount: counts.get(dep.id) ?? 0,
+                    reason: `Dépend de « ${eliminated.id} », neutralisée ce round — chaîne CM/TD/TP incomplète`,
+                });
+            }
+            const removed = new Set<string>([eliminated.id, ...dependents.map(d => d.id)]);
+            this._units = this._units.filter(u => !removed.has(u.id));
             results = this.solve();
         }
 
@@ -225,6 +235,27 @@ export class Scheduler {
         }
 
         return results;
+    }
+
+    /**
+     * Dépendants transitifs (non enforced) d'une unité — pour neutralisation en chaîne lors
+     * d'une élimination (solveWithElimination). Éliminer une unité sans neutraliser aussi ses
+     * dépendants les orphelinerait : au round suivant, _backtrack lèverait une exception dès
+     * qu'il les atteindrait (leur dépendance n'est plus jamais planifiée). Les dépendants
+     * enforced sont exclus : ils ne passent jamais par la vérification de dépendance de
+     * _backtrack (aucune frame ne les concerne), donc ne causent pas le crash, et leur
+     * placement relève de la responsabilité de l'utilisateur.
+     */
+    private _collectDependents(root: ISchedulingUnit): ISchedulingUnit[] {
+        const out: ISchedulingUnit[] = [];
+        const stack = [...root.getDependentUnits()];
+        while (stack.length > 0) {
+            const u = stack.pop()!;
+            if (u.isEnforced || out.includes(u)) continue;
+            out.push(u);
+            stack.push(...u.getDependentUnits());
+        }
+        return out;
     }
 
     // ── Backtracking ─────────────────────────────────────────────────────────
