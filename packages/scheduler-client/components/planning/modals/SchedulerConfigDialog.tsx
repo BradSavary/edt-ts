@@ -51,6 +51,7 @@ interface Draft {
   lunchFixed: LunchFixedDraft;
   lunchFloating: LunchFloatingDraft;
   ignoreDailyLimits: boolean;
+  conflictOrderingSearch: boolean;
 }
 
 // ── Helpers de conversion ────────────────────────────────────────────────────
@@ -83,6 +84,7 @@ function configToDraft(config: SchedulerConfig): Draft {
     lunchFixed,
     lunchFloating,
     ignoreDailyLimits: config.ignoreDailyLimits ?? DEFAULT_SCHEDULER_CONFIG.ignoreDailyLimits,
+    conflictOrderingSearch: config.conflictOrderingSearch ?? DEFAULT_SCHEDULER_CONFIG.conflictOrderingSearch,
   };
 }
 
@@ -109,6 +111,7 @@ function draftToConfig(draft: Draft): SchedulerConfig {
     maxEliminations: Math.max(1, parseInt(draft.maxEliminations, 10) || DEFAULT_SCHEDULER_CONFIG.maxEliminations),
     lunchBreak,
     ignoreDailyLimits: draft.ignoreDailyLimits,
+    conflictOrderingSearch: draft.conflictOrderingSearch,
   };
 }
 
@@ -231,6 +234,26 @@ export function SchedulerConfigDialog() {
                 </Label>
                 <p className="text-xs text-muted-foreground">
                   Si coché, les limites journalières définies dans les contraintes de toutes les ressources sont ignorées.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 pt-1">
+              <input
+                id="cfg-conflictOrderingSearch"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+                checked={draft.conflictOrderingSearch}
+                onChange={(e) => setDraftField('conflictOrderingSearch', e.target.checked)}
+              />
+              <div className="space-y-0.5">
+                <Label htmlFor="cfg-conflictOrderingSearch" className="cursor-pointer">
+                  Priorité aux tâches en échec (Conflict Ordering Search)
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Le moteur retente en priorité les tâches récemment en échec. Peut améliorer
+                  le choix des tâches à neutraliser sur les semaines difficiles — comparez
+                  avec/sans sur votre projet.
                 </p>
               </div>
             </div>
