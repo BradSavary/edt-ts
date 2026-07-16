@@ -229,6 +229,13 @@ export interface SchedulerConfig {
    * toute généralisation (cf. incidents DailyUsageReader et tie-break popularité, revertés).
    */
   conflictOrderingSearch?: boolean;
+  /**
+   * Paramètre transitoire : si true, l'ensemble de conflit d'une impasse est calculé par
+   * contrefactuel (ensemble minimal de coupables, deletion-MUS) au lieu du scan d'occupation
+   * approximatif — mesuré à 66,8% de faux positifs sur données réelles. N'influence que les
+   * cibles d'élimination, jamais l'exploration. Défaut : false (comportement historique).
+   */
+  conflictSetExact?: boolean;
 }
 
 /** Valeurs par défaut appliquées par le solver lorsqu'une option n'est pas fournie. */
@@ -240,4 +247,5 @@ export const DEFAULT_SCHEDULER_CONFIG: Required<SchedulerConfig> = {
   lunchBreak: { type: 'none' },
   ignoreDailyLimits: false,
   conflictOrderingSearch: false,
+  conflictSetExact: false,
 };

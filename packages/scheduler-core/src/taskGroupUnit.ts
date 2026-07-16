@@ -182,6 +182,14 @@ export class TaskGroupUnit implements ISchedulingUnit {
             }
             this._appliedResources.set(task, []);
         }
+        // Restaure _pendingAssignment : permet un book() immédiat (même `assignment`) sans
+        // earlySchedule() préalable, pour un round-trip unBook/book symétrique — nécessaire
+        // au calcul du blâme exact par contrefactuel (_computeExactConflictSet, scheduler.ts),
+        // qui dé-réserve/re-réserve des entrées déjà placées en dehors du flux normal de
+        // _backtrack. Sans effet sur le flux normal : après un unBook() dans _backtrack, le
+        // prochain appel est toujours earlySchedule() (qui réécrit _pendingAssignment), jamais
+        // book() directement.
+        this._pendingAssignment = assignment;
     }
 
     bookEnforced(): void {
