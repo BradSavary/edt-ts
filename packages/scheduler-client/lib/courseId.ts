@@ -53,6 +53,19 @@ export function courseIdentityKey(course: CourseTaskData): string {
 }
 
 /**
+ * Clé de similarité inter-semaines : `courseIdentityKey` privée de son premier segment
+ * (la semaine, toujours en tête). Deux cours de semaines différentes partageant cette clé
+ * sont "similaires" au sens de la copie de préparation (voir `CopyWeekPrepModal`) — même
+ * code, type, durée, enseignant(s) et groupe(s), semaine mise à part.
+ * Dérivée de `courseIdentityKey` plutôt que recalculée : reste automatiquement synchronisée
+ * si sa définition évolue, sans logique dupliquée.
+ */
+export function courseSimilarityKey(course: CourseTaskData): string {
+  const identity = courseIdentityKey(course);
+  return identity.slice(identity.indexOf('\x00') + 1);
+}
+
+/**
  * Génère un ID déterministe pour un cours CSV.
  * Exportée pour être réutilisée par `lib/csvMerge.ts` (génération d'id pour les cours
  * "ajoutés" lors d'une fusion, avec une occurrence calculée pour ne jamais entrer en

@@ -13,6 +13,7 @@ import { SchedulerConfigDialog } from '@/components/planning/modals/SchedulerCon
 import { WeekNoteDialog } from '@/components/planning/modals/WeekNoteDialog';
 import TaskEditModal, { type TaskEditUpdate } from '@/components/planning/modals/TaskEditModal';
 import CourseCreateModal from '@/components/planning/modals/CourseCreateModal';
+import { CopyWeekPrepModal } from '@/components/planning/modals/CopyWeekPrepModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -197,6 +198,7 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
                   + Cours
                 </Button>
               )}
+              {selectedWeek !== null && <CopyWeekPrepModal />}
               <div className="relative inline-flex">
                 <Button
                   type="button"

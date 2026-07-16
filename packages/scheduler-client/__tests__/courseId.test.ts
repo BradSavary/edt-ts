@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
-import { courseIdentityKey, assignCsvCourseIds, manualCourseId, buildCourseMap } from '../lib/courseId';
+import { courseIdentityKey, courseSimilarityKey, assignCsvCourseIds, manualCourseId, buildCourseMap } from '../lib/courseId';
 
 function makeCourse(overrides: Partial<CourseTaskData> = {}): CourseTaskData {
   return {
@@ -66,6 +66,30 @@ describe('courseIdentityKey', () => {
     const a = makeCourse({ teacher: ['DUPONT', 'MARTIN'], groups: ['G1', 'G2'] });
     const b = makeCourse({ teacher: ['MARTIN', 'DUPONT'], groups: ['G2', 'G1'] });
     expect(courseIdentityKey(a)).toBe(courseIdentityKey(b));
+  });
+});
+
+describe('courseSimilarityKey', () => {
+  it('deux cours identiques sauf la semaine sont similaires', () => {
+    const a = makeCourse({ week: 37 });
+    const b = makeCourse({ week: 38 });
+    expect(courseSimilarityKey(a)).toBe(courseSimilarityKey(b));
+  });
+
+  it('un code, type, durée, enseignant ou groupe différent casse la similarité (semaine identique par ailleurs)', () => {
+    const base = makeCourse({ week: 37 });
+    const other = makeCourse({ week: 38 });
+    expect(courseSimilarityKey(base)).not.toBe(courseSimilarityKey({ ...other, code: 'R102' }));
+    expect(courseSimilarityKey(base)).not.toBe(courseSimilarityKey({ ...other, type: 'TP' }));
+    expect(courseSimilarityKey(base)).not.toBe(courseSimilarityKey({ ...other, duration: 90 }));
+    expect(courseSimilarityKey(base)).not.toBe(courseSimilarityKey({ ...other, teacher: ['MARTIN'] }));
+    expect(courseSimilarityKey(base)).not.toBe(courseSimilarityKey({ ...other, groups: ['G2'] }));
+  });
+
+  it('la salle et le libellé restent exclus, comme pour courseIdentityKey', () => {
+    const a = makeCourse({ week: 37, rooms: ['A101'], name: 'Algorithmique' });
+    const b = makeCourse({ week: 38, rooms: ['B202'], name: 'Algo (renommé)' });
+    expect(courseSimilarityKey(a)).toBe(courseSimilarityKey(b));
   });
 });
 
