@@ -43,19 +43,64 @@ export class OptionalTasksScheduler extends Scheduler {
     /**
      * Point d'entrée officiel de cette classe (le `solve()` hérité, tour-par-tour, n'est pas
      * utilisé ici). `maxSolutions` est ignoré : on garde le meilleur incumbent, pas N solutions.
+     *
+     * Deux passes (P1.5, warm start — heuristique primale standard du branch-and-bound : Land &
+     * Doig 1960 ; Berthold, « Primal Heuristics for Mixed Integer Programs », 2013 ; « starting
+     * point » de CP Optimizer, Laborie et al., Constraints 2018) :
+     *  1. Le moteur gourmand hérité (`Scheduler.solveWithElimination`) amorce l'incumbent et la
+     *     borne — sa solution devient le PLANCHER du résultat final, par construction (propriété
+     *     « jamais pire que le moteur actuel » du STATUT P1.5, qui n'était pas garantie en P1 :
+     *     sur la semaine 40, la première descente du B&B seul ne produisait AUCUN incumbent).
+     *  2. Le B&B ne cherche alors que STRICTEMENT mieux que la passe 1. S'il n'améliore pas (ou
+     *     que le budget est épuisé avant), le résultat rendu reste celui du gourmand — y compris
+     *     ses `reason` (style « Unité la plus bloquante… »), pas les explications MUS de
+     *     `_explainSkip` (qui n'apparaissent que sur un incumbent trouvé PAR le B&B).
+     * Si la passe 1 est déjà complète (0 sautée), elle est indépassable : pas de passe 2.
      */
     override solveWithElimination(): SchedulerSolution[] {
-        this.initSolver();
+        console.log('📋 Passe 1/2 — moteur gourmand (amorce)');
+        const greedyResults = super.solveWithElimination();
+        const greedyRaw = greedyResults[0] ?? null;
+        const greedyCost = greedyRaw
+            ? (greedyRaw.neutralizedUnits ?? []).reduce((n, i) => n + i.unit.getMemberTasks().length, 0)
+            : Infinity;
+        // Normalisation nécessaire : Scheduler.solveWithElimination() hérite la sémantique de
+        // Scheduler.solve() pour `isComplete` — "complet" par rapport au sous-ensemble RÉDUIT
+        // après élimination(s), pas par rapport à l'ensemble original. `isComplete` vaut donc
+        // `true` même avec des unités neutralisées, ce qui contredit le cadrage métier de cette
+        // classe (§1 conception : "complet" = 100%, aucune tâche sautée). Sans cette correction,
+        // un résultat final hérité tel quel de la passe gourmande (aucune amélioration B&B)
+        // rendrait un `isComplete` erroné dès qu'il y a ≥1 sautée (trouvé par test direct).
+        const greedyBest: SchedulerSolution | null = greedyRaw
+            ? { ...greedyRaw, isComplete: greedyCost === 0 }
+            : null;
+        console.log(`🎯 Passe gourmande : ${greedyBest?.neutralizedUnits?.length ?? 0} sautée(s) (coût ${greedyCost === Infinity ? '∞' : greedyCost})`);
+
+        this._budgetExceeded = false;
+
+        // Gourmand complet (0 tâche sautée) : indépassable par construction — pas de passe 2.
+        // Ne PAS appeler _resetBacktrackState() ici : _iterations doit rester celui de la passe
+        // gourmande (aucune passe B&B n'a tourné — voir test « court-circuit gourmand-complet »).
+        // Retourne [greedyBest], pas greedyResults tel quel : cette classe garde toujours EXACTEMENT
+        // un incumbent (maxSolutions est ignoré, cf. docstring), jamais jusqu'à maxSolutions comme
+        // le gourmand peut légitimement en renvoyer plusieurs.
+        if (greedyBest && greedyCost === 0) {
+            this._provenOptimal = true;
+            console.log('✅ Gourmand complet (0 sautée) — indépassable, passe B&B non nécessaire.');
+            return [greedyBest];
+        }
+
+        // ── Passe 2 : B&B, amorcé par la passe gourmande, ne cherche que STRICTEMENT mieux ──
+        console.log('📋 Passe 2/2 — branch-and-bound (amélioration)');
+        this.initSolver(); // le gourmand a muté _units (retrait des unités éliminées) — reconstruire
         this._resetBacktrackState();
         this._skippedSet.clear();
         this._skipStack = [];
         this._skippedTaskCount = 0;
-        this._bestTaskCount = this._config.maxEliminations + 1; // borne initiale : au plus maxEliminations tâches sautées
-        this._bestSolution = null;
+        this._bestSolution = greedyBest;                                                  // jamais pire que le gourmand, par construction
+        this._bestTaskCount = Math.min(this._config.maxEliminations + 1, greedyCost);     // borne d'attaque : cap utilisateur, ou strictement sous le gourmand si plus bas
         this._provenOptimal = false;
-        this._budgetExceeded = false;
 
-        console.log(`📋 ${this._units.length} unités à planifier (recherche à tâches optionnelles)`);
         console.log(`⏰ Timeout: ${this._config.timeoutSeconds}s — budget: ${this._config.maxIterations} itérations`);
 
         const startMs = Date.now();
@@ -63,14 +108,14 @@ export class OptionalTasksScheduler extends Scheduler {
         const endMs = Date.now();
         this._provenOptimal = !this._budgetExceeded;
 
-        console.log(`\n⏱️  Résolution terminée en ${endMs - startMs}ms`);
-        console.log(`🔄 Itérations: ${this._iterations}`);
+        console.log(`\n⏱️  Passe B&B terminée en ${endMs - startMs}ms`);
+        console.log(`🔄 Itérations B&B: ${this._iterations}`);
         const best = this._bestSolution as SchedulerSolution | null; // re-lu après _bb() : TS ne suit pas la mutation via _recordIncumbent()
         if (best) {
             const nSkipped = best.neutralizedUnits?.length ?? 0;
-            console.log(`🎯 Meilleur incumbent : ${best.solutions.length} placées, ${nSkipped} sautée(s) — optimum ${this._provenOptimal ? 'PROUVÉ' : 'non prouvé (budget épuisé)'}`);
+            console.log(`🎯 Meilleur incumbent final : ${best.solutions.length} placées, ${nSkipped} sautée(s) — optimum ${this._provenOptimal ? 'PROUVÉ' : 'non prouvé (budget épuisé)'}`);
         } else {
-            console.log('❌ Aucun incumbent trouvé (aucune solution ne tient sous la limite maxEliminations).');
+            console.log('❌ Aucun incumbent (ni gourmand, ni B&B) — aucune solution ne tient sous la limite maxEliminations.');
         }
 
         return best ? [best] : [];
@@ -88,9 +133,19 @@ export class OptionalTasksScheduler extends Scheduler {
         this._iterations++;
         if (this._limitsReached()) { this._budgetExceeded = true; return true; }
 
+        // Élagage B&B (P1.5) : un nœud dont le coût committé atteint déjà la borne ne peut
+        // plus produire d'amélioration STRICTE — inutile d'explorer. Sans cette coupe à
+        // l'entrée de nœud, la recherche énumère exhaustivement toutes les feuilles à coût
+        // ÉGAL après chaque incumbent (mesuré en P1 : 4542 feuilles de coût 4 sur la semaine
+        // 37, chacune recalculant inutilement les explications MUS de _recordIncumbent).
+        if (this._skippedTaskCount >= this._bestTaskCount) return false;
+
         // ── Feuille : toutes les unités sont placées ou sautées ──
         if (unitIndex >= this._units.length) {
-            this._recordIncumbent(); // _skippedTaskCount < _bestTaskCount garanti par l'élagage à chaque décision de saut
+            // _skippedTaskCount < _bestTaskCount est maintenant un VRAI invariant (P1.5) :
+            // l'élagage ci-dessus l'a déjà vérifié à l'entrée de CET appel, et _skippedTaskCount
+            // ne change pas entre l'entrée et ce point (aucune décision n'est prise en feuille).
+            this._recordIncumbent();
             return this._bestTaskCount === 0; // 0 saut = indépassable : arrêt global
         }
 
@@ -176,7 +231,13 @@ export class OptionalTasksScheduler extends Scheduler {
         this._blameConflictSet(unit, occupants);
     }
 
-    /** Enregistre la feuille courante comme nouvel incumbent (strictement meilleur, garanti par l'élagage). */
+    /**
+     * Enregistre la feuille courante comme nouvel incumbent. « Strictement meilleur » est un
+     * VRAI invariant depuis P1.5 (garanti par l'élagage à l'entrée de nœud de `_bb`) — en P1,
+     * cette même affirmation était fausse en pratique : sans cette coupe, une feuille de coût
+     * ÉGAL au meilleur connu pouvait être atteinte et réenregistrée (voir STATUT de
+     * docs/PlanOptionalTasksP1.md).
+     */
     private _recordIncumbent(): void {
         this._bestTaskCount = this._skippedTaskCount;
         const solutions = this._solution.flatMap(e => e.unit.toSolutions(e.result));

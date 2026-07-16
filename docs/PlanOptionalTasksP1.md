@@ -13,6 +13,8 @@
 > *Piste de correctif minimal envisageable (non implémentée, à trancher avec Fable/Frédéric)* : couper les retries de placement dès qu'un incumbent à coût égal au meilleur connu a déjà été trouvé dans la même branche (« stop-at-no-improvement » local) — plus simple qu'un vrai conflict-directed skip, mais pourrait suffire ; sinon, passer directement à la conception P2 (LB par cliques §3.2 + conflict-directed skip via MUS) qui règle le problème plus fondamentalement.
 >
 > *Statut* : rien commité — moteur (`optionalTasksScheduler.ts`), retouches `scheduler.ts` §3, `index.ts`, tests, tout dans l'arbre de travail sur `feature/optional-tasks`, en attente de décision.
+>
+> **Suite (2026-07-17) : régression CORRIGÉE par `docs/PlanOptionalTasksP15.md`** (élagage à l'entrée de nœud + warm start par la passe gourmande). Validation réelle P1.5 sur les mêmes semaines : S37 = 94/97 comme le gourmand, **optimum PROUVÉ dès budget 1000** (vs 93/97 jamais prouvé ici) ; S38/S39 court-circuit gourmand-complet ; S40 = résultat B&B identique au gourmand à tous budgets/COS, zéro violation de "jamais pire", mais optimum toujours non prouvé (P2 resterait la piste si cette preuve devient nécessaire). Voir STATUT de P1.5 pour le détail complet.
 
 ## 1. Objet
 

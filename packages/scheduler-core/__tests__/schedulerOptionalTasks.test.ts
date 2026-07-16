@@ -178,15 +178,25 @@ describe('OptionalTasksScheduler — branch-and-bound sur les sauts (docs/PlanOp
     const td = skipped.find(n => n.unit.id.startsWith('X_RTD'))!;
     expect(cm).toBeDefined();
     expect(td).toBeDefined();
-    expect(cm.reason).toContain('structurellement insuffisantes');
-    expect(td.reason).toContain('cascade');
+    // Coût de la cascade (2 tâches) déjà atteint dès le 1er round du gourmand (P1.5, warm
+    // start) : le B&B (borne=2) ne peut rien trouver de STRICTEMENT meilleur — impossible ici,
+    // le CM est structurellement inplaçable — donc le résultat final reste celui de la passe
+    // gourmande, avec SES raisons (`Scheduler.solveWithElimination`), pas celles du B&B
+    // (`_explainSkip`/MUS, qui n'apparaissent que si le B&B améliore — voir docstring classe).
+    expect(cm.reason).toContain('Unité la plus bloquante');
+    expect(td.reason).toContain('Dépend de');
     expect(td.reason).toContain(cm.unit.id);
 
-    // Coût de la cascade = 2 : avec maxEliminations:1, la borne interdit ce saut → aucun incumbent.
+    // Coût de la cascade = 2 : la borne task-aware du B&B (min(1+1,2)=2) interdirait ce saut en
+    // isolation, mais le gourmand (maxEliminations:1 = 1 ROUND, pas 1 tâche) trouve et cascade
+    // CM+TD en un seul round — même raisonnement que le test "coût des groupes" ci-dessus, warm
+    // start oblige : le résultat gourmand est rendu tel quel plutôt que rejeté.
     Loader.loadFromRawData(scenario);
     const s1 = new OptionalTasksScheduler();
     s1.configure({ maxEliminations: 1 });
-    expect(s1.solveWithElimination()).toEqual([]);
+    const res1 = s1.solveWithElimination();
+    expect(res1).toHaveLength(1);
+    expect(res1[0].neutralizedUnits ?? []).toHaveLength(2); // CM + TD, hérités de la passe gourmande
   });
 
   it('coût des groupes : sauter un TaskGroupUnit de 2 membres coûte 2 (pas 1)', () => {
@@ -208,10 +218,18 @@ describe('OptionalTasksScheduler — branch-and-bound sur les sauts (docs/PlanOp
       groups: [{ id: 'GRP1', type: 'sequential' }],
     };
 
+    // maxEliminations:1 — le coût RÉEL du groupe (2 tâches) dépasse la borne task-aware du B&B
+    // (min(1+1,2)=2, donc "strictement mieux que 2" = impossible), mais le moteur gourmand,
+    // qui compte en ROUNDS pas en tâches (sémantique différente, assumée depuis P1 — voir
+    // docstring de la classe), trouve ET élimine le groupe entier en 1 round. Avec le warm
+    // start (P1.5), "jamais pire que le gourmand" prime : ce résultat gourmand est rendu tel
+    // quel plutôt que rejeté au nom du décompte plus strict du B&B.
     Loader.loadFromRawData(scenario);
     const s1 = new OptionalTasksScheduler();
     s1.configure({ maxEliminations: 1 });
-    expect(s1.solveWithElimination()).toEqual([]); // coût réel 2 > borne 1
+    const res1 = s1.solveWithElimination();
+    expect(res1).toHaveLength(1);
+    expect(res1[0].neutralizedUnits ?? []).toHaveLength(1); // le groupe entier, hérité de la passe gourmande
 
     Loader.loadFromRawData(scenario);
     const s2 = new OptionalTasksScheduler();
@@ -307,5 +325,136 @@ describe('OptionalTasksScheduler — branch-and-bound sur les sauts (docs/PlanOp
     expect(res[0].solutions).toHaveLength(80);
     expect(res[0].neutralizedUnits ?? []).toHaveLength(0);
     expect(s.isProvenOptimal()).toBe(true);
+  });
+
+  it('élagage prouvé (P1.5, docs/PlanOptionalTasksP15.md §4.1) : budget modeste suffit à prouver l\'optimum', () => {
+    // 1 unité structurellement inplaçable (fenêtre 20min < 60min requis) + 5 unités "libres" à
+    // fenêtres larges (beaucoup d'alternatives de placement) — combinatoire suffisante pour
+    // révéler, sans l'élagage à l'entrée de nœud, l'énumération exhaustive de feuilles à coût
+    // égal (signature P1 : 4542 feuilles de coût 4 sur S37 réelle, jamais de preuve même à
+    // 20000 itérations — voir STATUT docs/PlanOptionalTasksP1.md). Avec l'élagage (P1.5), le
+    // warm start amorce déjà le bon coût (1) et la coupe à l'entrée de nœud prouve l'optimum
+    // en une seule visite de nœud (calibré empiriquement : provenOptimal dès budget=100).
+    const freeCourses = Array.from({ length: 5 }, (_, i) => ({
+      week: 30, semester: 1, level: 0, code: `F${i}`, type: 'TD', name: `F${i}`,
+      teacher: [`TF${i}`], groups: [`GF${i}`], rooms: [], duration: 60,
+    }));
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'TU' }, ...freeCourses.map(c => ({ id: c.teacher[0] }))] },
+        { resourceType: 'group', resources: [{ id: 'GU' }, ...freeCourses.map(c => ({ id: c.groups[0] }))] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'U', type: 'TD', name: 'U', teacher: ['TU'], groups: ['GU'], rooms: [], duration: 60 },
+        ...freeCourses,
+      ],
+      constraints: {
+        TU: [{ days: 'lundi', from: '08:00', to: '08:20' }], // 20min, trop court pour 60min : inplaçable
+        GU: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        ...Object.fromEntries(freeCourses.map(c => [c.teacher[0], [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }]])),
+        ...Object.fromEntries(freeCourses.map(c => [c.groups[0], [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }]])),
+      },
+    };
+
+    Loader.loadFromRawData(scenario);
+    const s = new InspectableOptionalTasksScheduler();
+    s.configure({ maxEliminations: 6, timeoutSeconds: 60, maxIterations: 500 });
+    const res = s.solveWithElimination();
+
+    expect(res).toHaveLength(1);
+    expect(res[0].solutions).toHaveLength(5);
+    expect(res[0].neutralizedUnits ?? []).toHaveLength(1);
+    expect(s.isProvenOptimal()).toBe(true);
+  });
+
+  it('warm start = jamais pire (P1.5 §4.2) : à budget B&B minuscule, jamais moins bon que le gourmand au même budget', () => {
+    // Occupant "gourmand" U0 (240min) saturant EXACTEMENT la fenêtre du prof R (240min) +
+    // 8 victimes (30min chacune, même prof R) dont la somme (240min) sature elle aussi la
+    // fenêtre — best-case = sauter U0 seul (coût 1), pire cas = enchaîner les victimes en
+    // sautant chacune (coût 8) si U0 est placé en premier sans être remis en cause.
+    // maxIterations est PARTAGÉ entre la passe gourmande et la passe B&B (même _config) : au
+    // même budget minuscule, la comparaison valide n'est PAS contre un gourmand à budget
+    // illimité (qui trouverait 1 sautée) mais contre CE gourmand-là, au MÊME budget (qui peut
+    // lui-même être tronqué et rendre un résultat dégradé) — le warm start garantit alors
+    // seulement de ne jamais faire PIRE que cette référence à budget égal, pas mieux que
+    // l'idéal. Vérifié empiriquement : budget=5 → gourmand seul ET warm start rendent tous
+    // deux exactement 5 sautées (voir STATUT du chantier, session P1.5 §"fausse alerte").
+    const nVictims = 8;
+    const victims = Array.from({ length: nVictims }, (_, i) => ({
+      week: 30, semester: 1, level: 0, code: `V${i}`, type: 'TD', name: `V${i}`,
+      teacher: ['R'], groups: [`GV${i}`], rooms: [], duration: 30,
+    }));
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'R' }] },
+        { resourceType: 'group', resources: [{ id: 'GU0' }, ...victims.map((_, i) => ({ id: `GV${i}` }))] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'U0', type: 'TD', name: 'U0', teacher: ['R'], groups: ['GU0'], rooms: [], duration: 240 },
+        ...victims,
+      ],
+      constraints: {
+        R: [{ days: 'lundi', from: '08:00', to: '12:00' }], // 240min, exactement la durée de U0
+        GU0: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        ...Object.fromEntries(victims.map((_, i) => [`GV${i}`, [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }]])),
+      },
+    };
+    const tinyBudget = 5;
+
+    Loader.loadFromRawData(scenario);
+    const sOpt = new OptionalTasksScheduler();
+    sOpt.configure({ maxEliminations: 6, timeoutSeconds: 60, maxIterations: tinyBudget });
+    const resOpt = sOpt.solveWithElimination();
+
+    Loader.loadFromRawData(scenario);
+    const sGreedy = new Scheduler();
+    sGreedy.configure({ maxEliminations: 6, timeoutSeconds: 60, maxIterations: tinyBudget });
+    const resGreedy = sGreedy.solveWithElimination();
+
+    const nSkippedOpt = (resOpt[0]?.neutralizedUnits ?? []).length;
+    const nSkippedGreedy = (resGreedy[0]?.neutralizedUnits ?? []).length;
+    expect(nSkippedOpt).toBeLessThanOrEqual(nSkippedGreedy);
+    expect(nSkippedOpt).toBe(5); // égal au gourmand au même budget (calibré empiriquement)
+  });
+
+  it('court-circuit gourmand-complet (P1.5 §4.3) : instance faisable → pas de passe B&B', () => {
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'T1' }, { id: 'T2' }] },
+        { resourceType: 'group', resources: [{ id: 'G1' }, { id: 'G2' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'C1', type: 'TD', name: 'C1', teacher: ['T1'], groups: ['G1'], rooms: [], duration: 60 },
+        { week: 30, semester: 1, level: 0, code: 'C2', type: 'TD', name: 'C2', teacher: ['T2'], groups: ['G2'], rooms: [], duration: 60 },
+      ],
+      constraints: {
+        T1: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        T2: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        G1: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        G2: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+      },
+    };
+
+    Loader.loadFromRawData(scenario);
+    const sOpt = new InspectableOptionalTasksScheduler();
+    const resOpt = sOpt.solveWithElimination();
+
+    Loader.loadFromRawData(scenario);
+    const sGreedy = new Scheduler();
+    const resGreedy = sGreedy.solveWithElimination();
+
+    expect(resOpt).toHaveLength(1);
+    expect(resOpt[0].isComplete).toBe(true);
+    expect(resOpt[0].neutralizedUnits ?? []).toHaveLength(0);
+    expect(sOpt.isProvenOptimal()).toBe(true);
+    // White-box : aucune passe B&B n'a tourné — les itérations sont EXACTEMENT celles de la
+    // seule passe gourmande (pas de _resetBacktrackState() supplémentaire dans le court-circuit).
+    expect(sOpt.getIterations()).toBe((sGreedy as unknown as { _iterations: number })._iterations);
   });
 });
