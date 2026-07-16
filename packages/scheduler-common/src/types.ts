@@ -221,6 +221,14 @@ export interface SchedulerConfig {
   lunchBreak?: LunchBreakConfig;
   /** Si true, ignore les limites maxDailyMinutes de toutes les ressources (défaut : false) */
   ignoreDailyLimits?: boolean;
+  /**
+   * Paramètre transitoire : si true, active le Conflict Ordering Search (Gay et al., CP 2015) —
+   * les unités récemment en échec sont priorisées dans le tri dynamique, devant le score MCV.
+   * Sans impasse, strictement sans effet (ordre MCV inchangé). Défaut : false (comportement
+   * historique) — à activer explicitement pour comparer avec/sans sur le projet réel avant
+   * toute généralisation (cf. incidents DailyUsageReader et tie-break popularité, revertés).
+   */
+  conflictOrderingSearch?: boolean;
 }
 
 /** Valeurs par défaut appliquées par le solver lorsqu'une option n'est pas fournie. */
@@ -231,4 +239,5 @@ export const DEFAULT_SCHEDULER_CONFIG: Required<SchedulerConfig> = {
   maxEliminations: 3,
   lunchBreak: { type: 'none' },
   ignoreDailyLimits: false,
+  conflictOrderingSearch: false,
 };

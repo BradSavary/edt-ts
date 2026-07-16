@@ -54,6 +54,8 @@ export class Scheduler {
     protected _failureCounts = new Map<string, number>();                                             // nb d'échecs par unité — utilisé par solveWithElimination()
     private _dailyBookedMinutes = new Map<string, Map<number, number>>();                             // durée bookée par jour par ressource — sert au filtre maxDailyMinutes
     private _floatingLB: { earliestMin: number; latestMin: number; duration: number } | null = null; // config pause flottante pré-calculée (null si inactive)
+    private _conflictStamps = new Map<string, number>();                                              // id → horodatage du dernier échec (Conflict Ordering Search)
+    private _stampCounter = 0;                                                                         // compteur croissant pour _conflictStamps
 
     protected _config: Required<SchedulerConfig> = {
         maxSolutions: 6,
@@ -62,6 +64,7 @@ export class Scheduler {
         maxEliminations: 3,
         lunchBreak: { type: 'none' },
         ignoreDailyLimits: false,
+        conflictOrderingSearch: false,
     };
 
     configure(config: SchedulerConfig): this {
@@ -309,6 +312,12 @@ export class Scheduler {
             if (result === null) {
                 // Aucun créneau disponible → attribue le blâme (§5.7) et backtracke
                 this._incrementFailureBlame(unit, fromTime);
+                // Conflict Ordering Search (Gay et al., CP 2015) : horodate la vraie impasse
+                // (jamais les rejets par filtres ci-dessous, qui n'en sont pas) pour que
+                // _dynamicSort priorise cette unité au prochain retour arrière.
+                if (this._config.conflictOrderingSearch) {
+                    this._conflictStamps.set(unit.id, ++this._stampCounter);
+                }
                 return false;
             }
 
@@ -422,6 +431,14 @@ export class Scheduler {
             }
         }
 
+        // Conflict Ordering Search (§7-R2 de docs/AuditBackjumping.md) : les unités récemment
+        // en échec passent devant le score MCV, uniquement parmi les "ready" (l'invariant de
+        // dépendance reste intact). Tri stable : les unités sans horodatage gardent leur ordre
+        // MCV entre elles — sans impasse, _conflictStamps est vide et ce bloc est inerte.
+        if (this._config.conflictOrderingSearch && this._conflictStamps.size > 0) {
+            ready.sort((a, b) => (this._conflictStamps.get(b.id) ?? 0) - (this._conflictStamps.get(a.id) ?? 0));
+        }
+
         const sorted = ready.concat(notReady);
         for (let i = 0; i < sorted.length; i++) {
             this._units[startIndex + i] = sorted[i];
@@ -446,6 +463,8 @@ export class Scheduler {
         this._failureCounts.clear();
         this._scheduled.clear();
         this._dailyBookedMinutes.clear();
+        this._conflictStamps.clear(); // apprentissage COS remis à zéro à chaque solve() (donc chaque round d'élimination)
+        this._stampCounter = 0;
 
         // Pré-remplir les enforced (déjà bookées dans initSolver, on trace juste leur position)
         for (let i = 0; i < this._firstNonEnforcedIndex; i++) {
