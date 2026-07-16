@@ -52,6 +52,7 @@ interface Draft {
   lunchFloating: LunchFloatingDraft;
   ignoreDailyLimits: boolean;
   conflictOrderingSearch: boolean;
+  conflictSetExact: boolean;
 }
 
 // ── Helpers de conversion ────────────────────────────────────────────────────
@@ -85,6 +86,7 @@ function configToDraft(config: SchedulerConfig): Draft {
     lunchFloating,
     ignoreDailyLimits: config.ignoreDailyLimits ?? DEFAULT_SCHEDULER_CONFIG.ignoreDailyLimits,
     conflictOrderingSearch: config.conflictOrderingSearch ?? DEFAULT_SCHEDULER_CONFIG.conflictOrderingSearch,
+    conflictSetExact: config.conflictSetExact ?? DEFAULT_SCHEDULER_CONFIG.conflictSetExact,
   };
 }
 
@@ -112,6 +114,7 @@ function draftToConfig(draft: Draft): SchedulerConfig {
     lunchBreak,
     ignoreDailyLimits: draft.ignoreDailyLimits,
     conflictOrderingSearch: draft.conflictOrderingSearch,
+    conflictSetExact: draft.conflictSetExact,
   };
 }
 
@@ -254,6 +257,26 @@ export function SchedulerConfigDialog() {
                   Le moteur retente en priorité les tâches récemment en échec. Peut améliorer
                   le choix des tâches à neutraliser sur les semaines difficiles — comparez
                   avec/sans sur votre projet.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 pt-1">
+              <input
+                id="cfg-conflictSetExact"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+                checked={draft.conflictSetExact}
+                onChange={(e) => setDraftField('conflictSetExact', e.target.checked)}
+              />
+              <div className="space-y-0.5">
+                <Label htmlFor="cfg-conflictSetExact" className="cursor-pointer">
+                  Analyse exacte des conflits (expérimental)
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  À chaque échec, identifie précisément les tâches responsables au lieu d&apos;une
+                  estimation. À ne pas combiner avec la priorité aux tâches en échec ci-dessus :
+                  la combinaison des deux donne de moins bons résultats sur les semaines difficiles.
                 </p>
               </div>
             </div>
