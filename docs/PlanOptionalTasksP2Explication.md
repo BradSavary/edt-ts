@@ -14,7 +14,41 @@
 
 *Plan rédigé par Fable pour implémentation par Sonnet. Prérequis : P3 livré (`8b59e94`, `6390690`). Branche : `feature/optional-tasks`. Contexte : l'analyse manuelle de Frédéric sur S40 (voir mémoire de session et STATUT P3) a montré que le diagnostic utile est (a) l'ensemble de conflit exact de chaque sautée et (b) la table charge/capacité quotidienne des ressources impliquées — or (a) n'est actuellement produit que si le B&B améliore le gourmand (jamais observé sur données réelles), et (b) se fait à la main via le module statistique. Deux briques indépendantes. Le volet « P2-preuve » (LB bin-packing à la racine) est explicitement REPORTÉ.*
 
-## 1. Brique 1 — explications MUS aussi pour le résultat hérité du gourmand
+## R. RÉVISION POST-USAGE (2026-07-19, décision Frédéric) — retrait de la brique 1, brique 2 validée
+
+*Addendum rédigé par Fable après essai réel par Frédéric, à exécuter par Sonnet. Remplace la brique 1 ci-dessous (conservée pour l'historique).*
+
+**Verdict d'usage** : les explications MUS ne sont pas assez utiles pour justifier leur coût — elles ne portent que sur le dernier créneau disputé d'une trajectoire donnée (limite théorique de l'explication locale : les occupants d'UN créneau, pas la cause structurelle), et le rejeu de pile est un mécanisme lourd pour ce résultat. La brique 2 (analyse de charge amont/aval) est validée et devient LE canal d'explication causale. Décisions actées : raison générique uniforme sur toutes les sautées, sauf cascade (mention conservée — information structurelle, coût nul).
+
+### R.1 Moteur (`optionalTasksScheduler.ts`)
+
+1. **Supprimer `_explainInheritedResult` en entier** (le rejeu déterministe, sa garde de fidélité, son site d'appel). À la place, sur le chemin hérité (`best === greedyBest`), réécrire les raisons SANS reconstruction d'état (fonction pure sur `neutralizedUnits`) :
+   - dépendance elle-même dans l'ensemble des sautées → « Sautée par cascade : dépend de « <id> », elle-même non plaçable — relâchement nécessaire pour atteindre 100%. » ;
+   - sinon → « Ne peut pas tenir sous les contraintes actuelles — relâchement nécessaire pour atteindre 100%. »
+   (Les raisons gourmandes « Unité la plus bloquante… » ne doivent PAS fuiter telles quelles : uniformité du texte en mode maxPlacement.)
+2. **Supprimer `_explainSkip`** et remplacer son usage dans `_recordIncumbent` (chemin incumbent-B&B, rare) par la même raison générique — supprime au passage le coût MUS-par-incumbent (la cause des 23s de P1). Le texte cascade de `_recordIncumbent` est déjà conforme, inchangé.
+3. **Ne PAS toucher** : `_incrementFailureBlameInformative` (blâme informatif), `_computeExactConflictSet` (toujours utilisé par le flag `conflictSetExact`), `failureCount` (affiché au tooltip), toute la brique 2 côté client.
+4. Docstrings de classe et de `solveWithElimination` : remplacer le paragraphe P2-Explication/MUS par la nouvelle doctrine — « l'explication causale est portée par l'analyse de charge côté client (brique 2) ; les `reason` sont volontairement génériques (décision post-usage 2026-07-19), la mention cascade exceptée ».
+
+### R.2 Tests (`schedulerOptionalTasks.test.ts`)
+
+- Supprimer les 3 tests du bloc « P2-Explication : MUS pour le résultat hérité » (MUS-coupable-désigné, groupe-rejeu-fidélité, garde-de-fidélité white-box) — machinerie disparue.
+- Adapter « cascade de dépendants » : `cm.reason` → contient « Ne peut pas tenir sous les contraintes actuelles » ; `td.reason` → « Sautée par cascade » + id du CM (inchangé).
+- Ajouter un test simple : chemin hérité → TOUTES les raisons non-cascade sont le texte générique exact ; aucune ne contient « Unité la plus bloquante » ni « créneaux nécessaires occupés ».
+- Vérifier qu'aucun autre test n'asserte « structurellement insuffisantes »/« occupés par » (inventaire fait : uniquement les blocs ci-dessus).
+
+### R.3 Répercussions hors périmètre immédiat
+
+- `docs/PlanComboBranchementBB.md` : la précondition « la nouvelle API est conçue pour ne pas casser le rejeu déterministe de P2-Explication » devient sans objet — mettre à jour la phrase (la contrainte sur `earlySchedule` intact reste vraie pour le gourmand, elle seule).
+- STATUT de CE document mis à jour au commit.
+
+### R.4 Validation
+
+Suites complètes + typecheck ; sanity S40 rapide (mode maxPlacement) : les raisons affichées sont le texte générique/cascade, jamais du MUS ni du texte gourmand ; brique 2 inchangée à l'écran.
+
+---
+
+## 1. Brique 1 — explications MUS aussi pour le résultat hérité du gourmand *(RETIRÉE par la révision R ci-dessus — conservée pour l'historique)*
 
 ### 1.1 Problème
 
