@@ -756,6 +756,7 @@ function _normalizeJobResult(
       score: s.score,
       tasks: s.solutions,
       neutralizedTasks: s.neutralizedTasks,
+      provenOptimal: s.provenOptimal,
     })),
     week: jobStatus.week,
   };

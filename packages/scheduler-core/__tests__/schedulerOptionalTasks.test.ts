@@ -2,16 +2,14 @@ import { describe, it, expect } from 'vitest';
 import type { RawScheduleData } from '@edt-ts/scheduler-common';
 import { Loader } from '../src/loader.js';
 import { Scheduler } from '../src/scheduler.js';
-import { OptionalTasksScheduler } from '../src/optionalTasksScheduler.js';
+import { OptionalTasksScheduler, createScheduler } from '../src/optionalTasksScheduler.js';
 import type { ISchedulingUnit } from '../src/schedulingUnit.js';
 
 /** Expose l'état interne nécessaire pour observer le B&B dans les tests. */
 class InspectableOptionalTasksScheduler extends OptionalTasksScheduler {
   public getUnits(): ISchedulingUnit[] { return this._units; }
   public getIterations(): number { return this._iterations; }
-  public isProvenOptimal(): boolean {
-    return (this as unknown as { _provenOptimal: boolean })._provenOptimal;
-  }
+  public isProvenOptimal(): boolean { return this.provenOptimal; } // getter public depuis P3
 }
 
 function findUnit(units: ISchedulingUnit[], codePrefix: string): ISchedulingUnit {
@@ -456,5 +454,97 @@ describe('OptionalTasksScheduler — branch-and-bound sur les sauts (docs/PlanOp
     // White-box : aucune passe B&B n'a tourné — les itérations sont EXACTEMENT celles de la
     // seule passe gourmande (pas de _resetBacktrackState() supplémentaire dans le court-circuit).
     expect(sOpt.getIterations()).toBe((sGreedy as unknown as { _iterations: number })._iterations);
+  });
+});
+
+describe('createScheduler — fabrique (docs/PlanOptionalTasksP3.md §2)', () => {
+  it('sans config : Scheduler (comportement historique)', () => {
+    const s = createScheduler();
+    expect(s).toBeInstanceOf(Scheduler);
+    expect(s).not.toBeInstanceOf(OptionalTasksScheduler);
+  });
+
+  it("searchStrategy: 'elimination' : Scheduler", () => {
+    const s = createScheduler({ searchStrategy: 'elimination' });
+    expect(s).toBeInstanceOf(Scheduler);
+    expect(s).not.toBeInstanceOf(OptionalTasksScheduler);
+  });
+
+  it("searchStrategy: 'maxPlacement' : OptionalTasksScheduler", () => {
+    const s = createScheduler({ searchStrategy: 'maxPlacement' });
+    expect(s).toBeInstanceOf(OptionalTasksScheduler);
+  });
+});
+
+describe('OptionalTasksScheduler — soundness de provenOptimal (docs/PlanOptionalTasksP3.md §0)', () => {
+  it('greedyCost > maxEliminations+1 : résultat gourmand rendu (jamais pire) mais optimum NON prouvé', () => {
+    // Groupe séquentiel de 3 membres, structurellement inplaçable (fenêtre 30min < 180min du
+    // groupe). maxEliminations:1 → borne d'attaque = 2, mais le coût réel du saut (3 tâches,
+    // le groupe entier) dépasse strictement cette borne. Le gourmand (qui compte en ROUNDS, pas
+    // en tâches) élimine le groupe entier en 1 round et rend un résultat valide (jamais pire, cf.
+    // tests « coût des groupes »/« cascade » de P1.5) — mais l'arbre B&B n'a été épuisé QUE sous
+    // la borne de 2 tâches : rien ne prouve qu'aucune solution à coût 2 (strictement sous les 3
+    // du gourmand) n'existe. Avant le correctif §0, `!_budgetExceeded` aurait à tort revendiqué
+    // `provenOptimal === true` ici (vérifié empiriquement en calibrant ce test).
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'RG' }] },
+        { resourceType: 'group', resources: [{ id: 'G-Seq' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'SEQ', type: 'TD', name: 'part1', teacher: ['RG'], groups: ['G-Seq'], rooms: [], duration: 60, taskGroupId: 'GRP1' },
+        { week: 30, semester: 1, level: 0, code: 'SEQ', type: 'TD', name: 'part2', teacher: ['RG'], groups: ['G-Seq'], rooms: [], duration: 60, taskGroupId: 'GRP1' },
+        { week: 30, semester: 1, level: 0, code: 'SEQ', type: 'TD', name: 'part3', teacher: ['RG'], groups: ['G-Seq'], rooms: [], duration: 60, taskGroupId: 'GRP1' },
+      ],
+      constraints: {
+        RG: [{ days: 'lundi', from: '08:00', to: '08:30' }], // 30min, insuffisant pour les 180min du groupe
+        'G-Seq': [{ days: 'lundi', from: '08:00', to: '19:00' }],
+      },
+      groups: [{ id: 'GRP1', type: 'sequential' }],
+    };
+
+    Loader.loadFromRawData(scenario);
+    const s = new OptionalTasksScheduler();
+    s.configure({ maxEliminations: 1 });
+    const res = s.solveWithElimination();
+
+    expect(res).toHaveLength(1);
+    expect(res[0].solutions).toHaveLength(0);
+    expect(res[0].neutralizedUnits ?? []).toHaveLength(1); // le groupe entier, hérité de la passe gourmande
+    expect(s.provenOptimal).toBe(false);
+  });
+
+  it('greedyCost <= maxEliminations+1 : preuve saine, provenOptimal reste true (non-régression)', () => {
+    // Même famille de scénario que « coût des groupes » (P1.5) mais avec maxEliminations:2 :
+    // coût du groupe (2 tâches) = borne (2) exactement — la preuve couvre tout l'intervalle,
+    // provenOptimal doit rester true (le correctif §0 ne doit pas casser ce cas déjà validé).
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'RG' }] },
+        { resourceType: 'group', resources: [{ id: 'G-Seq' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'SEQ', type: 'TD', name: 'part1', teacher: ['RG'], groups: ['G-Seq'], rooms: [], duration: 60, taskGroupId: 'GRP1' },
+        { week: 30, semester: 1, level: 0, code: 'SEQ', type: 'TD', name: 'part2', teacher: ['RG'], groups: ['G-Seq'], rooms: [], duration: 60, taskGroupId: 'GRP1' },
+      ],
+      constraints: {
+        RG: [{ days: 'lundi', from: '08:00', to: '08:30' }], // 30min, insuffisant pour les 120min du groupe
+        'G-Seq': [{ days: 'lundi', from: '08:00', to: '19:00' }],
+      },
+      groups: [{ id: 'GRP1', type: 'sequential' }],
+    };
+
+    Loader.loadFromRawData(scenario);
+    const s = new OptionalTasksScheduler();
+    s.configure({ maxEliminations: 2 });
+    const res = s.solveWithElimination();
+
+    expect(res).toHaveLength(1);
+    expect(res[0].neutralizedUnits ?? []).toHaveLength(1);
+    expect(s.provenOptimal).toBe(true);
   });
 });

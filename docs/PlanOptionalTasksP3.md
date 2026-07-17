@@ -1,5 +1,17 @@
 # Plan d'implémentation P3 — exposer le B&B tâches optionnelles (config + fabrique + API + UI)
 
+> **STATUT (2026-07-17, exécution par Sonnet) : LIVRÉ, prêt à committer.** §0 à §5 implémentés conformes au plan. Écart mineur non anticipé : `scheduler.ts` avait un second littéral `Required<SchedulerConfig>` dupliqué (champ `_config` par défaut, indépendant de `DEFAULT_SCHEDULER_CONFIG`) — complété avec `searchStrategy: 'elimination'` sinon le typecheck échouait (`scheduler.ts` n'est pourtant pas dans le périmètre §2, mais ce littéral existait déjà avant P3, indépendamment de la fabrique).
+>
+> **Tests** : 5 nouveaux (3 fabrique + 2 soundness, calibrés empiriquement — le test soundness confirme que sans le correctif §0, `provenOptimal` aurait été à tort `true` sur un scénario groupe-de-3 sous `maxEliminations:1`) + 11 existants inchangés = 16/16 verts. Suites complètes : 97/97 scheduler-core, 257/257 scheduler-client, typecheck clean.
+>
+> **Smoke API** (serveur local) : les 3 variantes (`v2` sans options, `'elimination'`, `'maxPlacement'`) rendent exactement le comportement attendu — `provenOptimal` absent pour les deux premières, présent (`true`, 1 seule solution) pour la troisième. Chemin async (`v2/async` + poll) : `provenOptimal` propagé correctement jusqu'au job terminé.
+>
+> **Sanity données réelles via l'API** : S37 → 94/97 placées, `provenOptimal: true` ; S40 (COS on) → 105/107, `provenOptimal: false` — identique aux chiffres de la validation directe P1.5, confirmant que le câblage API ne modifie rien au comportement du moteur.
+>
+> **Vérification UI (Playwright)** : dialogue de config — sélection « Placement maximal », validation, **réouverture confirmant la persistance** (toutes deux vérifiées live, aucune erreur console/page sur tout le parcours, y compris import du projet réel via upload du fichier JSON). Lancement d'une planification réelle (S37) via le bouton « Planifier » confirmé fonctionnel côté réseau (job soumis, poll, complétion en ~30-60s avec la config par défaut de l'app — `maxIterations:1M`, `lunchBreak:none`, plus lent que la config resserrée de la validation P1.5 mais résultat cohérent). **Limite du script de vérification** : le texte exact du toast de statut affiché n'a pas pu être capturé de façon fiable (probable sélecteur/timing du composant de toast, pas creusé davantage) — le code de `buildScheduleStatus` (§4.2) reste simple et déjà relu, mais son rendu final en live n'a pas été visuellement reconfirmé. Recommandé si Frédéric veut la certitude visuelle : un essai manuel rapide du dialogue + d'un lancement en `maxPlacement`.
+>
+> Reste avant commit : rien — commit unique à suivre.
+
 *Plan rédigé par Fable pour implémentation par Sonnet. Prérequis : P1.5 livré (`e405cc8`). Branche : `feature/optional-tasks`. Objet : rendre `OptionalTasksScheduler` sélectionnable depuis l'application, du dialogue de configuration jusqu'au worker, et exposer sa valeur métier différenciante — la preuve d'optimalité (« inutile de relancer avec plus de budget : il faut relâcher des contraintes »).*
 
 ## 0. Pré-correctif obligatoire — soundness de `_provenOptimal`

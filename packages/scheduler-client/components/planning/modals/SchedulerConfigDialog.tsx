@@ -53,6 +53,7 @@ interface Draft {
   ignoreDailyLimits: boolean;
   conflictOrderingSearch: boolean;
   conflictSetExact: boolean;
+  searchStrategy: 'elimination' | 'maxPlacement';
 }
 
 // ── Helpers de conversion ────────────────────────────────────────────────────
@@ -87,6 +88,7 @@ function configToDraft(config: SchedulerConfig): Draft {
     ignoreDailyLimits: config.ignoreDailyLimits ?? DEFAULT_SCHEDULER_CONFIG.ignoreDailyLimits,
     conflictOrderingSearch: config.conflictOrderingSearch ?? DEFAULT_SCHEDULER_CONFIG.conflictOrderingSearch,
     conflictSetExact: config.conflictSetExact ?? DEFAULT_SCHEDULER_CONFIG.conflictSetExact,
+    searchStrategy: config.searchStrategy ?? DEFAULT_SCHEDULER_CONFIG.searchStrategy,
   };
 }
 
@@ -115,6 +117,7 @@ function draftToConfig(draft: Draft): SchedulerConfig {
     ignoreDailyLimits: draft.ignoreDailyLimits,
     conflictOrderingSearch: draft.conflictOrderingSearch,
     conflictSetExact: draft.conflictSetExact,
+    searchStrategy: draft.searchStrategy,
   };
 }
 
@@ -189,6 +192,46 @@ export function SchedulerConfigDialog() {
               Général
             </h3>
 
+            <div className="space-y-2">
+              <Label>Stratégie de recherche</Label>
+              <div className="space-y-2">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="cfg-searchStrategy"
+                    className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+                    checked={draft.searchStrategy === 'elimination'}
+                    onChange={() => setDraftField('searchStrategy', 'elimination')}
+                  />
+                  <span className="space-y-0.5">
+                    <span className="block text-sm">Élimination itérative (par défaut)</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Moteur historique : élimine une à une les tâches les plus bloquantes,
+                      propose jusqu&apos;à N solutions.
+                    </span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="cfg-searchStrategy"
+                    className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+                    checked={draft.searchStrategy === 'maxPlacement'}
+                    onChange={() => setDraftField('searchStrategy', 'maxPlacement')}
+                  />
+                  <span className="space-y-0.5">
+                    <span className="block text-sm">Placement maximal (branch-and-bound)</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Maximise le nombre de cours placés, jamais pire que l&apos;élimination. Une
+                      seule solution (la meilleure) : le nombre max de solutions est ignoré. Peut
+                      prouver qu&apos;aucun résultat meilleur n&apos;existe — dans ce cas, seul un
+                      relâchement de contraintes peut débloquer les cours restants.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="cfg-maxSolutions">Nombre max de solutions</Label>
@@ -199,10 +242,12 @@ export function SchedulerConfigDialog() {
                   max="20"
                   value={draft.maxSolutions}
                   onChange={(e) => setDraftField('maxSolutions', e.target.value)}
+                  disabled={draft.searchStrategy === 'maxPlacement'}
                 />
                 <p className="text-xs text-muted-foreground">
                   Le moteur s&apos;arrête dès qu&apos;il a trouvé ce nombre de solutions complètes.
                   Une valeur trop haute peut ralentir le calcul.
+                  {draft.searchStrategy === 'maxPlacement' && ' (ignoré en placement maximal — une seule solution est rendue.)'}
                 </p>
               </div>
 

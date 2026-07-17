@@ -140,6 +140,8 @@ export interface ScheduleSolutionJSON {
   isComplete: boolean;
   score?: number;
   neutralizedTasks?: NeutralizedTaskInfoJSON[];
+  /** Présent uniquement pour searchStrategy: 'maxPlacement' — optimum du résultat rendu prouvé (§0 P3). */
+  provenOptimal?: boolean;
 }
 
 // --------------------------------------------------------------------------
@@ -236,6 +238,17 @@ export interface SchedulerConfig {
    * cibles d'élimination, jamais l'exploration. Défaut : false (comportement historique).
    */
   conflictSetExact?: boolean;
+  /**
+   * Stratégie de recherche du moteur (défaut : 'elimination').
+   * - 'elimination' : moteur historique — résolution gourmande, élimination itérative des unités
+   *   les plus bloquantes, jusqu'à maxSolutions solutions.
+   * - 'maxPlacement' : branch-and-bound sur les sauts (OptionalTasksScheduler) — maximise le
+   *   nombre de tâches placées, jamais pire que 'elimination' (warm start), une seule solution
+   *   (la meilleure), maxSolutions ignoré ; peut PROUVER l'optimalité du résultat (voir
+   *   provenOptimal). Le résultat partiel est un diagnostic pour la boucle de relâchement, pas
+   *   une solution finale (docs/ConceptionTachesOptionnelles.md §1).
+   */
+  searchStrategy?: 'elimination' | 'maxPlacement';
 }
 
 /** Valeurs par défaut appliquées par le solver lorsqu'une option n'est pas fournie. */
@@ -248,4 +261,5 @@ export const DEFAULT_SCHEDULER_CONFIG: Required<SchedulerConfig> = {
   ignoreDailyLimits: false,
   conflictOrderingSearch: false,
   conflictSetExact: false,
+  searchStrategy: 'elimination',
 };

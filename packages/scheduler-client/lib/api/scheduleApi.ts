@@ -10,6 +10,8 @@ export interface NormalizedSolution {
   score?: number;
   tasks: TaskSolutionJSON[];
   neutralizedTasks?: NeutralizedTaskInfoJSON[];
+  /** Présent uniquement pour searchStrategy: 'maxPlacement' — optimum du résultat rendu prouvé. */
+  provenOptimal?: boolean;
 }
 
 export interface ScheduleResult {
@@ -112,12 +114,13 @@ async function _callScheduleApi(
     throw new Error(err?.error ?? `Erreur ${response.status}`);
   }
 
-  const d = data as { solutions: TaskSolutionJSON[]; isComplete: boolean; score?: number; neutralizedTasks?: NeutralizedTaskInfoJSON[] }[];
+  const d = data as { solutions: TaskSolutionJSON[]; isComplete: boolean; score?: number; neutralizedTasks?: NeutralizedTaskInfoJSON[]; provenOptimal?: boolean }[];
   const normalized: NormalizedSolution[] = d.map((s) => ({
     isComplete: s.isComplete,
     score: s.score,
     tasks: s.solutions,
     neutralizedTasks: s.neutralizedTasks,
+    provenOptimal: s.provenOptimal,
   }));
 
   if (normalized.length === 0) {
@@ -167,8 +170,11 @@ export function buildScheduleStatus(result: ScheduleResult): ScheduleStatus {
   }
   const neutralizedMsg = best.neutralizedTasks?.length
     ? ` — ${best.neutralizedTasks.length} cours non placé(s)` : '';
+  const provenMsg = !best.isComplete && best.provenOptimal
+    ? ' — optimum prouvé : impossible de placer plus sans relâcher des contraintes'
+    : '';
   return {
-    message: `${best.isComplete ? '✅ Planification complète' : '⚠️ Incomplète'} — ${result.solutions.length} solution(s)${neutralizedMsg}`,
+    message: `${best.isComplete ? '✅ Planification complète' : '⚠️ Incomplète'} — ${result.solutions.length} solution(s)${neutralizedMsg}${provenMsg}`,
     kind: best.isComplete ? 'ok' : 'err',
   };
 }

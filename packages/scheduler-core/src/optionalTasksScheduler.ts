@@ -1,6 +1,7 @@
 import { Scheduler, SLOT_STEP } from './scheduler.js';
 import type { SchedulerSolution, NeutralizedUnitInfo } from './scheduler.js';
 import type { ISchedulingUnit } from './schedulingUnit.js';
+import type { SchedulerConfig } from '@edt-ts/scheduler-common';
 
 /** Décision de saut : l'unité qui a réellement heurté l'impasse + sa cascade de dépendants non-enforced. */
 interface SkipDecision {
@@ -39,6 +40,9 @@ export class OptionalTasksScheduler extends Scheduler {
     private _bestSolution: SchedulerSolution | null = null;
     private _provenOptimal = false;                    // true si l'arbre a été épuisé sans jamais heurter budget/timeout
     private _budgetExceeded = false;                   // true dès qu'un appel a été tronqué par _limitsReached()
+
+    /** true si le résultat rendu par le dernier appel à `solveWithElimination()` est prouvé optimal (§0, P3). */
+    get provenOptimal(): boolean { return this._provenOptimal; }
 
     /**
      * Point d'entrée officiel de cette classe (le `solve()` hérité, tour-par-tour, n'est pas
@@ -106,11 +110,22 @@ export class OptionalTasksScheduler extends Scheduler {
         const startMs = Date.now();
         this._bb(this._firstNonEnforcedIndex);
         const endMs = Date.now();
-        this._provenOptimal = !this._budgetExceeded;
+        const best = this._bestSolution as SchedulerSolution | null; // re-lu après _bb() : TS ne suit pas la mutation via _recordIncumbent()
+
+        // Soundness (P3, revue Fable de P1.5) : quand greedyCost > maxEliminations + 1 (le
+        // gourmand, qui compte en ROUNDS, a sauté une unité multi-tâches sous un cap serré), la
+        // borne d'attaque vaut maxEliminations + 1 < greedyCost — épuiser l'arbre sous CETTE
+        // borne prouve seulement « rien à coût ≤ maxEliminations », pas l'optimalité du résultat
+        // gourmand rendu (un coût intermédiaire pourrait exister, jamais exploré). `!_budgetExceeded`
+        // seul suffisait tant que ce cas ne se produisait pas (P1/P1.5, jamais rencontré en
+        // pratique) mais est FAUX en général — voir STATUT docs/PlanOptionalTasksP3.md §0.
+        const finalCost = best
+            ? (best.neutralizedUnits ?? []).reduce((n, i) => n + i.unit.getMemberTasks().length, 0)
+            : 0; // best === null : l'épuisement prouve l'infaisabilité sous le cap — revendication valide
+        this._provenOptimal = !this._budgetExceeded && finalCost <= this._config.maxEliminations + 1;
 
         console.log(`\n⏱️  Passe B&B terminée en ${endMs - startMs}ms`);
         console.log(`🔄 Itérations B&B: ${this._iterations}`);
-        const best = this._bestSolution as SchedulerSolution | null; // re-lu après _bb() : TS ne suit pas la mutation via _recordIncumbent()
         if (best) {
             const nSkipped = best.neutralizedUnits?.length ?? 0;
             console.log(`🎯 Meilleur incumbent final : ${best.solutions.length} placées, ${nSkipped} sautée(s) — optimum ${this._provenOptimal ? 'PROUVÉ' : 'non prouvé (budget épuisé)'}`);
@@ -298,4 +313,9 @@ export class OptionalTasksScheduler extends Scheduler {
         return `Ne peut pas tenir sous les contraintes actuelles (aucune tâche placée en cause : ` +
             `disponibilités structurellement insuffisantes) — relâchement nécessaire pour atteindre 100%.`;
     }
+}
+
+/** Fabrique (P3) : sélectionne le moteur selon config.searchStrategy (défaut : Scheduler historique). */
+export function createScheduler(config?: SchedulerConfig): Scheduler {
+    return config?.searchStrategy === 'maxPlacement' ? new OptionalTasksScheduler() : new Scheduler();
 }
