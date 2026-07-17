@@ -140,7 +140,15 @@ export interface ScheduleSolutionJSON {
   isComplete: boolean;
   score?: number;
   neutralizedTasks?: NeutralizedTaskInfoJSON[];
-  /** Présent uniquement pour searchStrategy: 'maxPlacement' — optimum du résultat rendu prouvé (§0 P3). */
+  /**
+   * Présent uniquement pour searchStrategy: 'maxPlacement'. `true` = l'arbre de recherche a été
+   * épuisé sous les limites : aucune solution plaçant plus de tâches n'est ATTEIGNABLE PAR LE
+   * MOTEUR. Preuve relative au modèle de placement (créneaux au-plus-tôt, combinaison de
+   * ressources choisie par heuristique et non branchée — cf. docs/AuditConformiteMCV.md), pas au
+   * sens MILP/CP-SAT sur l'espace combinatoire complet. Absolue dans deux cas : 0 tâche sautée,
+   * ou instance sans alternatives de ressources. L'objectif prouvé est le NOMBRE de tâches
+   * placées, pas le score.
+   */
   provenOptimal?: boolean;
 }
 
@@ -244,9 +252,10 @@ export interface SchedulerConfig {
    *   les plus bloquantes, jusqu'à maxSolutions solutions.
    * - 'maxPlacement' : branch-and-bound sur les sauts (OptionalTasksScheduler) — maximise le
    *   nombre de tâches placées, jamais pire que 'elimination' (warm start), une seule solution
-   *   (la meilleure), maxSolutions ignoré ; peut PROUVER l'optimalité du résultat (voir
-   *   provenOptimal). Le résultat partiel est un diagnostic pour la boucle de relâchement, pas
-   *   une solution finale (docs/ConceptionTachesOptionnelles.md §1).
+   *   (la meilleure), maxSolutions ignoré ; peut PROUVER l'optimalité du résultat relativement
+   *   au modèle de placement du moteur (voir provenOptimal pour la portée exacte de la preuve).
+   *   Le résultat partiel est un diagnostic pour la boucle de relâchement, pas une solution
+   *   finale (docs/ConceptionTachesOptionnelles.md §1).
    */
   searchStrategy?: 'elimination' | 'maxPlacement';
 }

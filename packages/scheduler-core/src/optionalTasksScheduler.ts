@@ -41,7 +41,17 @@ export class OptionalTasksScheduler extends Scheduler {
     private _provenOptimal = false;                    // true si l'arbre a été épuisé sans jamais heurter budget/timeout
     private _budgetExceeded = false;                   // true dès qu'un appel a été tronqué par _limitsReached()
 
-    /** true si le résultat rendu par le dernier appel à `solveWithElimination()` est prouvé optimal (§0, P3). */
+    /**
+     * true si le résultat du dernier `solveWithElimination()` est prouvé optimal — arbre épuisé
+     * sous les limites, garde de soundness incluse (§0, P3). Portée exacte de la preuve : « aucune
+     * solution plaçant plus de tâches n'est atteignable PAR LE MOTEUR ». Relative au modèle de
+     * placement : créneaux au-plus-tôt (borne glissante SLOT_STEP) et combinaison de ressources
+     * choisie par `earlySchedule` (la plus tôt, jamais branchée — un combo alternatif au même
+     * créneau n'est pas exploré, cf. docs/AuditConformiteMCV.md « meilleur combo vs union »).
+     * Le gourmand vivant dans le même modèle, la lecture métier reste exacte : inutile de
+     * relancer ce moteur avec plus de budget, seul un relâchement peut débloquer. Preuve absolue
+     * (au sens mathématique) uniquement si 0 sautée ou si l'instance est sans alternatives.
+     */
     get provenOptimal(): boolean { return this._provenOptimal; }
 
     /**

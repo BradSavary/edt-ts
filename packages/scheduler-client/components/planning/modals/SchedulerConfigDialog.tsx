@@ -224,8 +224,9 @@ export function SchedulerConfigDialog() {
                     <span className="block text-xs text-muted-foreground">
                       Maximise le nombre de cours placés, jamais pire que l&apos;élimination. Une
                       seule solution (la meilleure) : le nombre max de solutions est ignoré. Peut
-                      prouver qu&apos;aucun résultat meilleur n&apos;existe — dans ce cas, seul un
-                      relâchement de contraintes peut débloquer les cours restants.
+                      prouver qu&apos;aucun résultat meilleur n&apos;est atteignable par le moteur —
+                      dans ce cas, seul un relâchement de contraintes peut débloquer les cours
+                      restants.
                     </span>
                   </span>
                 </label>

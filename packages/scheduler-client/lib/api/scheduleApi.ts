@@ -10,7 +10,10 @@ export interface NormalizedSolution {
   score?: number;
   tasks: TaskSolutionJSON[];
   neutralizedTasks?: NeutralizedTaskInfoJSON[];
-  /** Présent uniquement pour searchStrategy: 'maxPlacement' — optimum du résultat rendu prouvé. */
+  /**
+   * Présent uniquement pour searchStrategy: 'maxPlacement' — optimum du résultat prouvé,
+   * RELATIVEMENT au modèle de placement du moteur (voir ScheduleSolutionJSON.provenOptimal).
+   */
   provenOptimal?: boolean;
 }
 
@@ -171,7 +174,7 @@ export function buildScheduleStatus(result: ScheduleResult): ScheduleStatus {
   const neutralizedMsg = best.neutralizedTasks?.length
     ? ` — ${best.neutralizedTasks.length} cours non placé(s)` : '';
   const provenMsg = !best.isComplete && best.provenOptimal
-    ? ' — optimum prouvé : impossible de placer plus sans relâcher des contraintes'
+    ? ' — optimum prouvé : le moteur ne placera pas plus sans relâchement de contraintes'
     : '';
   return {
     message: `${best.isComplete ? '✅ Planification complète' : '⚠️ Incomplète'} — ${result.solutions.length} solution(s)${neutralizedMsg}${provenMsg}`,
