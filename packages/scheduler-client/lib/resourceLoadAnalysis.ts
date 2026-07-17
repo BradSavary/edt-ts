@@ -133,6 +133,20 @@ function buildRow(
   return { resourceId: id, resourceKind: kind, days, weeklyCapacity, weeklyLoad, weeklySlack, ratio, anyDayFits };
 }
 
+/**
+ * Mode 'analysis' uniquement : existe-t-il un jour où TOUTES les ressources candidates ont
+ * simultanément assez de mou ? C'est la seule question qui compte pour la faisabilité réelle
+ * d'un placement — `row.anyDayFits` (par ressource, indépendamment des autres) ne suffit PAS :
+ * chaque ressource peut avoir SON jour de mou sans qu'aucun jour ne soit commun à toutes (ex.
+ * réel S40 : l'enseignant n'a du mou que lun/mar/mer/ven, les deux groupes n'en ont QUE le
+ * jeudi — aucun jour commun, alors que `rows.every(r => r.anyDayFits)` vaudrait `true` et
+ * masquerait à tort le blocage réel). Trouvé en revue par Frédéric (2026-07-19).
+ */
+export function hasCommonFeasibleDay(rows: ResourceLoadRow[]): boolean {
+  if (rows.length === 0) return true;
+  return [0, 1, 2, 3, 4].some(day => rows.every(r => r.days[day]?.fits === true));
+}
+
 // ── Mode préparation ──────────────────────────────────────────────────────────
 
 /**

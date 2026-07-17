@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { AvailabilityManager } from '@edt-ts/scheduler-common';
 import type { ConstraintsData, CourseTaskData, EnforcedData, NeutralizedTaskInfoJSON, ResourceGroupData, TaskSolutionJSON } from '@edt-ts/scheduler-common';
-import { buildPreparationLoadRows, buildAnalysisLoadRows } from '../lib/resourceLoadAnalysis';
+import { buildPreparationLoadRows, buildAnalysisLoadRows, hasCommonFeasibleDay } from '../lib/resourceLoadAnalysis';
 
 function makeManager(data: ConstraintsData): AvailabilityManager {
   return new AvailabilityManager(data);
@@ -182,5 +182,57 @@ describe('buildAnalysisLoadRows', () => {
     expect(rows[0].weeklySlack).toBe(50); // suffisant en cumulé...
     expect(rows[0].days.every((d) => d.slackMin < 50)).toBe(true); // ...mais jamais en un seul jour
     expect(rows[0].anyDayFits).toBe(false);
+  });
+});
+
+describe('hasCommonFeasibleDay', () => {
+  // Cas réel S40 (LAVEFVE/R3.04, BUT2-G1+G2) qui a révélé le bug : chacune des 3 ressources a
+  // SON jour de mou, mais jamais le même jour pour toutes — `rows.every(r => r.anyDayFits)`
+  // vaudrait à tort `true`, alors que le placement est réellement impossible partout.
+  it('chaque ressource a un jour qui lui convient, mais jamais le même → false', () => {
+    const am = makeManager({
+      Default: [],
+      LAVEFVE: [{ days: 'lundi,mardi,mercredi,vendredi', from: '08:00', to: '10:00' }], // pas jeudi
+      'BUT2-G1': [{ days: 'jeudi', from: '08:00', to: '10:00' }], // QUE jeudi
+      'BUT2-G2': [{ days: 'jeudi', from: '08:00', to: '10:00' }], // QUE jeudi
+    });
+    const skipped: NeutralizedTaskInfoJSON = {
+      task: {
+        taskId: 'R3.04', code: 'R3.04', name: 'R3.04', type: 'TD', week: 30, duration: 90, startTime: -1,
+        resources: [{ id: 'LAVEFVE', type: 'teacher' }, { id: 'BUT2-G1', type: 'group' }, { id: 'BUT2-G2', type: 'group' }],
+      },
+      eliminationRound: 0, failureCount: 0, reason: 'test',
+    };
+
+    const rows = buildAnalysisLoadRows(skipped, [], am, 30, []);
+
+    // Chaque ressource individuellement a bien un jour qui lui convient (le piège du bug).
+    expect(rows.every((r) => r.anyDayFits)).toBe(true);
+    // ...mais aucun jour n'est commun aux trois : LAVEFVE ne peut pas le jeudi, les groupes ne
+    // peuvent QUE le jeudi.
+    expect(hasCommonFeasibleDay(rows)).toBe(false);
+  });
+
+  it('un jour commun existe réellement → true', () => {
+    const am = makeManager({
+      Default: [],
+      LAVEFVE: [{ days: 'jeudi', from: '08:00', to: '10:00' }],
+      'BUT2-G1': [{ days: 'jeudi', from: '08:00', to: '10:00' }],
+    });
+    const skipped: NeutralizedTaskInfoJSON = {
+      task: {
+        taskId: 'R3.04', code: 'R3.04', name: 'R3.04', type: 'TD', week: 30, duration: 90, startTime: -1,
+        resources: [{ id: 'LAVEFVE', type: 'teacher' }, { id: 'BUT2-G1', type: 'group' }],
+      },
+      eliminationRound: 0, failureCount: 0, reason: 'test',
+    };
+
+    const rows = buildAnalysisLoadRows(skipped, [], am, 30, []);
+
+    expect(hasCommonFeasibleDay(rows)).toBe(true);
+  });
+
+  it('liste vide → true (rien à contredire)', () => {
+    expect(hasCommonFeasibleDay([])).toBe(true);
   });
 });

@@ -4,7 +4,7 @@ import { BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { ResourceLoadRow } from '@/lib/resourceLoadAnalysis';
-import { DAY_LABELS } from '@/lib/resourceLoadAnalysis';
+import { DAY_LABELS, hasCommonFeasibleDay } from '@/lib/resourceLoadAnalysis';
 import { cn } from '@/lib/utils';
 
 function formatH(minutes: number): string {
@@ -28,7 +28,11 @@ interface Props {
  */
 export default function ResourceLoadPopover({ mode, rows, taskDurationMin, className }: Props) {
   if (rows.length === 0) return null;
-  const noDayFitsAnywhere = mode === 'analysis' && rows.every((r) => !r.anyDayFits);
+  // Ne PAS utiliser `rows.every(r => !r.anyDayFits)` : chaque ressource peut avoir SON jour de
+  // mou sans qu'aucun jour ne soit commun à toutes (ex. réel : l'enseignant n'a du mou que
+  // lun/mar/mer/ven, les groupes n'en ont QUE le jeudi — aucune ressource seule ne le révèle,
+  // voir hasCommonFeasibleDay). C'est la seule question qui compte pour la faisabilité réelle.
+  const noCommonDay = mode === 'analysis' && !hasCommonFeasibleDay(rows);
 
   return (
     <Popover>
@@ -100,10 +104,11 @@ export default function ResourceLoadPopover({ mode, rows, taskDurationMin, class
             </div>
           ))}
 
-          {noDayFitsAnywhere && (
+          {noCommonDay && (
             <p className="text-xs text-red-600 dark:text-red-400 border-t pt-2">
-              Aucun jour n&apos;a assez de mou pour cette tâche{taskDurationMin ? ` (${formatH(taskDurationMin)})` : ''}
-              {' '}— ressource(s) en tension sur la semaine.
+              Aucun jour n&apos;a assez de mou pour TOUTES les ressources à la fois pour cette tâche
+              {taskDurationMin ? ` (${formatH(taskDurationMin)})` : ''} — chaque ressource peut avoir
+              son propre jour de marge, mais jamais le même : relâchement nécessaire.
             </p>
           )}
         </div>
