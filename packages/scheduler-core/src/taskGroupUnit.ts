@@ -72,6 +72,18 @@ export class TaskGroupUnit implements ISchedulingUnit {
         }
     }
 
+    // ── Branchement combo (flag comboBranching, docs/PlanComboBranchementBB.md §3) ──
+    // v1 : pas de branchement interne — le produit cartésien par membre exploserait et
+    // book() est couplé à _pendingAssignment. Incomplétude résiduelle documentée et assumée.
+
+    getComboCount(): number {
+        return 1;
+    }
+
+    earlyScheduleForCombo(_comboIndex: number, fromTime: number): SchedulingResult | null {
+        return this.earlySchedule(fromTime);
+    }
+
     /**
      * Cherche le premier instant ≥ fromTime où TOUTES les tâches peuvent démarrer
      * simultanément, chacune avec au moins une combinaison de ressources disponible.

@@ -54,6 +54,21 @@ export interface ISchedulingUnit {
     earlySchedule(fromTime: number): SchedulingResult | null;
 
     /**
+     * Nombre de combinaisons de ressources candidates pour cette unité (branchement combo,
+     * flag `comboBranching` — docs/PlanComboBranchementBB.md §3). TaskUnit : nombre de combos
+     * applicables (mis en cache). TaskGroupUnit : 1 (v1, pas de branchement interne).
+     */
+    getComboCount(): number;
+
+    /**
+     * Variante de `earlySchedule` figée sur UN combo précis (index dans [0, getComboCount())).
+     * Retourne null si ce combo n'offre aucun créneau ≥ fromTime. N'existe que pour permettre
+     * au B&B de brancher sur les combos alternatifs — `earlySchedule` reste inchangé et continue
+     * de servir le moteur gourmand.
+     */
+    earlyScheduleForCombo(comboIndex: number, fromTime: number): SchedulingResult | null;
+
+    /**
      * Réserve les ressources pour le créneau donné.
      * Sauvegarde l'état précédent pour permettre un unBook ultérieur.
      */

@@ -66,6 +66,8 @@ export class Scheduler {
         ignoreDailyLimits: false,
         conflictOrderingSearch: false,
         conflictSetExact: false,
+        comboBranching: false,
+        searchStrategy: 'elimination',
     };
 
     configure(config: SchedulerConfig): this {
@@ -250,7 +252,7 @@ export class Scheduler {
      * _backtrack (aucune frame ne les concerne), donc ne causent pas le crash, et leur
      * placement relève de la responsabilité de l'utilisateur.
      */
-    private _collectDependents(root: ISchedulingUnit): ISchedulingUnit[] {
+    protected _collectDependents(root: ISchedulingUnit): ISchedulingUnit[] {
         const out: ISchedulingUnit[] = [];
         const stack = [...root.getDependentUnits()];
         while (stack.length > 0) {
@@ -313,12 +315,7 @@ export class Scheduler {
             if (result === null) {
                 // Aucun créneau disponible → attribue le blâme (§5.7) et backtracke
                 this._incrementFailureBlame(unit, fromTime);
-                // Conflict Ordering Search (Gay et al., CP 2015) : horodate la vraie impasse
-                // (jamais les rejets par filtres ci-dessous, qui n'en sont pas) pour que
-                // _dynamicSort priorise cette unité au prochain retour arrière.
-                if (this._config.conflictOrderingSearch) {
-                    this._conflictStamps.set(unit.id, ++this._stampCounter);
-                }
+                this._stampConflict(unit);
                 return false;
             }
 
@@ -352,6 +349,17 @@ export class Scheduler {
 
             // Avancer au créneau suivant (pas de 30 min)
             fromTime = result.start + SLOT_STEP;
+        }
+    }
+
+    /**
+     * Horodatage COS (Gay et al., CP 2015) d'une vraie impasse — jamais des rejets par
+     * filtres (pause/quota), qui n'en sont pas — pour que `_dynamicSort` priorise cette
+     * unité au prochain retour arrière. No-op si le flag est inactif.
+     */
+    protected _stampConflict(unit: ISchedulingUnit): void {
+        if (this._config.conflictOrderingSearch) {
+            this._conflictStamps.set(unit.id, ++this._stampCounter);
         }
     }
 
@@ -511,7 +519,7 @@ export class Scheduler {
 
     // ── Utilitaires internes ─────────────────────────────────────────────────
 
-    private _resetBacktrackState(): void {
+    protected _resetBacktrackState(): void {
         this._solution = [];
         this._allSolutions = [];
         this._bestScore = -Infinity;

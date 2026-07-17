@@ -1,10 +1,15 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { CourseTaskData, ResourceEntry, EnforcedData } from '@edt-ts/scheduler-common';
+import type { CourseTaskData, ResourceEntry, EnforcedData, ResourceGroupData } from '@edt-ts/scheduler-common';
+import { AvailabilityManager } from '@edt-ts/scheduler-common';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
+import type { BlockedZone } from '@/lib/calendar/blockedZones';
+import type { SchoolYearConfig } from '@/lib/schoolHolidays';
 import { Button } from '@/components/ui/button';
 import CourseCard from '@/components/planning/courses/CourseCard';
+import ResourceLoadPopover from '@/components/planning/courses/ResourceLoadPopover';
+import { buildPreparationLoadRows } from '@/lib/resourceLoadAnalysis';
 
 export type GroupBy = 'code' | 'teacher';
 
@@ -15,6 +20,14 @@ interface Props {
   onEditCourse?: (courseKey: string, course: CourseTaskDataWithId) => void;
   onDuplicateCourse?: (course: CourseTaskData) => void;
   onDeleteCourse?: (courseId: string) => void;
+  /** Analyse de charge (P2-Explication §2) : présent uniquement si le contexte le permet. */
+  loadAnalysisContext?: {
+    availabilityManager: AvailabilityManager;
+    selectedWeek: number;
+    resources: ResourceGroupData[];
+    blockedZones: BlockedZone[];
+    schoolYearConfig: SchoolYearConfig | null;
+  };
 }
 
 function getTeacherLabel(teacher: ResourceEntry[]): string {
@@ -24,7 +37,8 @@ function getTeacherLabel(teacher: ResourceEntry[]): string {
   return first;
 }
 
-export default function CourseGroupList({ courses, groupBy, enforcedMap, onEditCourse, onDuplicateCourse, onDeleteCourse }: Props) {
+export default function CourseGroupList({ courses, groupBy, enforcedMap, onEditCourse, onDuplicateCourse, onDeleteCourse, loadAnalysisContext }: Props) {
+  const enforcedByCourseId = useMemo(() => new Map(Object.entries(enforcedMap)), [enforcedMap]);
   const groups = useMemo(() => {
     const map = new Map<string, { course: CourseTaskDataWithId }[]>();
     courses.forEach((course) => {
@@ -78,15 +92,34 @@ export default function CourseGroupList({ courses, groupBy, enforcedMap, onEditC
           {openGroups.has(key) && (
             <div className="flex flex-col gap-1 mt-1 pl-2 border-l-2 border-border">
               {items.map(({ course }) => (
-                <CourseCard
-                  key={course.id}
-                  courseKey={course.id}
-                  course={course}
-                  enforced={enforcedMap[course.id] !== undefined}
-                  onEdit={onEditCourse ? () => onEditCourse(course.id, course) : undefined}
-                  onDuplicate={onDuplicateCourse ? () => onDuplicateCourse(course) : undefined}
-                  onDelete={onDeleteCourse ? () => onDeleteCourse(course.id) : undefined}
-                />
+                <div key={course.id} className="relative">
+                  <CourseCard
+                    courseKey={course.id}
+                    course={course}
+                    enforced={enforcedMap[course.id] !== undefined}
+                    onEdit={onEditCourse ? () => onEditCourse(course.id, course) : undefined}
+                    onDuplicate={onDuplicateCourse ? () => onDuplicateCourse(course) : undefined}
+                    onDelete={onDeleteCourse ? () => onDeleteCourse(course.id) : undefined}
+                  />
+                  {loadAnalysisContext && (
+                    <div className="absolute top-1 right-1">
+                      <ResourceLoadPopover
+                        mode="preparation"
+                        rows={buildPreparationLoadRows(
+                          course,
+                          courses,
+                          enforcedByCourseId,
+                          (c) => (c as CourseTaskDataWithId).id,
+                          loadAnalysisContext.availabilityManager,
+                          loadAnalysisContext.selectedWeek,
+                          loadAnalysisContext.resources,
+                          loadAnalysisContext.blockedZones,
+                          loadAnalysisContext.schoolYearConfig,
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}

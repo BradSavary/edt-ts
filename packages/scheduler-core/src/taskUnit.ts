@@ -66,6 +66,29 @@ export class TaskUnit implements ISchedulingUnit {
         return null;
     }
 
+    // ── Branchement combo (flag comboBranching, docs/PlanComboBranchementBB.md §3) ──
+    // Liste séparée de celle recalculée par earlySchedule() à chaque appel (le gourmand en
+    // dépend, non touché) — mise en cache ici car getComboCount/earlyScheduleForCombo sont
+    // appelés à répétition, à index de combo stable, par le B&B.
+    private _comboCache: Resource[][] | null = null;
+
+    private _combos(): Resource[][] {
+        if (this._comboCache === null) {
+            this._comboCache = getApplicableResources(this.task);
+        }
+        return this._comboCache;
+    }
+
+    getComboCount(): number {
+        return this._combos().length;
+    }
+
+    earlyScheduleForCombo(comboIndex: number, fromTime: number): SchedulingResult | null {
+        const combo = this._combos()[comboIndex];
+        const slot = this._findFirstSlot(combo, fromTime);
+        return slot === null ? null : { start: slot, resources: combo };
+    }
+
     book(result: SchedulingResult): void {
         this._savedResources.push(this._appliedResources);
         this._appliedResources = result.resources;
