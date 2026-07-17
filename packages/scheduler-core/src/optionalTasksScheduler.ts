@@ -1,12 +1,29 @@
 import { Scheduler, SLOT_STEP } from './scheduler.js';
 import type { SchedulerSolution, NeutralizedUnitInfo } from './scheduler.js';
-import type { ISchedulingUnit, SchedulingResult } from './schedulingUnit.js';
+import type { ISchedulingUnit } from './schedulingUnit.js';
 import type { SchedulerConfig } from '@edt-ts/scheduler-common';
 
 /** Décision de saut : l'unité qui a réellement heurté l'impasse + sa cascade de dépendants non-enforced. */
 interface SkipDecision {
     units: ISchedulingUnit[];   // units[0] = la racine (impasse réelle) ; units[1..] = cascade (§4.3)
     taskCount: number;          // somme des getMemberTasks().length sur l'ensemble — l'unité de coût
+}
+
+/**
+ * Raison générique d'une sautée non-cascade (révision post-usage, docs/PlanOptionalTasksP2Explication.md
+ * §R) : les explications MUS (deletion-MUS, `_explainSkip`, retirées) n'expliquaient que les
+ * occupants du DERNIER créneau disputé d'une trajectoire donnée — une explication locale, pas
+ * causale, jugée par Frédéric pas assez utile pour justifier le coût du rejeu de pile qu'elle
+ * exigeait. Le diagnostic causal est désormais porté par l'analyse de charge côté client
+ * (`packages/scheduler-client/lib/resourceLoadAnalysis.ts`), pas par le moteur.
+ */
+const GENERIC_UNPLACEABLE_REASON =
+    'Ne peut pas tenir sous les contraintes actuelles — relâchement nécessaire pour atteindre 100%.';
+
+/** Raison d'une sautée par cascade : sa dépendance est elle-même non plaçable (info structurelle, coût nul). */
+function cascadeReason(dependencyId: string): string {
+    return `Sautée par cascade : dépend de « ${dependencyId} », elle-même non plaçable — ` +
+        `relâchement nécessaire pour atteindre 100%.`;
 }
 
 /**
@@ -21,16 +38,17 @@ interface SkipDecision {
  * épuisé ou preuve d'optimalité (0 saut trouvé, ou arbre exploré/élagué entièrement).
  *
  * Conforme au cadrage métier du chantier (conception §1) : le résultat n'est jamais présenté
- * comme une solution finale mais comme le maximum atteignable sous les contraintes actuelles,
- * assorti d'un diagnostic (raison de chaque saut, §4.4) qui pilote la boucle de réparation
- * humaine vers le 100%.
+ * comme une solution finale mais comme le maximum atteignable sous les contraintes actuelles.
+ * Chaque saut porte une raison générique uniforme (cascade exceptée, révision post-usage §R de
+ * docs/PlanOptionalTasksP2Explication.md) — le diagnostic causal qui pilote la boucle de
+ * réparation humaine vers le 100% est porté par l'analyse de charge côté client
+ * (`packages/scheduler-client/lib/resourceLoadAnalysis.ts`), pas par une explication du moteur.
  *
  * Réimplémentation autonome du driver (principe « code séparé » du chantier backjumping) :
  * `Scheduler` n'est pas modifié dans son comportement (seules deux visibilités et une extraction
  * near-neutres ont été faites pour permettre cette sous-classe — voir PlanOptionalTasksP1.md §3).
  * Le blâme (`_failureCounts`) n'a ici aucun rôle décisionnel pendant la recherche — seulement
- * informatif (log) — conformément à conception §3.4 : c'est `_computeExactConflictSet`, appelé
- * une seule fois par tâche sautée de l'incumbent FINAL, qui produit l'explication (§4.4).
+ * informatif (log, exploitable via `getTaskFailureCounts()`), conformément à conception §3.4.
  */
 export class OptionalTasksScheduler extends Scheduler {
     private _skippedSet = new Set<string>();          // ids des unités sautées dans la branche courante
@@ -67,10 +85,10 @@ export class OptionalTasksScheduler extends Scheduler {
      *     sur la semaine 40, la première descente du B&B seul ne produisait AUCUN incumbent).
      *  2. Le B&B ne cherche alors que STRICTEMENT mieux que la passe 1. S'il n'améliore pas (ou
      *     que le budget est épuisé avant), le résultat rendu reste celui du gourmand, mais ses
-     *     `reason` sont recalculées en MUS (deletion-MUS, `_explainSkip`) par rejeu déterministe
-     *     de la pile de placement (`_explainInheritedResult`, P2-Explication) — plus de perte de
-     *     diagnostic sur le chemin hérité, qui est pourtant le cas observé sur toutes les données
-     *     réelles à ce jour (le B&B n'a jamais amélioré le gourmand sur S37-40).
+     *     `reason` sont réécrites en raison générique uniforme (`_genericizeReasons`, révision
+     *     post-usage §R de docs/PlanOptionalTasksP2Explication.md — les raisons gourmandes brutes
+     *     « Unité la plus bloquante… » ne fuitent jamais telles quelles en mode maxPlacement ; le
+     *     diagnostic causal est porté par l'analyse de charge côté client, pas par le moteur).
      * Si la passe 1 est déjà complète (0 sautée), elle est indépassable : pas de passe 2.
      */
     override solveWithElimination(): SchedulerSolution[] {
@@ -139,11 +157,11 @@ export class OptionalTasksScheduler extends Scheduler {
         console.log(`\n⏱️  Passe B&B terminée en ${endMs - startMs}ms`);
         console.log(`🔄 Itérations B&B: ${this._iterations}`);
 
-        // Chemin hérité (P2-Explication) : le B&B n'a pas amélioré la passe gourmande (best est
-        // TOUJOURS la même référence que le greedyBest seedé, garanti par l'élagage P1.5 — voir
-        // _recordIncumbent) — recalculer ses raisons en MUS plutôt que de rendre les raisons
-        // gourmandes brutes. best === null (aucun incumbent nulle part) n'a rien à expliquer.
-        const finalResult = best && best === greedyBest ? this._explainInheritedResult(best) : best;
+        // Chemin hérité : le B&B n'a pas amélioré la passe gourmande (best est TOUJOURS la même
+        // référence que le greedyBest seedé, garanti par l'élagage P1.5 — voir _recordIncumbent)
+        // — uniformiser ses raisons plutôt que de rendre les raisons gourmandes brutes. best ===
+        // null (aucun incumbent nulle part) n'a rien à uniformiser.
+        const finalResult = best && best === greedyBest ? this._genericizeReasons(best) : best;
 
         if (finalResult) {
             const nSkipped = finalResult.neutralizedUnits?.length ?? 0;
@@ -156,95 +174,22 @@ export class OptionalTasksScheduler extends Scheduler {
     }
 
     /**
-     * P2-Explication : recalcule les `reason` d'un résultat HÉRITÉ de la passe gourmande (le B&B
-     * n'a rien trouvé de strictement meilleur) en explications MUS (`_explainSkip`), au lieu des
-     * raisons gourmandes brutes (« Unité la plus bloquante… », « Dépend de… »). Ces dernières
-     * restent le repli si le rejeu diverge (garde de fidélité ci-dessous).
-     *
-     * Contrainte : `_explainSkip`/`_computeExactConflictSet` exigent l'état de la feuille (pile
-     * `_solution` peuplée au niveau UNITÉ, `_scheduled`, usage quotidien) — décousu à ce point de
-     * `solveWithElimination`. Impossible de re-réserver `greedyBest` à froid (`TaskGroupUnit.book()`
-     * jette sans `earlySchedule()` préalable). Solution : REJOUER le placement dans l'ordre de la
-     * pile d'origine — `earlySchedule` est déterministe et, à préfixe d'état identique, retourne
-     * exactement le même résultat (même créneau, même combo — le tie-break « premier combo au
-     * créneau le plus tôt » est stable par élévation du `fromTime` au start enregistré : tout
-     * combo classé avant le gagnant rendait un créneau strictement plus tardif). Rejouer les
-     * unités de `greedyBest.solutions`, dans l'ordre, avec `earlySchedule(startEnregistré)` puis
-     * `book()`, reconstruit donc fidèlement l'état final du gourmand, groupes et combos compris.
-     *
-     * `initSolver()` + `_resetBacktrackState()` (pas l'un sans l'autre — le premier ne peuple ni
-     * `_solution` ni `_scheduled` ni l'usage quotidien, seul le second le fait) : mêmes deux appels
-     * que ceux déjà faits avant la passe B&B (double booking des enforced, cosmétique, accepté
-     * depuis P1.5). `_iterations` sauvegardé/restauré : `_resetBacktrackState()` le remet à 0, ce
-     * qui écraserait le compteur de la passe B&B tout juste loggé (rien n'en dépend après, mais
-     * autant ne pas le perdre pour un usage diagnostic futur).
-     *
-     * Le rejeu est défait avant de retourner (symétrie avec `_bb`) : cette méthode ne doit laisser
-     * l'instance dans aucun état différent de celui d'avant son appel (enforced réservées, le
-     * reste libre) — au cas où `solveWithElimination()` serait un jour rappelée sur la même
-     * instance.
+     * Uniformise les `reason` d'un résultat HÉRITÉ de la passe gourmande (le B&B n'a rien trouvé
+     * de strictement meilleur) : remplace les raisons gourmandes brutes (« Unité la plus
+     * bloquante… », « Dépend de… ») par la raison générique de la classe, cascade exceptée.
+     * Fonction pure sur `neutralizedUnits` — aucune reconstruction d'état (contrairement à
+     * l'ancienne approche par rejeu déterministe, retirée en révision post-usage, voir
+     * docs/PlanOptionalTasksP2Explication.md §R : le coût du rejeu ne se justifiait plus une fois
+     * l'explication MUS jugée pas assez utile par Frédéric).
      */
-    private _explainInheritedResult(greedyBest: SchedulerSolution): SchedulerSolution {
-        const savedIterations = this._iterations;
-        this.initSolver();
-        this._resetBacktrackState();
-        this._iterations = savedIterations;
-
-        // Ordre de pile au niveau unité : dédupliquer les entrées contiguës d'un même
-        // TaskGroupUnit (son start de groupe = le start de sa PREMIÈRE entrée) ; ignorer les
-        // enforced, déjà réservées par initSolver().
-        const orderedUnits: { unit: ISchedulingUnit; start: number }[] = [];
-        const seen = new Set<ISchedulingUnit>();
-        for (const sol of greedyBest.solutions) {
-            if (sol.unit.isEnforced || seen.has(sol.unit)) continue;
-            seen.add(sol.unit);
-            orderedUnits.push({ unit: sol.unit, start: sol.start });
-        }
-
-        const booked: { unit: ISchedulingUnit; result: SchedulingResult }[] = [];
-        let faithful = true;
-        for (const { unit, start } of orderedUnits) {
-            const r = unit.earlySchedule(start);
-            if (r === null || r.start !== start) {
-                console.warn(
-                    `⚠️ P2-Explication : rejeu infidèle pour « ${unit.id} » (attendu start=${start}, ` +
-                    `obtenu ${r ? r.start : 'null'}) — repli sur les raisons gourmandes, explications MUS non recalculées.`
-                );
-                faithful = false;
-                break;
-            }
-            unit.book(r);
-            this._solution.push({ unit, result: r });
-            this._scheduled.set(unit.id, r);
-            this._addDailyUsage(r, unit.duration);
-            booked.push({ unit, result: r });
-        }
-
-        let explained: SchedulerSolution = greedyBest;
-        if (faithful) {
-            const skippedUnits = new Set((greedyBest.neutralizedUnits ?? []).map(n => n.unit));
-            const neutralizedUnits: NeutralizedUnitInfo[] = (greedyBest.neutralizedUnits ?? []).map(info => {
-                const dep = info.unit.getDependsOn();
-                const reason = dep && skippedUnits.has(dep)
-                    ? `Sautée par cascade : dépend de « ${dep.id} », elle-même non plaçable — ` +
-                      `relâchement nécessaire pour atteindre 100%.`
-                    : this._explainSkip(info.unit);
-                return { ...info, reason };
-            });
-            explained = { ...greedyBest, neutralizedUnits };
-        }
-
-        // Défaire le rejeu dans l'ordre inverse — voir docstring : ne pas laisser l'instance dans
-        // un état différent de celui d'avant l'appel.
-        for (let i = booked.length - 1; i >= 0; i--) {
-            const { unit, result } = booked[i];
-            unit.unBook(result);
-            this._subtractDailyUsage(result, unit.duration);
-            this._solution.pop();
-            this._scheduled.delete(unit.id);
-        }
-
-        return explained;
+    private _genericizeReasons(greedyBest: SchedulerSolution): SchedulerSolution {
+        const skippedUnits = new Set((greedyBest.neutralizedUnits ?? []).map(n => n.unit));
+        const neutralizedUnits: NeutralizedUnitInfo[] = (greedyBest.neutralizedUnits ?? []).map(info => {
+            const dep = info.unit.getDependsOn();
+            const reason = dep && skippedUnits.has(dep) ? cascadeReason(dep.id) : GENERIC_UNPLACEABLE_REASON;
+            return { ...info, reason };
+        });
+        return { ...greedyBest, neutralizedUnits };
     }
 
     /**
@@ -346,9 +291,9 @@ export class OptionalTasksScheduler extends Scheduler {
     /**
      * Attribution du blâme à l'impasse — purement informative ici (aucun rôle décisionnel dans
      * cette classe, contrairement à `Scheduler.solveWithElimination`). Conservée pour que
-     * `getTaskFailureCounts()` reste exploitable en diagnostic secondaire, mais l'explication
-     * réellement livrée à l'utilisateur est celle de `_explainSkip` (§4.4), calculée une seule
-     * fois par tâche sautée de l'incumbent final — pas accumulée à chaque impasse de la recherche.
+     * `getTaskFailureCounts()` reste exploitable en diagnostic secondaire (affiché en `failureCount`
+     * au tooltip) — l'explication textuelle livrée à l'utilisateur est la raison générique
+     * uniforme de la classe (révision post-usage §R), pas un calcul par impasse.
      */
     private _incrementFailureBlameInformative(unit: ISchedulingUnit, fromTime: number): void {
         const occupants = this._config.conflictSetExact
@@ -375,15 +320,14 @@ export class OptionalTasksScheduler extends Scheduler {
                 unit: root,
                 eliminationRound: 0,
                 failureCount: this._failureCounts.get(root.id) ?? 0,
-                reason: this._explainSkip(root),
+                reason: GENERIC_UNPLACEABLE_REASON,
             });
             for (const dependent of cascadeDependents) {
                 neutralizedUnits.push({
                     unit: dependent,
                     eliminationRound: 0,
                     failureCount: this._failureCounts.get(dependent.id) ?? 0,
-                    reason: `Sautée par cascade : dépend de « ${root.id} », elle-même non plaçable — ` +
-                        `relâchement nécessaire pour atteindre 100%.`,
+                    reason: cascadeReason(root.id),
                 });
             }
         }
@@ -394,35 +338,6 @@ export class OptionalTasksScheduler extends Scheduler {
             score: this._computeScore(),
             neutralizedUnits,
         };
-    }
-
-    /**
-     * Explication d'une tâche sautée (racine d'une décision de saut, jamais un membre de cascade —
-     * voir `_recordIncumbent`) : ensemble minimal de conflit (`_computeExactConflictSet`, §5.7/blâme
-     * exact) calculé DANS L'ÉTAT DE LA FEUILLE (tout l'incumbent déjà placé), avec le `fromTime`
-     * dérivé de sa dépendance si elle est planifiée (elle ne peut pas être sautée à cet endroit —
-     * voir le garde de dépendance dans `_bb`), sinon 0.
-     *
-     * Limitation connue et acceptée en P1 (héritée de docs/PlanBlameExact.md, test 5) : le MUS
-     * partage la limitation « fenêtre rétrécie » pour les causes de type quota/pause — l'explication
-     * reste correcte quand elle désigne des coupables ; le repli « structurellement insuffisantes »
-     * couvre le reste sans induire en erreur.
-     */
-    private _explainSkip(unit: ISchedulingUnit): string {
-        const dep = unit.getDependsOn();
-        let fromTime = 0;
-        if (dep && this._scheduled.has(dep.id)) {
-            fromTime = this._scheduled.get(dep.id)!.start + dep.duration;
-        }
-
-        const mus = this._computeExactConflictSet(unit, fromTime);
-        if (mus.size > 0) {
-            const ids = [...mus].map(u => u.id).join(', ');
-            return `Ne peut pas tenir sous les contraintes actuelles : créneaux nécessaires occupés par ${ids} — ` +
-                `relâchement nécessaire pour atteindre 100%.`;
-        }
-        return `Ne peut pas tenir sous les contraintes actuelles (aucune tâche placée en cause : ` +
-            `disponibilités structurellement insuffisantes) — relâchement nécessaire pour atteindre 100%.`;
     }
 }
 

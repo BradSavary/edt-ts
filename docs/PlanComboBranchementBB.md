@@ -2,7 +2,7 @@
 
 *Plan rédigé par Fable pour implémentation par Sonnet. Branche : `feature/optional-tasks`.*
 
-**Préconditions (ne PAS exécuter avant)** : (1) `docs/PlanOptionalTasksP2Explication.md` implémenté ET la fonctionnalité CONSERVÉE par Frédéric après usage — si P2-Explication est finalement abandonné, ce plan doit être révisé avant exécution (les deux touchent `optionalTasksScheduler.ts`, et la nouvelle API d'unité ci-dessous est conçue pour ne pas casser le rejeu déterministe de P2-Explication) ; (2) validation explicite de Frédéric au moment de lancer.
+**Préconditions (ne PAS exécuter avant)** : (1) `docs/PlanOptionalTasksP2Explication.md` implémenté — la brique 1 (explications MUS par rejeu de pile) a été RETIRÉE en révision post-usage (§R du plan, 2026-07-19 : jugée pas assez utile par Frédéric au vu de son coût) ; la précondition de compatibilité avec son rejeu déterministe est donc sans objet. Seule contrainte restante, inchangée : la nouvelle API d'unité ci-dessous ne doit pas toucher `earlySchedule` (le gourmand en dépend) ; (2) validation explicite de Frédéric au moment de lancer.
 
 **Plan frère** : `docs/PlanComboUnionMCV.md` (mesure MCV par union) — verrouillé derrière le gate de CE plan (§5), ne jamais exécuter les deux en parallèle.
 
@@ -20,7 +20,7 @@ L'écart « meilleur combo vs union » (`docs/AuditConformiteMCV.md` §3.2) reco
 
 Espace de valeurs complet d'une unité = union, sur ses combos, des séquences de départs semi-actifs de chaque combo. Énumération : un curseur `fromTime` PAR combo ; à chaque itération, évaluer `earlyScheduleForCombo(c, fromTime_c)` pour chaque combo non épuisé, brancher sur le couple (combo, start) de start minimal (tie-break : index de combo croissant — déterminisme), puis avancer le curseur DE CE combo seul (`fromTime_c = start + SLOT_STEP`). Un combo dont l'appel retourne `null` est épuisé. La branche de saut reste offerte à l'épuisement de TOUS les combos. Rejets par filtre (pause flottante, plafond quotidien) : avancer le curseur du combo concerné, sans consommer de branche.
 
-Nouvelle API d'unité (SANS toucher `earlySchedule` existant — le gourmand et le rejeu de P2-Explication en dépendent) :
+Nouvelle API d'unité (SANS toucher `earlySchedule` existant — le gourmand en dépend) :
 
 ```ts
 // ISchedulingUnit
