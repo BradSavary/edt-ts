@@ -44,14 +44,15 @@ Dans `_bb` : quand le flag est actif, remplacer la boucle de placement par la fu
 
 ## 5. Validation réelle — GATE du plan frère
 
-Protocole standard (S37-40, budgets 1000/3000/10000/30000, COS on/off, pipeline weekSaves habituel, re-export à demander à Frédéric si le projet a bougé) : colonnes flag off vs flag on. Rapporter par run : placées/sautées, optimum prouvé o/n, itérations. Attendus :
+Protocole standard (S37-40, budgets 1000/3000/10000/30000, COS on/off, pipeline weekSaves habituel, re-export à demander à Frédéric si le projet a bougé) : colonnes flag off vs flag on. **Le rapport du gate est structuré sur les trois axes d'évaluation fixés par Frédéric (2026-07-19)** :
 
-- Jamais pire que flag off (le warm start seed du même gourmand garantit le plancher dans les deux cas).
-- **LA question : S40 flag on améliore-t-il 105/107 → 106+, ou prouve-t-il enfin 105 ?** (Réponse possible à la question ouverte depuis P1.5 — l'affectation croisée est exactement le type de solution que le B&B ne voyait pas.)
-- S37 : la preuve à budget 1000 peut devenir plus chère (×2,5 de branchement) — rapporter le budget nécessaire.
+1. **Nombre de tâches planifiées** — placées/sautées par semaine × budget × COS, flag off vs on. Le jamais-pire est garanti par construction (warm start seed du même gourmand dans les deux cas) : tout écart ne peut être qu'une amélioration. **LA question : S40 flag on améliore-t-il 105/107 → 106+, ou prouve-t-il enfin 105 ?** (l'affectation croisée est exactement le type de solution que le B&B ne voyait pas).
+2. **Vitesse de convergence** — en itérations, jamais en wall-clock (budgets déterministes, règle maison) : itérations jusqu'au premier incumbent, jusqu'à la preuve le cas échéant, et budget minimal pour prouver S37 (référence actuelle : 1000 — le branchement ×2,2-2,7 le renchérira, chiffrer de combien). Rapporter aussi les durées à titre indicatif.
+3. **Qualité d'explication des limites** — cadrage honnête : ce plan ne change NI les textes de raison (génériques depuis la révision post-usage de P2-Explication) NI l'analyse de charge. Son apport sur cet axe est la **fiabilité et la fréquence de la preuve** : `provenOptimal` passe d'une preuve relative au modèle (« aucune solution atteignable par le moteur, combos non branchés ») à une preuve quasi absolue — rapporter, par semaine, où la preuve est obtenue flag on vs off, et mettre à jour les libellés/docstrings en conséquence (§3). Des explications textuelles plus riches relèveraient du volet P2-preuve (reporté), pas de ce plan.
+
 - Tout écart dégradé = STOP habituel.
 
-**Après le commit : STOP — l'analyse de ces mesures par Fable/Frédéric conditionne le lancement de `docs/PlanComboUnionMCV.md`.**
+**Après le commit : STOP — l'analyse de ces mesures par Fable/Frédéric, sur les trois axes ci-dessus, conditionne le lancement de `docs/PlanComboUnionMCV.md`.**
 
 ## 6. Livraison et hors périmètre
 
