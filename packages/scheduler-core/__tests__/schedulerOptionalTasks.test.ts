@@ -179,10 +179,13 @@ describe('OptionalTasksScheduler — branch-and-bound sur les sauts (docs/PlanOp
     // Coût de la cascade (2 tâches) déjà atteint dès le 1er round du gourmand (P1.5, warm
     // start) : le B&B (borne=2) ne peut rien trouver de STRICTEMENT meilleur — impossible ici,
     // le CM est structurellement inplaçable — donc le résultat final reste celui de la passe
-    // gourmande, avec SES raisons (`Scheduler.solveWithElimination`), pas celles du B&B
-    // (`_explainSkip`/MUS, qui n'apparaissent que si le B&B améliore — voir docstring classe).
-    expect(cm.reason).toContain('Unité la plus bloquante');
-    expect(td.reason).toContain('Dépend de');
+    // gourmande, MAIS avec ses raisons recalculées en MUS par rejeu déterministe (P2-Explication,
+    // `_explainInheritedResult`) : le CM (fenêtre 20min < 60min, aucune tâche placée en cause)
+    // reçoit la formule "structurellement insuffisantes" ; le TD, dont la dépendance (le CM) est
+    // elle-même sautée, reçoit la formule de cascade uniforme de la classe (même texte que
+    // `_recordIncumbent` produirait pour un incumbent trouvé PAR le B&B).
+    expect(cm.reason).toContain('structurellement insuffisantes');
+    expect(td.reason).toContain('Sautée par cascade');
     expect(td.reason).toContain(cm.unit.id);
 
     // Coût de la cascade = 2 : la borne task-aware du B&B (min(1+1,2)=2) interdirait ce saut en
@@ -546,5 +549,138 @@ describe('OptionalTasksScheduler — soundness de provenOptimal (docs/PlanOption
     expect(res).toHaveLength(1);
     expect(res[0].neutralizedUnits ?? []).toHaveLength(1);
     expect(s.provenOptimal).toBe(true);
+  });
+});
+
+describe('OptionalTasksScheduler — P2-Explication : MUS pour le résultat hérité du gourmand (docs/PlanOptionalTasksP2Explication.md §1)', () => {
+  it('MUS hérité — coupable désigné : la sautée nomme la placée qui occupe son créneau', () => {
+    // 1 prof R, fenêtre de 60min pile — occupant (60min) + victime (30min) : peu importe
+    // laquelle des deux le gourmand place en premier (dépend du tri MCV), l'autre est sautée et
+    // son MUS doit nommer celle qui a été placée comme coupable.
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'R' }] },
+        { resourceType: 'group', resources: [{ id: 'G-OCC' }, { id: 'G-VIC' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'OCC', type: 'TD', name: 'occupant', teacher: ['R'], groups: ['G-OCC'], rooms: [], duration: 60 },
+        { week: 30, semester: 1, level: 0, code: 'VIC', type: 'TD', name: 'victime', teacher: ['R'], groups: ['G-VIC'], rooms: [], duration: 30 },
+      ],
+      constraints: {
+        R: [{ days: 'lundi', from: '08:00', to: '09:00' }], // 60min pile
+        'G-OCC': [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        'G-VIC': [{ days: 'lundi', from: '08:00', to: '19:00' }],
+      },
+    };
+
+    Loader.loadFromRawData(scenario);
+    const s = new OptionalTasksScheduler();
+    s.configure({ maxEliminations: 6 });
+    const res = s.solveWithElimination();
+
+    expect(res).toHaveLength(1);
+    expect(res[0].solutions).toHaveLength(1);
+    const skipped = res[0].neutralizedUnits ?? [];
+    expect(skipped).toHaveLength(1);
+    const placedId = res[0].solutions[0].unit.id;
+    expect(skipped[0].reason).toContain('créneaux nécessaires occupés par');
+    expect(skipped[0].reason).toContain(placedId);
+  });
+
+  it('groupe placé + unité sautée : le rejeu reconstruit fidèlement un TaskGroupUnit', () => {
+    // Le groupe séquentiel (2 membres) se place sans encombre ; une unité indépendante (fenêtre
+    // trop courte) est sautée. Vérifie que le rejeu déterministe passe la garde de fidélité même
+    // quand une unité placée AVANT la sautée est un TaskGroupUnit (book() couplé à
+    // _pendingAssignment, earlySchedule séquentiel avec offsets).
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'RG' }, { id: 'RX' }] },
+        { resourceType: 'group', resources: [{ id: 'G-Seq' }, { id: 'G-X' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'SEQ', type: 'TD', name: 'part1', teacher: ['RG'], groups: ['G-Seq'], rooms: [], duration: 60, taskGroupId: 'GRP1' },
+        { week: 30, semester: 1, level: 0, code: 'SEQ', type: 'TD', name: 'part2', teacher: ['RG'], groups: ['G-Seq'], rooms: [], duration: 60, taskGroupId: 'GRP1' },
+        { week: 30, semester: 1, level: 0, code: 'X', type: 'TD', name: 'X', teacher: ['RX'], groups: ['G-X'], rooms: [], duration: 60 },
+      ],
+      constraints: {
+        RG: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        'G-Seq': [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        RX: [{ days: 'lundi', from: '08:00', to: '08:20' }], // 20min, trop court pour X (60min)
+        'G-X': [{ days: 'lundi', from: '08:00', to: '19:00' }],
+      },
+      groups: [{ id: 'GRP1', type: 'sequential' }],
+    };
+
+    Loader.loadFromRawData(scenario);
+    const s = new OptionalTasksScheduler();
+    s.configure({ maxEliminations: 6 });
+    const res = s.solveWithElimination();
+
+    expect(res).toHaveLength(1);
+    expect(res[0].solutions).toHaveLength(2); // les 2 membres du groupe
+    expect(res[0].solutions.every(sol => sol.unit.id === 'GRP1')).toBe(true);
+    const skipped = res[0].neutralizedUnits ?? [];
+    expect(skipped).toHaveLength(1);
+    expect(skipped[0].unit.id).toBe('X_RX_G-X_3');
+    // Garde de fidélité passée (pas de repli) : la raison est bien du MUS, pas la raison
+    // gourmande brute — ici "structurellement insuffisantes" puisqu'aucune tâche placée n'est
+    // en cause (RX est juste trop étroite pour X).
+    expect(skipped[0].reason).toContain('structurellement insuffisantes');
+  });
+
+  it('garde de fidélité : un rejeu divergent replie sur les raisons gourmandes intactes (white-box)', () => {
+    // Construit un greedyBest valide puis MUTE le start enregistré d'une entrée pour forcer la
+    // divergence entre le rejeu et la pile d'origine — déclenche la garde sans dépendre d'un
+    // scénario métier capable de la provoquer naturellement (le rejeu est prouvé fidèle, cf.
+    // docstring de _explainInheritedResult).
+    class TestableOptionalTasksScheduler extends OptionalTasksScheduler {
+      public callExplainInheritedResult(greedyBest: ReturnType<OptionalTasksScheduler['solveWithElimination']>[number]) {
+        return (this as unknown as { _explainInheritedResult(g: typeof greedyBest): typeof greedyBest })
+          ._explainInheritedResult(greedyBest);
+      }
+    }
+
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'R' }] },
+        { resourceType: 'group', resources: [{ id: 'G-OCC' }, { id: 'G-VIC' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'OCC', type: 'TD', name: 'occupant', teacher: ['R'], groups: ['G-OCC'], rooms: [], duration: 60 },
+        { week: 30, semester: 1, level: 0, code: 'VIC', type: 'TD', name: 'victime', teacher: ['R'], groups: ['G-VIC'], rooms: [], duration: 30 },
+      ],
+      constraints: {
+        R: [{ days: 'lundi', from: '08:00', to: '09:00' }],
+        'G-OCC': [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        'G-VIC': [{ days: 'lundi', from: '08:00', to: '19:00' }],
+      },
+    };
+
+    // Un seul Loader/une seule instance tout du long — deux appels à _explainInheritedResult sur
+    // la MÊME instance restent cohérents (état correctement défait entre les deux, voir docstring
+    // « ne doit laisser l'instance dans aucun état différent de celui d'avant son appel »).
+    Loader.loadFromRawData(scenario);
+    const s = new TestableOptionalTasksScheduler();
+    s.configure({ maxEliminations: 6 });
+    const [greedyBest] = s.solveWithElimination();
+    const originalReason = greedyBest.neutralizedUnits![0].reason;
+
+    // start volontairement faux (hors de portée de toute fenêtre) sur l'entrée placée — la garde
+    // doit rejeter le rejeu (earlySchedule ne trouvera aucun créneau à ce start).
+    const divergent = {
+      ...greedyBest,
+      solutions: greedyBest.solutions.map(sol => ({ ...sol, start: sol.start + 999_999 })),
+    };
+    const result = s.callExplainInheritedResult(divergent);
+
+    // Repli : l'objet est retourné intact (même raisons qu'avant, pas de MUS recalculé).
+    expect(result).toBe(divergent);
+    expect(result.neutralizedUnits![0].reason).toBe(originalReason);
   });
 });

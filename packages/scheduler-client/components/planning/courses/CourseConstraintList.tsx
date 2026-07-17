@@ -1,9 +1,14 @@
 'use client';
 
-import type { CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
+import type { CourseTaskData, EnforcedData, ResourceGroupData } from '@edt-ts/scheduler-common';
+import { AvailabilityManager } from '@edt-ts/scheduler-common';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
+import type { BlockedZone } from '@/lib/calendar/blockedZones';
+import type { SchoolYearConfig } from '@/lib/schoolHolidays';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import CourseCard from '@/components/planning/courses/CourseCard';
+import ResourceLoadPopover from '@/components/planning/courses/ResourceLoadPopover';
+import { buildPreparationLoadRows } from '@/lib/resourceLoadAnalysis';
 import type { TaskConstraintInfo, ConstraintLevel } from '@/lib/taskConstraintAnalysis';
 
 const LEVEL_CONFIG: Record<ConstraintLevel, { label: string; className: string }> = {
@@ -18,6 +23,14 @@ interface Props {
   onEditCourse?: (courseKey: string, course: CourseTaskDataWithId) => void;
   onDuplicateCourse?: (course: CourseTaskData) => void;
   onDeleteCourse?: (courseId: string) => void;
+  /** Analyse de charge (P2-Explication §2) : présent uniquement si le contexte le permet. */
+  loadAnalysisContext?: {
+    availabilityManager: AvailabilityManager;
+    selectedWeek: number;
+    resources: ResourceGroupData[];
+    blockedZones: BlockedZone[];
+    schoolYearConfig: SchoolYearConfig | null;
+  };
 }
 
 export default function CourseConstraintList({
@@ -26,6 +39,7 @@ export default function CourseConstraintList({
   onEditCourse,
   onDuplicateCourse,
   onDeleteCourse,
+  loadAnalysisContext,
 }: Props) {
   const levels: ConstraintLevel[] = ['critical', 'tight', 'ok'];
   const groups = levels
@@ -37,6 +51,9 @@ export default function CourseConstraintList({
     }))
     .filter(g => g.items.length > 0);
 
+  const weekCourses = taskInfos.map(t => t.course);
+  const enforcedByCourseId = new Map(Object.entries(enforcedMap));
+
   return (
     <div className="flex flex-col gap-1">
       {groups.map(({ level, items }) => (
@@ -45,29 +62,49 @@ export default function CourseConstraintList({
             {LEVEL_CONFIG[level].label} ({items.length})
           </p>
           {items.map(({ courseKey, course, reasons }) => (
-            <Tooltip key={courseKey}>
-              <TooltipTrigger asChild>
-                <div>
-                  <CourseCard
-                    courseKey={courseKey}
-                    course={course}
-                    enforced={enforcedMap[courseKey] !== undefined}
-                    onEdit={onEditCourse ? () => onEditCourse(courseKey, course) : undefined}
-                    onDuplicate={onDuplicateCourse ? () => onDuplicateCourse(course) : undefined}
-                    onDelete={onDeleteCourse ? () => onDeleteCourse(courseKey) : undefined}
+            <div key={courseKey} className="relative">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <CourseCard
+                      courseKey={courseKey}
+                      course={course}
+                      enforced={enforcedMap[courseKey] !== undefined}
+                      onEdit={onEditCourse ? () => onEditCourse(courseKey, course) : undefined}
+                      onDuplicate={onDuplicateCourse ? () => onDuplicateCourse(course) : undefined}
+                      onDelete={onDeleteCourse ? () => onDeleteCourse(courseKey) : undefined}
+                    />
+                  </div>
+                </TooltipTrigger>
+                {reasons.length > 0 && (
+                  <TooltipContent side="left" className="max-w-xs text-xs whitespace-pre-line bg-background text-foreground border shadow-md">
+                    <ul className="space-y-0.5 list-disc list-inside">
+                      {reasons.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ul>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+              {loadAnalysisContext && (
+                <div className="absolute top-1 right-1">
+                  <ResourceLoadPopover
+                    mode="preparation"
+                    rows={buildPreparationLoadRows(
+                      course,
+                      weekCourses,
+                      enforcedByCourseId,
+                      (c) => (c as CourseTaskDataWithId).id,
+                      loadAnalysisContext.availabilityManager,
+                      loadAnalysisContext.selectedWeek,
+                      loadAnalysisContext.resources,
+                      loadAnalysisContext.blockedZones,
+                      loadAnalysisContext.schoolYearConfig,
+                    )}
                   />
                 </div>
-              </TooltipTrigger>
-              {reasons.length > 0 && (
-                <TooltipContent side="left" className="max-w-xs text-xs whitespace-pre-line bg-background text-foreground border shadow-md">
-                  <ul className="space-y-0.5 list-disc list-inside">
-                    {reasons.map((r, i) => (
-                      <li key={i}>{r}</li>
-                    ))}
-                  </ul>
-                </TooltipContent>
               )}
-            </Tooltip>
+            </div>
           ))}
         </div>
       ))}

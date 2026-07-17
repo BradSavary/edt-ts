@@ -240,6 +240,13 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
                   <CourseConstraintList
                     taskInfos={constraintAnalysis.taskInfos}
                     enforcedMap={enforcedMap}
+                    loadAnalysisContext={availabilityManager && selectedWeek !== null ? {
+                      availabilityManager,
+                      selectedWeek,
+                      resources,
+                      blockedZones,
+                      schoolYearConfig,
+                    } : undefined}
                     onEditCourse={handleEditCourse}
                     onDuplicateCourse={(course) => setCreateModal({ initialCourse: course })}
                   onDeleteCourse={(courseId) => {

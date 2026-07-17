@@ -21,7 +21,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import NeutralizedTaskCard from '@/components/planning/courses/NeutralizedTaskCard';
+import ResourceLoadPopover from '@/components/planning/courses/ResourceLoadPopover';
 import { solutionToBaseProps, manuallyNeutralizedToBaseProps } from '@/lib/taskCardUtils';
+import { buildAnalysisLoadRows } from '@/lib/resourceLoadAnalysis';
 
 export function SidebarAnalysis() {
   const resetScheduleResult = usePlanningStore((s) => s.resetScheduleResult);
@@ -35,7 +37,10 @@ export function SidebarAnalysis() {
   const searchQuery = usePlanningStore((s) => s.searchQuery);
   const setSearchQuery = usePlanningStore((s) => s.setSearchQuery);
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
+  const blockedZones = usePlanningStore((s) => s.blockedZones);
   const schoolYearConfig = useProjectStore((s) => s.schoolYearConfig);
+  const availabilityManager = useProjectStore((s) => s.availabilityManager);
+  const resources = useProjectStore((s) => s.resources);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const neutralizedContainerRef = useRef<HTMLDivElement | null>(null);
@@ -172,20 +177,38 @@ export function SidebarAnalysis() {
                 const dist = autonomyDistributions[task.taskId];
                 const isAutonomie = task.type === 'Autonomie';
                 return (
-                  <NeutralizedTaskCard
-                    key={task.taskId}
-                    {...baseProps}
-                    duration={dist ? dist.remainingDuration : baseProps.duration}
-                    taskId={task.taskId}
-                    tooltipContent={tooltipLines.join('\n')}
-                    dragEnabled={!dist}
-                    onDistribute={
-                      isAutonomie
-                        ? () => (dist ? cancelAutonomyDistribution(task.taskId) : distributeAutonomy(task.taskId))
-                        : undefined
-                    }
-                    distributeLabel={dist ? 'Annuler la répartition' : 'Répartir'}
-                  />
+                  <div key={task.taskId} className="relative">
+                    <NeutralizedTaskCard
+                      {...baseProps}
+                      duration={dist ? dist.remainingDuration : baseProps.duration}
+                      taskId={task.taskId}
+                      tooltipContent={tooltipLines.join('\n')}
+                      dragEnabled={!dist}
+                      onDistribute={
+                        isAutonomie
+                          ? () => (dist ? cancelAutonomyDistribution(task.taskId) : distributeAutonomy(task.taskId))
+                          : undefined
+                      }
+                      distributeLabel={dist ? 'Annuler la répartition' : 'Répartir'}
+                    />
+                    {!isPreNeutralized && availabilityManager && selectedWeek !== null && (
+                      <div className="absolute top-1 right-1">
+                        <ResourceLoadPopover
+                          mode="analysis"
+                          taskDurationMin={task.duration}
+                          rows={buildAnalysisLoadRows(
+                            neutralizedInfo,
+                            activeSolution,
+                            availabilityManager,
+                            selectedWeek,
+                            resources,
+                            blockedZones,
+                            schoolYearConfig,
+                          )}
+                        />
+                      </div>
+                    )}
+                  </div>
                 );
               })}
 

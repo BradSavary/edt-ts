@@ -1,6 +1,6 @@
 import { Scheduler, SLOT_STEP } from './scheduler.js';
 import type { SchedulerSolution, NeutralizedUnitInfo } from './scheduler.js';
-import type { ISchedulingUnit } from './schedulingUnit.js';
+import type { ISchedulingUnit, SchedulingResult } from './schedulingUnit.js';
 import type { SchedulerConfig } from '@edt-ts/scheduler-common';
 
 /** Décision de saut : l'unité qui a réellement heurté l'impasse + sa cascade de dépendants non-enforced. */
@@ -66,9 +66,11 @@ export class OptionalTasksScheduler extends Scheduler {
      *     « jamais pire que le moteur actuel » du STATUT P1.5, qui n'était pas garantie en P1 :
      *     sur la semaine 40, la première descente du B&B seul ne produisait AUCUN incumbent).
      *  2. Le B&B ne cherche alors que STRICTEMENT mieux que la passe 1. S'il n'améliore pas (ou
-     *     que le budget est épuisé avant), le résultat rendu reste celui du gourmand — y compris
-     *     ses `reason` (style « Unité la plus bloquante… »), pas les explications MUS de
-     *     `_explainSkip` (qui n'apparaissent que sur un incumbent trouvé PAR le B&B).
+     *     que le budget est épuisé avant), le résultat rendu reste celui du gourmand, mais ses
+     *     `reason` sont recalculées en MUS (deletion-MUS, `_explainSkip`) par rejeu déterministe
+     *     de la pile de placement (`_explainInheritedResult`, P2-Explication) — plus de perte de
+     *     diagnostic sur le chemin hérité, qui est pourtant le cas observé sur toutes les données
+     *     réelles à ce jour (le B&B n'a jamais amélioré le gourmand sur S37-40).
      * Si la passe 1 est déjà complète (0 sautée), elle est indépassable : pas de passe 2.
      */
     override solveWithElimination(): SchedulerSolution[] {
@@ -136,14 +138,113 @@ export class OptionalTasksScheduler extends Scheduler {
 
         console.log(`\n⏱️  Passe B&B terminée en ${endMs - startMs}ms`);
         console.log(`🔄 Itérations B&B: ${this._iterations}`);
-        if (best) {
-            const nSkipped = best.neutralizedUnits?.length ?? 0;
-            console.log(`🎯 Meilleur incumbent final : ${best.solutions.length} placées, ${nSkipped} sautée(s) — optimum ${this._provenOptimal ? 'PROUVÉ' : 'non prouvé (budget épuisé)'}`);
+
+        // Chemin hérité (P2-Explication) : le B&B n'a pas amélioré la passe gourmande (best est
+        // TOUJOURS la même référence que le greedyBest seedé, garanti par l'élagage P1.5 — voir
+        // _recordIncumbent) — recalculer ses raisons en MUS plutôt que de rendre les raisons
+        // gourmandes brutes. best === null (aucun incumbent nulle part) n'a rien à expliquer.
+        const finalResult = best && best === greedyBest ? this._explainInheritedResult(best) : best;
+
+        if (finalResult) {
+            const nSkipped = finalResult.neutralizedUnits?.length ?? 0;
+            console.log(`🎯 Meilleur incumbent final : ${finalResult.solutions.length} placées, ${nSkipped} sautée(s) — optimum ${this._provenOptimal ? 'PROUVÉ' : 'non prouvé (budget épuisé)'}`);
         } else {
             console.log('❌ Aucun incumbent (ni gourmand, ni B&B) — aucune solution ne tient sous la limite maxEliminations.');
         }
 
-        return best ? [best] : [];
+        return finalResult ? [finalResult] : [];
+    }
+
+    /**
+     * P2-Explication : recalcule les `reason` d'un résultat HÉRITÉ de la passe gourmande (le B&B
+     * n'a rien trouvé de strictement meilleur) en explications MUS (`_explainSkip`), au lieu des
+     * raisons gourmandes brutes (« Unité la plus bloquante… », « Dépend de… »). Ces dernières
+     * restent le repli si le rejeu diverge (garde de fidélité ci-dessous).
+     *
+     * Contrainte : `_explainSkip`/`_computeExactConflictSet` exigent l'état de la feuille (pile
+     * `_solution` peuplée au niveau UNITÉ, `_scheduled`, usage quotidien) — décousu à ce point de
+     * `solveWithElimination`. Impossible de re-réserver `greedyBest` à froid (`TaskGroupUnit.book()`
+     * jette sans `earlySchedule()` préalable). Solution : REJOUER le placement dans l'ordre de la
+     * pile d'origine — `earlySchedule` est déterministe et, à préfixe d'état identique, retourne
+     * exactement le même résultat (même créneau, même combo — le tie-break « premier combo au
+     * créneau le plus tôt » est stable par élévation du `fromTime` au start enregistré : tout
+     * combo classé avant le gagnant rendait un créneau strictement plus tardif). Rejouer les
+     * unités de `greedyBest.solutions`, dans l'ordre, avec `earlySchedule(startEnregistré)` puis
+     * `book()`, reconstruit donc fidèlement l'état final du gourmand, groupes et combos compris.
+     *
+     * `initSolver()` + `_resetBacktrackState()` (pas l'un sans l'autre — le premier ne peuple ni
+     * `_solution` ni `_scheduled` ni l'usage quotidien, seul le second le fait) : mêmes deux appels
+     * que ceux déjà faits avant la passe B&B (double booking des enforced, cosmétique, accepté
+     * depuis P1.5). `_iterations` sauvegardé/restauré : `_resetBacktrackState()` le remet à 0, ce
+     * qui écraserait le compteur de la passe B&B tout juste loggé (rien n'en dépend après, mais
+     * autant ne pas le perdre pour un usage diagnostic futur).
+     *
+     * Le rejeu est défait avant de retourner (symétrie avec `_bb`) : cette méthode ne doit laisser
+     * l'instance dans aucun état différent de celui d'avant son appel (enforced réservées, le
+     * reste libre) — au cas où `solveWithElimination()` serait un jour rappelée sur la même
+     * instance.
+     */
+    private _explainInheritedResult(greedyBest: SchedulerSolution): SchedulerSolution {
+        const savedIterations = this._iterations;
+        this.initSolver();
+        this._resetBacktrackState();
+        this._iterations = savedIterations;
+
+        // Ordre de pile au niveau unité : dédupliquer les entrées contiguës d'un même
+        // TaskGroupUnit (son start de groupe = le start de sa PREMIÈRE entrée) ; ignorer les
+        // enforced, déjà réservées par initSolver().
+        const orderedUnits: { unit: ISchedulingUnit; start: number }[] = [];
+        const seen = new Set<ISchedulingUnit>();
+        for (const sol of greedyBest.solutions) {
+            if (sol.unit.isEnforced || seen.has(sol.unit)) continue;
+            seen.add(sol.unit);
+            orderedUnits.push({ unit: sol.unit, start: sol.start });
+        }
+
+        const booked: { unit: ISchedulingUnit; result: SchedulingResult }[] = [];
+        let faithful = true;
+        for (const { unit, start } of orderedUnits) {
+            const r = unit.earlySchedule(start);
+            if (r === null || r.start !== start) {
+                console.warn(
+                    `⚠️ P2-Explication : rejeu infidèle pour « ${unit.id} » (attendu start=${start}, ` +
+                    `obtenu ${r ? r.start : 'null'}) — repli sur les raisons gourmandes, explications MUS non recalculées.`
+                );
+                faithful = false;
+                break;
+            }
+            unit.book(r);
+            this._solution.push({ unit, result: r });
+            this._scheduled.set(unit.id, r);
+            this._addDailyUsage(r, unit.duration);
+            booked.push({ unit, result: r });
+        }
+
+        let explained: SchedulerSolution = greedyBest;
+        if (faithful) {
+            const skippedUnits = new Set((greedyBest.neutralizedUnits ?? []).map(n => n.unit));
+            const neutralizedUnits: NeutralizedUnitInfo[] = (greedyBest.neutralizedUnits ?? []).map(info => {
+                const dep = info.unit.getDependsOn();
+                const reason = dep && skippedUnits.has(dep)
+                    ? `Sautée par cascade : dépend de « ${dep.id} », elle-même non plaçable — ` +
+                      `relâchement nécessaire pour atteindre 100%.`
+                    : this._explainSkip(info.unit);
+                return { ...info, reason };
+            });
+            explained = { ...greedyBest, neutralizedUnits };
+        }
+
+        // Défaire le rejeu dans l'ordre inverse — voir docstring : ne pas laisser l'instance dans
+        // un état différent de celui d'avant l'appel.
+        for (let i = booked.length - 1; i >= 0; i--) {
+            const { unit, result } = booked[i];
+            unit.unBook(result);
+            this._subtractDailyUsage(result, unit.duration);
+            this._solution.pop();
+            this._scheduled.delete(unit.id);
+        }
+
+        return explained;
     }
 
     /**
