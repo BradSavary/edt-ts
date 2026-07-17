@@ -1,6 +1,6 @@
 # Plan Combo-Union — mesurer le score MCV sur l'union des combos (A/B derrière flag)
 
-*Plan rédigé par Fable pour implémentation par Sonnet. Branche : `feature/optional-tasks`.*
+> **STATUT (2026-07-17) : NON LANCÉ — gate du plan frère fermé négatif (décision de Frédéric).** Le branchement combo (`bb4e98e`) n'a apporté aucun gain de placements ni de preuve sur le projet réel (S37-40, 64 cellules) pour un surcoût ×1,95 en itérations ; l'axe convergence — le seul où ce plan pourrait payer — est donc déjà mesuré négatif, et cette zone (tri dynamique du gourmand) reste la plus accidentogène du moteur (2 reverts). Le plan reste en réserve tel quel ; ne l'exécuter que sur nouvelle décision explicite de Frédéric, avec re-mesures préalables.
 
 **Préconditions (VERROUILLÉ — ne PAS exécuter avant)** : (1) `docs/PlanComboBranchementBB.md` livré ET son gate franchi (analyse des mesures de validation réelle par Fable/Frédéric — les résultats du branchement peuvent réviser l'intérêt ou le design de ce plan) ; (2) `docs/PlanOptionalTasksP2Explication.md` implémenté et conservé (précondition héritée du plan frère) ; (3) validation explicite de Frédéric au moment de lancer.
 
