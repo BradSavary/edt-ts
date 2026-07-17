@@ -270,6 +270,13 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
                 courses={parsedCourses}
                 groupBy={groupBy as GroupBy}
                 enforcedMap={enforcedMap}
+                loadAnalysisContext={availabilityManager && selectedWeek !== null ? {
+                  availabilityManager,
+                  selectedWeek,
+                  resources,
+                  blockedZones,
+                  schoolYearConfig,
+                } : undefined}
                 onEditCourse={handleEditCourse}
                 onDuplicateCourse={(course) => setCreateModal({ initialCourse: course })}
                 onDeleteCourse={(courseId) => {
