@@ -66,6 +66,7 @@ export class Scheduler {
         ignoreDailyLimits: false,
         conflictOrderingSearch: false,
         conflictSetExact: false,
+        comboBranching: false,
         searchStrategy: 'elimination',
     };
 

@@ -247,6 +247,17 @@ export interface SchedulerConfig {
    */
   conflictSetExact?: boolean;
   /**
+   * Paramètre transitoire : si true, le B&B (`OptionalTasksScheduler`, `searchStrategy:
+   * 'maxPlacement'`) branche sur les combinaisons de ressources alternatives d'une unité — pas
+   * seulement le créneau le plus tôt du meilleur combo comme aujourd'hui — levant l'écart
+   * « meilleur combo vs union » de la recherche exacte identifié dans docs/AuditConformiteMCV.md
+   * §3.2 (le tri MCV, lui, reste inchangé). Complétude accrue au prix d'un facteur de
+   * branchement plus élevé (×2,2-2,7 mesuré sur le projet réel, docs/PlanComboBranchementBB.md
+   * §1). Sans effet si `searchStrategy` n'est pas 'maxPlacement'. Défaut : false (comportement
+   * historique).
+   */
+  comboBranching?: boolean;
+  /**
    * Stratégie de recherche du moteur (défaut : 'elimination').
    * - 'elimination' : moteur historique — résolution gourmande, élimination itérative des unités
    *   les plus bloquantes, jusqu'à maxSolutions solutions.
@@ -270,5 +281,6 @@ export const DEFAULT_SCHEDULER_CONFIG: Required<SchedulerConfig> = {
   ignoreDailyLimits: false,
   conflictOrderingSearch: false,
   conflictSetExact: false,
+  comboBranching: false,
   searchStrategy: 'elimination',
 };

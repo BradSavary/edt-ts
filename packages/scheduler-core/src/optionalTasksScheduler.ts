@@ -1,6 +1,6 @@
 import { Scheduler, SLOT_STEP } from './scheduler.js';
 import type { SchedulerSolution, NeutralizedUnitInfo } from './scheduler.js';
-import type { ISchedulingUnit } from './schedulingUnit.js';
+import type { ISchedulingUnit, SchedulingResult } from './schedulingUnit.js';
 import type { SchedulerConfig } from '@edt-ts/scheduler-common';
 
 /** Décision de saut : l'unité qui a réellement heurté l'impasse + sa cascade de dépendants non-enforced. */
@@ -63,12 +63,20 @@ export class OptionalTasksScheduler extends Scheduler {
      * true si le résultat du dernier `solveWithElimination()` est prouvé optimal — arbre épuisé
      * sous les limites, garde de soundness incluse (§0, P3). Portée exacte de la preuve : « aucune
      * solution plaçant plus de tâches n'est atteignable PAR LE MOTEUR ». Relative au modèle de
-     * placement : créneaux au-plus-tôt (borne glissante SLOT_STEP) et combinaison de ressources
-     * choisie par `earlySchedule` (la plus tôt, jamais branchée — un combo alternatif au même
-     * créneau n'est pas exploré, cf. docs/AuditConformiteMCV.md « meilleur combo vs union »).
-     * Le gourmand vivant dans le même modèle, la lecture métier reste exacte : inutile de
-     * relancer ce moteur avec plus de budget, seul un relâchement peut débloquer. Preuve absolue
-     * (au sens mathématique) uniquement si 0 sautée ou si l'instance est sans alternatives.
+     * placement : créneaux au-plus-tôt (borne glissante SLOT_STEP) dans tous les cas.
+     *
+     * Avec `comboBranching: false` (défaut) : restriction supplémentaire — la combinaison de
+     * ressources choisie par `earlySchedule` (la plus tôt, jamais branchée) n'explore pas les
+     * combos alternatifs au même créneau (cf. docs/AuditConformiteMCV.md « meilleur combo vs
+     * union »). Avec `comboBranching: true` (docs/PlanComboBranchementBB.md) : cette restriction
+     * saute — tous les combos de chaque `TaskUnit` sont branchés — et seules deux restrictions
+     * subsistent : les `TaskGroupUnit` multi-combos ne sont pas branchés en interne (v1, §3),
+     * et la discrétisation SLOT_STEP/semi-actif.
+     *
+     * Le gourmand vivant dans le même modèle que la passe qui l'amorce, la lecture métier reste
+     * exacte dans les deux régimes : inutile de relancer ce moteur avec plus de budget, seul un
+     * relâchement peut débloquer. Preuve absolue (au sens mathématique) uniquement si 0 sautée
+     * ou si l'instance est sans alternatives.
      */
     get provenOptimal(): boolean { return this._provenOptimal; }
 
@@ -243,28 +251,72 @@ export class OptionalTasksScheduler extends Scheduler {
             fromTime = depResult.start + dep.duration;
         }
 
-        // ── Branches de placement (copie fidèle de la boucle de _backtrack) ──
-        while (true) {
-            const result = unit.earlySchedule(fromTime);
-            if (result === null) break; // épuisement des placements → branche de saut (ci-dessous)
+        if (this._config.comboBranching) {
+            // ── Branches de placement — fusion chronologique à curseurs par combo (docs/
+            // PlanComboBranchementBB.md §3) : à chaque itération, le combo non épuisé offrant
+            // le départ le plus tôt est branché ; son curseur seul avance ensuite. Tie-break :
+            // index de combo croissant (déterminisme — `<` strict laisse gagner le premier
+            // combo trouvé à égalité, puisque les combos sont parcourus dans l'ordre).
+            const comboCount = unit.getComboCount();
+            const cursors = new Array<number>(comboCount).fill(fromTime);
+            const exhausted = new Array<boolean>(comboCount).fill(false);
 
-            if (!this._floatingLBAllows(result, unit.duration)) { fromTime = result.start + SLOT_STEP; continue; }
-            if (!this._dailyLimitAllows(result, unit.duration))  { fromTime = result.start + SLOT_STEP; continue; }
+            while (true) {
+                let bestCombo = -1;
+                let bestResult: SchedulingResult | null = null;
+                for (let c = 0; c < comboCount; c++) {
+                    if (exhausted[c]) continue;
+                    const candidate = unit.earlyScheduleForCombo(c, cursors[c]);
+                    if (candidate === null) { exhausted[c] = true; continue; }
+                    if (bestResult === null || candidate.start < bestResult.start) {
+                        bestResult = candidate;
+                        bestCombo = c;
+                    }
+                }
+                if (bestResult === null) break; // tous les combos épuisés → branche de saut (ci-dessous)
 
-            this._solution.push({ unit, result });
-            this._scheduled.set(unit.id, result);
-            unit.book(result);
-            this._addDailyUsage(result, unit.duration);
+                if (!this._floatingLBAllows(bestResult, unit.duration)) { cursors[bestCombo] = bestResult.start + SLOT_STEP; continue; }
+                if (!this._dailyLimitAllows(bestResult, unit.duration))  { cursors[bestCombo] = bestResult.start + SLOT_STEP; continue; }
 
-            const abort = this._bb(unitIndex + 1);
+                this._solution.push({ unit, result: bestResult });
+                this._scheduled.set(unit.id, bestResult);
+                unit.book(bestResult);
+                this._addDailyUsage(bestResult, unit.duration);
 
-            unit.unBook(result);
-            this._subtractDailyUsage(result, unit.duration);
-            this._solution.pop();
-            this._scheduled.delete(unit.id);
+                const abort = this._bb(unitIndex + 1);
 
-            if (abort) return true;
-            fromTime = result.start + SLOT_STEP;
+                unit.unBook(bestResult);
+                this._subtractDailyUsage(bestResult, unit.duration);
+                this._solution.pop();
+                this._scheduled.delete(unit.id);
+
+                if (abort) return true;
+                cursors[bestCombo] = bestResult.start + SLOT_STEP;
+            }
+        } else {
+            // ── Branches de placement (copie fidèle de la boucle de _backtrack) ──
+            while (true) {
+                const result = unit.earlySchedule(fromTime);
+                if (result === null) break; // épuisement des placements → branche de saut (ci-dessous)
+
+                if (!this._floatingLBAllows(result, unit.duration)) { fromTime = result.start + SLOT_STEP; continue; }
+                if (!this._dailyLimitAllows(result, unit.duration))  { fromTime = result.start + SLOT_STEP; continue; }
+
+                this._solution.push({ unit, result });
+                this._scheduled.set(unit.id, result);
+                unit.book(result);
+                this._addDailyUsage(result, unit.duration);
+
+                const abort = this._bb(unitIndex + 1);
+
+                unit.unBook(result);
+                this._subtractDailyUsage(result, unit.duration);
+                this._solution.pop();
+                this._scheduled.delete(unit.id);
+
+                if (abort) return true;
+                fromTime = result.start + SLOT_STEP;
+            }
         }
 
         // ── Impasse de placement : blâme (informatif) + COS + branche de saut en dernier recours ──

@@ -1,5 +1,19 @@
 # Plan Combo-Branchement — brancher sur les combos de ressources dans le B&B
 
+> **STATUT (2026-07-17, exécution par Sonnet) : LIVRÉ, prêt à committer — GATE ouvert, bénéfice NON démontré sur le projet réel aux budgets testés.** API `getComboCount`/`earlyScheduleForCombo` (§3) ajoutée à `ISchedulingUnit`/`TaskUnit` (combos mis en cache, `earlySchedule` byte-identique, non touché)/`TaskGroupUnit` (v1, pas de branchement interne). Fusion à curseurs implémentée dans `OptionalTasksScheduler._bb`, deux chemins séparés derrière `SchedulerConfig.comboBranching` (défaut `false`) ; flag ajouté aux DEUX littéraux `Required<SchedulerConfig>` (types.ts ET le second dans `scheduler.ts`, piège déjà documenté par P3). Docstring `provenOptimal` mise à jour pour documenter les deux régimes (flag off/on) au lieu d'être remplacée. Typecheck clean sur les 4 workspaces, 102/102 scheduler-core + 269/269 scheduler-client verts (aucune suite existante modifiée).
+>
+> **4 tests dédiés** (`schedulerOptionalTasks.test.ts`, describe `comboBranching`) : (1) **affectation croisée** — scénario construit à la main (2 tâches, alternatives {A,B} tie-break à l'instant t, la seule solution 2/2 exige le combo NON tie-breaké) : flag off → 1/2 placée, `provenOptimal:true` (relatif) ; flag on → **2/2, prouvé** — vérifié empiriquement en dérivant à la main le déroulé exact du B&B avant d'écrire le test (curseur B non consommé après l'échec du combo A à l'instant t, retenté au même instant après épuisement structurel de A — exactement le mécanisme du §3) ; (2) neutralité mono-combo : itérations et résultats STRICTEMENT identiques flag off/on ; (3) déterminisme : deux runs flag on identiques ; (4) pigeonhole DUBOIS (scénario existant) flag on : mêmes conclusions (3/1, prouvé) ET mêmes itérations que flag off (mono-combo, aucun surcoût).
+>
+> **Validation réelle** (export du 16/07, S37-40, budgets 1000/3000/10000/30000, COS off/on × combo off/on = 64 cellules, pipeline weekSaves complet reconstruit fidèlement pour 38/39 via les fonctions pures du client — `getCoursesForWeek`/`buildTaskGroupData`/`computeGroupEnforcements`/`filterResourcesForCourses`/`applyBlockedZonesToConstraints` importées directement, pas réimplémentées) :
+>
+> 1. **Nombre de tâches planifiées** — **jamais pire, mais jamais mieux non plus** sur les 64 cellules. S37 : 94/97 (3 sautées) identique aux 4 budgets × COS × combo. S38/S39 : 110/110 et 106/106 (0 sauté, gourmand déjà complet — le B&B ne tourne même pas, le flag n'a donc structurellement aucun effet possible). **S40 : la question ouverte du §5.1 (« 105/107 → 106+, ou preuve de 105 ? ») reste sans réponse positive à ces budgets** — combo off et combo on convergent vers EXACTEMENT les mêmes chiffres à chaque cellule (5 sautées à budget 1000/COS off, 4 sautées partout ailleurs), jamais 105/107 ni mieux. Aucune dégradation nulle part (STOP non déclenché) mais aucun gain observé.
+> 2. **Vitesse de convergence** — mesurable uniquement sur S37 (seule semaine où le B&B améliore effectivement le gourmand sans être budget-limité) : **22 → 43 itérations pour la même conclusion (94/97, prouvé)**, soit ×1,95 — cohérent avec le facteur ×2,2-2,7 annoncé au §1. Sur S40, comparaison non concluante : les deux régimes sont budget-exhausted à chaque budget testé (itérations = budget+1 des deux côtés), impossible de distinguer un éventuel surcoût ou gain au-delà de 30000 itérations avec le protocole standard.
+> 3. **Qualité d'explication des limites** — `provenOptimal` est VRAI/FAUX dans EXACTEMENT les mêmes cellules flag off/on (vrai sur S37/38/39, faux sur S40 à ces budgets) : aucun gain de fréquence de preuve mesuré sur ce projet à ces budgets. La docstring (§3) reste correcte en soi mais n'a rien à démontrer empiriquement ici.
+>
+> **Lecture** : le mécanisme est correct et démontré sur un cas construit à la main (test 1) — la complétude gagnée est réelle et le design (curseurs par combo, tie-break déterministe) fonctionne exactement comme spécifié. Mais sur CE projet réel, à CES budgets, le gap structurel qu'il comble ne se manifeste pas (ou son coût combinatoire consomme le budget avant de payer) : aucune solution de type « affectation croisée » n'a été débloquée sur S37/40 dans la plage 1000-30000 itérations. **Décision de lancement de `docs/PlanComboUnionMCV.md` à trancher par Fable/Frédéric sur cette base — pas une recommandation de ce STATUT.**
+>
+> Reste avant commit : rien — commit unique à suivre (script de validation jetable déjà supprimé, aucun fichier `data/` touché).
+
 *Plan rédigé par Fable pour implémentation par Sonnet. Branche : `feature/optional-tasks`.*
 
 **Préconditions (ne PAS exécuter avant)** : (1) `docs/PlanOptionalTasksP2Explication.md` implémenté — la brique 1 (explications MUS par rejeu de pile) a été RETIRÉE en révision post-usage (§R du plan, 2026-07-19 : jugée pas assez utile par Frédéric au vu de son coût) ; la précondition de compatibilité avec son rejeu déterministe est donc sans objet. Seule contrainte restante, inchangée : la nouvelle API d'unité ci-dessous ne doit pas toucher `earlySchedule` (le gourmand en dépend) ; (2) validation explicite de Frédéric au moment de lancer.
@@ -61,7 +75,7 @@ Protocole standard (S37-40, budgets 1000/3000/10000/30000, COS on/off, pipeline 
 
 ## 7. Definition of done
 
-- [ ] API `getComboCount`/`earlyScheduleForCombo`, fusion à curseurs dans `_bb` derrière `comboBranching` (défaut off), docstring provenOptimal à jour
-- [ ] 4 tests dont l'affectation croisée ; suites complètes intactes ; typecheck clean
-- [ ] Validation réelle rapportée (dont la réponse S40) dans le STATUT
+- [x] API `getComboCount`/`earlyScheduleForCombo`, fusion à curseurs dans `_bb` derrière `comboBranching` (défaut off), docstring provenOptimal à jour
+- [x] 4 tests dont l'affectation croisée ; suites complètes intactes ; typecheck clean
+- [x] Validation réelle rapportée (dont la réponse S40 — négative aux budgets testés) dans le STATUT
 - [ ] Commit unique, conventions respectées — puis gate avec Fable/Frédéric

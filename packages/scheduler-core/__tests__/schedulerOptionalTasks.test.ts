@@ -588,3 +588,174 @@ describe('OptionalTasksScheduler — raisons génériques uniformes (révision p
     expect(skipped[0].reason).not.toContain('créneaux nécessaires occupés par');
   });
 });
+
+describe('OptionalTasksScheduler — branchement combo (flag comboBranching, docs/PlanComboBranchementBB.md)', () => {
+  it("LE test de complétude — affectation croisée : flag off 1/2 (relatif), flag on 2/2 (prouvé)", () => {
+    // T1 a 2 profs alternatifs {A, B} et une fenêtre (via son groupe G1) EXACTEMENT de sa
+    // durée (08:00-08:30, 30min) — doit démarrer pile à 08:00, sans autre option temporelle.
+    // A et B sont tous deux libres à 08:00 : tie-break naturel (earlySchedule/earlyScheduleForCombo
+    // à égalité, index croissant) désigne A. T2 n'a AUCUNE alternative, a besoin de A précisément,
+    // et sa fenêtre propre (via G2) est large ouverte — seul l'usage de A par T1 peut le bloquer.
+    // Si T1 utilise A (choix du tie-break) : A épuisé, T2 ne tient nulle part → sauté. Le seul 2/2
+    // exige T1 via B (l'option jamais essayée par earlySchedule/_backtrack au même instant, cf.
+    // plan §1/§3) — structurellement invisible sans branchement combo.
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'A' }, { id: 'B' }] },
+        { resourceType: 'group', resources: [{ id: 'G1' }, { id: 'G2' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'T1', type: 'TD', name: 'T1', teacher: [['A', 'B']], groups: ['G1'], rooms: [], duration: 30 },
+        { week: 30, semester: 1, level: 0, code: 'T2', type: 'TD', name: 'T2', teacher: ['A'], groups: ['G2'], rooms: [], duration: 30 },
+      ],
+      constraints: {
+        A: [{ days: 'lundi', from: '08:00', to: '08:30' }],
+        B: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        G1: [{ days: 'lundi', from: '08:00', to: '08:30' }],
+        G2: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+      },
+    };
+
+    Loader.loadFromRawData(scenario);
+    const sOff = new InspectableOptionalTasksScheduler();
+    const resOff = sOff.solveWithElimination();
+
+    expect(resOff).toHaveLength(1);
+    expect(resOff[0].solutions).toHaveLength(1);
+    expect(resOff[0].neutralizedUnits ?? []).toHaveLength(1);
+    expect(resOff[0].isComplete).toBe(false);
+    expect(sOff.isProvenOptimal()).toBe(true); // preuve relative au modèle (combos non branchés)
+
+    Loader.loadFromRawData(scenario);
+    const sOn = new InspectableOptionalTasksScheduler();
+    sOn.configure({ comboBranching: true });
+    const resOn = sOn.solveWithElimination();
+
+    expect(resOn).toHaveLength(1);
+    expect(resOn[0].solutions).toHaveLength(2);
+    expect(resOn[0].neutralizedUnits ?? []).toHaveLength(0);
+    expect(resOn[0].isComplete).toBe(true);
+    expect(sOn.isProvenOptimal()).toBe(true); // preuve quasi absolue avec le flag actif
+  });
+
+  it('neutralité mono-combo : instance sans alternatives → itérations et résultat strictement identiques flag off/on', () => {
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'T1' }, { id: 'T2' }] },
+        { resourceType: 'group', resources: [{ id: 'G1' }, { id: 'G2' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'C1', type: 'TD', name: 'C1', teacher: ['T1'], groups: ['G1'], rooms: [], duration: 60 },
+        { week: 30, semester: 1, level: 0, code: 'C2', type: 'TD', name: 'C2', teacher: ['T2'], groups: ['G2'], rooms: [], duration: 60 },
+      ],
+      constraints: {
+        T1: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        T2: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        G1: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        G2: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+      },
+    };
+
+    Loader.loadFromRawData(scenario);
+    const sOff = new InspectableOptionalTasksScheduler();
+    const resOff = sOff.solveWithElimination();
+
+    Loader.loadFromRawData(scenario);
+    const sOn = new InspectableOptionalTasksScheduler();
+    sOn.configure({ comboBranching: true });
+    const resOn = sOn.solveWithElimination();
+
+    expect(sOn.getIterations()).toBe(sOff.getIterations());
+    expect(resOn[0].solutions.map(s => s.start).sort())
+      .toEqual(resOff[0].solutions.map(s => s.start).sort());
+    expect(resOn[0].neutralizedUnits ?? []).toEqual(resOff[0].neutralizedUnits ?? []);
+  });
+
+  it('déterminisme : deux runs flag on donnent des résultats identiques', () => {
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'A' }, { id: 'B' }] },
+        { resourceType: 'group', resources: [{ id: 'G1' }, { id: 'G2' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'T1', type: 'TD', name: 'T1', teacher: [['A', 'B']], groups: ['G1'], rooms: [], duration: 30 },
+        { week: 30, semester: 1, level: 0, code: 'T2', type: 'TD', name: 'T2', teacher: ['A'], groups: ['G2'], rooms: [], duration: 30 },
+      ],
+      constraints: {
+        A: [{ days: 'lundi', from: '08:00', to: '08:30' }],
+        B: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        G1: [{ days: 'lundi', from: '08:00', to: '08:30' }],
+        G2: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+      },
+    };
+
+    Loader.loadFromRawData(scenario);
+    const s1 = new InspectableOptionalTasksScheduler();
+    s1.configure({ comboBranching: true });
+    const res1 = s1.solveWithElimination();
+
+    Loader.loadFromRawData(scenario);
+    const s2 = new InspectableOptionalTasksScheduler();
+    s2.configure({ comboBranching: true });
+    const res2 = s2.solveWithElimination();
+
+    expect(s2.getIterations()).toBe(s1.getIterations());
+    expect(res2[0].solutions.map(s => s.start).sort())
+      .toEqual(res1[0].solutions.map(s => s.start).sort());
+    expect(res2[0].neutralizedUnits ?? []).toEqual(res1[0].neutralizedUnits ?? []);
+  });
+
+  it('pigeonhole DUBOIS (scénario existant, conception §3.2) : flag on garde les mêmes conclusions, mono-combo → aucun coût supplémentaire', () => {
+    // DUBOIS n'a aucune alternative (1 seul prof, pas de salle, 1 groupe par cours) : le
+    // branchement combo n'a structurellement rien à explorer de plus ici — même conclusion
+    // ET mêmes itérations que flag off (cf. test de neutralité mono-combo ci-dessus, sur un
+    // scénario existant et déjà couvert par ailleurs plutôt qu'une nouvelle instance).
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'DUBOIS' }] },
+        { resourceType: 'group', resources: [{ id: 'GA' }, { id: 'GB' }, { id: 'GC' }, { id: 'GD' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'A', type: 'TD', name: 'A', teacher: ['DUBOIS'], groups: ['GA'], rooms: [], duration: 90 },
+        { week: 30, semester: 1, level: 0, code: 'B', type: 'TD', name: 'B', teacher: ['DUBOIS'], groups: ['GB'], rooms: [], duration: 90 },
+        { week: 30, semester: 1, level: 0, code: 'C', type: 'TD', name: 'C', teacher: ['DUBOIS'], groups: ['GC'], rooms: [], duration: 90 },
+        { week: 30, semester: 1, level: 0, code: 'D', type: 'TD', name: 'D', teacher: ['DUBOIS'], groups: ['GD'], rooms: [], duration: 90 },
+      ],
+      constraints: {
+        DUBOIS: [
+          { days: 'lundi', from: '08:00', to: '10:00' },
+          { days: 'mardi', from: '08:00', to: '10:00' },
+          { days: 'mercredi', from: '08:00', to: '10:00' },
+        ],
+        GA: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        GB: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        GC: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        GD: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+      },
+    };
+
+    Loader.loadFromRawData(scenario);
+    const sOff = new InspectableOptionalTasksScheduler();
+    sOff.configure({ maxSolutions: 1, maxEliminations: 6, timeoutSeconds: 60, maxIterations: 100_000 });
+    const resOff = sOff.solveWithElimination();
+
+    Loader.loadFromRawData(scenario);
+    const sOn = new InspectableOptionalTasksScheduler();
+    sOn.configure({ maxSolutions: 1, maxEliminations: 6, timeoutSeconds: 60, maxIterations: 100_000, comboBranching: true });
+    const resOn = sOn.solveWithElimination();
+
+    expect(resOn[0].solutions).toHaveLength(3);
+    expect(resOn[0].neutralizedUnits ?? []).toHaveLength(1);
+    expect(resOn[0].isComplete).toBe(false);
+    expect(sOn.isProvenOptimal()).toBe(true);
+    expect(sOn.getIterations()).toBe(sOff.getIterations());
+  });
+});
