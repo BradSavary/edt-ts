@@ -582,6 +582,8 @@ export class Scheduler {
         const dayIndex = Math.floor(slotStart / MINUTES_PER_DAY);
         const winStart = dayIndex * MINUTES_PER_DAY + flb.earliestMin;
         const winEnd   = dayIndex * MINUTES_PER_DAY + flb.latestMin;
+        // Le slot ne touche pas la fenêtre de pause → ne peut rien consommer de la pause.
+        if (Math.max(slotStart, winStart) >= Math.min(slotEnd, winEnd)) return true;
         return result.resources
             .filter(r => r.type === ResourceType.GROUP)
             .every(r => this._resourceKeepsFloatingBreak(r, slotStart, slotEnd, winStart, winEnd, flb.duration));
@@ -600,36 +602,35 @@ export class Scheduler {
         winEnd: number,
         duration: number,
     ): boolean {
-        const intervals = resource.availability.getAvailableIntervals();
+        // Garde-fou résiduel SAIN (fondé sur la fenêtre, pas sur la dispo) : si la fenêtre
+        // est structurellement trop courte pour contenir la pause, la contrainte est
+        // inapplicable — ne bloque pas tout le jour sur une config incohérente.
+        if (winEnd - winStart < duration) return true;
 
-        // Si la disponibilité de la ressource ce jour-là ne recouvre déjà [winStart,winEnd]
-        // que sur moins de `duration` minutes AVANT tout booking, aucune pause n'a jamais pu
-        // être réservée dans cette fenêtre — la contrainte est structurellement inapplicable
-        // ce jour-là (pas de "après-midi" à protéger), pas violée par ce placement précis.
-        // Sans ce garde-fou, une journée trop courte (ex. jeudi 8h-12h30 face à une fenêtre
-        // de pause 12h-14h) se retrouve exclue en permanence, quel que soit l'horaire testé.
-        let totalOverlap = 0;
-        for (const interval of intervals) {
-            const clipStart = Math.max(interval.start, winStart);
-            const clipEnd = Math.min(interval.end, winEnd);
-            if (clipStart < clipEnd) totalOverlap += clipEnd - clipStart;
+        // Cours occupant ce groupe et chevauchant la fenêtre, clippés à [winStart,winEnd].
+        // Le slot hypothétique n'est pas encore dans _solution (book() vient après le check)
+        // → l'ajouter explicitement. Les tâches enforced sont déjà dans _solution.
+        const busy: Array<[number, number]> = [];
+        const pushClip = (start: number, end: number): void => {
+            const cs = Math.max(start, winStart);
+            const ce = Math.min(end, winEnd);
+            if (cs < ce) busy.push([cs, ce]);
+        };
+        pushClip(slotStart, slotEnd);
+        for (const { unit, result } of this._solution) {
+            if (!result.resources.some(r => r.id === resource.id)) continue;
+            pushClip(result.start, result.start + unit.duration);
+            // (les cours d'un autre jour se clippent à vide → ignorés naturellement)
         }
-        if (totalOverlap < duration) return true;
 
-        for (const interval of intervals) {
-            const clipStart = Math.max(interval.start, winStart);
-            const clipEnd   = Math.min(interval.end,   winEnd);
-            if (clipStart >= clipEnd) continue;
-
-            // Sous-intervalle gauche (avant le slot)
-            const leftEnd = Math.min(clipEnd, slotStart);
-            if (leftEnd > clipStart && leftEnd - clipStart >= duration) return true;
-
-            // Sous-intervalle droit (après le slot)
-            const rightStart = Math.max(clipStart, slotEnd);
-            if (rightStart < clipEnd && clipEnd - rightStart >= duration) return true;
+        // Plus grand trou libre dans [winStart,winEnd] \ busy ≥ duration ?
+        busy.sort((a, b) => a[0] - b[0]);
+        let cursor = winStart;
+        for (const [s, e] of busy) {
+            if (s - cursor >= duration) return true; // trou libre avant ce cours
+            if (e > cursor) cursor = e;              // fusion des chevauchements
         }
-        return false;
+        return winEnd - cursor >= duration;          // trou libre après le dernier cours
     }
 
     protected _dailyLimitAllows(result: SchedulingResult, duration: number): boolean {
