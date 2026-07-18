@@ -136,4 +136,31 @@ describe('computeRootLowerBound — micro-tests du module pur (P2-preuve §3.4)'
     expect(clusterResult.lb).toBeLessThanOrEqual(1);
     expect(clusterResult.lb).toBe(1);
   });
+
+  it('(d) sûreté de la mémoïsation DFS : deux chemins vers le même état résiduel avec des placed différents', () => {
+    // Régression (trouvée en relecture post-livraison) : la mémo des DFS de maxPackMono/cluster
+    // était clée sur (idx, résidus) SANS `placed` — {60} et {30+30} atteignent le MÊME résidu
+    // de fenêtre, le second chemin (meilleur) était élagué à tort. R dispo lundi 60min + mardi
+    // 30min ; T60(R seul, lundi seulement) ; Ta30/Tb30(R+R3, R3 dispo lundi seulement) ;
+    // Tc30(R+R2, R2 dispo mardi seulement). Optimum réel = 1 saut (sauter T60, placer Ta+Tb
+    // lundi et Tc mardi) ⟹ lb ≤ 1. Avant correctif : lb=2 (borne INVALIDE, sens interdit par le
+    // principe de sûreté cardinal §1 du plan).
+    const r = makeResource('R', ResourceType.TEACHER, [
+      { day: 0, from: 8 * 60, to: 9 * 60 },
+      { day: 1, from: 8 * 60, to: 8 * 60 + 30 },
+    ]);
+    const r3 = makeResource('R3', ResourceType.TEACHER, [{ day: 0, from: 8 * 60, to: 9 * 60 }]);
+    const r2 = makeResource('R2', ResourceType.TEACHER, [{ day: 1, from: 8 * 60, to: 8 * 60 + 30 }]);
+
+    const tasks = [
+      makeTask('T60', 60, [r]),
+      makeTask('Ta30', 30, [r, r3]),
+      makeTask('Tb30', 30, [r, r3]),
+      makeTask('Tc30', 30, [r, r2]),
+    ];
+
+    const result = computeRootLowerBound(tasks, { lunchBreak: { type: 'none' }, ignoreDailyLimits: false });
+    expect(result.lb).toBeLessThanOrEqual(1);
+    expect(result.lb).toBe(1);
+  });
 });

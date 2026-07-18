@@ -135,7 +135,7 @@ function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, numb
   let exact = true;
   const winRes = winsIn.map(w => w.len);
   const dayRes = new Map(dayCaps);
-  const seen = new Set<string>();
+  const seen = new Map<string, number>();
 
   const dfs = (idx: number, placed: number): void => {
     if (placed > best) best = placed;
@@ -143,8 +143,9 @@ function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, numb
     if (idx >= n || placed + (n - idx) <= best) return;
     if (++nodes > nodeLimit) { exact = false; return; }
     const key = idx + '|' + winRes.join(',');
-    if (seen.has(key)) return;
-    seen.add(key);
+    const prev = seen.get(key);
+    if (prev !== undefined && prev >= placed) return;
+    seen.set(key, placed);
     const d = items[idx];
     for (let w = 0; w < winsIn.length; w++) {
       if (!elig[idx][w]) continue;
@@ -336,7 +337,7 @@ function computeClusterCertificates(
     let best = 0;
     let nodes = 0;
     let exact = true;
-    const seenState = new Set<string>();
+    const seenState = new Map<string, number>();
     const cur: number[] = S.map(() => -1);
 
     const dfs = (k: number, placed: number): void => {
@@ -344,8 +345,9 @@ function computeClusterCertificates(
       if (k >= order.length || placed + (order.length - k) <= best) return;
       if (++nodes > nodeLimit) { exact = false; return; }
       const stateKey = k + '|' + [...caps.values()].join(',');
-      if (seenState.has(stateKey)) return;
-      seenState.add(stateKey);
+      const prevPlaced = seenState.get(stateKey);
+      if (prevPlaced !== undefined && prevPlaced >= placed) return;
+      seenState.set(stateKey, placed);
       const i = order[k];
       const dur = S[i].duration;
       for (let d = 0; d < 5; d++) {
