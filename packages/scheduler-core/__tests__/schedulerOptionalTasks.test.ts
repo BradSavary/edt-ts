@@ -239,7 +239,7 @@ describe('OptionalTasksScheduler — branch-and-bound sur les sauts (docs/PlanOp
     expect(res2[0].neutralizedUnits ?? []).toHaveLength(1); // 1 UNITÉ (le groupe), mais coût 2 en tâches
   });
 
-  it('anytime sous budget minuscule : un incumbent existe mais l\'optimum n\'est pas prouvé', () => {
+  it('anytime sous budget minuscule : incumbent optimal, prouvé par la borne racine (P2-preuve) malgré le budget B&B minuscule', () => {
     const scenario: RawScheduleData = {
       week: 30,
       resources: [
@@ -267,8 +267,12 @@ describe('OptionalTasksScheduler — branch-and-bound sur les sauts (docs/PlanOp
     };
 
     // budget=6 : vérifié empiriquement juste au-dessus de la 1ère descente complète (qui
-    // atteint déjà la solution optimale 3/1 dans ce scénario, mais SANS explorer assez pour
-    // le prouver — l'arbre n'est pas épuisé).
+    // atteint déjà la solution optimale 3/1 dans ce scénario). C'est le scénario pigeonhole
+    // DUBOIS de référence (docs/PlanOptionalTasksP2Preuve.md §0) : la borne racine le prouve
+    // AVANT toute itération B&B (certificat mono-ressource sur DUBOIS, lb=1), donc
+    // `provenOptimal` est désormais true ici quel que soit le budget B&B — ce test ne
+    // démontre plus « budget minuscule ⟹ non prouvé » (obsolète depuis P2-preuve) mais la
+    // non-régression du résultat gourmand sous budget minuscule.
     Loader.loadFromRawData(scenario);
     const s = new InspectableOptionalTasksScheduler();
     s.configure({ maxIterations: 6, timeoutSeconds: 60 });
@@ -276,7 +280,7 @@ describe('OptionalTasksScheduler — branch-and-bound sur les sauts (docs/PlanOp
 
     expect(res).toHaveLength(1);
     expect(res[0].solutions.length).toBeGreaterThan(0);
-    expect(s.isProvenOptimal()).toBe(false);
+    expect(s.isProvenOptimal()).toBe(true);
   });
 
   it('enforced jamais sautées : reste dans solutions, jamais dans neutralizedUnits', () => {
@@ -479,15 +483,18 @@ describe('createScheduler — fabrique (docs/PlanOptionalTasksP3.md §2)', () =>
 });
 
 describe('OptionalTasksScheduler — soundness de provenOptimal (docs/PlanOptionalTasksP3.md §0)', () => {
-  it('greedyCost > maxEliminations+1 : résultat gourmand rendu (jamais pire) mais optimum NON prouvé', () => {
-    // Groupe séquentiel de 3 membres, structurellement inplaçable (fenêtre 30min < 180min du
-    // groupe). maxEliminations:1 → borne d'attaque = 2, mais le coût réel du saut (3 tâches,
-    // le groupe entier) dépasse strictement cette borne. Le gourmand (qui compte en ROUNDS, pas
-    // en tâches) élimine le groupe entier en 1 round et rend un résultat valide (jamais pire, cf.
-    // tests « coût des groupes »/« cascade » de P1.5) — mais l'arbre B&B n'a été épuisé QUE sous
-    // la borne de 2 tâches : rien ne prouve qu'aucune solution à coût 2 (strictement sous les 3
-    // du gourmand) n'existe. Avant le correctif §0, `!_budgetExceeded` aurait à tort revendiqué
-    // `provenOptimal === true` ici (vérifié empiriquement en calibrant ce test).
+  it('greedyCost > maxEliminations+1 : résultat gourmand rendu (jamais pire), optimum prouvé par la borne racine (P2-preuve)', () => {
+    // Groupe séquentiel de 3 membres, structurellement inplaçable (fenêtre 30min < 60min pour
+    // CHAQUE membre pris individuellement — RG ne peut jamais tenir aucun des 3). maxEliminations:1
+    // → borne d'attaque B&B = 2, strictement sous le coût réel du saut (3 tâches, le groupe
+    // entier) : l'arbre B&B, à lui seul, ne prouve donc que « rien à coût ≤ 2 », pas l'optimalité
+    // du résultat gourmand rendu (garde historique §0, docs/PlanOptionalTasksP3.md — avant ce
+    // correctif, `!_budgetExceeded` seul aurait à tort revendiqué `provenOptimal === true` ici).
+    // Depuis P2-preuve, la borne racine est INDÉPENDANTE de ce cap : certificat mono-ressource sur
+    // RG (chaque membre a un domaine réel de 30min < 60min requis, donc MaxPack=0, lb=3) prouve
+    // directement `finalCost(3) <= lb(3)` — la garde §0 seule ne suffisait pas, la LB si
+    // (exactement le cas visé par docs/PlanOptionalTasksP2Preuve.md §2 : « la LB peut mettre
+    // _provenOptimal = true là où la garde seule dirait false »).
     const scenario: RawScheduleData = {
       week: 30,
       resources: [
@@ -515,7 +522,7 @@ describe('OptionalTasksScheduler — soundness de provenOptimal (docs/PlanOption
     expect(res).toHaveLength(1);
     expect(res[0].solutions).toHaveLength(0);
     expect(res[0].neutralizedUnits ?? []).toHaveLength(1); // le groupe entier, hérité de la passe gourmande
-    expect(s.provenOptimal).toBe(false);
+    expect(s.provenOptimal).toBe(true);
   });
 
   it('greedyCost <= maxEliminations+1 : preuve saine, provenOptimal reste true (non-régression)', () => {

@@ -135,6 +135,29 @@ export interface NeutralizedTaskInfoJSON {
   taskGroupId?: string;
 }
 
+/**
+ * Certificat individuel de la borne inférieure racine (docs/PlanOptionalTasksP2Preuve.md) :
+ * une ressource (ou un cluster de groupes) dont le bin-packing exact des tâches obligatoires
+ * prouve qu'au moins `lb` d'entre elles ne peuvent pas toutes être placées.
+ */
+export interface RootLowerBoundCertificateJSON {
+  resourceIds: string[];
+  taskIds: string[];
+  lb: number;
+  /** Résumé lisible (demande, caps par jour) — affichable tel quel. */
+  note: string;
+}
+
+/**
+ * Borne inférieure racine sur le nombre de tâches devant être sautées, calculée avant toute
+ * recherche (certificats de bin-packing exact, mono-ressource + cluster de groupes, combinés
+ * par sélection disjointe). Sûre par construction : `lb` ne dépasse jamais l'optimum réel.
+ */
+export interface RootLowerBoundJSON {
+  lb: number;
+  certificates: RootLowerBoundCertificateJSON[];
+}
+
 export interface ScheduleSolutionJSON {
   solutions: TaskSolutionJSON[];
   isComplete: boolean;
@@ -150,6 +173,13 @@ export interface ScheduleSolutionJSON {
    * placées, pas le score.
    */
   provenOptimal?: boolean;
+  /**
+   * Présent uniquement pour searchStrategy: 'maxPlacement'. Borne inférieure racine calculée
+   * avant la recherche (docs/PlanOptionalTasksP2Preuve.md) — indépendante de `provenOptimal`,
+   * qui peut être `true` grâce à cette borne même quand la garde historique (maxEliminations)
+   * seule ne le permettrait pas.
+   */
+  rootBound?: RootLowerBoundJSON;
 }
 
 // --------------------------------------------------------------------------

@@ -9,6 +9,8 @@
 export { Scheduler, SLOT_STEP } from './scheduler.js';
 export type { SchedulerSolution, NeutralizedUnitInfo } from './scheduler.js';
 export { OptionalTasksScheduler, createScheduler } from './optionalTasksScheduler.js';
+export { computeRootLowerBound, computeTaskDomain } from './rootLowerBound.js';
+export type { Certificate, RootLowerBoundResult, RootLowerBoundConfig } from './rootLowerBound.js';
 export { TaskUnit } from './taskUnit.js';
 export { TaskGroupUnit } from './taskGroupUnit.js';
 export type { ISchedulingUnit, SchedulingResult, UnitSolution } from './schedulingUnit.js';
