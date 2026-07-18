@@ -1,6 +1,5 @@
 import { Task, Resource, ResourceType, type LunchBreakConfig } from '@edt-ts/scheduler-common';
 import { getApplicableResources, intersectResources } from './taskScheduling.js';
-import type { ISchedulingUnit } from './schedulingUnit.js';
 
 const DAY = 24 * 60;
 
@@ -119,7 +118,7 @@ interface Win { day: number; len: number }
 /** MaxPack exact (DFS + élagage) avec éligibilité item×fenêtre. Repli sûr sur dépassement de
  *  nœuds : borne de comptage (préfixe croissant des durées vs capacité totale), jamais le
  *  meilleur packing partiel trouvé — voir le principe de sûreté cardinal en tête de fichier. */
-function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, number>, eligible: boolean[][]): number {
+function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, number>, eligible: boolean[][], nodeLimit: number): number {
   const order = itemsIn.map((d, i) => ({ d, i })).sort((a, b) => b.d - a.d);
   const items = order.map(o => o.d);
   const elig = order.map(o => eligible[o.i]);
@@ -133,7 +132,6 @@ function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, numb
 
   let best = 0;
   let nodes = 0;
-  const NODE_LIMIT = 4_000_000;
   let exact = true;
   const winRes = winsIn.map(w => w.len);
   const dayRes = new Map(dayCaps);
@@ -143,7 +141,7 @@ function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, numb
     if (placed > best) best = placed;
     if (best >= ub) return;
     if (idx >= n || placed + (n - idx) <= best) return;
-    if (++nodes > NODE_LIMIT) { exact = false; return; }
+    if (++nodes > nodeLimit) { exact = false; return; }
     const key = idx + '|' + winRes.join(',');
     if (seen.has(key)) return;
     seen.add(key);
@@ -156,7 +154,7 @@ function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, numb
       winRes[w] -= d; dayRes.set(day, dc - d);
       dfs(idx + 1, placed + 1);
       winRes[w] += d; dayRes.set(day, dc);
-      if (best >= ub || nodes > NODE_LIMIT) return;
+      if (best >= ub || nodes > nodeLimit) return;
     }
     dfs(idx + 1, placed); // brancher "item non placé"
   };
@@ -171,6 +169,7 @@ function computeMonoCertificates(
   enforcedOcc: Map<string, Iv[]>,
   lunchBreak: LunchBreakConfig,
   ignoreDailyLimits: boolean,
+  nodeLimit: number,
 ): MonoFinding[] {
   const mandatory = new Map<Resource, Task[]>();
   for (const t of nonEnforced) {
@@ -224,7 +223,7 @@ function computeMonoCertificates(
     );
 
     const durations = S.map(t => t.duration);
-    const pack = maxPackMono(durations, wins, dayCaps, eligible);
+    const pack = maxPackMono(durations, wins, dayCaps, eligible, nodeLimit);
     const lb = S.length - pack;
     if (lb > 0) {
       const capStr = [...dayCaps.entries()].sort((a, b) => a[0] - b[0]).map(([d, c]) => `j${d}:${c}`).join(' ');
@@ -248,6 +247,7 @@ function computeClusterCertificates(
   enforcedOcc: Map<string, Iv[]>,
   lunchBreak: LunchBreakConfig,
   ignoreDailyLimits: boolean,
+  nodeLimit: number,
 ): ClusterFinding[] {
   const groupResources = new Map<string, Resource>();
   for (const t of nonEnforced) {
@@ -336,14 +336,13 @@ function computeClusterCertificates(
     let best = 0;
     let nodes = 0;
     let exact = true;
-    const NODE_LIMIT = 6_000_000;
     const seenState = new Set<string>();
     const cur: number[] = S.map(() => -1);
 
     const dfs = (k: number, placed: number): void => {
       if (placed > best) best = placed;
       if (k >= order.length || placed + (order.length - k) <= best) return;
-      if (++nodes > NODE_LIMIT) { exact = false; return; }
+      if (++nodes > nodeLimit) { exact = false; return; }
       const stateKey = k + '|' + [...caps.values()].join(',');
       if (seenState.has(stateKey)) return;
       seenState.add(stateKey);
@@ -358,7 +357,7 @@ function computeClusterCertificates(
         dfs(k + 1, placed + 1);
         cur[i] = -1;
         for (const key of keys) caps.set(key, caps.get(key)! + dur);
-        if (nodes > NODE_LIMIT) return;
+        if (nodes > nodeLimit) return;
       }
       dfs(k + 1, placed);
     };
@@ -399,7 +398,16 @@ export interface RootLowerBoundResult {
 export interface RootLowerBoundConfig {
   lunchBreak: LunchBreakConfig;
   ignoreDailyLimits: boolean;
+  /**
+   * Limites de nœuds DFS (§1.2/§1.3) — surchargeables pour les tests (repli sûr sur
+   * dépassement, cf. micro-tests de rootLowerBound.test.ts) ; défauts de production sinon.
+   */
+  monoNodeLimit?: number;
+  clusterNodeLimit?: number;
 }
+
+const DEFAULT_MONO_NODE_LIMIT = 4_000_000;
+const DEFAULT_CLUSTER_NODE_LIMIT = 6_000_000;
 
 /**
  * Borne inférieure racine sur le nombre de tâches devant être sautées, par certificats de
@@ -407,18 +415,25 @@ export interface RootLowerBoundConfig {
  * disjointe gloutonne (§1.4 — l'optimisation exacte de la sélection est inutile au vu des
  * tailles rencontrées en pratique).
  *
- * `units` : toutes les unités de planification (enforced incluses — les tâches enforced sont
- * exclues des candidats mais leurs occupations réduisent les fenêtres et les caps quotidiennes
- * des autres). Les tâches membres sont obtenues via `getMemberTasks()` (TaskGroupUnit éclate en
- * ses tâches individuelles, chacune conservant ses propres ressources).
+ * `allTasks` : toutes les tâches du problème (enforced incluses — exclues des candidats mais
+ * leurs occupations réduisent les fenêtres et les caps quotidiennes des autres), typiquement
+ * `Loader.tasksManager.getAllUnits()`. Opère au niveau Task, pas ISchedulingUnit : l'appartenance
+ * à un TaskGroupUnit ne change rien à cette analyse (chaque tâche membre conserve son propre
+ * `resources`) — évite de dépendre d'un `initSolver()` préalable (fonction pure, appelable dès
+ * que `Loader` est chargé).
  */
-export function computeRootLowerBound(units: ISchedulingUnit[], config: RootLowerBoundConfig): RootLowerBoundResult {
-  const allTasks = units.flatMap(u => u.getMemberTasks());
+export function computeRootLowerBound(allTasks: Task[], config: RootLowerBoundConfig): RootLowerBoundResult {
   const nonEnforced = allTasks.filter(t => !(t.isEnforced && t.enforced));
   const enforcedOcc = buildEnforcedOccupancy(allTasks);
 
-  const monoFindings = computeMonoCertificates(nonEnforced, enforcedOcc, config.lunchBreak, config.ignoreDailyLimits);
-  const clusterFindings = computeClusterCertificates(nonEnforced, enforcedOcc, config.lunchBreak, config.ignoreDailyLimits);
+  const monoFindings = computeMonoCertificates(
+    nonEnforced, enforcedOcc, config.lunchBreak, config.ignoreDailyLimits,
+    config.monoNodeLimit ?? DEFAULT_MONO_NODE_LIMIT,
+  );
+  const clusterFindings = computeClusterCertificates(
+    nonEnforced, enforcedOcc, config.lunchBreak, config.ignoreDailyLimits,
+    config.clusterNodeLimit ?? DEFAULT_CLUSTER_NODE_LIMIT,
+  );
 
   interface Finding { resourceIds: string[]; tasks: Task[]; lb: number; note: string }
   const findings: Finding[] = [

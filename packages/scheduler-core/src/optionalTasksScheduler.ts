@@ -1,8 +1,9 @@
 import { Scheduler, SLOT_STEP } from './scheduler.js';
 import type { SchedulerSolution, NeutralizedUnitInfo } from './scheduler.js';
 import type { ISchedulingUnit, SchedulingResult } from './schedulingUnit.js';
-import type { SchedulerConfig } from '@edt-ts/scheduler-common';
+import type { SchedulerConfig, Task } from '@edt-ts/scheduler-common';
 import { computeRootLowerBound, type RootLowerBoundResult } from './rootLowerBound.js';
+import { Loader } from './loader.js';
 
 /** Décision de saut : l'unité qui a réellement heurté l'impasse + sa cascade de dépendants non-enforced. */
 interface SkipDecision {
@@ -110,13 +111,13 @@ export class OptionalTasksScheduler extends Scheduler {
      * Si la passe 1 est déjà complète (0 sautée), elle est indépassable : pas de passe 2.
      */
     override solveWithElimination(): SchedulerSolution[] {
-        // Borne racine (P2-preuve) : calculée une fois, avant toute recherche, sur les unités
-        // fraîchement initialisées. `super.solveWithElimination()` ré-appelle `initSolver()` juste
-        // après (idempotent — mêmes instances Task/Resource depuis Loader, seuls les wrappers
-        // ISchedulingUnit sont reconstruits, cf. le même pattern déjà utilisé avant la passe B&B
-        // ci-dessous) : la LB n'a donc pas besoin d'être recalculée après ce ré-init.
-        this.initSolver();
-        this._rootBound = computeRootLowerBound(this._units, {
+        // Borne racine (P2-preuve) : calculée une fois, avant toute recherche, directement depuis
+        // Loader (pas besoin d'un `initSolver()` préalable — `computeRootLowerBound` opère au
+        // niveau Task, cf. sa docstring). Évite un double `bookEnforced()` qui, sinon, se
+        // produirait ici PUIS dans `super.solveWithElimination()` juste après : idempotent sur
+        // l'état final mais bruyant (log d'avertissement « créneau déjà réservé » à chaque unité
+        // enforced, trouvé en calibrant les tests P2-preuve).
+        this._rootBound = computeRootLowerBound(Loader.tasksManager.getAllUnits() as Task[], {
             lunchBreak: this._config.lunchBreak,
             ignoreDailyLimits: this._config.ignoreDailyLimits,
         });

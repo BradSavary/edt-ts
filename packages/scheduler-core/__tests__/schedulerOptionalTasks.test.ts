@@ -766,3 +766,170 @@ describe('OptionalTasksScheduler — branchement combo (flag comboBranching, doc
     expect(sOn.getIterations()).toBe(sOff.getIterations());
   });
 });
+
+describe('OptionalTasksScheduler — borne racine par certificats (P2-preuve, docs/PlanOptionalTasksP2Preuve.md)', () => {
+  it('pigeonhole DUBOIS (scénario de référence, conception §3.2) : lb=1, optimum prouvé, B&B court-circuité (0 itération)', () => {
+    // Même scénario que le test "pigeonhole (cas de référence DUBOIS)" ci-dessus : 1 prof, 3
+    // fenêtres de 120min, 4 tâches de 90min → certificat mono-ressource sur DUBOIS, lb=1.
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'DUBOIS' }] },
+        { resourceType: 'group', resources: [{ id: 'GA' }, { id: 'GB' }, { id: 'GC' }, { id: 'GD' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'A', type: 'TD', name: 'A', teacher: ['DUBOIS'], groups: ['GA'], rooms: [], duration: 90 },
+        { week: 30, semester: 1, level: 0, code: 'B', type: 'TD', name: 'B', teacher: ['DUBOIS'], groups: ['GB'], rooms: [], duration: 90 },
+        { week: 30, semester: 1, level: 0, code: 'C', type: 'TD', name: 'C', teacher: ['DUBOIS'], groups: ['GC'], rooms: [], duration: 90 },
+        { week: 30, semester: 1, level: 0, code: 'D', type: 'TD', name: 'D', teacher: ['DUBOIS'], groups: ['GD'], rooms: [], duration: 90 },
+      ],
+      constraints: {
+        DUBOIS: [
+          { days: 'lundi', from: '08:00', to: '10:00' },
+          { days: 'mardi', from: '08:00', to: '10:00' },
+          { days: 'mercredi', from: '08:00', to: '10:00' },
+        ],
+        GA: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        GB: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        GC: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        GD: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+      },
+    };
+
+    Loader.loadFromRawData(scenario);
+    const sOpt = new InspectableOptionalTasksScheduler();
+    sOpt.configure({ maxSolutions: 1, maxEliminations: 6, timeoutSeconds: 60, maxIterations: 100_000 });
+    const resOpt = sOpt.solveWithElimination();
+
+    expect(sOpt.rootBound.lb).toBe(1);
+    expect(sOpt.rootBound.certificates).toHaveLength(1);
+    expect(sOpt.rootBound.certificates[0].resourceIds).toEqual(['DUBOIS']);
+    expect(resOpt[0].solutions).toHaveLength(3);
+    expect(resOpt[0].neutralizedUnits ?? []).toHaveLength(1);
+    expect(sOpt.isProvenOptimal()).toBe(true);
+
+    // B&B court-circuité : mêmes itérations qu'un gourmand seul (aucun appel à _bb()), comme
+    // pour le test « court-circuit gourmand-complet » (P1.5 §4.3), généralisé ici au cas lb>0.
+    Loader.loadFromRawData(scenario);
+    const sGreedy = new Scheduler();
+    sGreedy.configure({ maxSolutions: 1, maxEliminations: 6, timeoutSeconds: 60, maxIterations: 100_000 });
+    sGreedy.solveWithElimination();
+    expect(sOpt.getIterations()).toBe((sGreedy as unknown as { _iterations: number })._iterations);
+  });
+
+  it('cluster de groupes : lb=1 par le cluster {G1+G2}, 0 en mono-ressource (les deux niveaux)', () => {
+    // 2 groupes G1/G2, 3 tâches jointes (CM communs, groups: ['G1','G2'] → deux slots
+    // obligatoires distincts = A ET B, docs/types.ts §ResourceEntry) + 1 tâche mono par groupe.
+    // G1 : lundi 90min (court) + mardi 270min (large). G2 : lundi 270min (large) + mardi 90min
+    // (court) — symétrique inversé. Calibré empiriquement (packing exact vérifié à la main ET
+    // via script) : le certificat mono sur G1 seul (resp. G2 seul) voit sa capacité RAFFINÉE par
+    // l'union des domaines revenir à la pleine capacité brute grâce à la tâche mono correspondante
+    // (domaine large, non contraint par l'autre groupe) → lb=0 des deux côtés pris isolément.
+    // Mais la journée courte de G1 (lundi, 1 créneau) et celle de G2 (mardi, 1 créneau) forcent
+    // chacune au plus 1 tâche jointe (la jointe consomme G1 ET G2 en même temps) : au plus 2 des 3
+    // jointes tiennent, quelle que soit l'affectation — seul le cluster voit cette coupure
+    // croisée, invisible à un certificat mono isolé.
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'TJ1' }, { id: 'TJ2' }, { id: 'TJ3' }, { id: 'TM1' }, { id: 'TM2' }] },
+        { resourceType: 'group', resources: [{ id: 'G1' }, { id: 'G2' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'J1', type: 'CM', name: 'j1', teacher: ['TJ1'], groups: ['G1', 'G2'], rooms: [], duration: 90 },
+        { week: 30, semester: 1, level: 0, code: 'J2', type: 'CM', name: 'j2', teacher: ['TJ2'], groups: ['G1', 'G2'], rooms: [], duration: 90 },
+        { week: 30, semester: 1, level: 0, code: 'J3', type: 'CM', name: 'j3', teacher: ['TJ3'], groups: ['G1', 'G2'], rooms: [], duration: 90 },
+        { week: 30, semester: 1, level: 0, code: 'M1', type: 'TD', name: 'm1', teacher: ['TM1'], groups: [['G1']], rooms: [], duration: 90 },
+        { week: 30, semester: 1, level: 0, code: 'M2', type: 'TD', name: 'm2', teacher: ['TM2'], groups: [['G2']], rooms: [], duration: 90 },
+      ],
+      constraints: {
+        TJ1: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        TJ2: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        TJ3: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        TM1: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        TM2: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        G1: [
+          { days: 'lundi', from: '08:00', to: '09:30' }, // 90min — jour court
+          { days: 'mardi', from: '08:00', to: '12:30' }, // 270min — jour large
+        ],
+        G2: [
+          { days: 'lundi', from: '08:00', to: '12:30' }, // 270min — jour large
+          { days: 'mardi', from: '08:00', to: '09:30' }, // 90min — jour court
+        ],
+      },
+    };
+
+    Loader.loadFromRawData(scenario);
+    const sOpt = new InspectableOptionalTasksScheduler();
+    sOpt.configure({ maxSolutions: 1, maxEliminations: 6, timeoutSeconds: 30, maxIterations: 200_000 });
+    const resOpt = sOpt.solveWithElimination();
+
+    // Niveau cluster : lb=1, seul certificat retenu, porte sur {G1,G2} et les 5 tâches.
+    expect(sOpt.rootBound.lb).toBe(1);
+    expect(sOpt.rootBound.certificates).toHaveLength(1);
+    const cert = sOpt.rootBound.certificates[0];
+    expect(new Set(cert.resourceIds)).toEqual(new Set(['G1', 'G2']));
+    expect(cert.taskIds).toHaveLength(5);
+    expect(cert.lb).toBe(1);
+
+    // Niveau mono : aucun certificat mono-ressource sur G1 ou G2 seul (sinon un 2e certificat
+    // serait présent dans la liste ci-dessus, puisque même un mono à lb=0 n'est pas retenu —
+    // vérifié directement en s'assurant qu'il n'y a bien qu'UN SEUL certificat au total).
+    expect(resOpt[0].solutions).toHaveLength(4);
+    expect(resOpt[0].neutralizedUnits ?? []).toHaveLength(1);
+    expect(sOpt.isProvenOptimal()).toBe(true);
+  });
+
+  it('neutralité : instance faisable (+ 1 tâche enforced) → lb=0, comportement strictement inchangé', () => {
+    // Reprend le scénario "court-circuit gourmand-complet" (2 tâches indépendantes) et ajoute
+    // une 3e tâche enforced PARTAGEANT G1 avec C1 — exerce l'exclusion des tâches enforced des
+    // S_r (§1.1) et la soustraction de leur occupation des fenêtres (§1.2) sans rendre
+    // l'instance infaisable (G1 garde largement assez de disponibilité pour C1 après
+    // soustraction du créneau enforced).
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'T1' }, { id: 'T2' }, { id: 'TE' }] },
+        { resourceType: 'group', resources: [{ id: 'G1' }, { id: 'G2' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'C1', type: 'TD', name: 'C1', teacher: ['T1'], groups: ['G1'], rooms: [], duration: 60 },
+        { week: 30, semester: 1, level: 0, code: 'C2', type: 'TD', name: 'C2', teacher: ['T2'], groups: ['G2'], rooms: [], duration: 60 },
+        {
+          week: 30, semester: 1, level: 0, code: 'E1', type: 'TD', name: 'E1',
+          teacher: ['TE'], groups: ['G1'], rooms: [], duration: 60,
+          enforced: { startTime: 480, teacher: ['TE'], groups: ['G1'], rooms: [] }, // lundi 08:00
+        },
+      ],
+      constraints: {
+        T1: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        T2: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        TE: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        G1: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        G2: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+      },
+    };
+
+    Loader.loadFromRawData(scenario);
+    const sOpt = new InspectableOptionalTasksScheduler();
+    const resOpt = sOpt.solveWithElimination();
+
+    Loader.loadFromRawData(scenario);
+    const sGreedy = new Scheduler();
+    const resGreedy = sGreedy.solveWithElimination();
+
+    expect(sOpt.rootBound.lb).toBe(0);
+    expect(sOpt.rootBound.certificates).toHaveLength(0);
+    expect(resOpt[0].isComplete).toBe(true);
+    expect(resOpt[0].neutralizedUnits ?? []).toHaveLength(0);
+    expect(sOpt.isProvenOptimal()).toBe(true);
+    // Comportement strictement inchangé : mêmes itérations que le gourmand seul (le module ne
+    // modifie ni les placements ni la convergence d'une instance faisable).
+    expect(sOpt.getIterations()).toBe((sGreedy as unknown as { _iterations: number })._iterations);
+    expect(resOpt[0].solutions.map(s => s.start).sort())
+      .toEqual(resGreedy[0].solutions.map(s => s.start).sort());
+  });
+});
