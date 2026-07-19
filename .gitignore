@@ -25,3 +25,6 @@ packages/scheduler-core/data/
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code — réglages personnels (le settings.json partagé est versionné)
+.claude/settings.local.json
