@@ -391,4 +391,30 @@ describe('computeRootLowerBound — micro-tests du module pur (P2-preuve §3.4)'
     const result = computeRootLowerBound(tasks, { lunchBreak: { type: 'none' }, ignoreDailyLimits: false });
     expect(result.lb).toBe(1);
   });
+
+  it('§2.1 — l\'élagage de symétrie MORD vraiment : lb exacte atteinte sous un budget de nœuds serré', () => {
+    // Les tests §2.1 ci-dessus verrouillent la SÛRETÉ (aucune solution coupée), pas l'EFFICACITÉ :
+    // un élagage inopérant rend exactement la même `lb`, donc aucune assertion sur `lb` seule ne
+    // peut le détecter. C'est ainsi qu'un marquage de symétrie partagé (écrasé par les appels
+    // enfants, donc quasi inopérant après le premier) est passé inaperçu.
+    //
+    // Ce test observe le mécanisme via `monoNodeLimit` : au-delà du budget, `maxPackMono` bascule
+    // sur son repli de comptage et `lb` retombe à 0. Mesuré sur cette instance : 1621 nœuds avec
+    // le marquage par (profondeur, classe), 4118 avec un marquage partagé. Le budget ci-dessous
+    // est entre les deux — le test ne passe QUE si l'élagage de symétrie est effectif.
+    //
+    // Instance : 8 fenêtres de 130min identiques réparties sur 5 jours (2 par jour sur les 3
+    // premiers), 12 tâches de 70min. Chaque fenêtre ne loge qu'une tâche -> 8 placées, lb = 4.
+    const wins: Array<{ day: number; from: number; to: number }> = [];
+    for (let i = 0; i < 8; i++) {
+      const day = i % 5, slot = Math.floor(i / 5);
+      wins.push({ day, from: 8 * 60 + slot * 180, to: 8 * 60 + slot * 180 + 130 });
+    }
+    const r = makeResource('R', ResourceType.TEACHER, wins);
+    const tasks = Array.from({ length: 12 }, (_, i) => makeTask(`T${i}`, 70, [r]));
+
+    const opts = { lunchBreak: { type: 'none' } as const, ignoreDailyLimits: false };
+    expect(computeRootLowerBound(tasks, opts).lb).toBe(4);                          // référence exacte
+    expect(computeRootLowerBound(tasks, { ...opts, monoNodeLimit: 2500 }).lb).toBe(4); // sous budget serré
+  });
 });

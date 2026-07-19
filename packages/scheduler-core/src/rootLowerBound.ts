@@ -215,9 +215,18 @@ function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, numb
       classId[w] = id;
     }
   }
-  // Épinglé par classe : dernier "epoch" (= appel dfs) où une fenêtre intacte de cette classe a
-  // déjà été essayée. Réutilisé sans réallocation d'un nœud à l'autre (juste `epoch` incrémenté).
-  const lastSeenEpoch = new Int32Array(classId.reduce((m, c) => Math.max(m, c), -1) + 1).fill(-1);
+  // Épinglé par (profondeur, classe) : dernier "epoch" (= appel dfs) où une fenêtre intacte de
+  // cette classe a déjà été essayée à cette profondeur. Réutilisé sans réallocation d'un nœud à
+  // l'autre (juste `epoch` incrémenté).
+  //
+  // La profondeur vaut exactement `idx` (chaque appel descend en `idx + 1`), donc un appel enfant
+  // écrit toujours dans une AUTRE ligne que son parent et le marquage du parent SURVIT au retour
+  // des enfants. Indexer par la seule classe, sur un tableau partagé, ne marche pas : le premier
+  // enfant écrase la marque du parent et les fenêtres symétriques suivantes ne sont plus
+  // reconnues — sûr (un élagage manqué ne coupe jamais de solution) mais largement inopérant
+  // (mesuré : 3 à 5× de nœuds en trop sur des instances symétriques tendues).
+  const numClasses = classId.reduce((m, c) => Math.max(m, c), -1) + 1;
+  const lastSeenEpoch = new Int32Array(n * numClasses).fill(-1);
   let epoch = 0;
 
   let best = bestInit;
@@ -259,8 +268,10 @@ function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, numb
     seen.set(key, placed);
     const d = items[idx];
     // Capturé localement : `epoch` (partagé) continue d'avancer pendant les appels récursifs
-    // ci-dessous, `myEpoch` reste stable pour toute la durée de CETTE itération du for w.
+    // ci-dessous, `myEpoch` reste stable pour toute la durée de CETTE itération du for w. Il
+    // distingue les occupants successifs de la ligne `idx` (nœuds frères) sans réinitialisation.
     const myEpoch = ++epoch;
+    const markRow = idx * numClasses;
     for (let w = 0; w < winsIn.length; w++) {
       if (!elig[idx][w]) continue;
       const day = winsIn[w].day;
@@ -268,8 +279,8 @@ function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, numb
       if (winRes[w] < d || dc < d) continue;
       const cls = classId[w];
       if (winRes[w] === winsIn[w].len) {
-        if (lastSeenEpoch[cls] === myEpoch) continue; // §2.1 : fenêtre symétrique déjà essayée ici
-        lastSeenEpoch[cls] = myEpoch;
+        if (lastSeenEpoch[markRow + cls] === myEpoch) continue; // §2.1 : symétrique déjà essayée ici
+        lastSeenEpoch[markRow + cls] = myEpoch;
       }
       winRes[w] -= d; dayRes.set(day, dc - d); winTotal -= d; dayTotal -= d;
       dfs(idx + 1, placed + 1);

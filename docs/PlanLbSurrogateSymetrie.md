@@ -9,12 +9,29 @@ complète, pas différés — la dérivation de sûreté (bornes globalement-tri
 ensemble réellement non-décidé, vérification exacte sur collision de hash) tenait dans le temps
 imparti. §2.2 et §2.4 non implémentés, conformément au plan (secondaires/optionnels).
 
-**Bug trouvé et corrigé pendant l'implémentation (§2.1)** : le marqueur de symétrie de fenêtres
-utilisait un compteur d'epoch PARTAGÉ, incrémenté aussi par les appels récursifs imbriqués — au
-retour d'un appel enfant, l'epoch du nœud courant avait déjà changé, et la détection « fenêtre
-symétrique déjà essayée » ne se déclenchait quasiment plus jamais après le premier enfant. Sûr
-(l'élagage manqué ne coupe jamais une solution) mais inopérant. Corrigé en capturant l'epoch dans
-une `const` locale au sommet de chaque appel `dfs`. Vérifié après coup par un test dédié (§3).
+**Bug §2.1, corrigé en DEUX temps** (le premier constat et son correctif partiel datent de
+l'implémentation ; le reste a été trouvé en relecture) : le marquage de symétrie des fenêtres
+utilisait un compteur d'epoch PARTAGÉ, incrémenté aussi par les appels récursifs. Deux défauts
+distincts en découlaient, et seul le premier a été traité en `f9c25a6` :
+
+1. l'epoch du nœud courant changeait au retour de chaque enfant — corrigé en le capturant dans une
+   `const myEpoch` locale ;
+2. **`lastSeenEpoch` restait un tableau indexé par la seule classe, donc partagé avec les appels
+   enfants** : le premier enfant écrasait la marque du parent et les fenêtres symétriques suivantes
+   du parent n'étaient plus reconnues. Sûr (un élagage manqué ne coupe jamais de solution) mais
+   largement inopérant. Corrigé en indexant le marquage par **(profondeur, classe)** — la
+   profondeur vaut exactement `idx`, donc un enfant écrit toujours dans une autre ligne.
+
+Le §3 initial ne pouvait pas détecter (2) : ses six tests n'assertent que des valeurs de `lb`, et un
+élagage inopérant rend exactement la même `lb`. **La mention « vérifié après coup par un test
+dédié » qui figurait ici était fausse** — aucun test n'observait le mécanisme. Ajouté depuis : un
+7ᵉ test qui l'observe via `monoNodeLimit` (voir §3), calibré sur une mesure directe — 1621 nœuds
+avec le marquage par (profondeur, classe), 4118 avec le marquage partagé, budget du test à 2500.
+
+Portée réelle du correctif : **nulle sur le projet de Frédéric** (§4 re-joué après correctif, mêmes
+`lb`, mêmes temps à quelques ms près) — les semaines réelles n'ont pas assez de fenêtres intactes
+de même classe pour que la symétrie morde. Le gain de 2,5× n'existe que sur instance synthétique
+tendue. Le correctif est conservé pour la justesse du mécanisme, pas pour un gain mesuré.
 
 **Validation réelle (§4)** — export du 16/07 (`packages/scheduler-core/data/Planification
 MMI_2026-07-16_10-13.json`, localisé avec l'aide de Frédéric), pipeline reconstruit à la main
@@ -59,8 +76,16 @@ petits qui somment au même total ; APRÈS ce plan, la borne §1.4 accélère su
 pour qu'il converge et produise directement le certificat combiné. C'est l'effet recherché par le
 plan, pas une régression — le critère de succès (`lb` inchangée) est respecté.
 
-124/124 → 130/130 scheduler-core (+6 tests §3 : surrogate mono mordante ×3, symétrie exacte ×2,
-memo cluster à 6 ressources consommées ×1), typecheck monorepo clean.
+**§4 re-joué après le correctif §2.1** (même harnais reconstruit, même export, mêmes 10 semaines) —
+le §4 initial ne validait PAS le mécanisme corrigé, puisque celui-ci était alors largement
+inopérant : un élagage qui devient effectif est précisément ce qui pourrait révéler une faille de
+l'argument d'interchangeabilité des classes. Résultat : **10/10 `lb` identiques à la référence,
+zéro écart**, et temps inchangés à quelques ms près (S36 132 ms, S37 235, S48 138, S49 342 — soit
+les mêmes qu'« APRÈS » ci-dessus). Le correctif ne change donc rien sur le projet réel.
+
+124/124 → 131/131 scheduler-core (+6 tests §3 : surrogate mono mordante ×3, symétrie exacte ×2,
+memo cluster à 6 ressources consommées ×1 ; +1 test de relecture observant l'effectivité de §2.1
+via `monoNodeLimit`), typecheck monorepo clean.
 
 ---
 
@@ -362,5 +387,13 @@ remplace deux certificats mono-ressource séparés) — la somme reste stricteme
 donc le critère de succès (`lb` inchangée) est respecté. C'est l'effet recherché par le plan, pas
 une régression.
 
-Trois commits sur `feature/lb-surrogate` : `f9c25a6` (§1+§2), `b642e3c` (§3), `d72df00` (§4 +
-STATUT). Branche non mergée dans `master` — décision de merge laissée à Frédéric.
+**Relecture (Opus, après coup)** : le marquage de symétrie §2.1 n'était corrigé qu'à moitié — voir
+le STATUT en tête de fichier. Correctif appliqué (indexation par profondeur), 7ᵉ test ajoutant
+l'observation du mécanisme, §4 re-joué à l'identique. La leçon retenue est consignée en mémoire :
+**l'exécutant rapporte des faits bruts, le relecteur écrit les conclusions** — un plan de perf ne
+peut pas se valider sur des assertions de valeur seules, il faut une mesure qui observe le
+mécanisme (ici : compter les nœuds).
+
+Cinq commits sur `feature/lb-surrogate` : `f9c25a6` (§1+§2), `b642e3c` (§3), `d72df00` (§4 +
+STATUT), `27d0c50` (conclusion), + le correctif §2.1 de relecture. Branche non mergée dans
+`master` — décision de merge laissée à Frédéric.
