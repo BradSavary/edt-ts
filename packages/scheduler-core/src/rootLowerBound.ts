@@ -92,23 +92,74 @@ function buildEnforcedOccupancy(tasks: Task[]): Map<string, Iv[]> {
   return occ;
 }
 
-/** Pause méridienne flottante applicable à ce jour : même garde d'inapplicabilité que
- *  `Scheduler._resourceKeepsFloatingBreak` — si la dispo du jour ne recouvre déjà la fenêtre
- *  que sur moins que sa durée, la contrainte n'a jamais pu être satisfaite ce jour-là et ne
- *  doit pas être re-déduite (sinon la borne devient invalide sur les jours courts). */
+/**
+ * Minutes de DISPONIBILITÉ que la pause méridienne flottante coûte ce jour-là — c'est-à-dire la
+ * capacité de cours qu'il faut retrancher, pas la durée de la pause.
+ *
+ * Modèle aligné sur `Scheduler._resourceKeepsFloatingBreak` depuis sa réécriture
+ * (docs/PlanFloatingLunchBreakGap.md) : la pause est satisfaite dès qu'il reste, dans
+ * `[winStart, winEnd]`, un intervalle contigu de `duration` LIBRE DE COURS. Une indisponibilité
+ * déclarée n'étant pas un cours, elle peut porter tout ou partie de la pause **sans consommer
+ * la moindre minute de disponibilité**. Le coût réel est donc celui de la position de pause la
+ * MOINS chère :
+ *
+ *     déduction = min over t ∈ [winStart, winEnd − duration] de  mesure( dispo ∩ [t, t+duration] )
+ *
+ * Sûreté (principe cardinal du fichier) : prendre le MINIMUM sous-estime la déduction, donc
+ * surestime la capacité, donc surestime MaxPack, donc SOUS-estime `lb` — jamais l'inverse.
+ *
+ * L'ancienne version retranchait `duration` en bloc dès que `dispo ∩ fenêtre ≥ duration`, ce qui
+ * était cohérent avec l'ancien gate (fondé sur la disponibilité) mais **surestimait `lb` après la
+ * réécriture** : contre-exemple vérifié bout en bout — groupe dispo 8:00–13:00 + 13:30–18:00
+ * (indispo 30 min DANS la fenêtre 12:00–14:00), 3×90 + 4×60 = 510 min ; le moteur place les 7
+ * tâches (pause en 12:30–14:00, dont 30 min portées par l'indispo, coût réel 60 min) alors que
+ * l'ancienne formule retranchait 90, ramenait la capacité à 480 < 510 et rendait `lb = 1` sur un
+ * optimum réel de 0 — une preuve d'optimalité FAUSSE.
+ *
+ * Les tâches enforced ont déjà été retirées de `dayIvs` par l'appelant : elles sont donc traitées
+ * ici comme de l'indisponibilité (pause gratuite) alors que le moteur les voit comme des cours.
+ * Écart volontairement laissé dans le sens sûr (déduction plus petite ⟹ `lb` plus faible).
+ */
 function floatingLunchDeduction(dayIvs: Iv[], day: number, lunchBreak: LunchBreakConfig): number {
   if (lunchBreak.type !== 'floating') return 0;
   const [eh, em] = lunchBreak.earliest.split(':').map(Number);
   const [lh, lm] = lunchBreak.latest.split(':').map(Number);
   const winStart = day * DAY + eh * 60 + em;
   const winEnd = day * DAY + lh * 60 + lm;
-  let overlap = 0;
+  const duration = lunchBreak.duration;
+
+  // Même garde d'inapplicabilité que le moteur (`winEnd - winStart < duration` ⟹ return true) :
+  // fenêtre structurellement trop courte, la contrainte n'a jamais pu s'appliquer.
+  if (winEnd - winStart < duration) return 0;
+
+  const availableWithin = (from: number, to: number): number => {
+    let m = 0;
+    for (const iv of dayIvs) {
+      const s = Math.max(iv.start, from);
+      const e = Math.min(iv.end, to);
+      if (s < e) m += e - s;
+    }
+    return m;
+  };
+
+  // `t ↦ availableWithin(t, t+duration)` est linéaire par morceaux : ses minima sont atteints en
+  // un point où l'une des deux bornes du trou coïncide avec une borne d'intervalle de dispo.
+  // Énumérer ces candidats (plus les deux extrémités) suffit donc à trouver le minimum exact.
+  const lo = winStart;
+  const hi = winEnd - duration;
+  const candidates = new Set<number>([lo, hi]);
   for (const iv of dayIvs) {
-    const s = Math.max(iv.start, winStart);
-    const e = Math.min(iv.end, winEnd);
-    if (s < e) overlap += e - s;
+    for (const t of [iv.start, iv.end, iv.start - duration, iv.end - duration]) {
+      if (t > lo && t < hi) candidates.add(t);
+    }
   }
-  return overlap >= lunchBreak.duration ? lunchBreak.duration : 0;
+
+  let best = Infinity;
+  for (const t of candidates) {
+    const cost = availableWithin(t, t + duration);
+    if (cost < best) best = cost;
+  }
+  return best === Infinity ? 0 : best;
 }
 
 // ── §1.2 — Certificats mono-ressource ────────────────────────────────────
