@@ -125,8 +125,11 @@ interface Win { day: number; len: number }
  *  résultat : l'élagage ne coupe que les branches incapables de dépasser STRICTEMENT `best`,
  *  donc si tout est coupé, MaxPack ≤ bestInit, et avec MaxPack ≥ bestInit on a l'égalité.
  *  Sûr même si `bestInit` s'avérait NON réalisable dans la relaxation (relaxation plus serrée
- *  que la réalité) : `best` surestimé ⟹ lb = |S| − best SOUS-estimé ⟹ jamais de preuve fausse. */
-function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, number>, eligible: boolean[][], nodeLimit: number, bestInit = 0): number {
+ *  que la réalité) : `best` surestimé ⟹ lb = |S| − best SOUS-estimé ⟹ jamais de preuve fausse.
+ *
+ *  `deadline` (§2.2) : même repli que le dépassement de nœuds, contrôlé tous les 4096 nœuds
+ *  seulement (`Date.now()` coûterait plus cher que l'exploration si testé à chaque nœud). */
+function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, number>, eligible: boolean[][], nodeLimit: number, deadline: number, bestInit = 0): number {
   const order = itemsIn.map((d, i) => ({ d, i })).sort((a, b) => b.d - a.d);
   const items = order.map(o => o.d);
   const elig = order.map(o => eligible[o.i]);
@@ -150,6 +153,7 @@ function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, numb
     if (best >= ub) return;
     if (idx >= n || placed + (n - idx) <= best) return;
     if (++nodes > nodeLimit) { exact = false; return; }
+    if ((nodes & 0xFFF) === 0 && Date.now() > deadline) { exact = false; return; }
     const key = idx + '|' + winRes.join(',');
     const prev = seen.get(key);
     if (prev !== undefined && prev >= placed) return;
@@ -179,6 +183,7 @@ function computeMonoCertificates(
   lunchBreak: LunchBreakConfig,
   ignoreDailyLimits: boolean,
   nodeLimit: number,
+  deadline: number,
   skippedTaskIds?: ReadonlySet<string>,
 ): MonoFinding[] {
   const mandatory = new Map<Resource, Task[]>();
@@ -235,7 +240,7 @@ function computeMonoCertificates(
     const durations = S.map(t => t.duration);
     // Warm start : nombre de tâches de S effectivement placées par la passe gourmande.
     const bestInit = skippedTaskIds ? S.filter(t => !skippedTaskIds.has(t.id)).length : 0;
-    const pack = maxPackMono(durations, wins, dayCaps, eligible, nodeLimit, bestInit);
+    const pack = maxPackMono(durations, wins, dayCaps, eligible, nodeLimit, deadline, bestInit);
     const lb = S.length - pack;
     if (lb > 0) {
       const capStr = [...dayCaps.entries()].sort((a, b) => a[0] - b[0]).map(([d, c]) => `j${d}:${c}`).join(' ');
@@ -260,6 +265,7 @@ function computeClusterCertificates(
   lunchBreak: LunchBreakConfig,
   ignoreDailyLimits: boolean,
   nodeLimit: number,
+  deadline: number,
   skippedTaskIds?: ReadonlySet<string>,
 ): ClusterFinding[] {
   const groupResources = new Map<string, Resource>();
@@ -290,13 +296,21 @@ function computeClusterCertificates(
 
   const findings: ClusterFinding[] = [];
 
-  for (const cluster of candidateClusters) {
-    const clusterIds = new Set(cluster.map(r => r.id));
-    const S = nonEnforced.filter(t =>
-      t.resources[ResourceType.GROUP].some(s => s.length === 1 && clusterIds.has(s[0].id))
-    );
-    if (S.length < 2) continue;
+  // §2.3 : petits clusters d'abord — sous deadline, l'ordre garantit que les certificats
+  // faciles (petit |S|) sont acquis avant que le budget ne se consume sur un cluster condamné
+  // à saturer (cf. §0 fait 2 : {BUT1-G1+G2} exact en 23 ms quand {BUT1×4} sature à 415 ms).
+  const clustersWithTasks = candidateClusters
+    .map(cluster => {
+      const clusterIds = new Set(cluster.map(r => r.id));
+      const S = nonEnforced.filter(t =>
+        t.resources[ResourceType.GROUP].some(s => s.length === 1 && clusterIds.has(s[0].id))
+      );
+      return { cluster, S };
+    })
+    .filter(({ S }) => S.length >= 2)
+    .sort((a, b) => a.S.length - b.S.length);
 
+  for (const { cluster, S } of clustersWithTasks) {
     const domains = S.map(t => computeTaskDomain(t));
 
     // Chaque item consomme TOUTES ses ressources obligatoires (groupes du cluster, enseignants,
@@ -357,6 +371,7 @@ function computeClusterCertificates(
       if (placed > best) best = placed;
       if (k >= order.length || placed + (order.length - k) <= best) return;
       if (++nodes > nodeLimit) { exact = false; return; }
+      if ((nodes & 0xFFF) === 0 && Date.now() > deadline) { exact = false; return; }
       const stateKey = k + '|' + [...caps.values()].join(',');
       const prevPlaced = seenState.get(stateKey);
       if (prevPlaced !== undefined && prevPlaced >= placed) return;
@@ -420,6 +435,14 @@ export interface RootLowerBoundConfig {
   monoNodeLimit?: number;
   clusterNodeLimit?: number;
   /**
+   * Budget de temps partagé (§2.2), en millisecondes, par l'ENSEMBLE du calcul (mono puis
+   * clusters — pas un budget par certificat). Défaut 2000. Même repli sûr que le dépassement de
+   * nœuds : `exact = false`, puis borne de comptage (mono) / abandon du certificat (cluster).
+   * Borne le pire cas indépendamment de la machine et du projet, là où un seuil de nœuds seul
+   * ne le fait pas (§0 fait 3 : coût par nœud non constant, `stateKey`/`seenState` croissants).
+   */
+  deadlineMs?: number;
+  /**
    * Warm start (borne primale) : ids des tâches sautées par la passe gourmande. Fournir cet
    * ensemble amorce chaque DFS avec un packing réalisable connu au lieu de repartir de zéro —
    * voir la justification de sûreté sur `maxPackMono`. Le résultat est inchangé ; seul le coût
@@ -429,7 +452,10 @@ export interface RootLowerBoundConfig {
 }
 
 const DEFAULT_MONO_NODE_LIMIT = 4_000_000;
-const DEFAULT_CLUSTER_NODE_LIMIT = 6_000_000;
+// §2.1 : 6M → 200k. Les 10 semaines de référence (docs/PlanLbCoutRacine.md §0) donnent une
+// borne IDENTIQUE à tous les budgets entre 50k et 6M ; 200k coûte au pire 1,3 s contre 32 min.
+const DEFAULT_CLUSTER_NODE_LIMIT = 200_000;
+const DEFAULT_DEADLINE_MS = 2000;
 
 /**
  * Borne inférieure racine sur le nombre de tâches devant être sautées, par certificats de
@@ -447,14 +473,17 @@ const DEFAULT_CLUSTER_NODE_LIMIT = 6_000_000;
 export function computeRootLowerBound(allTasks: Task[], config: RootLowerBoundConfig): RootLowerBoundResult {
   const nonEnforced = allTasks.filter(t => !(t.isEnforced && t.enforced));
   const enforcedOcc = buildEnforcedOccupancy(allTasks);
+  // §2.2 : échéance capturée une fois, partagée par le mono puis les clusters (un seul budget
+  // global, pas un par certificat).
+  const deadline = Date.now() + (config.deadlineMs ?? DEFAULT_DEADLINE_MS);
 
   const monoFindings = computeMonoCertificates(
     nonEnforced, enforcedOcc, config.lunchBreak, config.ignoreDailyLimits,
-    config.monoNodeLimit ?? DEFAULT_MONO_NODE_LIMIT, config.skippedTaskIds,
+    config.monoNodeLimit ?? DEFAULT_MONO_NODE_LIMIT, deadline, config.skippedTaskIds,
   );
   const clusterFindings = computeClusterCertificates(
     nonEnforced, enforcedOcc, config.lunchBreak, config.ignoreDailyLimits,
-    config.clusterNodeLimit ?? DEFAULT_CLUSTER_NODE_LIMIT, config.skippedTaskIds,
+    config.clusterNodeLimit ?? DEFAULT_CLUSTER_NODE_LIMIT, deadline, config.skippedTaskIds,
   );
 
   interface Finding { resourceIds: string[]; tasks: Task[]; lb: number; note: string }

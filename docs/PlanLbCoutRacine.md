@@ -94,6 +94,8 @@ Ne pas amorcer `bestInit` par complémentaire des `neutralizedUnits` (§1). Ne p
 ### 3.4 Mémoïsation — investigation bornée, pas un engagement
 Confirmer ou infirmer l'hypothèse §0 fait 3 (coût dominé par la construction de `stateKey` et la croissance de `seenState`). **Time-box : une mesure, pas une réécriture.** Si elle se confirme et qu'une clé numérique bon marché (ou un plafond sur la taille de `seenState`) rend le DFS exact ET rapide, le signaler à Frédéric comme chantier séparé — **ne pas l'implémenter dans ce plan**. Les volets A et B suffisent à corriger la régression ; réécrire la mémoïsation touche à l'exactitude du DFS et mérite son propre cycle.
 
+**Résultat de la mesure (exécution du plan par Sonnet, 2026-07-19)** : instrumentation temporaire dans le DFS cluster (comptage nœuds/Δms + `seenState.size` tous les 20 000 nœuds), run isolé sur S49 (code post-fix `37862dd`, `clusterNodeLimit: 2_000_000`, `deadlineMs: 120_000` pour laisser tourner). Débit **quasi constant** (~400-450k nœuds/s) sur toute la plage observée, `seenState.size` croissant jusqu'à ~2M entrées sans dégradation visible corrélée. **L'hypothèse forte (coût par nœud non constant à cause de la construction de `stateKey`/GC) n'est PAS confirmée sur un run isolé.** Ne réconcilie pas entièrement avec §0 fait 3 (S49 mesuré plus lent à 1M qu'à 6M nœuds dans la mesure de référence) : cet écart pourrait venir d'un effet de process long-running (plusieurs semaines/clusters cumulés dans le même processus batch, pression GC/heap accumulée entre appels) plutôt que d'une dégradation intrinsèque à un DFS isolé — non vérifié, hors time-box. Instrumentation retirée, aucun changement de code issu de cette mesure. **Signalé à Frédéric, non implémenté**, conformément à la consigne.
+
 ## 4. Tests — resserrés (NE PAS commencer sans le feu vert, cf. déroulé)
 
 3 tests, pas plus. Les 4 tests P2-preuve existants doivent rester verts sans modification : c'est eux qui protègent la correction de la borne.
@@ -127,14 +129,14 @@ Export du 16/07 si le projet est inchangé, **sinon re-exporter** (les snapshots
 
 ## 7. Definition of done
 
-- [ ] Branche `feature/lb-warmstart` (créée)
-- [ ] §2.1 `clusterNodeLimit` 200k, `monoNodeLimit` inchangé
-- [ ] §2.2 deadline partagée, contrôle tous les 4096 nœuds, repli via le chemin existant
-- [ ] §2.3 clusters triés par |S| croissant
-- [ ] §3.1 calcul paresseux (après le gourmand, sauté si `greedyCost === 0`), commentaire justificatif remplacé
-- [ ] §3.2 warm start câblé (tâches LUES dans `solutions` + enforced, sans garde)
-- [ ] §3.4 mesure mémoïsation, reportée à Frédéric, non implémentée
-- [ ] Typecheck monorepo clean + 109/109 scheduler-core + suites client vertes
+- [x] Branche `feature/lb-warmstart` (créée)
+- [x] §2.1 `clusterNodeLimit` 200k, `monoNodeLimit` inchangé
+- [x] §2.2 deadline partagée, contrôle tous les 4096 nœuds, repli via le chemin existant
+- [x] §2.3 clusters triés par |S| croissant
+- [x] §3.1 calcul paresseux (après le gourmand, sauté si `greedyCost === 0`), commentaire justificatif remplacé
+- [x] §3.2 warm start câblé (tâches LUES dans `solutions` + enforced, sans garde)
+- [x] §3.4 mesure mémoïsation, reportée à Frédéric, non implémentée
+- [x] Typecheck monorepo clean + 109/109 scheduler-core + suites client vertes
 - [ ] **CHECKPOINT : commit 1, feu vert de Frédéric demandé et obtenu**
 - [ ] 3 tests §4 verts, 4 tests P2-preuve inchangés et verts
 - [ ] Validation §5 : 10 semaines conformes, zéro STOP

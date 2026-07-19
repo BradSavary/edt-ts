@@ -85,9 +85,10 @@ export class OptionalTasksScheduler extends Scheduler {
 
     /**
      * Borne inférieure racine (docs/PlanOptionalTasksP2Preuve.md) : certificats de bin-packing
-     * exact calculés une fois, avant toute recherche, sur les unités telles qu'initialisées par
-     * `initSolver()`. Indépendante du modèle de placement du B&B (elle ne place rien) —
-     * `lb` ne dépasse jamais l'optimum réel, quel que soit le résultat de la recherche.
+     * exact calculés une fois par `solveWithElimination()`, APRÈS la passe gourmande (§3.1 calcul
+     * paresseux, PlanLbCoutRacine.md) — sautée si celle-ci est déjà complète. Indépendante du
+     * modèle de placement du B&B (elle ne place rien) — `lb` ne dépasse jamais l'optimum réel,
+     * quel que soit le résultat de la recherche.
      */
     get rootBound(): RootLowerBoundResult { return this._rootBound; }
 
@@ -111,24 +112,32 @@ export class OptionalTasksScheduler extends Scheduler {
      * Si la passe 1 est déjà complète (0 sautée), elle est indépassable : pas de passe 2.
      */
     override solveWithElimination(): SchedulerSolution[] {
-        // Borne racine (P2-preuve) : calculée une fois, avant toute recherche, directement depuis
-        // Loader (pas besoin d'un `initSolver()` préalable — `computeRootLowerBound` opère au
-        // niveau Task, cf. sa docstring). Évite un double `bookEnforced()` qui, sinon, se
-        // produirait ici PUIS dans `super.solveWithElimination()` juste après : idempotent sur
-        // l'état final mais bruyant (log d'avertissement « créneau déjà réservé » à chaque unité
-        // enforced, trouvé en calibrant les tests P2-preuve).
-        this._rootBound = computeRootLowerBound(Loader.tasksManager.getAllUnits() as Task[], {
-            lunchBreak: this._config.lunchBreak,
-            ignoreDailyLimits: this._config.ignoreDailyLimits,
-        });
-        console.log(`🔒 Borne racine : lb=${this._rootBound.lb} (${this._rootBound.certificates.length} certificat(s))`);
-
         console.log('📋 Passe 1/2 — moteur gourmand (amorce)');
         const greedyResults = super.solveWithElimination();
         const greedyRaw = greedyResults[0] ?? null;
         const greedyCost = greedyRaw
             ? (greedyRaw.neutralizedUnits ?? []).reduce((n, i) => n + i.unit.getMemberTasks().length, 0)
             : Infinity;
+
+        // Borne racine (P2-preuve, §3.1 calcul paresseux) : calculée APRÈS la passe gourmande,
+        // amorcée par son résultat (warm start §3.2), et sautée entièrement si le gourmand est
+        // déjà complet — le court-circuit `greedyCost <= lb` est alors trivialement vrai (lb ≥ 0
+        // toujours), la LB n'apporte rien dans ce cas. Déplacement vérifié sûr en session (STATUT
+        // PlanLbCoutRacine.md §3.1) : le gourmand ne réduit pas le problème (`_units` du scheduler
+        // seulement, pas `TasksManager`), et le double `bookEnforced()` que l'ancien commentaire
+        // invoquait pour justifier la position AVANT le gourmand est sans effet sur le résultat
+        // (`subtractIntervals` idempotent) — seul un log bruyant en dépendait.
+        if (greedyCost === 0) {
+            this._rootBound = { lb: 0, certificates: [] };
+        } else {
+            const allTasks = Loader.tasksManager.getAllUnits() as Task[];
+            this._rootBound = computeRootLowerBound(allTasks, {
+                lunchBreak: this._config.lunchBreak,
+                ignoreDailyLimits: this._config.ignoreDailyLimits,
+                skippedTaskIds: this._computeSkippedTaskIds(allTasks, greedyRaw),
+            });
+        }
+        console.log(`🔒 Borne racine : lb=${this._rootBound.lb} (${this._rootBound.certificates.length} certificat(s))`);
         // Normalisation nécessaire : Scheduler.solveWithElimination() hérite la sémantique de
         // Scheduler.solve() pour `isComplete` — "complet" par rapport au sous-ensemble RÉDUIT
         // après élimination(s), pas par rapport à l'ensemble original. `isComplete` vaut donc
@@ -214,6 +223,32 @@ export class OptionalTasksScheduler extends Scheduler {
         }
 
         return finalResult ? [finalResult] : [];
+    }
+
+    /**
+     * Warm start (§3.2) : ensemble des tâches SAUTÉES par la passe gourmande, pour amorcer
+     * `computeRootLowerBound` avec un packing réalisable connu. Construit exactement comme
+     * spécifié dans PlanLbCoutRacine.md §3.2 — les tâches placées se LISENT dans `solutions`
+     * (+ les enforced, placées de fait mais absentes de `solutions`), elles ne se déduisent
+     * JAMAIS par complémentaire des neutralisées (destructeur silencieux de la borne, cf.
+     * docstring de sûreté sur `maxPackMono`). Aucune garde `gourmandOK` nécessaire :
+     * `bestInit = |S ∩ placed|` est réalisable par construction quel que soit l'état du
+     * gourmand — si rien n'a été placé, `placedTaskIds` est vide et le warm start est neutre.
+     */
+    private _computeSkippedTaskIds(allTasks: Task[], greedyRaw: SchedulerSolution | null): ReadonlySet<string> {
+        const placedTaskIds = new Set<string>();
+        for (const us of greedyRaw?.solutions ?? []) {
+            if (us.task) placedTaskIds.add(us.task.id);
+            else for (const t of us.unit.getMemberTasks()) placedTaskIds.add(t.id);
+        }
+        for (const t of allTasks) {
+            if (t.isEnforced && t.enforced) placedTaskIds.add(t.id);
+        }
+        const skippedTaskIds = new Set<string>();
+        for (const t of allTasks) {
+            if (!placedTaskIds.has(t.id)) skippedTaskIds.add(t.id);
+        }
+        return skippedTaskIds;
     }
 
     /**
