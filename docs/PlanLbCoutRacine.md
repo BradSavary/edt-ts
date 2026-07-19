@@ -1,5 +1,60 @@
 # Plan LB-Coût-Racine — ramener le coût de la borne inférieure racine à l'échelle de la recherche
 
+## STATUT — livré (2026-07-19, exécution Sonnet)
+
+**Objectif atteint : régression de coût corrigée, sûreté préservée.** Les §2 (coût du DFS cluster)
+et §3 (calcul paresseux + warm start) sont implémentés, testés (§4) et validés sur le projet réel
+(§5). Deux commits sur `feature/lb-warmstart` : `db620bd` (§2+§3, checkpoint) et le commit de §4
+(tests + correctif deadline découvert en testant).
+
+**Découverte en écrivant le test §4.1** : le contrôle de deadline « tous les 4096 nœuds » tel que
+spécifié ne coupait qu'UN appel sur 4096 — sans effet persistant, une deadline déjà expirée
+laissait le DFS explorer la quasi-totalité de l'arbre (mesuré : 326022 → 325778 nœuds, quasi nul).
+Corrigé en abaissant la limite de nœuds locale au nœud courant dès l'échéance détectée (même
+chemin de sortie que le dépassement de nœuds, effet persistant, `Date.now()` toujours appelé
+tous les 4096 nœuds seulement). Sans ce correctif, le garde-fou §2.2 n'aurait pas réellement borné
+le pire cas — voir le commit de §4 pour le détail et la mesure.
+
+**Validation réelle (§5)** — export du 16/07 (projet inchangé depuis P2-preuve), config Frédéric
+§0 (`maxPlacement`, maxSolutions 1, maxEliminations 3, COS on, 10 s, 1 M itérations, pause
+flottante 90 min 12:00–14:00), batch unique en arrière-plan, une seule lecture :
+
+| Semaine | lb obtenu | lb attendu | LB seule | Verdict |
+|---|---|---|---|---|
+| S3  | 7 | 7 | 4 ms | OK |
+| S9  | 7 | 7 | 2 ms | OK |
+| S36 | 6 | 6 | 1037 ms | OK |
+| S37 | 3 | 3 | **4 ms** | OK — warm start efficace comme prévu |
+| S38 | 0 | 0 | sautée (paresseux) | OK |
+| S39 | 0 | 0 | sautée (paresseux) | OK |
+| S40 | 1 | 1 | 68 ms | OK |
+| S45 | 0 | 0 | sautée (paresseux) | OK |
+| S48 | 5 | 5 | 1164 ms | OK |
+| S49 | 4 | 4 | **1120 ms** (vs 1 913 529 ms avant ce plan, ×1700) | OK |
+
+**Zéro STOP : les 10 bornes correspondent EXACTEMENT à la référence, aucune ne la dépasse.** LB
+< 2s partout (objectif tenu), S37 à 4 ms grâce au warm start. La régression de S49 (32 min) est
+résolue : 1,1 s.
+
+**Deux constats hors périmètre (§6, à remonter à Frédéric séparément, PAS traités ici)** :
+1. Le gourmand place 0 tâche (0 sautée effectivement placée, 1 itération) sur S3, S9, S36, S48,
+   S49 — confirmé conforme à ce que §6 avait déjà identifié comme un sujet du moteur
+   d'élimination, pas de la borne. La borne racine reste correcte dans tous ces cas (les tests §5
+   ne portent que sur `lb`, jamais sur le nombre de tâches placées par ce gourmand cassé).
+2. **Écart avec le tableau §5 tel que rédigé** : §5 attendait des placements inchangés incluant
+   « S40 105/107 », mais S40 fait AUSSI partie des semaines à gourmand cassé dans ce run (0/107
+   placées) — alors que §6 ne le listait pas de façon inconditionnelle avec la même certitude que
+   S3/S9/S36/S48. De plus, le temps total pour S40 atteint ~44s (3 rounds d'élimination + 1 passe
+   B&B, chacun capé indépendamment à 10s = jusqu'à 40s cumulés) — `timeoutSeconds` est un budget
+   PAR APPEL `solve()`, pas un budget global de `solveWithElimination()`. Ni l'un ni l'autre n'est
+   un problème de sûreté de la borne (lb=1 correct, jamais dépassé) ; les deux sont des
+   caractéristiques préexistantes du moteur d'élimination, indépendantes de ce plan. Signalé, non
+   corrigé ici.
+
+109/109 → 112/112 scheduler-core (+3 tests §4), 290/290 client, typecheck monorepo clean.
+
+---
+
 *Plan rédigé par Opus pour implémentation par Sonnet. Branche : **`feature/lb-warmstart`** (déjà créée depuis `feature/p2-preuve` — ne PAS travailler sur `master` ni sur `feature/p2-preuve` ; le merge sera décidé par Frédéric après validation).*
 
 **Déroulé imposé (règle de Frédéric)** : Sonnet implémente §2 + §3 (code complet, typecheck clean, suites existantes vertes), commit sur la branche, puis **S'ARRÊTE et demande le feu vert de Frédéric avant d'écrire les tests (§4) et de lancer la validation réelle (§5)**.
@@ -137,8 +192,8 @@ Export du 16/07 si le projet est inchangé, **sinon re-exporter** (les snapshots
 - [x] §3.2 warm start câblé (tâches LUES dans `solutions` + enforced, sans garde)
 - [x] §3.4 mesure mémoïsation, reportée à Frédéric, non implémentée
 - [x] Typecheck monorepo clean + 109/109 scheduler-core + suites client vertes
-- [ ] **CHECKPOINT : commit 1, feu vert de Frédéric demandé et obtenu**
-- [ ] 3 tests §4 verts, 4 tests P2-preuve inchangés et verts
-- [ ] Validation §5 : 10 semaines conformes, zéro STOP
-- [ ] Scripts jetables supprimés : `packages/scheduler-client/examples/*-tmp.mts`
-- [ ] STATUT rédigé en tête de ce plan, commit 2
+- [x] **CHECKPOINT : commit 1, feu vert de Frédéric demandé et obtenu**
+- [x] 3 tests §4 verts, 4 tests P2-preuve inchangés et verts
+- [x] Validation §5 : 10 semaines conformes, zéro STOP
+- [x] Scripts jetables supprimés : `packages/scheduler-client/examples/*-tmp.mts`
+- [x] STATUT rédigé en tête de ce plan, commit 2
