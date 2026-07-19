@@ -1,9 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { RawScheduleData } from '@edt-ts/scheduler-common';
 import { Loader } from '../src/loader.js';
 import { Scheduler } from '../src/scheduler.js';
 import { OptionalTasksScheduler, createScheduler } from '../src/optionalTasksScheduler.js';
 import type { ISchedulingUnit } from '../src/schedulingUnit.js';
+import * as rootLowerBoundModule from '../src/rootLowerBound.js';
 
 /** Expose l'état interne nécessaire pour observer le B&B dans les tests. */
 class InspectableOptionalTasksScheduler extends OptionalTasksScheduler {
@@ -239,7 +240,7 @@ describe('OptionalTasksScheduler — branch-and-bound sur les sauts (docs/PlanOp
     expect(res2[0].neutralizedUnits ?? []).toHaveLength(1); // 1 UNITÉ (le groupe), mais coût 2 en tâches
   });
 
-  it('anytime sous budget minuscule : un incumbent existe mais l\'optimum n\'est pas prouvé', () => {
+  it('anytime sous budget minuscule : incumbent optimal, prouvé par la borne racine (P2-preuve) malgré le budget B&B minuscule', () => {
     const scenario: RawScheduleData = {
       week: 30,
       resources: [
@@ -267,8 +268,12 @@ describe('OptionalTasksScheduler — branch-and-bound sur les sauts (docs/PlanOp
     };
 
     // budget=6 : vérifié empiriquement juste au-dessus de la 1ère descente complète (qui
-    // atteint déjà la solution optimale 3/1 dans ce scénario, mais SANS explorer assez pour
-    // le prouver — l'arbre n'est pas épuisé).
+    // atteint déjà la solution optimale 3/1 dans ce scénario). C'est le scénario pigeonhole
+    // DUBOIS de référence (docs/PlanOptionalTasksP2Preuve.md §0) : la borne racine le prouve
+    // AVANT toute itération B&B (certificat mono-ressource sur DUBOIS, lb=1), donc
+    // `provenOptimal` est désormais true ici quel que soit le budget B&B — ce test ne
+    // démontre plus « budget minuscule ⟹ non prouvé » (obsolète depuis P2-preuve) mais la
+    // non-régression du résultat gourmand sous budget minuscule.
     Loader.loadFromRawData(scenario);
     const s = new InspectableOptionalTasksScheduler();
     s.configure({ maxIterations: 6, timeoutSeconds: 60 });
@@ -276,7 +281,7 @@ describe('OptionalTasksScheduler — branch-and-bound sur les sauts (docs/PlanOp
 
     expect(res).toHaveLength(1);
     expect(res[0].solutions.length).toBeGreaterThan(0);
-    expect(s.isProvenOptimal()).toBe(false);
+    expect(s.isProvenOptimal()).toBe(true);
   });
 
   it('enforced jamais sautées : reste dans solutions, jamais dans neutralizedUnits', () => {
@@ -479,15 +484,18 @@ describe('createScheduler — fabrique (docs/PlanOptionalTasksP3.md §2)', () =>
 });
 
 describe('OptionalTasksScheduler — soundness de provenOptimal (docs/PlanOptionalTasksP3.md §0)', () => {
-  it('greedyCost > maxEliminations+1 : résultat gourmand rendu (jamais pire) mais optimum NON prouvé', () => {
-    // Groupe séquentiel de 3 membres, structurellement inplaçable (fenêtre 30min < 180min du
-    // groupe). maxEliminations:1 → borne d'attaque = 2, mais le coût réel du saut (3 tâches,
-    // le groupe entier) dépasse strictement cette borne. Le gourmand (qui compte en ROUNDS, pas
-    // en tâches) élimine le groupe entier en 1 round et rend un résultat valide (jamais pire, cf.
-    // tests « coût des groupes »/« cascade » de P1.5) — mais l'arbre B&B n'a été épuisé QUE sous
-    // la borne de 2 tâches : rien ne prouve qu'aucune solution à coût 2 (strictement sous les 3
-    // du gourmand) n'existe. Avant le correctif §0, `!_budgetExceeded` aurait à tort revendiqué
-    // `provenOptimal === true` ici (vérifié empiriquement en calibrant ce test).
+  it('greedyCost > maxEliminations+1 : résultat gourmand rendu (jamais pire), optimum prouvé par la borne racine (P2-preuve)', () => {
+    // Groupe séquentiel de 3 membres, structurellement inplaçable (fenêtre 30min < 60min pour
+    // CHAQUE membre pris individuellement — RG ne peut jamais tenir aucun des 3). maxEliminations:1
+    // → borne d'attaque B&B = 2, strictement sous le coût réel du saut (3 tâches, le groupe
+    // entier) : l'arbre B&B, à lui seul, ne prouve donc que « rien à coût ≤ 2 », pas l'optimalité
+    // du résultat gourmand rendu (garde historique §0, docs/PlanOptionalTasksP3.md — avant ce
+    // correctif, `!_budgetExceeded` seul aurait à tort revendiqué `provenOptimal === true` ici).
+    // Depuis P2-preuve, la borne racine est INDÉPENDANTE de ce cap : certificat mono-ressource sur
+    // RG (chaque membre a un domaine réel de 30min < 60min requis, donc MaxPack=0, lb=3) prouve
+    // directement `finalCost(3) <= lb(3)` — la garde §0 seule ne suffisait pas, la LB si
+    // (exactement le cas visé par docs/PlanOptionalTasksP2Preuve.md §2 : « la LB peut mettre
+    // _provenOptimal = true là où la garde seule dirait false »).
     const scenario: RawScheduleData = {
       week: 30,
       resources: [
@@ -515,7 +523,7 @@ describe('OptionalTasksScheduler — soundness de provenOptimal (docs/PlanOption
     expect(res).toHaveLength(1);
     expect(res[0].solutions).toHaveLength(0);
     expect(res[0].neutralizedUnits ?? []).toHaveLength(1); // le groupe entier, hérité de la passe gourmande
-    expect(s.provenOptimal).toBe(false);
+    expect(s.provenOptimal).toBe(true);
   });
 
   it('greedyCost <= maxEliminations+1 : preuve saine, provenOptimal reste true (non-régression)', () => {
@@ -757,5 +765,210 @@ describe('OptionalTasksScheduler — branchement combo (flag comboBranching, doc
     expect(resOn[0].isComplete).toBe(false);
     expect(sOn.isProvenOptimal()).toBe(true);
     expect(sOn.getIterations()).toBe(sOff.getIterations());
+  });
+});
+
+describe('OptionalTasksScheduler — borne racine par certificats (P2-preuve, docs/PlanOptionalTasksP2Preuve.md)', () => {
+  it('pigeonhole DUBOIS (scénario de référence, conception §3.2) : lb=1, optimum prouvé, B&B court-circuité (0 itération)', () => {
+    // Même scénario que le test "pigeonhole (cas de référence DUBOIS)" ci-dessus : 1 prof, 3
+    // fenêtres de 120min, 4 tâches de 90min → certificat mono-ressource sur DUBOIS, lb=1.
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'DUBOIS' }] },
+        { resourceType: 'group', resources: [{ id: 'GA' }, { id: 'GB' }, { id: 'GC' }, { id: 'GD' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'A', type: 'TD', name: 'A', teacher: ['DUBOIS'], groups: ['GA'], rooms: [], duration: 90 },
+        { week: 30, semester: 1, level: 0, code: 'B', type: 'TD', name: 'B', teacher: ['DUBOIS'], groups: ['GB'], rooms: [], duration: 90 },
+        { week: 30, semester: 1, level: 0, code: 'C', type: 'TD', name: 'C', teacher: ['DUBOIS'], groups: ['GC'], rooms: [], duration: 90 },
+        { week: 30, semester: 1, level: 0, code: 'D', type: 'TD', name: 'D', teacher: ['DUBOIS'], groups: ['GD'], rooms: [], duration: 90 },
+      ],
+      constraints: {
+        DUBOIS: [
+          { days: 'lundi', from: '08:00', to: '10:00' },
+          { days: 'mardi', from: '08:00', to: '10:00' },
+          { days: 'mercredi', from: '08:00', to: '10:00' },
+        ],
+        GA: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        GB: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        GC: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        GD: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+      },
+    };
+
+    Loader.loadFromRawData(scenario);
+    const sOpt = new InspectableOptionalTasksScheduler();
+    sOpt.configure({ maxSolutions: 1, maxEliminations: 6, timeoutSeconds: 60, maxIterations: 100_000 });
+    const resOpt = sOpt.solveWithElimination();
+
+    expect(sOpt.rootBound.lb).toBe(1);
+    expect(sOpt.rootBound.certificates).toHaveLength(1);
+    expect(sOpt.rootBound.certificates[0].resourceIds).toEqual(['DUBOIS']);
+    expect(resOpt[0].solutions).toHaveLength(3);
+    expect(resOpt[0].neutralizedUnits ?? []).toHaveLength(1);
+    expect(sOpt.isProvenOptimal()).toBe(true);
+
+    // B&B court-circuité : mêmes itérations qu'un gourmand seul (aucun appel à _bb()), comme
+    // pour le test « court-circuit gourmand-complet » (P1.5 §4.3), généralisé ici au cas lb>0.
+    Loader.loadFromRawData(scenario);
+    const sGreedy = new Scheduler();
+    sGreedy.configure({ maxSolutions: 1, maxEliminations: 6, timeoutSeconds: 60, maxIterations: 100_000 });
+    sGreedy.solveWithElimination();
+    expect(sOpt.getIterations()).toBe((sGreedy as unknown as { _iterations: number })._iterations);
+  });
+
+  it('cluster de groupes : lb=1 par le cluster {G1+G2}, 0 en mono-ressource (les deux niveaux)', () => {
+    // 2 groupes G1/G2, 3 tâches jointes (CM communs, groups: ['G1','G2'] → deux slots
+    // obligatoires distincts = A ET B, docs/types.ts §ResourceEntry) + 1 tâche mono par groupe.
+    // G1 : lundi 90min (court) + mardi 270min (large). G2 : lundi 270min (large) + mardi 90min
+    // (court) — symétrique inversé. Calibré empiriquement (packing exact vérifié à la main ET
+    // via script) : le certificat mono sur G1 seul (resp. G2 seul) voit sa capacité RAFFINÉE par
+    // l'union des domaines revenir à la pleine capacité brute grâce à la tâche mono correspondante
+    // (domaine large, non contraint par l'autre groupe) → lb=0 des deux côtés pris isolément.
+    // Mais la journée courte de G1 (lundi, 1 créneau) et celle de G2 (mardi, 1 créneau) forcent
+    // chacune au plus 1 tâche jointe (la jointe consomme G1 ET G2 en même temps) : au plus 2 des 3
+    // jointes tiennent, quelle que soit l'affectation — seul le cluster voit cette coupure
+    // croisée, invisible à un certificat mono isolé.
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'TJ1' }, { id: 'TJ2' }, { id: 'TJ3' }, { id: 'TM1' }, { id: 'TM2' }] },
+        { resourceType: 'group', resources: [{ id: 'G1' }, { id: 'G2' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'J1', type: 'CM', name: 'j1', teacher: ['TJ1'], groups: ['G1', 'G2'], rooms: [], duration: 90 },
+        { week: 30, semester: 1, level: 0, code: 'J2', type: 'CM', name: 'j2', teacher: ['TJ2'], groups: ['G1', 'G2'], rooms: [], duration: 90 },
+        { week: 30, semester: 1, level: 0, code: 'J3', type: 'CM', name: 'j3', teacher: ['TJ3'], groups: ['G1', 'G2'], rooms: [], duration: 90 },
+        { week: 30, semester: 1, level: 0, code: 'M1', type: 'TD', name: 'm1', teacher: ['TM1'], groups: [['G1']], rooms: [], duration: 90 },
+        { week: 30, semester: 1, level: 0, code: 'M2', type: 'TD', name: 'm2', teacher: ['TM2'], groups: [['G2']], rooms: [], duration: 90 },
+      ],
+      constraints: {
+        TJ1: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        TJ2: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        TJ3: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        TM1: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        TM2: [{ days: 'lundi,mardi,mercredi,jeudi,vendredi', from: '08:00', to: '19:00' }],
+        G1: [
+          { days: 'lundi', from: '08:00', to: '09:30' }, // 90min — jour court
+          { days: 'mardi', from: '08:00', to: '12:30' }, // 270min — jour large
+        ],
+        G2: [
+          { days: 'lundi', from: '08:00', to: '12:30' }, // 270min — jour large
+          { days: 'mardi', from: '08:00', to: '09:30' }, // 90min — jour court
+        ],
+      },
+    };
+
+    Loader.loadFromRawData(scenario);
+    const sOpt = new InspectableOptionalTasksScheduler();
+    sOpt.configure({ maxSolutions: 1, maxEliminations: 6, timeoutSeconds: 30, maxIterations: 200_000 });
+    const resOpt = sOpt.solveWithElimination();
+
+    // Niveau cluster : lb=1, seul certificat retenu, porte sur {G1,G2} et les 5 tâches.
+    expect(sOpt.rootBound.lb).toBe(1);
+    expect(sOpt.rootBound.certificates).toHaveLength(1);
+    const cert = sOpt.rootBound.certificates[0];
+    expect(new Set(cert.resourceIds)).toEqual(new Set(['G1', 'G2']));
+    expect(cert.taskIds).toHaveLength(5);
+    expect(cert.lb).toBe(1);
+
+    // Niveau mono : aucun certificat mono-ressource sur G1 ou G2 seul (sinon un 2e certificat
+    // serait présent dans la liste ci-dessus, puisque même un mono à lb=0 n'est pas retenu —
+    // vérifié directement en s'assurant qu'il n'y a bien qu'UN SEUL certificat au total).
+    expect(resOpt[0].solutions).toHaveLength(4);
+    expect(resOpt[0].neutralizedUnits ?? []).toHaveLength(1);
+    expect(sOpt.isProvenOptimal()).toBe(true);
+  });
+
+  it('neutralité : instance faisable (+ 1 tâche enforced) → lb=0, comportement strictement inchangé', () => {
+    // Reprend le scénario "court-circuit gourmand-complet" (2 tâches indépendantes) et ajoute
+    // une 3e tâche enforced PARTAGEANT G1 avec C1 — exerce l'exclusion des tâches enforced des
+    // S_r (§1.1) et la soustraction de leur occupation des fenêtres (§1.2) sans rendre
+    // l'instance infaisable (G1 garde largement assez de disponibilité pour C1 après
+    // soustraction du créneau enforced).
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'T1' }, { id: 'T2' }, { id: 'TE' }] },
+        { resourceType: 'group', resources: [{ id: 'G1' }, { id: 'G2' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'C1', type: 'TD', name: 'C1', teacher: ['T1'], groups: ['G1'], rooms: [], duration: 60 },
+        { week: 30, semester: 1, level: 0, code: 'C2', type: 'TD', name: 'C2', teacher: ['T2'], groups: ['G2'], rooms: [], duration: 60 },
+        {
+          week: 30, semester: 1, level: 0, code: 'E1', type: 'TD', name: 'E1',
+          teacher: ['TE'], groups: ['G1'], rooms: [], duration: 60,
+          enforced: { startTime: 480, teacher: ['TE'], groups: ['G1'], rooms: [] }, // lundi 08:00
+        },
+      ],
+      constraints: {
+        T1: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        T2: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        TE: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        G1: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        G2: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+      },
+    };
+
+    Loader.loadFromRawData(scenario);
+    const sOpt = new InspectableOptionalTasksScheduler();
+    const resOpt = sOpt.solveWithElimination();
+
+    Loader.loadFromRawData(scenario);
+    const sGreedy = new Scheduler();
+    const resGreedy = sGreedy.solveWithElimination();
+
+    expect(sOpt.rootBound.lb).toBe(0);
+    expect(sOpt.rootBound.certificates).toHaveLength(0);
+    expect(resOpt[0].isComplete).toBe(true);
+    expect(resOpt[0].neutralizedUnits ?? []).toHaveLength(0);
+    expect(sOpt.isProvenOptimal()).toBe(true);
+    // Comportement strictement inchangé : mêmes itérations que le gourmand seul (le module ne
+    // modifie ni les placements ni la convergence d'une instance faisable).
+    expect(sOpt.getIterations()).toBe((sGreedy as unknown as { _iterations: number })._iterations);
+    expect(resOpt[0].solutions.map(s => s.start).sort())
+      .toEqual(resGreedy[0].solutions.map(s => s.start).sort());
+  });
+
+  it('paresseux (PlanLbCoutRacine §4.3, §3.1) : instance faisable (greedyCost === 0) ⟹ lb=0, certificates vide, LB jamais calculée', () => {
+    // Reprend le scénario "instance faisable : 0 saut" (2 tâches indépendantes, gourmand
+    // complet). §3.1 impose que `computeRootLowerBound` soit sautée ENTIÈREMENT dans ce cas
+    // (court-circuit `greedyCost <= lb` trivialement vrai, la LB n'apporte rien) — vérifié ici
+    // par un spy sur le module plutôt qu'en exposant une API de test dédiée (cf. §4.3 du plan :
+    // « compteur d'appels, sans exposer d'API de test »).
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'T1' }, { id: 'T2' }] },
+        { resourceType: 'group', resources: [{ id: 'G1' }, { id: 'G2' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'C1', type: 'TD', name: 'C1', teacher: ['T1'], groups: ['G1'], rooms: [], duration: 60 },
+        { week: 30, semester: 1, level: 0, code: 'C2', type: 'TD', name: 'C2', teacher: ['T2'], groups: ['G2'], rooms: [], duration: 60 },
+      ],
+      constraints: {
+        T1: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        T2: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        G1: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        G2: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+      },
+    };
+
+    Loader.loadFromRawData(scenario);
+    const spy = vi.spyOn(rootLowerBoundModule, 'computeRootLowerBound');
+    const sOpt = new InspectableOptionalTasksScheduler();
+    const resOpt = sOpt.solveWithElimination();
+
+    expect(resOpt[0].isComplete).toBe(true);
+    expect(resOpt[0].neutralizedUnits ?? []).toHaveLength(0);
+    expect(sOpt.rootBound.lb).toBe(0);
+    expect(sOpt.rootBound.certificates).toHaveLength(0);
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 });

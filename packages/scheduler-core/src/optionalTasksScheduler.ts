@@ -1,7 +1,9 @@
 import { Scheduler, SLOT_STEP } from './scheduler.js';
 import type { SchedulerSolution, NeutralizedUnitInfo } from './scheduler.js';
 import type { ISchedulingUnit, SchedulingResult } from './schedulingUnit.js';
-import type { SchedulerConfig } from '@edt-ts/scheduler-common';
+import type { SchedulerConfig, Task } from '@edt-ts/scheduler-common';
+import { computeRootLowerBound, type RootLowerBoundResult } from './rootLowerBound.js';
+import { Loader } from './loader.js';
 
 /** Décision de saut : l'unité qui a réellement heurté l'impasse + sa cascade de dépendants non-enforced. */
 interface SkipDecision {
@@ -58,6 +60,7 @@ export class OptionalTasksScheduler extends Scheduler {
     private _bestSolution: SchedulerSolution | null = null;
     private _provenOptimal = false;                    // true si l'arbre a été épuisé sans jamais heurter budget/timeout
     private _budgetExceeded = false;                   // true dès qu'un appel a été tronqué par _limitsReached()
+    private _rootBound: RootLowerBoundResult = { lb: 0, certificates: [] }; // borne racine (P2-preuve), calculée une fois par solveWithElimination()
 
     /**
      * true si le résultat du dernier `solveWithElimination()` est prouvé optimal — arbre épuisé
@@ -79,6 +82,15 @@ export class OptionalTasksScheduler extends Scheduler {
      * ou si l'instance est sans alternatives.
      */
     get provenOptimal(): boolean { return this._provenOptimal; }
+
+    /**
+     * Borne inférieure racine (docs/PlanOptionalTasksP2Preuve.md) : certificats de bin-packing
+     * exact calculés une fois par `solveWithElimination()`, APRÈS la passe gourmande (§3.1 calcul
+     * paresseux, PlanLbCoutRacine.md) — sautée si celle-ci est déjà complète. Indépendante du
+     * modèle de placement du B&B (elle ne place rien) — `lb` ne dépasse jamais l'optimum réel,
+     * quel que soit le résultat de la recherche.
+     */
+    get rootBound(): RootLowerBoundResult { return this._rootBound; }
 
     /**
      * Point d'entrée officiel de cette classe (le `solve()` hérité, tour-par-tour, n'est pas
@@ -106,6 +118,26 @@ export class OptionalTasksScheduler extends Scheduler {
         const greedyCost = greedyRaw
             ? (greedyRaw.neutralizedUnits ?? []).reduce((n, i) => n + i.unit.getMemberTasks().length, 0)
             : Infinity;
+
+        // Borne racine (P2-preuve, §3.1 calcul paresseux) : calculée APRÈS la passe gourmande,
+        // amorcée par son résultat (warm start §3.2), et sautée entièrement si le gourmand est
+        // déjà complet — le court-circuit `greedyCost <= lb` est alors trivialement vrai (lb ≥ 0
+        // toujours), la LB n'apporte rien dans ce cas. Déplacement vérifié sûr en session (STATUT
+        // PlanLbCoutRacine.md §3.1) : le gourmand ne réduit pas le problème (`_units` du scheduler
+        // seulement, pas `TasksManager`), et le double `bookEnforced()` que l'ancien commentaire
+        // invoquait pour justifier la position AVANT le gourmand est sans effet sur le résultat
+        // (`subtractIntervals` idempotent) — seul un log bruyant en dépendait.
+        if (greedyCost === 0) {
+            this._rootBound = { lb: 0, certificates: [] };
+        } else {
+            const allTasks = Loader.tasksManager.getAllUnits() as Task[];
+            this._rootBound = computeRootLowerBound(allTasks, {
+                lunchBreak: this._config.lunchBreak,
+                ignoreDailyLimits: this._config.ignoreDailyLimits,
+                skippedTaskIds: this._computeSkippedTaskIds(allTasks, greedyRaw),
+            });
+        }
+        console.log(`🔒 Borne racine : lb=${this._rootBound.lb} (${this._rootBound.certificates.length} certificat(s))`);
         // Normalisation nécessaire : Scheduler.solveWithElimination() hérite la sémantique de
         // Scheduler.solve() pour `isComplete` — "complet" par rapport au sous-ensemble RÉDUIT
         // après élimination(s), pas par rapport à l'ensemble original. `isComplete` vaut donc
@@ -120,16 +152,22 @@ export class OptionalTasksScheduler extends Scheduler {
 
         this._budgetExceeded = false;
 
-        // Gourmand complet (0 tâche sautée) : indépassable par construction — pas de passe 2.
-        // Ne PAS appeler _resetBacktrackState() ici : _iterations doit rester celui de la passe
-        // gourmande (aucune passe B&B n'a tourné — voir test « court-circuit gourmand-complet »).
-        // Retourne [greedyBest], pas greedyResults tel quel : cette classe garde toujours EXACTEMENT
-        // un incumbent (maxSolutions est ignoré, cf. docstring), jamais jusqu'à maxSolutions comme
-        // le gourmand peut légitimement en renvoyer plusieurs.
-        if (greedyBest && greedyCost === 0) {
+        // Court-circuit par borne racine (P2-preuve) : coûtGourmand ≤ lb ⟹ optimum prouvé sans
+        // lancer le B&B — `lb` est toujours ≥ 0, donc ce test généralise le cas historique
+        // « gourmand complet » (greedyCost === 0, lb ≥ 0 toujours vrai) sans en changer le
+        // comportement. Ne PAS appeler _resetBacktrackState() ici : _iterations doit rester celui
+        // de la passe gourmande (aucune passe B&B n'a tourné — voir test « court-circuit
+        // gourmand-complet »). Retourne [greedyBest], pas greedyResults tel quel : cette classe
+        // garde toujours EXACTEMENT un incumbent (maxSolutions est ignoré, cf. docstring), jamais
+        // jusqu'à maxSolutions comme le gourmand peut légitimement en renvoyer plusieurs.
+        if (greedyBest && greedyCost <= this._rootBound.lb) {
             this._provenOptimal = true;
-            console.log('✅ Gourmand complet (0 sautée) — indépassable, passe B&B non nécessaire.');
-            return [greedyBest];
+            console.log(`✅ Optimum prouvé par borne racine (coût gourmand ${greedyCost} ≤ lb ${this._rootBound.lb}) — passe B&B non nécessaire.`);
+            // Uniformiser les raisons comme le fait le chemin B&B hérité (_genericizeReasons,
+            // révision post-usage §R) : ce court-circuit contourne le B&B mais rend le même genre
+            // de résultat « hérité du gourmand » — no-op quand neutralizedUnits est vide (cas
+            // historique greedyCost === 0).
+            return [this._genericizeReasons(greedyBest)];
         }
 
         // ── Passe 2 : B&B, amorcé par la passe gourmande, ne cherche que STRICTEMENT mieux ──
@@ -160,7 +198,13 @@ export class OptionalTasksScheduler extends Scheduler {
         const finalCost = best
             ? (best.neutralizedUnits ?? []).reduce((n, i) => n + i.unit.getMemberTasks().length, 0)
             : 0; // best === null : l'épuisement prouve l'infaisabilité sous le cap — revendication valide
-        this._provenOptimal = !this._budgetExceeded && finalCost <= this._config.maxEliminations + 1;
+        // Deux preuves d'optimalité INDÉPENDANTES (P2-preuve) : la garde historique (arbre épuisé
+        // sous le cap maxEliminations) et la borne racine (finalCost == lb, cf. l'arrêt global
+        // dans _bb ci-dessous). Ne jamais les fusionner — la LB peut prouver l'optimalité d'un
+        // résultat que la garde seule laisserait non prouvé (coût > maxEliminements + 1, cf. STATUT
+        // docs/PlanOptionalTasksP3.md §0), et réciproquement l'arbre peut être prouvé épuisé sans
+        // qu'aucun certificat racine n'existe (lb = 0).
+        this._provenOptimal = finalCost <= this._rootBound.lb || (!this._budgetExceeded && finalCost <= this._config.maxEliminations + 1);
 
         console.log(`\n⏱️  Passe B&B terminée en ${endMs - startMs}ms`);
         console.log(`🔄 Itérations B&B: ${this._iterations}`);
@@ -179,6 +223,32 @@ export class OptionalTasksScheduler extends Scheduler {
         }
 
         return finalResult ? [finalResult] : [];
+    }
+
+    /**
+     * Warm start (§3.2) : ensemble des tâches SAUTÉES par la passe gourmande, pour amorcer
+     * `computeRootLowerBound` avec un packing réalisable connu. Construit exactement comme
+     * spécifié dans PlanLbCoutRacine.md §3.2 — les tâches placées se LISENT dans `solutions`
+     * (+ les enforced, placées de fait mais absentes de `solutions`), elles ne se déduisent
+     * JAMAIS par complémentaire des neutralisées (destructeur silencieux de la borne, cf.
+     * docstring de sûreté sur `maxPackMono`). Aucune garde `gourmandOK` nécessaire :
+     * `bestInit = |S ∩ placed|` est réalisable par construction quel que soit l'état du
+     * gourmand — si rien n'a été placé, `placedTaskIds` est vide et le warm start est neutre.
+     */
+    private _computeSkippedTaskIds(allTasks: Task[], greedyRaw: SchedulerSolution | null): ReadonlySet<string> {
+        const placedTaskIds = new Set<string>();
+        for (const us of greedyRaw?.solutions ?? []) {
+            if (us.task) placedTaskIds.add(us.task.id);
+            else for (const t of us.unit.getMemberTasks()) placedTaskIds.add(t.id);
+        }
+        for (const t of allTasks) {
+            if (t.isEnforced && t.enforced) placedTaskIds.add(t.id);
+        }
+        const skippedTaskIds = new Set<string>();
+        for (const t of allTasks) {
+            if (!placedTaskIds.has(t.id)) skippedTaskIds.add(t.id);
+        }
+        return skippedTaskIds;
     }
 
     /**
@@ -225,7 +295,10 @@ export class OptionalTasksScheduler extends Scheduler {
             // l'élagage ci-dessus l'a déjà vérifié à l'entrée de CET appel, et _skippedTaskCount
             // ne change pas entre l'entrée et ce point (aucune décision n'est prise en feuille).
             this._recordIncumbent();
-            return this._bestTaskCount === 0; // 0 saut = indépassable : arrêt global
+            // Arrêt global dès que l'incumbent atteint la borne racine (P2-preuve) : aucune
+            // solution ne peut faire mieux que `lb`, prouvé indépendamment de cet arbre — inutile
+            // de continuer à chercher. `lb = 0` est le cas particulier historique (0 saut).
+            return this._bestTaskCount <= this._rootBound.lb;
         }
 
         this._dynamicSort(unitIndex);

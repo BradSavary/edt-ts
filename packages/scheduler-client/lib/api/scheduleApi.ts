@@ -1,4 +1,4 @@
-import type { RawScheduleData, TaskSolutionJSON, NeutralizedTaskInfoJSON, CourseTaskData, EnforcedData, ConstraintsData, ResourceGroupData, SchedulerConfig, TaskGroupDeclaration, JobSubmitResponse, JobStatusResponse } from '@edt-ts/scheduler-common';
+import type { RawScheduleData, TaskSolutionJSON, NeutralizedTaskInfoJSON, CourseTaskData, EnforcedData, ConstraintsData, ResourceGroupData, SchedulerConfig, TaskGroupDeclaration, JobSubmitResponse, JobStatusResponse, RootLowerBoundJSON } from '@edt-ts/scheduler-common';
 import { type BlockedZone, applyBlockedZonesToConstraints } from '@/lib/calendar/blockedZones';
 
 // En dev : vide → les rewrites Next.js proxifient /api/* vers localhost:3000
@@ -15,6 +15,11 @@ export interface NormalizedSolution {
    * RELATIVEMENT au modèle de placement du moteur (voir ScheduleSolutionJSON.provenOptimal).
    */
   provenOptimal?: boolean;
+  /**
+   * Présent uniquement pour searchStrategy: 'maxPlacement' — borne inférieure racine calculée
+   * avant la recherche (voir ScheduleSolutionJSON.rootBound).
+   */
+  rootBound?: RootLowerBoundJSON;
 }
 
 export interface ScheduleResult {
@@ -117,13 +122,14 @@ async function _callScheduleApi(
     throw new Error(err?.error ?? `Erreur ${response.status}`);
   }
 
-  const d = data as { solutions: TaskSolutionJSON[]; isComplete: boolean; score?: number; neutralizedTasks?: NeutralizedTaskInfoJSON[]; provenOptimal?: boolean }[];
+  const d = data as { solutions: TaskSolutionJSON[]; isComplete: boolean; score?: number; neutralizedTasks?: NeutralizedTaskInfoJSON[]; provenOptimal?: boolean; rootBound?: RootLowerBoundJSON }[];
   const normalized: NormalizedSolution[] = d.map((s) => ({
     isComplete: s.isComplete,
     score: s.score,
     tasks: s.solutions,
     neutralizedTasks: s.neutralizedTasks,
     provenOptimal: s.provenOptimal,
+    rootBound: s.rootBound,
   }));
 
   if (normalized.length === 0) {
@@ -174,7 +180,9 @@ export function buildScheduleStatus(result: ScheduleResult): ScheduleStatus {
   const neutralizedMsg = best.neutralizedTasks?.length
     ? ` — ${best.neutralizedTasks.length} cours non placé(s)` : '';
   const provenMsg = !best.isComplete && best.provenOptimal
-    ? ' — optimum prouvé : le moteur ne placera pas plus sans relâchement de contraintes'
+    ? (best.rootBound && best.rootBound.lb > 0
+        ? ` — optimum prouvé : ${best.rootBound.lb} saut(s) structurellement inévitable(s) (relâchement nécessaire)`
+        : ' — optimum prouvé : le moteur ne placera pas plus sans relâchement de contraintes')
     : '';
   return {
     message: `${best.isComplete ? '✅ Planification complète' : '⚠️ Incomplète'} — ${result.solutions.length} solution(s)${neutralizedMsg}${provenMsg}`,

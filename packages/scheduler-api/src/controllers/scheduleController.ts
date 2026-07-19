@@ -50,7 +50,10 @@ export async function schedulerV2Handler(req: Request, res: Response): Promise<v
 
     const response: ScheduleSolutionJSON[] = results.map(r => serializeSchedulerSolution(r, taskMap));
     if (scheduler instanceof OptionalTasksScheduler) {
-      for (const sol of response) sol.provenOptimal = scheduler.provenOptimal;
+      for (const sol of response) {
+        sol.provenOptimal = scheduler.provenOptimal;
+        sol.rootBound = scheduler.rootBound;
+      }
     }
     res.status(200).json(response);
   } catch (err: unknown) {

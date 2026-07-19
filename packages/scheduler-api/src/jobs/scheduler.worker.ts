@@ -40,7 +40,10 @@ try {
   const results: SchedulerSolution[] = scheduler.solveWithElimination();
   const response: ScheduleSolutionJSON[] = results.map(r => serializeSchedulerSolution(r, taskMap));
   if (scheduler instanceof OptionalTasksScheduler) {
-    for (const sol of response) sol.provenOptimal = scheduler.provenOptimal;
+    for (const sol of response) {
+      sol.provenOptimal = scheduler.provenOptimal;
+      sol.rootBound = scheduler.rootBound;
+    }
   }
 
   parentPort.postMessage({ type: 'done', jobId, result: response });

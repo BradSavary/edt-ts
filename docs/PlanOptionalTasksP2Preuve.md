@@ -1,6 +1,16 @@
 # Plan P2-Preuve — borne inférieure racine par certificats (bin-packing exact) et preuve d'optimalité
 
-> **PROPOSITION (2026-07-18, Fable) — en attente de validation de Frédéric avant toute exécution.**
+> **STATUT (2026-07-18, exécution par Sonnet) : LIVRÉ, prêt à committer.** §1-§2 implémentés conformes au plan (checkpoint feu vert obtenu après commit 1, `0622df8`). §3 : 4 tests écrits et calibrés empiriquement (7/7 assertions vertes, y compris les 2 niveaux du test cluster) — **construire un cas cluster-only (mono=0, cluster=1) minimal s'est avéré nettement plus subtil que prévu** : `domain(t)` étant TOUJOURS l'intersection complète (donc déjà visible à tout certificat mono qui inclut la tâche), une tâche jointe seule ne suffit pas à créer un écart mono/cluster — il faut au moins 2 tâches jointes + assez de tâches mono pour que le raffinement « union des domaines » restaure la pleine capacité brute côté mono tout en laissant le couplage jour-par-jour (2 ressources contraintes simultanément) invisible à un certificat mono isolé ; scénario final calibré et vérifié par script avant d'être figé dans le test. **1 bug trouvé en calibrant §3 sur les suites existantes (pas dans le module lui-même)** : le court-circuit racine renvoyait les raisons brutes du gourmand au lieu de les uniformiser (`_genericizeReasons` non appelé) — corrigé, commité dans 0622df8. **2 tests existants dont le scénario est exactement le cas que P2-preuve étend** (preuve désormais possible à budget B&B minuscule / au-delà du cap `maxEliminations`) : assertions mises à jour avec justification (même commit). **Refactor de robustesse fait pendant §3** : `computeRootLowerBound` prend `Task[]` au lieu de `ISchedulingUnit[]` — évite un double `bookEnforced()` (un `initSolver()` explicite avant le gourmand, qui en refait un) qui produisait un warning bruyant à chaque tâche enforced (idempotent sur l'état final, mais inutilement verbeux en usage réel) ; limites de nœuds DFS rendues surchargeables (`monoNodeLimit`/`clusterNodeLimit`, défauts 4M/6M inchangés) pour permettre le micro-test du repli de sûreté sans franchir réellement 4M nœuds.
+>
+> **Validation réelle (§4, export du 16/07 — projet inchangé depuis, réutilisé tel quel), protocole allégé, S37-40, budget 10000, COS on** : **zéro STOP déclenché, chiffres identiques à la référence connue sur les 4 semaines.**
+> - **S37 : 94/97 placées, `provenOptimal=true`, 0 itération B&B** (court-circuit racine dès la fin du gourmand : coût 3 ≤ lb 3) — certificat cluster `{BUT3-G1+BUT3-G2+BUT3-G3}`, 31 tâches, demande-groupe 12660min. Preuve d'optimalité en millisecondes, exactement comme prévu au cadrage.
+> - **S38 : 110/110, S39 : 106/106** — `lb=0`, `provenOptimal=true`, court-circuit racine (généralisation du cas historique 0-saut). Conforme.
+> - **S40 : 105/107, `provenOptimal=false`** — `lb=1`, certificat mono-ressource teacher "BARBIER Romain" (4 tâches, 360min, caps j0:120 j1:120 j2:120 j3:0 j4:0) conforme au cadrage §0 ; passe B&B lancée (greedyCost=2 > lb=1), budget 10000 épuisé sans amélioration ni preuve — **« 106/107 ou 105 optimal ? » reste ouvert**, exactement le périmètre annoncé (hors de portée des outils actuels).
+> - **Écart au plan, non bloquant mais notable** : le calcul de la LB seule sur S37 prend **13,4s** (`lbMs`), très au-dessus du seuil indicatif de 100ms du plan — le certificat cluster `{BUT3-G1+G2+G3}` (31 tâches, DFS jour-par-jour à 6M nœuds max) est visiblement le poste coûteux. Sans impact sur l'usage (racine uniquement, une fois par résolution, dominé par le gourmand/B&B de toute façon sur S40), mais à garder en tête si la LB était un jour évaluée à des nœuds internes (hors périmètre actuel, §5). S38/S39/S40 restent sous 70ms.
+>
+> Suites complètes : typecheck monorepo clean (4 packages), 108/108 scheduler-core (105 existants + 3 nouveaux), 290/290 scheduler-client.
+>
+> **Reste avant commit 2** : supprimer les 2 scripts jetables (`packages/scheduler-client/examples/p2preuve-lb-tmp.ts`, `packages/scheduler-client/examples/p2preuve-validation-tmp.ts`), commit unique groupant §3+§4+STATUT. Merge vers `master` : décision de Frédéric, hors périmètre.
 
 *Plan rédigé par Fable pour implémentation par Sonnet. Branche : **`feature/p2-preuve`** (nouvelle branche dédiée depuis `master` — ne PAS travailler sur `master` ; le merge sera décidé par Frédéric après validation).*
 
@@ -84,10 +94,10 @@ Hors périmètre explicite :
 
 ## 6. Definition of done
 
-- [ ] Branche `feature/p2-preuve` créée depuis `master`
-- [ ] `rootLowerBound.ts` implémenté conforme §1 (principe de sûreté respecté partout, docstrings)
-- [ ] Intégration §2 (court-circuit gourmand, arrêt global incumbent==lb, `rootBound` sérialisé bout en bout)
-- [ ] **CHECKPOINT : typecheck + suites existantes vertes, commit 1, feu vert de Frédéric demandé et obtenu**
-- [ ] 4 tests §3 verts (scénarios 1-2 calibrés empiriquement avant d'être figés)
-- [ ] Validation réelle allégée §4 : 4 runs conformes, zéro STOP déclenché
-- [ ] STATUT rédigé en tête de ce plan (chiffres réels, écarts au plan le cas échéant), commit 2
+- [x] Branche `feature/p2-preuve` créée depuis `master`
+- [x] `rootLowerBound.ts` implémenté conforme §1 (principe de sûreté respecté partout, docstrings)
+- [x] Intégration §2 (court-circuit gourmand, arrêt global incumbent==lb, `rootBound` sérialisé bout en bout)
+- [x] **CHECKPOINT : typecheck + suites existantes vertes, commit 1, feu vert de Frédéric demandé et obtenu**
+- [x] 4 tests §3 verts (scénarios 1-2 calibrés empiriquement avant d'être figés)
+- [x] Validation réelle allégée §4 : 4 runs conformes, zéro STOP déclenché
+- [x] STATUT rédigé en tête de ce plan (chiffres réels, écarts au plan le cas échéant), commit 2
