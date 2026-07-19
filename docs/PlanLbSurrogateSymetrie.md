@@ -1,5 +1,69 @@
 # Plan LB-Surrogate-Symétrie — accélérer le DFS de la borne racine à borne INCHANGÉE
 
+## STATUT — livré (2026-07-19, exécution Sonnet)
+
+**§1 + §2 implémentés, testés (§3), validés sur le projet réel (§4).** Trois commits sur
+`feature/lb-surrogate` : `f9c25a6` (§1+§2, checkpoint), `b642e3c` (§3, 6 tests), et celui-ci (§4 +
+STATUT). §1.4 (borne surrogate cluster) et §2.3 (Zobrist + Int32Array) livrés dans leur version
+complète, pas différés — la dérivation de sûreté (bornes globalement-triées ≤ bornes du sous-
+ensemble réellement non-décidé, vérification exacte sur collision de hash) tenait dans le temps
+imparti. §2.2 et §2.4 non implémentés, conformément au plan (secondaires/optionnels).
+
+**Bug trouvé et corrigé pendant l'implémentation (§2.1)** : le marqueur de symétrie de fenêtres
+utilisait un compteur d'epoch PARTAGÉ, incrémenté aussi par les appels récursifs imbriqués — au
+retour d'un appel enfant, l'epoch du nœud courant avait déjà changé, et la détection « fenêtre
+symétrique déjà essayée » ne se déclenchait quasiment plus jamais après le premier enfant. Sûr
+(l'élagage manqué ne coupe jamais une solution) mais inopérant. Corrigé en capturant l'epoch dans
+une `const` locale au sommet de chaque appel `dfs`. Vérifié après coup par un test dédié (§3).
+
+**Validation réelle (§4)** — export du 16/07 (`packages/scheduler-core/data/Planification
+MMI_2026-07-16_10-13.json`, localisé avec l'aide de Frédéric), pipeline reconstruit à la main
+(`getCoursesForWeek` + `manualEnforcedMap` + `preNeutralizedKeys` + résolution week-aware de la clé
+`Default` des contraintes — réplique exacte de `_buildPayload` côté client) ; `manualBlockedZones`
+vérifié vide sur les 10 semaines et aucune période de vacances ne les recouvre ⟹ omis sans perte de
+fidélité. Config Frédéric (`lunchBreak` floating 90 min 12:00–14:00, `ignoreDailyLimits: false`).
+Comparaison **avant/après** en checkout temporaire du commit `134b439` (dernier `rootLowerBound.ts`
+avant ce plan), même pipeline, script jetable supprimé après usage :
+
+| Semaine | lb | tasks | temps AVANT | temps APRÈS | nœuds AVANT | nœuds APRÈS |
+|---|---|---|---|---|---|---|
+| S3  | 7 | 34  | 4 ms    | 5 ms    | — | — |
+| S9  | 7 | 29  | 2 ms    | 2 ms    | — | — |
+| S36 | 6 | 95  | 1054 ms | 126 ms  | 600 823 | 200 952 |
+| S37 | 3 | 97  | 759 ms  | 243 ms  | — | — |
+| S38 | 0 | 110 | 53 ms   | 15 ms   | — | — |
+| S39 | 0 | 106 | 9 ms    | 6 ms    | — | — |
+| S40 | 1 | 107 | 66 ms   | 22 ms   | — | — |
+| S45 | 0 | 94  | 429 ms  | 130 ms  | — | — |
+| S48 | 5 | 124 | 1194 ms | 140 ms  | 613 927 | 214 052 |
+| S49 | 4 | 121 | 1176 ms | 343 ms  | 604 858 | 604 858 |
+
+**Zéro STOP : les 10 `lb` sont EXACTEMENT identiques avant/après, et identiques à la référence de
+`PlanLbCoutRacine.md §5` (7,7,6,3,0,0,1,0,5,4).** Temps ≤ partout, souvent très inférieurs (×5 à
+×8 sur S36/S45/S48, ×3 sur S49/S37).
+
+**Attribution §1 vs §2.3 (nœuds S36/S48/S49)** : S36 et S48 montrent une réduction du nombre de
+nœuds explorés (×3 environ) ET une réduction du temps par nœud — les deux mécanismes contribuent.
+**S49 est le cas net qui isole §2.3 seul** : nombre de nœuds strictement IDENTIQUE avant/après
+(604 858), temps divisé par 3,4 — sur cette semaine précise, la borne surrogate/symétrie ne coupe
+aucun nœud supplémentaire (la structure du problème ne s'y prête pas), tout le gain vient du
+hachage Zobrist + `Int32Array` remplaçant la reconstruction de chaîne à chaque nœud du memo cluster.
+
+**Détail notable (non bloquant) sur S48** : la composition des certificats diffère avant/après (4
+certificats avant : 2 mono-ressource séparés `BUT3-G1` et `BUT3-G3` chacun lb=1 ; 3 après : un seul
+certificat cluster `{BUT3-G1+BUT3-G2+BUT3-G3}` lb=2) — la **somme reste strictement 5 dans les deux
+cas**. Explication cohérente avec le mécanisme : le DFS cluster AVANT ce plan sature probablement
+son budget de nœuds (`clusterNodeLimit` 200k) sur ce cluster à 3 groupes et le certificat est jeté
+(`exact=false`), la sélection disjointe se rabat alors sur deux certificats mono-ressource plus
+petits qui somment au même total ; APRÈS ce plan, la borne §1.4 accélère suffisamment le DFS cluster
+pour qu'il converge et produise directement le certificat combiné. C'est l'effet recherché par le
+plan, pas une régression — le critère de succès (`lb` inchangée) est respecté.
+
+124/124 → 130/130 scheduler-core (+6 tests §3 : surrogate mono mordante ×3, symétrie exacte ×2,
+memo cluster à 6 ressources consommées ×1), typecheck monorepo clean.
+
+---
+
 *Plan rédigé par Opus pour implémentation par Sonnet. Branche : **`feature/lb-surrogate`** (à créer
 depuis `master` — ne PAS travailler sur `master`).*
 
