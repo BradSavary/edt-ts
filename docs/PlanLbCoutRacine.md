@@ -36,22 +36,38 @@ flottante 90 min 12:00–14:00), batch unique en arrière-plan, une seule lectur
 < 2s partout (objectif tenu), S37 à 4 ms grâce au warm start. La régression de S49 (32 min) est
 résolue : 1,1 s.
 
-**Deux constats hors périmètre (§6, à remonter à Frédéric séparément, PAS traités ici)** :
-1. Le gourmand place 0 tâche (0 sautée effectivement placée, 1 itération) sur S3, S9, S36, S48,
-   S49 — confirmé conforme à ce que §6 avait déjà identifié comme un sujet du moteur
-   d'élimination, pas de la borne. La borne racine reste correcte dans tous ces cas (les tests §5
-   ne portent que sur `lb`, jamais sur le nombre de tâches placées par ce gourmand cassé).
-2. **Écart avec le tableau §5 tel que rédigé** : §5 attendait des placements inchangés incluant
-   « S40 105/107 », mais S40 fait AUSSI partie des semaines à gourmand cassé dans ce run (0/107
-   placées) — alors que §6 ne le listait pas de façon inconditionnelle avec la même certitude que
-   S3/S9/S36/S48. De plus, le temps total pour S40 atteint ~44s (3 rounds d'élimination + 1 passe
-   B&B, chacun capé indépendamment à 10s = jusqu'à 40s cumulés) — `timeoutSeconds` est un budget
-   PAR APPEL `solve()`, pas un budget global de `solveWithElimination()`. Ni l'un ni l'autre n'est
-   un problème de sûreté de la borne (lb=1 correct, jamais dépassé) ; les deux sont des
-   caractéristiques préexistantes du moteur d'élimination, indépendantes de ce plan. Signalé, non
-   corrigé ici.
+**CORRECTION (2026-07-19, vérification Opus post-livraison) — le « gourmand cassé » n'existe pas :
+c'était un paramètre mal orthographié.** Le champ COS de `SchedulerConfig` s'appelle
+`conflictOrderingSearch` (types.ts:271) ; les scripts de mesure de la session de cadrage — et le
+tableau « warm start » du §0 ci-dessous qui en découle — utilisaient `conflictOrderedSearch`, un
+champ inexistant silencieusement ignoré (casts `as never` : TypeScript ne pouvait pas l'attraper).
+**Toutes ces mesures ont donc tourné COS DÉSACTIVÉ** alors qu'elles s'annonçaient « COS on ».
 
-109/109 → 112/112 scheduler-core (+3 tests §4), 290/290 client, typecheck monorepo clean.
+Re-vérification avec le paramètre correct, correctif de ce plan en place, config exacte de
+Frédéric (`maxSolutions:1, timeoutSeconds:10, maxIterations:1M, maxEliminations:3, floating
+90min 12:00–14:00, ignoreDailyLimits:false, conflictOrderingSearch:true, conflictSetExact:false`) :
+
+| | S37 | S38 | S39 | S40 |
+|---|---|---|---|---|
+| `elimination` (config Frédéric) | 94/97 | 110/110 | 106/106 | **105/107** |
+| `maxPlacement` | 94/97, lb=3, prouvé | 110/110, lb=0 | 106/106, lb=0 | **105/107**, lb=1, non prouvé |
+
+**Les 4 chiffres de référence sont reproduits EXACTEMENT — aucune régression de placement.** Les
+deux constats « hors périmètre » du STATUT initial sont donc RETIRÉS : ni le « gourmand qui place
+0 tâche » (S3/S9/S36/S48/S49/S40), ni l'« écart au tableau §5 sur S40 » n'existent — les deux
+étaient l'effet du COS désactivé. Il n'y a rien à investiguer côté moteur d'élimination.
+
+Reste valide du STATUT initial : le tableau §5 des `lb` et des temps (mesures de
+`computeRootLowerBound` appelée directement, COS n'y intervient pas), et donc l'objectif de coût
+atteint. Ces temps sont même un PIRE CAS : le warm start y était amorcé par un gourmand privé de
+COS, donc moins bon qu'en usage réel.
+
+Seul constat qui subsiste, réel et préexistant : `timeoutSeconds` est un budget **par appel
+`solve()`**, pas un budget global de `solveWithElimination()` — S40 cumule ~25 s (3 rounds + passe
+B&B, chacun capé à 10 s). Indépendant de ce plan, non corrigé ici.
+
+109/109 → 112/112 scheduler-core (+3 tests §4), 290/290 client, typecheck monorepo clean
+(112/112 re-vérifiés après la correction ci-dessus).
 
 ---
 
@@ -97,6 +113,14 @@ P2-preuve (`0622df8`, `9b0bc82`, `37862dd`) livre une borne racine correcte, mai
 | S49 (gourmand OK à cap=10) | 365 430 ms | 33 473 ms (**×11**) | 1 150 ms |
 
 10 lb sur 10 inchangées. Le warm start accélère la *découverte* d'un bon packing, jamais la *preuve* de son optimalité : quand la borne primale est serrée il supprime tout le travail (S37), quand elle est lâche il ne supprime rien (S48). **Rendement entre 0 % et ×11 selon les données ⟹ il ne peut pas être le garde-fou**, mais il est gratuit et sûr, donc on le garde.
+
+> **RÉSERVE sur ce tableau (voir la CORRECTION du STATUT)** : les packings gourmands qui ont servi
+> à l'amorcer ont été produits **COS désactivé** (`conflictOrderedSearch` au lieu de
+> `conflictOrderingSearch`). Le gourmand y est donc anormalement mauvais, et l'applicabilité du
+> warm start anormalement rare — les colonnes « avec WS » sont un PIRE CAS et le rendement réel
+> est meilleur. Les colonnes « sans WS » et les `lb`, elles, ne dépendent pas de COS et restent
+> exactes. La conclusion du plan est inchangée : le warm start reste un bonus et non le garde-fou,
+> puisqu'il ne s'applique par construction que là où un packing primal existe.
 
 ## 1. Principe de sûreté — inchangé, et un second sens à connaître
 
@@ -178,7 +202,7 @@ Export du 16/07 si le projet est inchangé, **sinon re-exporter** (les snapshots
 
 - Réécriture de la mémoïsation du DFS (§3.4 : mesure seulement).
 - LB aux nœuds internes du B&B, et warm start à ces nœuds.
-- Le comportement du gourmand qui ne place **rien** (`placees=0`, 1 itération) sur S3, S9, S36, S40, S48@cap≤10 — constaté en session, réel, mais c'est un sujet du moteur d'élimination, pas de la borne. À remonter séparément à Frédéric.
+- ~~Le comportement du gourmand qui ne place rien~~ — RETIRÉ : artefact du COS désactivé par un paramètre mal orthographié, voir la CORRECTION du STATUT. Rien à investiguer.
 - Toute modification de `DEFAULT_MONO_NODE_LIMIT`.
 - UI riche des certificats.
 
