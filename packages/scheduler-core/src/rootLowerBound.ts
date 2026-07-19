@@ -117,8 +117,16 @@ interface Win { day: number; len: number }
 
 /** MaxPack exact (DFS + élagage) avec éligibilité item×fenêtre. Repli sûr sur dépassement de
  *  nœuds : borne de comptage (préfixe croissant des durées vs capacité totale), jamais le
- *  meilleur packing partiel trouvé — voir le principe de sûreté cardinal en tête de fichier. */
-function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, number>, eligible: boolean[][], nodeLimit: number): number {
+ *  meilleur packing partiel trouvé — voir le principe de sûreté cardinal en tête de fichier.
+ *
+ *  `bestInit` (warm start) : nombre de tâches de S que la passe gourmande a effectivement
+ *  placées — un packing RÉALISABLE, donc MaxPack ≥ bestInit. Amorcer `best` avec cette valeur
+ *  rend l'élagage `placed + restantes <= best` mordant dès le nœud racine, sans changer le
+ *  résultat : l'élagage ne coupe que les branches incapables de dépasser STRICTEMENT `best`,
+ *  donc si tout est coupé, MaxPack ≤ bestInit, et avec MaxPack ≥ bestInit on a l'égalité.
+ *  Sûr même si `bestInit` s'avérait NON réalisable dans la relaxation (relaxation plus serrée
+ *  que la réalité) : `best` surestimé ⟹ lb = |S| − best SOUS-estimé ⟹ jamais de preuve fausse. */
+function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, number>, eligible: boolean[][], nodeLimit: number, bestInit = 0): number {
   const order = itemsIn.map((d, i) => ({ d, i })).sort((a, b) => b.d - a.d);
   const items = order.map(o => o.d);
   const elig = order.map(o => eligible[o.i]);
@@ -130,7 +138,7 @@ function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, numb
   for (const d of asc) { if (acc + d > totalCap) break; acc += d; ubCount++; }
   const ub = Math.min(n, ubCount);
 
-  let best = 0;
+  let best = bestInit;
   let nodes = 0;
   let exact = true;
   const winRes = winsIn.map(w => w.len);
@@ -171,6 +179,7 @@ function computeMonoCertificates(
   lunchBreak: LunchBreakConfig,
   ignoreDailyLimits: boolean,
   nodeLimit: number,
+  skippedTaskIds?: ReadonlySet<string>,
 ): MonoFinding[] {
   const mandatory = new Map<Resource, Task[]>();
   for (const t of nonEnforced) {
@@ -224,7 +233,9 @@ function computeMonoCertificates(
     );
 
     const durations = S.map(t => t.duration);
-    const pack = maxPackMono(durations, wins, dayCaps, eligible, nodeLimit);
+    // Warm start : nombre de tâches de S effectivement placées par la passe gourmande.
+    const bestInit = skippedTaskIds ? S.filter(t => !skippedTaskIds.has(t.id)).length : 0;
+    const pack = maxPackMono(durations, wins, dayCaps, eligible, nodeLimit, bestInit);
     const lb = S.length - pack;
     if (lb > 0) {
       const capStr = [...dayCaps.entries()].sort((a, b) => a[0] - b[0]).map(([d, c]) => `j${d}:${c}`).join(' ');
@@ -249,6 +260,7 @@ function computeClusterCertificates(
   lunchBreak: LunchBreakConfig,
   ignoreDailyLimits: boolean,
   nodeLimit: number,
+  skippedTaskIds?: ReadonlySet<string>,
 ): ClusterFinding[] {
   const groupResources = new Map<string, Resource>();
   for (const t of nonEnforced) {
@@ -334,7 +346,8 @@ function computeClusterCertificates(
     });
 
     const order = S.map((_t, i) => i).sort((a, b) => S[b].duration - S[a].duration || itemRes[b].length - itemRes[a].length);
-    let best = 0;
+    // Warm start : cf. la justification de sûreté détaillée sur `maxPackMono`.
+    let best = skippedTaskIds ? S.filter(t => !skippedTaskIds.has(t.id)).length : 0;
     let nodes = 0;
     let exact = true;
     const seenState = new Map<string, number>();
@@ -406,6 +419,13 @@ export interface RootLowerBoundConfig {
    */
   monoNodeLimit?: number;
   clusterNodeLimit?: number;
+  /**
+   * Warm start (borne primale) : ids des tâches sautées par la passe gourmande. Fournir cet
+   * ensemble amorce chaque DFS avec un packing réalisable connu au lieu de repartir de zéro —
+   * voir la justification de sûreté sur `maxPackMono`. Le résultat est inchangé ; seul le coût
+   * d'exploration l'est. Impose d'appeler `computeRootLowerBound` APRÈS la passe gourmande.
+   */
+  skippedTaskIds?: ReadonlySet<string>;
 }
 
 const DEFAULT_MONO_NODE_LIMIT = 4_000_000;
@@ -430,11 +450,11 @@ export function computeRootLowerBound(allTasks: Task[], config: RootLowerBoundCo
 
   const monoFindings = computeMonoCertificates(
     nonEnforced, enforcedOcc, config.lunchBreak, config.ignoreDailyLimits,
-    config.monoNodeLimit ?? DEFAULT_MONO_NODE_LIMIT,
+    config.monoNodeLimit ?? DEFAULT_MONO_NODE_LIMIT, config.skippedTaskIds,
   );
   const clusterFindings = computeClusterCertificates(
     nonEnforced, enforcedOcc, config.lunchBreak, config.ignoreDailyLimits,
-    config.clusterNodeLimit ?? DEFAULT_CLUSTER_NODE_LIMIT,
+    config.clusterNodeLimit ?? DEFAULT_CLUSTER_NODE_LIMIT, config.skippedTaskIds,
   );
 
   interface Finding { resourceIds: string[]; tasks: Task[]; lb: number; note: string }
