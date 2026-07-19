@@ -4,6 +4,8 @@
 
 **Déroulé imposé (règle de Frédéric)** : Sonnet implémente §2 + §3 (code complet, typecheck clean, suites existantes vertes), commit sur la branche, puis **S'ARRÊTE et demande le feu vert de Frédéric avant d'écrire les tests (§4) et de lancer la validation réelle (§5)**.
 
+**Stratégie de merge actée par Frédéric (2026-07-19)** : `feature/p2-preuve` n'est PAS mergée dans `master` et ne le sera pas séparément — le correctif est appliqué d'abord, puis **l'ensemble est mergé en bloc** (P2-preuve + LB-coût-racine). Conséquence pour l'exécution : ne merger ni `feature/p2-preuve` ni `feature/lb-warmstart` à aucune étape de ce plan ; la livraison s'arrête à la branche validée. La régression de coût décrite en §0 n'a donc jamais atteint `master`.
+
 ## 0. Constat — la régression et ses mesures
 
 P2-preuve (`0622df8`, `9b0bc82`, `37862dd`) livre une borne racine correcte, mais son coût de calcul est sans commune mesure avec la recherche qu'elle sert. Le plan P2-preuve l'avait noté comme « écart non bloquant » (§9 de son STATUT, 13,4 s sur S37) ; la mesure sur l'ensemble du projet réel montre que c'est bloquant.
