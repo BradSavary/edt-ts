@@ -193,17 +193,59 @@ function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, numb
   for (const d of asc) { if (acc + d > totalCap) break; acc += d; ubCount++; }
   const ub = Math.min(n, ubCount);
 
+  // §1.3 — sommes-suffixes de `items` (déjà trié décroissant, ligne ci-dessus) : suf[j] = somme
+  // de items[j..n-1]. Comme le suffixe idx.. est lui-même décroissant, ses k plus PETITES durées
+  // sont ses k DERNIERS éléments, de somme suf[n-k] — sert à la borne surrogate de nœud ci-dessous.
+  const suf = new Array<number>(n + 1).fill(0);
+  for (let j = n - 1; j >= 0; j--) suf[j] = suf[j + 1] + items[j];
+
+  // §2.1 — classe d'équivalence par fenêtre : (jour, longueur initiale, colonne d'éligibilité
+  // complète). Deux fenêtres INTACTES de même classe sont interchangeables pour tout le reste du
+  // DFS (même effet sur winRes/dayRes, même éligibilité pour tous les items) : n'en essayer qu'une
+  // seule ne coupe donc aucune solution de valeur supérieure.
+  const classId = new Array<number>(winsIn.length);
+  {
+    const classMap = new Map<string, number>();
+    for (let w = 0; w < winsIn.length; w++) {
+      let col = '';
+      for (let idx = 0; idx < n; idx++) col += elig[idx][w] ? '1' : '0';
+      const sig = winsIn[w].day + '|' + winsIn[w].len + '|' + col;
+      let id = classMap.get(sig);
+      if (id === undefined) { id = classMap.size; classMap.set(sig, id); }
+      classId[w] = id;
+    }
+  }
+  // Épinglé par classe : dernier "epoch" (= appel dfs) où une fenêtre intacte de cette classe a
+  // déjà été essayée. Réutilisé sans réallocation d'un nœud à l'autre (juste `epoch` incrémenté).
+  const lastSeenEpoch = new Int32Array(classId.reduce((m, c) => Math.max(m, c), -1) + 1).fill(-1);
+  let epoch = 0;
+
   let best = bestInit;
   let nodes = 0;
   let exact = true;
   const winRes = winsIn.map(w => w.len);
   const dayRes = new Map(dayCaps);
+  let winTotal = winRes.reduce((s, v) => s + v, 0);
+  let dayTotal = [...dayRes.values()].reduce((s, v) => s + v, 0);
   const seen = new Map<string, number>();
 
   const dfs = (idx: number, placed: number): void => {
     if (placed > best) best = placed;
     if (best >= ub) return;
-    if (idx >= n || placed + (n - idx) <= best) return;
+    if (idx >= n) return;
+    const rem = n - idx;
+    // §1.3 — borne surrogate : plus grand k ≤ rem tel que les k plus petites durées restantes
+    // tiennent dans le min des deux capacités résiduelles (fenêtres, jours) — deux bornes duales
+    // valides (toute solution complétant ce nœud vit dans CHACUNE des deux), leur min l'est donc
+    // aussi. Remplace la borne de cardinalité `placed + rem <= best` : celle-ci correspond au cas
+    // k=rem, donc cette borne est toujours au moins aussi mordante (lo ≤ rem par construction).
+    const cap = Math.min(winTotal, dayTotal);
+    let lo = 0, hi = rem;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (suf[n - mid] <= cap) lo = mid; else hi = mid - 1;
+    }
+    if (placed + lo <= best) return;
     if (++nodes > nodeLimit) { exact = false; return; }
     // Deadline (§2.2) : Date.now() coûterait plus cher que l'exploration s'il était appelé à
     // chaque nœud, donc contrôlé tous les 4096 nœuds seulement — mais une fois l'échéance
@@ -216,14 +258,22 @@ function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, numb
     if (prev !== undefined && prev >= placed) return;
     seen.set(key, placed);
     const d = items[idx];
+    // Capturé localement : `epoch` (partagé) continue d'avancer pendant les appels récursifs
+    // ci-dessous, `myEpoch` reste stable pour toute la durée de CETTE itération du for w.
+    const myEpoch = ++epoch;
     for (let w = 0; w < winsIn.length; w++) {
       if (!elig[idx][w]) continue;
       const day = winsIn[w].day;
       const dc = dayRes.get(day) ?? Infinity;
       if (winRes[w] < d || dc < d) continue;
-      winRes[w] -= d; dayRes.set(day, dc - d);
+      const cls = classId[w];
+      if (winRes[w] === winsIn[w].len) {
+        if (lastSeenEpoch[cls] === myEpoch) continue; // §2.1 : fenêtre symétrique déjà essayée ici
+        lastSeenEpoch[cls] = myEpoch;
+      }
+      winRes[w] -= d; dayRes.set(day, dc - d); winTotal -= d; dayTotal -= d;
       dfs(idx + 1, placed + 1);
-      winRes[w] += d; dayRes.set(day, dc);
+      winRes[w] += d; dayRes.set(day, dc); winTotal += d; dayTotal += d;
       if (best >= ub || nodes > nodeLimit) return;
     }
     dfs(idx + 1, placed); // brancher "item non placé"
@@ -316,6 +366,16 @@ function computeMonoCertificates(
 
 interface ClusterFinding { resources: Resource[]; tasks: Task[]; lb: number; note: string }
 
+/** §2.3 — entrée de la table de transposition cluster : `snap` est une copie exacte des
+ *  capacités au moment de l'insertion, comparée sur collision de hash avant toute conclusion
+ *  « déjà vu » (voir dfs de `computeClusterCertificates`). */
+interface ClusterMemoEntry { snap: Int32Array; placed: number }
+
+function capsEqual(a: Int32Array, b: Int32Array): boolean {
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 function computeClusterCertificates(
   nonEnforced: Task[],
   enforcedOcc: Map<string, Iv[]>,
@@ -382,9 +442,16 @@ function computeClusterCertificates(
       return rs.map(r => r.id);
     });
 
-    const capKey = (rid: string, d: number): string => `${rid}#${d}`;
-    const caps = new Map<string, number>();
+    // §2.3 — capacités indexées par entier plutôt que par clé de chaîne : `capIdx = resIdx*5 +
+    // day`, `resIdx` étant l'index d'insertion de la ressource dans `consumed`. Supprime le
+    // hachage de chaînes de la boucle chaude ci-dessous et rend la copie d'état (memo, plus bas)
+    // triviale (`.slice()` d'un typed array).
+    const resIdxOf = new Map<string, number>();
+    for (const rid of consumed.keys()) resIdxOf.set(rid, resIdxOf.size);
+    const numRes = resIdxOf.size;
+    const capsArr = new Int32Array(numRes * 5);
     for (const r of consumed.values()) {
+      const ri = resIdxOf.get(r.id)!;
       const enfHoles = enforcedOcc.get(r.id) ?? [];
       const avail = subtractIntervals(
         r.availability.getAvailableIntervals().map(iv => ({ start: iv.start, end: iv.end })),
@@ -393,7 +460,7 @@ function computeClusterCertificates(
       for (let d = 0; d < 5; d++) {
         const dayIvs = avail.filter(iv => Math.floor(iv.start / DAY) === d);
         let cap = dayIvs.reduce((s, iv) => s + (iv.end - iv.start), 0);
-        if (cap === 0) { caps.set(capKey(r.id, d), 0); continue; }
+        if (cap === 0) { capsArr[ri * 5 + d] = 0; continue; }
         if (r.type === ResourceType.GROUP) cap -= floatingLunchDeduction(dayIvs, d, lunchBreak);
         if (r.maxDailyMinutes !== undefined && !ignoreDailyLimits) {
           const enfMin = enfHoles.filter(o => Math.floor(o.start / DAY) === d).reduce((s, o) => s + (o.end - o.start), 0);
@@ -406,7 +473,7 @@ function computeClusterCertificates(
           return domains[i].flatMap(iv => dayIvs.map(w => ({ start: Math.max(iv.start, w.start), end: Math.min(iv.end, w.end) })).filter(x => x.end > x.start));
         }));
         cap = Math.min(cap, unionDom.reduce((s, iv) => s + (iv.end - iv.start), 0));
-        caps.set(capKey(r.id, d), cap);
+        capsArr[ri * 5 + d] = cap;
       }
     }
 
@@ -415,6 +482,31 @@ function computeClusterCertificates(
       for (let d = 0; d < 5; d++) out.push(maxRunWithin(domains[i], d * DAY, (d + 1) * DAY) >= t.duration);
       return out;
     });
+
+    // §1.4 — borne surrogate cluster, dimension par ressource : pour chaque ressource consommée,
+    // les durées ASCENDANTES des items qui la consomment (sommes-préfixes), et un compteur du
+    // nombre de ces items encore non décidés (`restants`). Au nœud k, les `restants[ri]` items non
+    // décidés consommant r bornent le placable-sur-r par dichotomie dans les préfixes tronqués à
+    // `restants[ri]` — valide car les k plus PETITES durées consommant r GLOBALEMENT sur tout S
+    // (pas seulement le sous-ensemble non décidé) sont ≤ toute somme de k durées réellement
+    // choisies parmi les non-décidées : substituer le pool global ne peut que surestimer le
+    // nombre plaçable, jamais le sous-estimer (sens sûr). Min sur les ressources du cluster.
+    const prefByRes: number[][] = new Array(numRes);
+    const restants = new Int32Array(numRes);
+    for (const [rid, ri] of resIdxOf) {
+      const durs = S.filter((_t, i) => itemRes[i].includes(rid)).map(t => t.duration).sort((a, b) => a - b);
+      const pref = new Array<number>(durs.length + 1).fill(0);
+      for (let j = 0; j < durs.length; j++) pref[j + 1] = pref[j] + durs[j];
+      prefByRes[ri] = pref;
+      restants[ri] = durs.length;
+    }
+    const capTotal = new Int32Array(numRes);
+    for (let ri = 0; ri < numRes; ri++) {
+      let tot = 0;
+      for (let d = 0; d < 5; d++) tot += capsArr[ri * 5 + d];
+      capTotal[ri] = tot;
+    }
+    const itemResIdx: number[][] = itemRes.map(rids => rids.map(rid => resIdxOf.get(rid)!));
 
     const order = S.map((_t, i) => i).sort((a, b) => S[b].duration - S[a].duration || itemRes[b].length - itemRes[a].length);
     // Warm start : cf. la justification de sûreté détaillée sur `maxPackMono`.
@@ -425,35 +517,109 @@ function computeClusterCertificates(
     // clusters de la boucle — abaisser cette copie au nœud courant sur dépassement de deadline
     // n'affecte que le cluster en cours, jamais les suivants.
     let clusterNodeLimit = nodeLimit;
-    const seenState = new Map<string, number>();
     const cur: number[] = S.map(() => -1);
+
+    // §2.3 — hachage Zobrist incrémental de l'état des capacités : évite de reconstruire et
+    // comparer une clé de chaîne à chaque nœud (coût chaud identifié au plan §2.3). Un hachage
+    // est ambigu par nature (collisions possibles) : on ne conclut JAMAIS « déjà vu » sur la
+    // seule égalité de hash — `ClusterMemoEntry.snap` matérialise l'état exact, comparé sur
+    // collision (quasi jamais) avant de trancher, seul usage sûr d'un hash pour ce memo.
+    let zobSeed = (0x2545F491 ^ (numRes * 2654435761)) | 0 || 1;
+    const nextRand = (): number => {
+      zobSeed ^= zobSeed << 13; zobSeed ^= zobSeed >>> 17; zobSeed ^= zobSeed << 5;
+      return zobSeed >>> 0;
+    };
+    const zobTable: Map<number, number>[] = Array.from({ length: numRes * 5 }, () => new Map());
+    const zobOf = (capIdx: number, v: number): number => {
+      const m = zobTable[capIdx];
+      let h = m.get(v);
+      if (h === undefined) { h = nextRand(); m.set(v, h); }
+      return h;
+    };
+    let hash = 0;
+    for (let ci = 0; ci < capsArr.length; ci++) hash ^= zobOf(ci, capsArr[ci]);
+    const seenState = new Map<number, Map<number, ClusterMemoEntry[]>>();
 
     const dfs = (k: number, placed: number): void => {
       if (placed > best) best = placed;
-      if (k >= order.length || placed + (order.length - k) <= best) return;
+      if (k >= order.length) return;
+      const rem = order.length - k;
+      // §1.4 — remplace la cardinalité brute `rem` par le min des bornes par ressource
+      // (toujours ≤ rem, donc au moins aussi mordante que ce qu'elle remplace).
+      let boundK = rem;
+      for (let ri = 0; ri < numRes; ri++) {
+        const restR = restants[ri];
+        if (restR === 0) continue;
+        const pref = prefByRes[ri];
+        const capR = capTotal[ri];
+        let lo = 0, hi = restR;
+        while (lo < hi) {
+          const mid = (lo + hi + 1) >> 1;
+          if (pref[mid] <= capR) lo = mid; else hi = mid - 1;
+        }
+        const boundR = (rem - restR) + lo;
+        if (boundR < boundK) boundK = boundR;
+      }
+      if (placed + boundK <= best) return;
       if (++nodes > clusterNodeLimit) { exact = false; return; }
       // Même repli persistant que maxPackMono (voir sa docstring) : `clusterNodeLimit` abaissé
       // au nœud courant dès l'échéance détectée, tous les appels suivants retombent
       // immédiatement sur le check ci-dessus.
       if ((nodes & 0xFFF) === 0 && Date.now() > deadline) { clusterNodeLimit = nodes; exact = false; return; }
-      const stateKey = k + '|' + [...caps.values()].join(',');
-      const prevPlaced = seenState.get(stateKey);
-      if (prevPlaced !== undefined && prevPlaced >= placed) return;
-      seenState.set(stateKey, placed);
+
+      let bucket = seenState.get(k);
+      if (bucket === undefined) { bucket = new Map(); seenState.set(k, bucket); }
+      const entries = bucket.get(hash);
+      let matched = false;
+      if (entries !== undefined) {
+        for (const e of entries) {
+          if (capsEqual(e.snap, capsArr)) {
+            if (e.placed >= placed) return; // déjà vu, état exact identique, pas mieux
+            e.placed = placed;
+            matched = true;
+            break;
+          }
+        }
+      }
+      if (!matched) {
+        if (entries === undefined) bucket.set(hash, [{ snap: capsArr.slice(), placed }]);
+        else entries.push({ snap: capsArr.slice(), placed });
+      }
+
       const i = order[k];
       const dur = S[i].duration;
+      const resIdxs = itemResIdx[i];
+      // Item i devient "décidé" pour tout le reste de ce sous-arbre (placé ou non) — décrémenté
+      // une seule fois ici, restauré une seule fois après épuisement de toutes les branches.
+      for (const ri of resIdxs) restants[ri]--;
       for (let d = 0; d < 5; d++) {
         if (!eligDay[i][d]) continue;
-        const keys = itemRes[i].map(rid => capKey(rid, d));
-        if (keys.some(key => (caps.get(key) ?? 0) < dur)) continue;
-        for (const key of keys) caps.set(key, caps.get(key)! - dur);
+        let feasible = true;
+        for (const ri of resIdxs) { if (capsArr[ri * 5 + d] < dur) { feasible = false; break; } }
+        if (!feasible) continue;
+        for (const ri of resIdxs) {
+          const ci = ri * 5 + d;
+          const oldV = capsArr[ci];
+          const newV = oldV - dur;
+          hash ^= zobOf(ci, oldV) ^ zobOf(ci, newV);
+          capsArr[ci] = newV;
+          capTotal[ri] -= dur;
+        }
         cur[i] = d;
         dfs(k + 1, placed + 1);
         cur[i] = -1;
-        for (const key of keys) caps.set(key, caps.get(key)! + dur);
-        if (nodes > clusterNodeLimit) return;
+        for (const ri of resIdxs) {
+          const ci = ri * 5 + d;
+          const newV = capsArr[ci];
+          const oldV = newV + dur;
+          hash ^= zobOf(ci, newV) ^ zobOf(ci, oldV);
+          capsArr[ci] = oldV;
+          capTotal[ri] += dur;
+        }
+        if (nodes > clusterNodeLimit) { for (const ri of resIdxs) restants[ri]++; return; }
       }
       dfs(k + 1, placed);
+      for (const ri of resIdxs) restants[ri]++;
     };
     dfs(0, 0);
 
