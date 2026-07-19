@@ -246,4 +246,50 @@ describe('computeRootLowerBound — micro-tests du module pur (P2-preuve §3.4)'
     const withWarmStart = computeRootLowerBound(duboisTasks, { lunchBreak: { type: 'none' }, ignoreDailyLimits: false, skippedTaskIds });
     expect(withWarmStart.lb).toBe(withoutWarmStart.lb);
   });
+
+  const FLOATING_12_14 = { type: 'floating', duration: 90, earliest: '12:00', latest: '14:00' } as const;
+
+  it('(e) pause flottante : une indispo DANS la fenêtre porte une partie de la pause — pas de lb surestimée', () => {
+    // Régression de cohérence avec Scheduler._resourceKeepsFloatingBreak depuis sa réécriture
+    // (docs/PlanFloatingLunchBreakGap.md) : la pause est un trou contigu LIBRE DE COURS, et une
+    // indisponibilité déclarée peut en porter une partie sans coûter de disponibilité.
+    //
+    // G1 dispo 8:00-13:00 + 13:30-18:00 (570min brutes), indispo 13:00-13:30 DANS la fenêtre.
+    // Pause placée en 12:30-14:00 : 30 min portées par l'indispo ⟹ coût réel 60 min, capacité
+    // utilisable 510 min. Les 7 tâches (3×90 + 4×60 = 510) tiennent EXACTEMENT — vérifié sur le
+    // moteur lui-même : 3×90 en 8:00-12:30 puis 4×60 en 14:00-18:00, isComplete=true.
+    // L'ancienne formule retranchait 90 en bloc (dispo ∩ fenêtre = 60+30 = 90 ≥ 90), ramenait la
+    // capacité à 480 < 510 et rendait lb=1 sur un optimum réel de 0 : preuve d'optimalité FAUSSE.
+    const g1 = makeResource('G1', ResourceType.GROUP, [
+      { day: 0, from: 8 * 60, to: 13 * 60 },
+      { day: 0, from: 13 * 60 + 30, to: 18 * 60 },
+    ]);
+    const tasks = [
+      ...Array.from({ length: 3 }, (_, i) => makeTask(`A${i}`, 90, [g1])),
+      ...Array.from({ length: 4 }, (_, i) => makeTask(`B${i}`, 60, [g1])),
+    ];
+
+    const result = computeRootLowerBound(tasks, { lunchBreak: FLOATING_12_14, ignoreDailyLimits: false });
+
+    expect(result.lb).toBe(0);
+  });
+
+  it('(f) pause flottante sur dispo CONTINUE : la déduction reste de duration entière', () => {
+    // Témoin du test (e) : sans indispo dans la fenêtre, toute position de pause coûte 90 min de
+    // disponibilité — le minimum vaut donc bien `duration` et le comportement est inchangé.
+    // Capacité 570 - 90 = 480 : 8 tâches de 60 (480min) passent, 9 (540min) ne passent pas.
+    const g1 = makeResource('G1', ResourceType.GROUP, [{ day: 0, from: 8 * 60, to: 17 * 60 + 30 }]);
+
+    const exactly480 = computeRootLowerBound(
+      Array.from({ length: 8 }, (_, i) => makeTask(`T${i}`, 60, [g1])),
+      { lunchBreak: FLOATING_12_14, ignoreDailyLimits: false },
+    );
+    expect(exactly480.lb).toBe(0);
+
+    const over480 = computeRootLowerBound(
+      Array.from({ length: 9 }, (_, i) => makeTask(`T${i}`, 60, [g1])),
+      { lunchBreak: FLOATING_12_14, ignoreDailyLimits: false },
+    );
+    expect(over480.lb).toBe(1);
+  });
 });
