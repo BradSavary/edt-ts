@@ -527,6 +527,19 @@ const DEFAULT_DEADLINE_MS = 2000;
  * disjointe gloutonne (§1.4 — l'optimisation exacte de la sélection est inutile au vu des
  * tailles rencontrées en pratique).
  *
+ * **Les deux types de pause méridienne arrivent ici par des chemins OPPOSÉS** — asymétrie à
+ * connaître avant de toucher aux capacités :
+ * - `floating` : aucune trace dans les disponibilités, c'est un gate au placement
+ *   (`Scheduler._resourceKeepsFloatingBreak`). La borne doit le modéliser elle-même, via
+ *   `floatingLunchDeduction`. Indépendant de l'ordre des appels.
+ * - `fixed` : `Scheduler._applyLunchBreak()` RETIRE la plage des disponibilités des GROUP
+ *   (mutation, dans `initSolver()`), et il n'y a aucun gate. La borne ne doit donc rien déduire
+ *   — la re-déduire serait un double comptage ⟹ `lb` surestimée ⟹ preuve fausse (verrouillé par
+ *   le micro-test (a)). En contrepartie elle DÉPEND de l'ordre : appelée avant `initSolver()`,
+ *   elle verrait des disponibilités non amputées, donc une capacité trop grande ⟹ `lb`
+ *   sous-estimée. Sens sûr, mais borne plus faible. Le flux réel appelle toujours la borne après
+ *   la passe gourmande (§3.1 calcul paresseux), donc après `initSolver()`.
+ *
  * `allTasks` : toutes les tâches du problème (enforced incluses — exclues des candidats mais
  * leurs occupations réduisent les fenêtres et les caps quotidiennes des autres), typiquement
  * `Loader.tasksManager.getAllUnits()`. Opère au niveau Task, pas ISchedulingUnit : l'appartenance
