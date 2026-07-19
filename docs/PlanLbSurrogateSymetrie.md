@@ -336,3 +336,31 @@ Ne pas toucher, dans ce plan :
 - les points **C** (structure d'intervalles côté cluster) et **D** (fonctions dual-réalisables) de
   l'audit : ceux-là RENFORCENT la borne, changent donc les valeurs attendues, et demandent un
   protocole de validation différent. Chantier séparé.
+
+---
+
+## Conclusion
+
+Le plan est livré en entier : §1 (borne surrogate mono + cluster), §2 (symétrie des fenêtres +
+hachage Zobrist/`Int32Array` du memo cluster), §3 (6 tests dédiés) et §4 (validation réelle).
+
+**§3** : 130/130 tests scheduler-core verts (124 existants inchangés + 6 nouveaux), typecheck
+monorepo propre.
+
+**§4** : export réel localisé (`packages/scheduler-core/data/Planification MMI_2026-07-16_10-13.json`),
+pipeline client reconstruit fidèlement, comparaison directe avant/après sur le dernier commit
+pré-plan. **Les 10 `lb` sont exactement identiques avant/après et identiques à la référence de
+`PlanLbCoutRacine.md` — zéro STOP.** Les temps chutent partout (×3 à ×8 selon la semaine). Sur S49,
+le nombre de nœuds explorés est resté strictement identique (604 858) pendant que le temps était
+divisé par 3,4 : cette semaine isole proprement le gain du hachage Zobrist/`Int32Array` (§2.3),
+indépendamment de tout élagage supplémentaire. Sur S36/S48, les deux mécanismes (moins de nœuds et
+moins de temps par nœud) se combinent.
+
+Un détail sans gravité a été observé sur S48 : la composition des certificats change (un cluster à
+3 groupes qui saturait probablement son budget de nœuds avant ce plan converge maintenant et
+remplace deux certificats mono-ressource séparés) — la somme reste strictement 5 dans les deux cas,
+donc le critère de succès (`lb` inchangée) est respecté. C'est l'effet recherché par le plan, pas
+une régression.
+
+Trois commits sur `feature/lb-surrogate` : `f9c25a6` (§1+§2), `b642e3c` (§3), `d72df00` (§4 +
+STATUT). Branche non mergée dans `master` — décision de merge laissée à Frédéric.
