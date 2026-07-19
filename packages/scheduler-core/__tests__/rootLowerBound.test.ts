@@ -292,4 +292,103 @@ describe('computeRootLowerBound — micro-tests du module pur (P2-preuve §3.4)'
     );
     expect(over480.lb).toBe(1);
   });
+
+  // ── §3 du plan LB-Surrogate-Symétrie (2026-07-19) : borne surrogate aux nœuds (§1) + symétrie
+  // fenêtres / hachage memo cluster (§2). Ces changements sont des optimisations de recherche
+  // pures — lb attendu identique à celui déjà validé par les tests ci-dessus, sur des instances
+  // choisies pour que la NOUVELLE borne (ou le NOUVEAU memo) soit celle qui décide, pas juste la
+  // cardinalité brute qu'elle remplace.
+
+  it('§1.3 — borne surrogate mono mordante : fenêtres tassées, la cardinalité seule ne prunerait pas', () => {
+    // 1 enseignant, fenêtres day0=180min + day1=120min (total 300min). 6 tâches de 60min :
+    // 5 tiennent EXACTEMENT (300min), la 6e non (360min > 300) -> lb = 1, connu par le volume.
+    const r = makeResource('R', ResourceType.TEACHER, [
+      { day: 0, from: 8 * 60, to: 11 * 60 },  // 180min
+      { day: 1, from: 8 * 60, to: 10 * 60 },  // 120min
+    ]);
+    const tasks = Array.from({ length: 6 }, (_, i) => makeTask(`T${i}`, 60, [r]));
+    const result = computeRootLowerBound(tasks, { lunchBreak: { type: 'none' }, ignoreDailyLimits: false });
+    expect(result.lb).toBe(1);
+  });
+
+  it('§1.3 — fragmentation par fenêtre plus stricte que le volume agrégé (chaque fenêtre ne loge qu\'un seul item)', () => {
+    // 4 fenêtres (50/80/100/40 min, jours distincts), 5 tâches de 70min : le volume agrégé (270min)
+    // suggérerait jusqu'à 3 placées, mais AUCUNE fenêtre ne loge 2×70min (même la plus grande, 100 :
+    // 2×70=140>100) -> seules 2 tâches tiennent (une dans la fenêtre 80, une dans la 100) -> lb = 3.
+    // Vérifie que la borne surrogate (un élagage) n'entrave jamais la recherche EXACTE en-dessous
+    // de cet optimum réel — elle accélère le DFS, elle ne remplace jamais son résultat.
+    const r = makeResource('R', ResourceType.TEACHER, [
+      { day: 0, from: 8 * 60, to: 8 * 60 + 50 },       // 50min
+      { day: 1, from: 8 * 60, to: 9 * 60 + 20 },       // 80min
+      { day: 2, from: 8 * 60, to: 9 * 60 + 40 },       // 100min
+      { day: 3, from: 8 * 60, to: 8 * 60 + 40 },       // 40min
+    ]);
+    const tasks = Array.from({ length: 5 }, (_, i) => makeTask(`T${i}`, 70, [r]));
+    const result = computeRootLowerBound(tasks, { lunchBreak: { type: 'none' }, ignoreDailyLimits: false });
+    expect(result.lb).toBe(3);
+  });
+
+  it('§1.3 — capacité journalière (maxDailyMinutes) plus stricte que la somme des fenêtres', () => {
+    // 1 ressource, 2 fenêtres DISJOINTES le même jour (90+90=180min), mais maxDailyMinutes=100 :
+    // la capacité réelle du jour est 100, pas 180. 2 tâches de 90min : une seule tient (90<=100),
+    // la seconde ferait 180>100 -> lb = 1. Exerce la branche "capacité du jour" (dayTotal) du
+    // min(winTotal,dayTotal) de la borne surrogate, distincte de la branche "fenêtre" ci-dessus.
+    const r = makeResource('R', ResourceType.TEACHER, [
+      { day: 0, from: 8 * 60, to: 9 * 60 + 30 },
+      { day: 0, from: 10 * 60, to: 11 * 60 + 30 },
+    ]);
+    r.maxDailyMinutes = 100;
+    const tasks = Array.from({ length: 2 }, (_, i) => makeTask(`T${i}`, 90, [r]));
+    const result = computeRootLowerBound(tasks, { lunchBreak: { type: 'none' }, ignoreDailyLimits: false });
+    expect(result.lb).toBe(1);
+  });
+
+  it('§2.1 — symétrie exacte : 3 fenêtres strictement identiques (même jour, longueur, éligibilité), lb connu à la main', () => {
+    // 3 fenêtres de 60min sur le même jour, toutes de même classe (day, len, éligibilité
+    // identique car un seul type de tâche). 4 tâches de 60min -> pigeonhole exact, lb = 1. Vérifie
+    // que §2.1 (n'essayer qu'une fenêtre par classe intacte) ne coupe pas la solution à 3 placées.
+    const r = makeResource('R', ResourceType.TEACHER, [
+      { day: 0, from: 8 * 60, to: 9 * 60 },
+      { day: 0, from: 10 * 60, to: 11 * 60 },
+      { day: 0, from: 12 * 60, to: 13 * 60 },
+    ]);
+    const tasks = Array.from({ length: 4 }, (_, i) => makeTask(`T${i}`, 60, [r]));
+    const result = computeRootLowerBound(tasks, { lunchBreak: { type: 'none' }, ignoreDailyLimits: false });
+    expect(result.lb).toBe(1);
+  });
+
+  it('§2.1 — les 3 fenêtres symétriques suffisent exactement (3 tâches) : lb = 0, aucune solution perdue', () => {
+    const r = makeResource('R', ResourceType.TEACHER, [
+      { day: 0, from: 8 * 60, to: 9 * 60 },
+      { day: 0, from: 10 * 60, to: 11 * 60 },
+      { day: 0, from: 12 * 60, to: 13 * 60 },
+    ]);
+    const tasks = Array.from({ length: 3 }, (_, i) => makeTask(`T${i}`, 60, [r]));
+    const result = computeRootLowerBound(tasks, { lunchBreak: { type: 'none' }, ignoreDailyLimits: false });
+    expect(result.lb).toBe(0);
+  });
+
+  it('§1.4/§2.3 — cluster à ≥4 ressources consommées, capacités croisées : lb connu, verrouille la vérification exacte du memo', () => {
+    // G1,G2 dispo 8:00-11:00 (180min) le même jour. CM1/CM2 (chacune consomme G1+G2, 90min,
+    // enseignants distincts TJ1/TJ2) + TD1(G1 seul,TM1)/TD2(G2 seul,TM2). 6 ressources consommées
+    // (TJ1,TJ2,TM1,TM2,G1,G2). Optimum réel = 3 (un seul CM + les deux TD : p.ex. CM1+TD1+TD2 —
+    // CM1 consomme 90 de G1 et 90 de G2, laissant 90 dans chaque groupe, exactement repris par
+    // TD1/TD2) ; placer les 2 CM ensemble sature G1/G2 (2×90=180) et n'en laisse plus pour aucun
+    // TD (2/4 placées seulement, moins bon). lb = 4 - 3 = 1, vérifié par calcul direct — verrou de
+    // non-régression sur le hachage Zobrist + Int32Array du DFS cluster.
+    const g1 = makeResource('G1', ResourceType.GROUP, [{ day: 0, from: 8 * 60, to: 11 * 60 }]);
+    const g2 = makeResource('G2', ResourceType.GROUP, [{ day: 0, from: 8 * 60, to: 11 * 60 }]);
+    const tj1 = makeResource('TJ1', ResourceType.TEACHER, [{ day: 0, from: 8 * 60, to: 19 * 60 }]);
+    const tj2 = makeResource('TJ2', ResourceType.TEACHER, [{ day: 0, from: 8 * 60, to: 19 * 60 }]);
+    const tm1 = makeResource('TM1', ResourceType.TEACHER, [{ day: 0, from: 8 * 60, to: 19 * 60 }]);
+    const tm2 = makeResource('TM2', ResourceType.TEACHER, [{ day: 0, from: 8 * 60, to: 19 * 60 }]);
+    const tasks = [
+      makeTask('CM1', 90, [tj1, g1, g2]),
+      makeTask('CM2', 90, [tj2, g1, g2]),
+      makeTask('TD1', 90, [tm1, g1]),
+      makeTask('TD2', 90, [tm2, g2]),
+    ];
+    const result = computeRootLowerBound(tasks, { lunchBreak: { type: 'none' }, ignoreDailyLimits: false });
+    expect(result.lb).toBe(1);
+  });
 });
