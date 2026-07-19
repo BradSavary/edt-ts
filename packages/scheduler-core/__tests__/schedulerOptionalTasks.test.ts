@@ -1,9 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { RawScheduleData } from '@edt-ts/scheduler-common';
 import { Loader } from '../src/loader.js';
 import { Scheduler } from '../src/scheduler.js';
 import { OptionalTasksScheduler, createScheduler } from '../src/optionalTasksScheduler.js';
 import type { ISchedulingUnit } from '../src/schedulingUnit.js';
+import * as rootLowerBoundModule from '../src/rootLowerBound.js';
 
 /** Expose l'état interne nécessaire pour observer le B&B dans les tests. */
 class InspectableOptionalTasksScheduler extends OptionalTasksScheduler {
@@ -931,5 +932,43 @@ describe('OptionalTasksScheduler — borne racine par certificats (P2-preuve, do
     expect(sOpt.getIterations()).toBe((sGreedy as unknown as { _iterations: number })._iterations);
     expect(resOpt[0].solutions.map(s => s.start).sort())
       .toEqual(resGreedy[0].solutions.map(s => s.start).sort());
+  });
+
+  it('paresseux (PlanLbCoutRacine §4.3, §3.1) : instance faisable (greedyCost === 0) ⟹ lb=0, certificates vide, LB jamais calculée', () => {
+    // Reprend le scénario "instance faisable : 0 saut" (2 tâches indépendantes, gourmand
+    // complet). §3.1 impose que `computeRootLowerBound` soit sautée ENTIÈREMENT dans ce cas
+    // (court-circuit `greedyCost <= lb` trivialement vrai, la LB n'apporte rien) — vérifié ici
+    // par un spy sur le module plutôt qu'en exposant une API de test dédiée (cf. §4.3 du plan :
+    // « compteur d'appels, sans exposer d'API de test »).
+    const scenario: RawScheduleData = {
+      week: 30,
+      resources: [
+        { resourceType: 'teacher', resources: [{ id: 'T1' }, { id: 'T2' }] },
+        { resourceType: 'group', resources: [{ id: 'G1' }, { id: 'G2' }] },
+        { resourceType: 'room', resources: [] },
+      ],
+      courses: [
+        { week: 30, semester: 1, level: 0, code: 'C1', type: 'TD', name: 'C1', teacher: ['T1'], groups: ['G1'], rooms: [], duration: 60 },
+        { week: 30, semester: 1, level: 0, code: 'C2', type: 'TD', name: 'C2', teacher: ['T2'], groups: ['G2'], rooms: [], duration: 60 },
+      ],
+      constraints: {
+        T1: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        T2: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        G1: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+        G2: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+      },
+    };
+
+    Loader.loadFromRawData(scenario);
+    const spy = vi.spyOn(rootLowerBoundModule, 'computeRootLowerBound');
+    const sOpt = new InspectableOptionalTasksScheduler();
+    const resOpt = sOpt.solveWithElimination();
+
+    expect(resOpt[0].isComplete).toBe(true);
+    expect(resOpt[0].neutralizedUnits ?? []).toHaveLength(0);
+    expect(sOpt.rootBound.lb).toBe(0);
+    expect(sOpt.rootBound.certificates).toHaveLength(0);
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 });

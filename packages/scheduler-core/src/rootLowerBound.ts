@@ -129,7 +129,8 @@ interface Win { day: number; len: number }
  *
  *  `deadline` (§2.2) : même repli que le dépassement de nœuds, contrôlé tous les 4096 nœuds
  *  seulement (`Date.now()` coûterait plus cher que l'exploration si testé à chaque nœud). */
-function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, number>, eligible: boolean[][], nodeLimit: number, deadline: number, bestInit = 0): number {
+function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, number>, eligible: boolean[][], nodeLimitIn: number, deadline: number, bestInit = 0): number {
+  let nodeLimit = nodeLimitIn;
   const order = itemsIn.map((d, i) => ({ d, i })).sort((a, b) => b.d - a.d);
   const items = order.map(o => o.d);
   const elig = order.map(o => eligible[o.i]);
@@ -153,7 +154,12 @@ function maxPackMono(itemsIn: number[], winsIn: Win[], dayCaps: Map<number, numb
     if (best >= ub) return;
     if (idx >= n || placed + (n - idx) <= best) return;
     if (++nodes > nodeLimit) { exact = false; return; }
-    if ((nodes & 0xFFF) === 0 && Date.now() > deadline) { exact = false; return; }
+    // Deadline (§2.2) : Date.now() coûterait plus cher que l'exploration s'il était appelé à
+    // chaque nœud, donc contrôlé tous les 4096 nœuds seulement — mais une fois l'échéance
+    // détectée, `nodeLimit` est abaissé au nœud courant : TOUS les appels suivants retombent
+    // immédiatement sur le check ci-dessus (même chemin de sortie, effet persistant comme un
+    // vrai dépassement de nœuds, pas un pruning ponctuel isolé).
+    if ((nodes & 0xFFF) === 0 && Date.now() > deadline) { nodeLimit = nodes; exact = false; return; }
     const key = idx + '|' + winRes.join(',');
     const prev = seen.get(key);
     if (prev !== undefined && prev >= placed) return;
@@ -364,14 +370,21 @@ function computeClusterCertificates(
     let best = skippedTaskIds ? S.filter(t => !skippedTaskIds.has(t.id)).length : 0;
     let nodes = 0;
     let exact = true;
+    // Copie locale par cluster (§2.2) : `nodeLimit` (paramètre) est partagé par TOUS les
+    // clusters de la boucle — abaisser cette copie au nœud courant sur dépassement de deadline
+    // n'affecte que le cluster en cours, jamais les suivants.
+    let clusterNodeLimit = nodeLimit;
     const seenState = new Map<string, number>();
     const cur: number[] = S.map(() => -1);
 
     const dfs = (k: number, placed: number): void => {
       if (placed > best) best = placed;
       if (k >= order.length || placed + (order.length - k) <= best) return;
-      if (++nodes > nodeLimit) { exact = false; return; }
-      if ((nodes & 0xFFF) === 0 && Date.now() > deadline) { exact = false; return; }
+      if (++nodes > clusterNodeLimit) { exact = false; return; }
+      // Même repli persistant que maxPackMono (voir sa docstring) : `clusterNodeLimit` abaissé
+      // au nœud courant dès l'échéance détectée, tous les appels suivants retombent
+      // immédiatement sur le check ci-dessus.
+      if ((nodes & 0xFFF) === 0 && Date.now() > deadline) { clusterNodeLimit = nodes; exact = false; return; }
       const stateKey = k + '|' + [...caps.values()].join(',');
       const prevPlaced = seenState.get(stateKey);
       if (prevPlaced !== undefined && prevPlaced >= placed) return;
@@ -387,7 +400,7 @@ function computeClusterCertificates(
         dfs(k + 1, placed + 1);
         cur[i] = -1;
         for (const key of keys) caps.set(key, caps.get(key)! + dur);
-        if (nodes > nodeLimit) return;
+        if (nodes > clusterNodeLimit) return;
       }
       dfs(k + 1, placed);
     };
