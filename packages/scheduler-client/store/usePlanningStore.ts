@@ -20,7 +20,7 @@ import { computeAutonomyDistribution, type OccupancyEntry } from '@/lib/calendar
 import { resolveNeutralizedTaskById } from '@/lib/taskCardUtils';
 
 export type { TaskGroupConfig };
-export type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, SolutionState, AutonomyPiece, AutonomyDistribution } from './types';
+export type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, SolutionState, AutonomyDistribution } from './types';
 import type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, SolutionState, AutonomyDistribution } from './types';
 export type { PreparedWeekSnapshot } from './slices/weekSavesSlice';
 
@@ -106,6 +106,9 @@ export interface PlanningStore extends NeutralizedSlice, BlockedZonesSlice, Task
 
   /** Calcule et applique la répartition automatique d'un cours Autonomie neutralisé (taskId). */
   distributeAutonomy: (taskId: string) => void;
+
+  /** Annule une répartition : retire tous les morceaux placés et l'entrée de suivi (taskId). */
+  cancelAutonomyDistribution: (taskId: string) => void;
 
   // Reset (ex: changement de semaine ou de fichiers)
   reset: () => void;
@@ -623,21 +626,17 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     const monday = getMondayOfISOWeek(selectedWeek, resolveCalendarYear(schoolYearConfig, selectedWeek));
 
     // Ce qui occupe déjà le calendrier affiché : solution effective (moteur + overrides +
-    // neutralisées replacées manuellement) + morceaux déjà distribués pour D'AUTRES cours
-    // Autonomie susceptibles de partager un groupe.
+    // neutralisées replacées manuellement). Les morceaux déjà distribués pour D'AUTRES cours
+    // Autonomie susceptibles de partager un groupe y figurent déjà : ce sont désormais des
+    // `placedNeutralizedTasks` de plein droit, donc inclus dans `computeEffectiveSolution`.
     const effective = computeEffectiveSolution({
       activeSolution, taskOverrides, manuallyNeutralizedTasks, placedNeutralizedTasks, week: selectedWeek,
     });
-    const occupancy: OccupancyEntry[] = [
-      ...effective.map((t) => ({
-        startTime: t.startTime,
-        duration: t.duration,
-        groups: t.resources.filter((r) => r.type === 'group').map((r) => r.id),
-      })),
-      ...Object.values(autonomyDistributions)
-        .filter((d) => d.originalTaskId !== taskId)
-        .flatMap((d) => d.pieces.map((p) => ({ startTime: p.startTime, duration: p.duration, groups: d.groups }))),
-    ];
+    const occupancy: OccupancyEntry[] = effective.map((t) => ({
+      startTime: t.startTime,
+      duration: t.duration,
+      groups: t.resources.filter((r) => r.type === 'group').map((r) => r.id),
+    }));
 
     const blockedZonesMinutes = blockedZones
       .map((z) => ({ start: dateToStartTime(monday, z.start), end: dateToStartTime(monday, z.end) }))
@@ -652,20 +651,48 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       totalDuration: info.duration,
     });
 
-    const distribution: AutonomyDistribution = {
-      originalTaskId: taskId,
+    // Chaque morceau devient une tâche neutralisée placée de plein droit (déplaçable,
+    // éditable, exportée en iCal), reliée à la carte pilote par `sourceAutonomyId`.
+    // constraintViolation:'none' car posés dans des créneaux réellement libres.
+    const pieces: PlacedNeutralizedTask[] = result.pieces.map((p, i) => ({
+      taskId: `${taskId}-piece-${i}`,
       code: info.code,
       name: info.name,
       type: info.type,
+      startTime: p.startTime,
+      duration: p.duration,
       teachers: info.teachers,
       groups: info.groups,
       rooms: info.rooms,
+      constraintViolation: 'none',
+      sourceAutonomyId: taskId,
+    }));
+
+    const distribution: AutonomyDistribution = {
+      originalTaskId: taskId,
       totalDuration: info.duration,
-      pieces: result.pieces.map((p, i) => ({ id: `${taskId}-piece-${i}`, startTime: p.startTime, duration: p.duration })),
       remainingDuration: result.remainingDuration,
+      pieceIds: pieces.map((pc) => pc.taskId),
     };
 
-    set({ autonomyDistributions: { ...autonomyDistributions, [taskId]: distribution } });
+    set({
+      placedNeutralizedTasks: [...placedNeutralizedTasks, ...pieces],
+      autonomyDistributions: { ...autonomyDistributions, [taskId]: distribution },
+    });
+  },
+
+  cancelAutonomyDistribution: (taskId) => {
+    set((state) => {
+      const next = { ...state.autonomyDistributions };
+      delete next[taskId];
+      return {
+        // Retirer tous les morceaux issus de cette répartition. Le filtre sur
+        // `sourceAutonomyId` nettoie proprement même si un morceau a déjà été retiré
+        // à la main entre-temps.
+        placedNeutralizedTasks: state.placedNeutralizedTasks.filter((t) => t.sourceAutonomyId !== taskId),
+        autonomyDistributions: next,
+      };
+    });
   },
 
   resetScheduleResult: () => {
