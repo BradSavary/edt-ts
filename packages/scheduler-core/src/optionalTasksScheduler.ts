@@ -115,9 +115,8 @@ export class OptionalTasksScheduler extends Scheduler {
         console.log('📋 Passe 1/2 — moteur gourmand (amorce)');
         const greedyResults = super.solveWithElimination();
         const greedyRaw = greedyResults[0] ?? null;
-        const greedyCost = greedyRaw
-            ? (greedyRaw.neutralizedUnits ?? []).reduce((n, i) => n + i.unit.getMemberTasks().length, 0)
-            : Infinity;
+        const allTasks = Loader.tasksManager.getAllUnits() as Task[];
+        const greedyCost = this._costOf(greedyRaw, allTasks);
 
         // Borne racine (P2-preuve, §3.1 calcul paresseux) : calculée APRÈS la passe gourmande,
         // amorcée par son résultat (warm start §3.2), et sautée entièrement si le gourmand est
@@ -130,7 +129,6 @@ export class OptionalTasksScheduler extends Scheduler {
         if (greedyCost === 0) {
             this._rootBound = { lb: 0, certificates: [] };
         } else {
-            const allTasks = Loader.tasksManager.getAllUnits() as Task[];
             this._rootBound = computeRootLowerBound(allTasks, {
                 lunchBreak: this._config.lunchBreak,
                 ignoreDailyLimits: this._config.ignoreDailyLimits,
@@ -195,16 +193,24 @@ export class OptionalTasksScheduler extends Scheduler {
         // gourmand rendu (un coût intermédiaire pourrait exister, jamais exploré). `!_budgetExceeded`
         // seul suffisait tant que ce cas ne se produisait pas (P1/P1.5, jamais rencontré en
         // pratique) mais est FAUX en général — voir STATUT docs/PlanOptionalTasksP3.md §0.
-        const finalCost = best
-            ? (best.neutralizedUnits ?? []).reduce((n, i) => n + i.unit.getMemberTasks().length, 0)
-            : 0; // best === null : l'épuisement prouve l'infaisabilité sous le cap — revendication valide
         // Deux preuves d'optimalité INDÉPENDANTES (P2-preuve) : la garde historique (arbre épuisé
         // sous le cap maxEliminations) et la borne racine (finalCost == lb, cf. l'arrêt global
         // dans _bb ci-dessous). Ne jamais les fusionner — la LB peut prouver l'optimalité d'un
         // résultat que la garde seule laisserait non prouvé (coût > maxEliminements + 1, cf. STATUT
         // docs/PlanOptionalTasksP3.md §0), et réciproquement l'arbre peut être prouvé épuisé sans
         // qu'aucun certificat racine n'existe (lb = 0).
-        this._provenOptimal = finalCost <= this._rootBound.lb || (!this._budgetExceeded && finalCost <= this._config.maxEliminations + 1);
+        if (best === null) {
+            // Aucun incumbent, ni gourmand ni B&B. La seule revendication possible est « rien ne
+            // tient sous le cap `maxEliminations` », et elle n'est acquise QUE si l'arbre a été
+            // réellement épuisé. Le code précédent forçait `finalCost = 0` avant de le comparer à
+            // `lb` : comme `lb ≥ 0` toujours, `finalCost <= lb` était trivialement vrai et
+            // `provenOptimal` passait à `true` même sur budget épuisé — c'est-à-dire en n'ayant
+            // rien prouvé du tout.
+            this._provenOptimal = !this._budgetExceeded;
+        } else {
+            const finalCost = this._costOf(best, allTasks);
+            this._provenOptimal = finalCost <= this._rootBound.lb || (!this._budgetExceeded && finalCost <= this._config.maxEliminations + 1);
+        }
 
         console.log(`\n⏱️  Passe B&B terminée en ${endMs - startMs}ms`);
         console.log(`🔄 Itérations B&B: ${this._iterations}`);
@@ -235,6 +241,27 @@ export class OptionalTasksScheduler extends Scheduler {
      * `bestInit = |S ∩ placed|` est réalisable par construction quel que soit l'état du
      * gourmand — si rien n'a été placé, `placedTaskIds` est vide et le warm start est neutre.
      */
+    /**
+     * Coût RÉEL d'un résultat = nombre de tâches non enforced qui n'y sont pas placées.
+     *
+     * ⚠️ Ne JAMAIS le dériver de `neutralizedUnits` (ce que faisait le code jusqu'au 20/07/2026).
+     * Quand la passe gourmande épuise ses rounds d'élimination sans jamais trouver de solution
+     * complète, `Scheduler.solveWithElimination()` rend un résultat DÉGÉNÉRÉ — `solutions: []`,
+     * et un `neutralizedUnits` qui ne liste QUE les unités éliminées pendant les rounds, soit un
+     * sous-ensemble STRICT des tâches non placées (voir la branche « solution partielle vide » de
+     * scheduler.ts). Le coût en était donc sous-estimé, et `coût <= lb` déclenchait une
+     * revendication d'optimalité FAUSSE sur un résultat qui ne place rien — visible par
+     * l'utilisateur (« optimum prouvé ») alors que des placements restaient possibles.
+     *
+     * Compter les tâches réellement placées est robuste dans les deux cas : sur un résultat sain,
+     * `total − placées` vaut exactement le nombre de tâches neutralisées. Même source de vérité
+     * que `_computeSkippedTaskIds`, avec laquelle cette fonction doit rester cohérente.
+     */
+    private _costOf(sol: SchedulerSolution | null, allTasks: Task[]): number {
+        if (!sol) return Infinity;
+        return this._computeSkippedTaskIds(allTasks, sol).size;
+    }
+
     private _computeSkippedTaskIds(allTasks: Task[], greedyRaw: SchedulerSolution | null): ReadonlySet<string> {
         const placedTaskIds = new Set<string>();
         for (const us of greedyRaw?.solutions ?? []) {

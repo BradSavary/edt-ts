@@ -557,6 +557,70 @@ describe('OptionalTasksScheduler — soundness de provenOptimal (docs/PlanOption
     expect(res[0].neutralizedUnits ?? []).toHaveLength(1);
     expect(s.provenOptimal).toBe(true);
   });
+
+  // ── Aucun incumbent (best === null) : la revendication « rien ne tient sous le cap » n'est
+  // valide que si l'arbre a été épuisé. Trouvé en relecture du §6 de docs/PlanLbDFF.md (2026-07-20).
+  // Avant correctif, `finalCost` était forcé à 0 dans ce cas et comparé à `lb` : comme `lb ≥ 0`
+  // toujours, la revendication passait à `true` MÊME sur budget épuisé. Chemin atteignable dans
+  // l'usage normal (démarrer avec un `maxEliminations` bas puis l'augmenter).
+  const noIncumbentScenario = (): RawScheduleData => ({
+    week: 30,
+    resources: [
+      { resourceType: 'teacher', resources: [{ id: 'RT' }] },
+      { resourceType: 'group', resources: [{ id: 'GA' }, { id: 'GB' }, { id: 'GC' }, { id: 'GD' }] },
+      { resourceType: 'room', resources: [] },
+    ],
+    // 4 cours de 60min sur un enseignant qui n'a qu'1h : 1 seul plaçable, 3 sauts nécessaires,
+    // très au-dessus du cap maxEliminations:1 ⟹ ni le gourmand ni le B&B ne rendent d'incumbent.
+    courses: (['GA', 'GB', 'GC', 'GD'] as const).map((g, i) => ({
+      week: 30, semester: 1, level: 0, code: `C${i}`, type: 'TD', name: `C${i}`,
+      teacher: ['RT'], groups: [g], rooms: [], duration: 60,
+    })),
+    constraints: {
+      RT: [{ days: 'lundi', from: '08:00', to: '09:00' }],
+      GA: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+      GB: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+      GC: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+      GD: [{ days: 'lundi', from: '08:00', to: '19:00' }],
+    },
+  });
+
+  it('résultat gourmand DÉGÉNÉRÉ (rounds épuisés, rien de placé) : provenOptimal doit être false', () => {
+    // 4 cours de 60min, l'enseignant n'a qu'1h : 1 seul plaçable, donc 3 sauts nécessaires — très
+    // au-dessus de maxEliminations:1. La passe gourmande épuise ses rounds sans solution complète
+    // et rend le résultat dégénéré de scheduler.ts (`solutions: []`, `neutralizedUnits` = la
+    // SEULE unité éliminée pendant le round).
+    //
+    // AVANT correctif : greedyCost était compté sur `neutralizedUnits` (= 1), comparé à lb (= 3),
+    // le court-circuit `1 <= 3` déclenchait `provenOptimal = true` — et l'API renvoyait au client
+    // « optimum prouvé : 3 saut(s) structurellement inévitable(s) » sur un résultat plaçant ZÉRO
+    // cours, alors qu'en placer 1 est possible. Revendication fausse, visible par l'utilisateur.
+    //
+    // APRÈS : le coût est compté sur les tâches réellement placées (= 4), `4 <= 3` est faux, la
+    // preuve n'est pas revendiquée.
+    Loader.loadFromRawData(noIncumbentScenario());
+    const s = new OptionalTasksScheduler();
+    s.configure({ maxEliminations: 1 });
+    const res = s.solveWithElimination();
+
+    expect(res).toHaveLength(1);
+    expect(res[0].solutions).toHaveLength(0);  // résultat dégénéré : rien n'est placé
+    expect(s.rootBound.lb).toBe(3);            // 3 sauts réellement inévitables
+    expect(s.provenOptimal).toBe(false);       // ← true AVANT correctif
+  });
+
+  it('même instance, cap suffisant : le moteur place ce qui est plaçable et la preuve redevient légitime', () => {
+    // Garde-fou contre une sur-correction : avec maxEliminations:3, le gourmand atteint le vrai
+    // optimum (1 placé, 3 sautés) et `coût(3) <= lb(3)` prouve légitimement l'optimalité.
+    Loader.loadFromRawData(noIncumbentScenario());
+    const s = new OptionalTasksScheduler();
+    s.configure({ maxEliminations: 3 });
+    const res = s.solveWithElimination();
+
+    expect(res).toHaveLength(1);
+    expect(res[0].solutions).toHaveLength(1);  // le seul cours plaçable l'est bien
+    expect(s.provenOptimal).toBe(true);
+  });
 });
 
 describe('OptionalTasksScheduler — raisons génériques uniformes (révision post-usage, docs/PlanOptionalTasksP2Explication.md §R)', () => {
