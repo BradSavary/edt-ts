@@ -41,10 +41,6 @@ export interface CalendarEventExtProps {
   manuallyPlaced?: boolean;
   /** Violation de contrainte détectée au moment du placement. */
   constraintViolation?: 'red' | 'orange' | 'none';
-  /** Morceau d'Autonomie réparti automatiquement — non éditable/déplaçable individuellement. */
-  isAutonomyPiece?: boolean;
-  /** taskId du cours Autonomie original (liste des neutralisés), pour ce morceau. */
-  originalTaskId?: string;
 }
 
 export interface CalendarEventData {

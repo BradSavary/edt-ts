@@ -45,35 +45,28 @@ export interface PlacedNeutralizedTask {
   rooms: string[];
   /** Violation de contrainte détectée au moment du placement. */
   constraintViolation?: 'red' | 'orange' | 'none';
+  /**
+   * Si ce placement est un morceau d'Autonomie réparti automatiquement, taskId du
+   * cours Autonomie source (la carte pilote dans la pioche). Absent pour un placement
+   * manuel ordinaire. Sert à retrouver/retirer tous les morceaux d'une même répartition.
+   */
+  sourceAutonomyId?: string;
 }
 
 /**
- * Un morceau d'un cours Autonomie réparti automatiquement dans un créneau libre.
- */
-export interface AutonomyPiece {
-  /** Identifiant stable du morceau (utilisé comme id d'event calendrier). */
-  id: string;
-  /** Minutes depuis lundi minuit. */
-  startTime: number;
-  duration: number;
-}
-
-/**
- * Répartition automatique d'un cours Autonomie neutralisé. `totalDuration` (durée
- * originale, jamais mutée) permet de restaurer l'état initial sans rien recalculer :
- * "Annuler la répartition" ne fait que supprimer cette entrée.
+ * Suivi d'une répartition automatique d'un cours Autonomie neutralisé. Les morceaux
+ * eux-mêmes sont désormais des `PlacedNeutralizedTask` de plein droit (déplaçables,
+ * éditables, exportés en iCal), reliés à cette entrée par leur `sourceAutonomyId`.
+ * Cette entrée ne sert plus qu'à piloter la carte d'origine dans la pioche :
+ * `totalDuration`/`remainingDuration` alimentent l'affichage, `pieceIds` liste les
+ * placements créés. "Annuler la répartition" retire ces morceaux et supprime l'entrée.
  */
 export interface AutonomyDistribution {
   originalTaskId: string;
-  code: string;
-  name: string;
-  type: string;
-  teachers: string[];
-  groups: string[];
-  rooms: string[];
   totalDuration: number;
-  pieces: AutonomyPiece[];
   remainingDuration: number;
+  /** taskIds des `PlacedNeutralizedTask` créés pour cette répartition. */
+  pieceIds: string[];
 }
 
 /**
