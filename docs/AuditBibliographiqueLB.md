@@ -82,7 +82,45 @@ Valério de Carvalho, et Brandão & Pedroso pour la version avec compression de 
 référence en borne de bin packing (LP souvent entière), et elle n'a pas de falaise de timeout. Mais
 elle exigerait un solveur LP dans le monorepo pour un bénéfice marginal à notre échelle.
 
+## 3bis. VERDICTS D'EXÉCUTION (à lire avant de rouvrir quoi que ce soit)
+
+**A + B — LIVRÉS ET MERGÉS** (2026-07-19, `master` jusqu'à `5a63900`, plan
+[PlanLbSurrogateSymetrie.md](PlanLbSurrogateSymetrie.md)). Borne inchangée sur les 10 semaines de
+référence, temps ÷3 à ÷8. Le gain vient du hachage Zobrist/`Int32Array` du memo cluster (isolé
+proprement par S49 : nœuds strictement identiques, temps ÷3,4) et de la borne surrogate aux nœuds.
+La symétrie des fenêtres (§2.1) ne rapporte **rien** sur ce projet — pas assez de fenêtres intactes
+de même classe — mais est conservée pour la justesse du mécanisme.
+
+**D (DFF) — CLOS, GAIN MESURÉ NUL. NE PAS ROUVRIR SANS UN FAIT NOUVEAU.**
+Implémenté en entier sur `feature/lb-dff` (**non mergée**, conservée en référence), plan complet
+avec STATUT dans [PlanLbDFF.md](PlanLbDFF.md). Validation réelle sur les 10 semaines, 3 colonnes
+d'attribution : `lb_master == lb_sansEps == lb_avecEps` sur **10/10**, et 0 cluster récupéré sur
+10/10. Trois raisons distinctes, à connaître avant de retenter :
+
+1. **Une DFF ne peut RIEN apporter sur un bac unique** (théorème, démontré en §1.4 du plan) : le
+   glouton « k plus petites durées » y est la cardinalité maximale EXACTE, pas une borne, donc
+   toute DFF valide reste au-dessus. Elle ne redevient utile que sur **plusieurs bacs à la fois**.
+   Première version du plan fausse sur ce point ; corrigée puis re-livrée en multi-bacs.
+2. **Même correctement branchée en multi-bacs, elle ne mord pas ici.** Cadrage mesuré hors moteur
+   (20 000 instances, optimum réel par force brute) : `f_ε` bat le volume sur 0,6 % des instances
+   de forme réaliste. Sur les 10 semaines réelles : 0 %.
+3. **Le certificat de repli cluster (§4 du plan) est structurellement mort** : il ne se déclenche
+   que sur troncature du DFS cluster — or c'est A+B, déjà mergé, qui a rendu ce DFS assez rapide
+   pour ne plus jamais tronquer. A+B a désamorcé le problème que D venait résoudre.
+
+**Constat qui recadre TOUT le reste de cet audit** (mesuré au §6 de PlanLbDFF, première obtention
+de `U` sur les 10 semaines) : sur les **6 semaines où le moteur converge et prouve son optimum**
+(S3, S9, S37, S38, S39, S45), `lb == U` **exactement** — la borne racine est déjà optimale, il n'y
+a rien à y gagner. Sur les 4 autres (S36, S40, S48, S49) le moteur ne converge pas, donc `U` n'est
+qu'un majorant : **l'écart `lb` < `U` n'est PAS attribuable** à une borne lâche en l'état.
+
+⟹ **Prérequis à tout investissement dans C** : faire converger le moteur sur S36/S48/S49 pour
+obtenir de vrais optimums. Sans ça, on ne sait pas si c'est la borne qui est lâche ou le moteur qui
+ne trouve pas. Renforcer la borne à l'aveugle serait du travail non dirigé.
+
 ## 4. Ordre recommandé
+
+*(ordre d'origine, conservé pour mémoire — voir §3bis pour ce qui a réellement été fait)*
 
 **A** (surrogate aux nœuds) → **B** (symétrie + hachage) → **C** (intervalles cluster) → **D** (DFF).
 
