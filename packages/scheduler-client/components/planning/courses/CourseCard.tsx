@@ -17,10 +17,10 @@ interface Props {
 
 export default function CourseCard({ courseKey, course, enforced, onEdit, onDuplicate, onDelete }: Props) {
   const taskGroups = usePlanningStore((s) => s.taskGroups);
-  const preNeutralizedKeys = usePlanningStore((s) => s.preNeutralizedKeys);
+  const unplaced = usePlanningStore((s) => s.unplaced);
   const togglePreNeutralized = usePlanningStore((s) => s.togglePreNeutralized);
   const groupInfo = getCourseGroupInfo(taskGroups, courseKey);
-  const isNeutralized = preNeutralizedKeys.includes(courseKey);
+  const isNeutralized = unplaced.some((u) => u.taskId === courseKey && u.origin === 'user-pre');
 
   return (
     <TaskCard

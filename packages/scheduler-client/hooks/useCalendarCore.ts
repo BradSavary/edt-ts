@@ -19,7 +19,6 @@ import type { YearColorConfig } from '@/lib/calendar/yearColors';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import type { PendingDrop, PendingNeutralizedDrop, CalendarEventExtProps, CalendarEventData, DraggingState, PendingEditData } from '@/lib/calendar/types';
-import { realTaskId } from '@/lib/taskCardUtils';
 
 export type { PendingDrop, PendingNeutralizedDrop, CalendarEventExtProps, CalendarEventData, DraggingState, PendingEditData };
 
@@ -85,11 +84,9 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
   const week = selectedWeek ?? 1;
   const scheduleResult = usePlanningStore((s) => s.scheduleResult);
-  const activeNeutralizedTasks = usePlanningStore((s) => s.activeNeutralizedTasks);
-  const addManuallyNeutralizedTask = usePlanningStore((s) => s.addManuallyNeutralizedTask);
   const updatePlacement = usePlanningStore((s) => s.updatePlacement);
   const addPlacement = usePlanningStore((s) => s.addPlacement);
-  const removePlacement = usePlanningStore((s) => s.removePlacement);
+  const unplaceTask = usePlanningStore((s) => s.unplaceTask);
   const handleEnforceChange = usePlanningStore((s) => s.handleEnforceChange);
   const blockedZones = usePlanningStore((s) => s.blockedZones);
   const handleBlockedZoneAdd = usePlanningStore((s) => s.handleBlockedZoneAdd);
@@ -244,10 +241,9 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
       name?: string;
       type?: string;
     };
-    const rawTaskId = ext.taskId;
+    const taskId = ext.taskId;
     const startDate = info.event.start;
-    if (!startDate || !rawTaskId) { info.event.remove(); return; }
-    const taskId = realTaskId(rawTaskId);
+    if (!startDate || !taskId) { info.event.remove(); return; }
 
     const teachers = ext.teachers ?? [];
     const groups = ext.groups ?? [];
@@ -481,31 +477,13 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
       return;
     }
 
-    // Placement auto/post-enforced déposé hors du calendrier → pioche. Si la tâche était
-    // engine-placée à l'origine (donc absente de activeNeutralizedTasks), la re-signaler dans la
-    // pioche ; sinon elle y réapparaît d'elle-même (toujours dans activeNeutralizedTasks, plus
-    // dans placements — cf. SidebarAnalysis.unplacedNeutralized).
+    // Placement auto/post-enforced déposé hors du calendrier → pioche. `unplaceTask` dédup sur
+    // `taskId` : si la tâche a déjà une entrée non placée (ex. neutralisée par le moteur), elle
+    // n'en gagne pas une seconde — voir lib/calendar/unplaced.ts.
     if (ext.taskId) {
-      const taskId = ext.taskId;
       const placementId = info.event.id;
       info.event.remove();
-      removePlacement(placementId);
-      // `realTaskId` des deux côtés : une pré-neutralisée porte un id préfixé dans
-      // activeNeutralizedTasks et un id réel dans le placement. Sans normalisation, elle
-      // serait re-signalée dans la pioche alors qu'elle y réapparaît déjà d'elle-même —
-      // d'où deux cartes pour la même tâche.
-      if (!activeNeutralizedTasks.some((t) => realTaskId(t.task.taskId) === taskId)) {
-        addManuallyNeutralizedTask({
-          taskId,
-          code: ext.code ?? '',
-          name: ext.name ?? '',
-          type: ext.type ?? '',
-          duration: ext.durationMin ?? 60,
-          teachers: ext.teachers ?? [],
-          groups: ext.groups ?? [],
-          rooms: ext.rooms ?? [],
-        });
-      }
+      unplaceTask(placementId, 'user-post');
     }
   }
 

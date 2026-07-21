@@ -31,58 +31,21 @@ export interface Placement {
   derived?: true;
 }
 
-/**
- * Tâche planifiée déposée manuellement dans la zone de neutralisation ("pioche").
- */
-export interface ManuallyNeutralizedTask {
-  taskId: string;
-  code: string;
-  name: string;
-  type: string;
-  duration: number;
-  teachers: string[];
-  groups: string[];
-  rooms: string[];
-}
+/** Origine d'un non-placement — qui a décidé, et à quel moment. */
+export type UnplacedOrigin =
+  | 'user-pre'   // exclue par l'utilisateur AVANT planification : jamais envoyée au moteur
+  | 'engine'     // envoyée au moteur, qu'il n'a pas pu placer
+  | 'user-post'; // placée par le moteur, retirée ensuite par l'utilisateur
 
-/**
- * Tâche neutralisée placée manuellement sur le calendrier.
- * Contient les données complètes nécessaires à l'affichage.
- */
-export interface PlacedNeutralizedTask {
+export interface Unplaced {
+  /** Tâche non placée — `CourseTaskDataWithId.id`, jamais préfixé. */
   taskId: string;
-  code: string;
-  name: string;
-  type: string;
-  startTime: number; // minutes depuis lundi minuit
-  duration: number;
-  teachers: string[];
-  groups: string[];
-  rooms: string[];
-  /** Violation de contrainte détectée au moment du placement. */
-  constraintViolation?: 'red' | 'orange' | 'none';
+  origin: UnplacedOrigin;
   /**
-   * Si ce placement est un morceau d'Autonomie réparti automatiquement, taskId du
-   * cours Autonomie source (la carte pilote dans la pioche). Absent pour un placement
-   * manuel ordinaire. Sert à retrouver/retirer tous les morceaux d'une même répartition.
+   * Diagnostics du moteur. Présents si et seulement si `origin === 'engine'`.
+   * Limités à ce que l'API produit réellement (cf. §1.1 du plan).
    */
-  sourceAutonomyId?: string;
-}
-
-/**
- * Suivi d'une répartition automatique d'un cours Autonomie neutralisé. Les morceaux
- * eux-mêmes sont désormais des `PlacedNeutralizedTask` de plein droit (déplaçables,
- * éditables, exportés en iCal), reliés à cette entrée par leur `sourceAutonomyId`.
- * Cette entrée ne sert plus qu'à piloter la carte d'origine dans la pioche :
- * `totalDuration`/`remainingDuration` alimentent l'affichage, `pieceIds` liste les
- * placements créés. "Annuler la répartition" retire ces morceaux et supprime l'entrée.
- */
-export interface AutonomyDistribution {
-  originalTaskId: string;
-  totalDuration: number;
-  remainingDuration: number;
-  /** taskIds des `PlacedNeutralizedTask` créés pour cette répartition. */
-  pieceIds: string[];
+  diagnostics?: { reason: string; failureCount: number; eliminationRound: number };
 }
 
 // ── Persistance de semaine (localStorage) ──────────────────────────────────
