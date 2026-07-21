@@ -8,8 +8,8 @@ export interface AutonomyDistributionSlice {
 /**
  * Fournit uniquement l'état initial de `autonomyDistributions`.
  * Les actions `distributeAutonomy` et `cancelAutonomyDistribution` vivent dans le store
- * principal : elles doivent lire/écrire d'autres slices — notamment `placedNeutralizedTasks`,
- * où résident désormais les morceaux répartis (des `PlacedNeutralizedTask` de plein droit).
+ * principal : elles doivent lire/écrire `placements`, où résident désormais les morceaux
+ * répartis (des `Placement` `post-enforced` de plein droit).
  */
 export const createAutonomyDistributionSlice: StateCreator<AutonomyDistributionSlice> = () => ({
   autonomyDistributions: {},

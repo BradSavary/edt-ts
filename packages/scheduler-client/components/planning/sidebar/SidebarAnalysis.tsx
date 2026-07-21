@@ -5,8 +5,9 @@ import { usePlanningStore } from '@/store/usePlanningStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useNeutralizedDraggable } from '@/hooks/useNeutralizedDraggable';
 import { downloadIcalSolution } from '@/lib/icalExport';
-import { filterSolutionsByQuery, matchesSearchQuery } from '@/lib/calendar/calendarUtils';
-import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
+import { matchesSearchQuery } from '@/lib/calendar/calendarUtils';
+import { toTaskSolutionJSON } from '@/lib/calendar/placements';
+import { getCoursesForWeek } from '@/lib/weekCourses';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,14 +23,14 @@ import {
 } from '@/components/ui/dialog';
 import NeutralizedTaskCard from '@/components/planning/courses/NeutralizedTaskCard';
 import ResourceLoadPopover from '@/components/planning/courses/ResourceLoadPopover';
-import { solutionToBaseProps, manuallyNeutralizedToBaseProps } from '@/lib/taskCardUtils';
+import { solutionToBaseProps, manuallyNeutralizedToBaseProps, selectUnplacedNeutralized, PRE_NEUTRAL_PREFIX } from '@/lib/taskCardUtils';
 import { buildAnalysisLoadRows } from '@/lib/resourceLoadAnalysis';
 
 export function SidebarAnalysis() {
   const resetScheduleResult = usePlanningStore((s) => s.resetScheduleResult);
-  const activeSolution = usePlanningStore((s) => s.activeSolution);
+  const scheduleResult = usePlanningStore((s) => s.scheduleResult);
+  const placements = usePlanningStore((s) => s.placements);
   const activeNeutralizedTasks = usePlanningStore((s) => s.activeNeutralizedTasks);
-  const placedNeutralizedTasks = usePlanningStore((s) => s.placedNeutralizedTasks);
   const manuallyNeutralizedTasks = usePlanningStore((s) => s.manuallyNeutralizedTasks);
   const autonomyDistributions = usePlanningStore((s) => s.autonomyDistributions);
   const distributeAutonomy = usePlanningStore((s) => s.distributeAutonomy);
@@ -41,46 +42,41 @@ export function SidebarAnalysis() {
   const schoolYearConfig = useProjectStore((s) => s.schoolYearConfig);
   const availabilityManager = useProjectStore((s) => s.availabilityManager);
   const resources = useProjectStore((s) => s.resources);
+  const allCourses = useProjectStore((s) => s.allCourses);
+  const weekSaves = useProjectStore((s) => s.weekSaves);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const neutralizedContainerRef = useRef<HTMLDivElement | null>(null);
 
   useNeutralizedDraggable({
     containerRef: neutralizedContainerRef,
-    hasItems: activeNeutralizedTasks.some((t) => !placedNeutralizedTasks.some((p) => p.taskId === t.task.taskId)) || manuallyNeutralizedTasks.length > 0,
+    hasItems: selectUnplacedNeutralized(activeNeutralizedTasks, placements).length > 0 || manuallyNeutralizedTasks.length > 0,
   });
 
   const iCalWeek = selectedWeek ?? 1;
 
-  const filteredSolutions = useMemo(
-    () => filterSolutionsByQuery(activeSolution, searchQuery),
-    [activeSolution, searchQuery],
-  );
+  // Résolution de cours nécessaire à toTaskSolutionJSON (règle 1, §3 du plan) : les placements
+  // ne recopient plus code/name/type.
+  const courseById = useMemo(() => {
+    const courses = selectedWeek !== null ? getCoursesForWeek(allCourses, weekSaves, selectedWeek) : [];
+    return new Map(courses.map((c) => [c.id, c]));
+  }, [allCourses, weekSaves, selectedWeek]);
 
-  const filteredPlacedNeutralized = useMemo((): TaskSolutionJSON[] => {
-    return placedNeutralizedTasks
-      .filter((task) =>
-        matchesSearchQuery([task.code, task.name, task.type, ...task.teachers, ...task.rooms, ...task.groups], searchQuery),
-      )
-      .map((task) => ({
-        taskId: task.taskId,
-        code: task.code,
-        name: task.name,
-        type: task.type,
-        week: iCalWeek,
-        duration: task.duration,
-        startTime: task.startTime,
-        resources: [
-          ...task.teachers.map((id) => ({ id, type: 'teacher' })),
-          ...task.groups.map((id) => ({ id, type: 'group' })),
-          ...task.rooms.map((id) => ({ id, type: 'room' })),
-        ],
-      }));
-  }, [placedNeutralizedTasks, searchQuery, iCalWeek]);
+  // Export iCal : les placements (toutes origines confondues) reflètent l'état affiché,
+  // retouches manuelles comprises — remplace filteredSolutions + filteredPlacedNeutralized.
+  const filteredPlacements = useMemo(() => {
+    return placements
+      .filter((p) => {
+        const course = courseById.get(p.taskId);
+        return matchesSearchQuery(
+          [course?.code ?? '', course?.name ?? '', course?.type ?? '', ...p.resources.teachers, ...p.resources.rooms, ...p.resources.groups],
+          searchQuery,
+        );
+      })
+      .map((p) => toTaskSolutionJSON(p, courseById.get(p.taskId), iCalWeek));
+  }, [placements, courseById, searchQuery, iCalWeek]);
 
-  const unplacedNeutralized = activeNeutralizedTasks.filter(
-    (t) => !placedNeutralizedTasks.some((p) => p.taskId === t.task.taskId),
-  );
+  const unplacedNeutralized = selectUnplacedNeutralized(activeNeutralizedTasks, placements);
   const hasAnyNeutralizedItems = unplacedNeutralized.length > 0 || manuallyNeutralizedTasks.length > 0;
 
   const filteredUnplacedNeutralized = unplacedNeutralized.filter((t) =>
@@ -125,12 +121,12 @@ export function SidebarAnalysis() {
 
         {/* Actions */}
         <div className="flex flex-col gap-2">
-          {activeSolution.length > 0 && (
+          {scheduleResult !== null && (
             <Button
               type="button"
               variant="outline"
               className="w-full"
-              onClick={() => downloadIcalSolution([...filteredSolutions, ...filteredPlacedNeutralized], iCalWeek, schoolYearConfig, searchQuery)}
+              onClick={() => downloadIcalSolution(filteredPlacements, iCalWeek, schoolYearConfig, searchQuery)}
             >
               {searchQuery.trim() ? 'Exporter (filtré) en iCal' : 'Exporter en iCal'}
             </Button>
@@ -154,7 +150,7 @@ export function SidebarAnalysis() {
               {/* Tâches neutralisées par le moteur ou pré-neutralisées */}
               {filteredUnplacedNeutralized.map((neutralizedInfo) => {
                 const task = neutralizedInfo.task;
-                const isPreNeutralized = task.taskId.startsWith('pre-neutral-');
+                const isPreNeutralized = task.taskId.startsWith(PRE_NEUTRAL_PREFIX);
                 const tooltipLines: string[] = [neutralizedInfo.reason];
                 if (!isPreNeutralized) {
                   tooltipLines.push(`Échecs : ${neutralizedInfo.failureCount}`);
@@ -198,7 +194,7 @@ export function SidebarAnalysis() {
                           taskDurationMin={task.duration}
                           rows={buildAnalysisLoadRows(
                             neutralizedInfo,
-                            activeSolution,
+                            scheduleResult?.solution?.tasks ?? [],
                             availabilityManager,
                             selectedWeek,
                             resources,

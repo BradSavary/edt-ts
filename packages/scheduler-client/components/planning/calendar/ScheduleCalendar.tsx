@@ -4,14 +4,15 @@ import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventContentArg } from '@fullcalendar/core';
-import type { TaskSolutionJSON, CourseTaskData } from '@edt-ts/scheduler-common';
+import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
+import type { Placement, PlacementOrigin } from '@/store/types';
 import EnforceModal from '@/components/planning/modals/EnforceModal';
 import TaskEditModal from '@/components/planning/modals/TaskEditModal';
 import { useCalendarCore } from '@/hooks/useCalendarCore';
 
 interface Props {
-  solutions: TaskSolutionJSON[];
+  placements: Placement[];
   parsedCourses?: CourseTaskDataWithId[];
 }
 
@@ -21,7 +22,7 @@ function renderEventContent(info: EventContentArg) {
     groups?: string[];
     rooms?: string[];
     durationMin?: number;
-    isEnforced?: boolean;
+    origin?: PlacementOrigin;
     isBlockedZone?: boolean;
     blockedZoneSource?: 'manual' | 'vacation' | 'public-holiday';
     blockedZoneLabel?: string;
@@ -72,7 +73,7 @@ function renderEventContent(info: EventContentArg) {
         />
       )}
       <div className="font-semibold truncate flex items-center gap-1">
-        {props.isEnforced && <span title="Imposé">📌</span>}
+        {props.origin === 'pre-enforced' && <span title="Imposé">📌</span>}
         {info.event.title}
       </div>
       {props.name && <div className="truncate opacity-90">{props.name}</div>}
@@ -86,13 +87,14 @@ function renderEventContent(info: EventContentArg) {
   );
 }
 
-export default function ScheduleCalendar({ solutions, parsedCourses = [] }: Props) {
+export default function ScheduleCalendar({ placements, parsedCourses = [] }: Props) {
   const {
     week,
     monday,
     calendarRef,
     calendarWrapperRef,
     calendarEvents,
+    hasSolution,
     pendingDrop,
     pendingEdit,
     setPendingEdit,
@@ -110,7 +112,7 @@ export default function ScheduleCalendar({ solutions, parsedCourses = [] }: Prop
     handleNeutralizedPlaceConfirm,
     handleNeutralizedPlaceCancel,
     handleEditConfirm,
-  } = useCalendarCore(solutions, parsedCourses);
+  } = useCalendarCore(placements, parsedCourses);
 
   return (
     <>
@@ -140,7 +142,7 @@ export default function ScheduleCalendar({ solutions, parsedCourses = [] }: Prop
             droppable
             editable
             eventDurationEditable={false}
-            selectable={solutions.length === 0}
+            selectable={!hasSolution}
             selectMirror
             selectMinDistance={5}
             selectAllow={(info) => {
@@ -194,13 +196,13 @@ export default function ScheduleCalendar({ solutions, parsedCourses = [] }: Prop
           teacherOptions={pendingEdit.teacherOptions}
           groupOptions={pendingEdit.groupOptions}
           roomOptions={pendingEdit.roomOptions}
-          isEnforced={pendingEdit.isEnforced}
+          isEnforced={pendingEdit.origin === 'pre-enforced'}
           allowAlternatives={false}
           duration={pendingEdit.durationMin}
           showDuration={pendingEdit.showDuration}
           onRemoveEnforced={
-            pendingEdit.isEnforced && pendingEdit.courseKey
-              ? () => { removeEnforced(pendingEdit.courseKey!); setPendingEdit(null); }
+            pendingEdit.origin === 'pre-enforced'
+              ? () => { removeEnforced(pendingEdit.taskId); setPendingEdit(null); }
               : undefined
           }
           onConfirm={handleEditConfirm}

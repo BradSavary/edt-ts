@@ -1,4 +1,5 @@
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
+import type { PlacementOrigin } from '@/store/types';
 
 // ── Types FullCalendar partagés ────────────────────────────────────────────
 
@@ -29,9 +30,9 @@ export interface CalendarEventExtProps {
   groups?: string[];
   rooms?: string[];
   durationMin?: number;
-  isEnforced?: boolean;
-  courseKey?: string;
-  isNeutralizedPlaced?: boolean;
+  /** Origine du placement (absent pour une zone bloquée, qui n'est pas un placement). */
+  origin?: PlacementOrigin;
+  /** `Placement.taskId` — résout le cours via `courseById`. `event.id` porte `placementId`. */
   taskId?: string;
   isBlockedZone?: boolean;
   blockedZoneId?: string;
@@ -65,16 +66,17 @@ export interface DraggingState {
 }
 
 export interface PendingEditData {
+  /** `event.id` — identité du placement édité. */
+  placementId: string;
+  /** Tâche référencée — résout le cours (courseById). */
   taskId: string;
-  courseKey?: string;
   title: string;
   teachers: string[];
   groups: string[];
   rooms: string[];
   startTime: number;
   durationMin: number;
-  isEnforced?: boolean;
-  isNeutralizedPlaced?: boolean;
+  origin: PlacementOrigin;
   showDuration?: boolean;
   teacherOptions: string[];
   groupOptions: string[];

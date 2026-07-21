@@ -1,6 +1,41 @@
 import type { CourseTaskData, TaskSolutionJSON, ResourceEntry, NeutralizedTaskInfoJSON } from '@edt-ts/scheduler-common';
 import type { TaskCardProps } from '@/components/planning/courses/TaskCard';
-import type { ManuallyNeutralizedTask } from '@/store/types';
+import type { ManuallyNeutralizedTask, Placement } from '@/store/types';
+
+/**
+ * Préfixe des taskId synthétiques des tâches pré-neutralisées avant planification (voir
+ * `runSchedule`/`syntheticNeutralized`). Convention posée par notre propre code — un seul point
+ * de construction, `pre-neutral-${course.id}` — donc la retirer pour retrouver le vrai
+ * `course.id` est déterministe, à la différence d'une dérivation positionnelle sur une donnée
+ * externe (cf. mémoire projet sur le piège des identifiants positionnels).
+ *
+ * Disparaîtra à l'étape 2 du modèle unifié, quand l'origine `user-pre` remplacera la convention
+ * de préfixe.
+ */
+export const PRE_NEUTRAL_PREFIX = 'pre-neutral-';
+
+/**
+ * `course.id` réel derrière un taskId éventuellement préfixé. **Tout** rapprochement entre une
+ * entrée de `activeNeutralizedTasks` (qui porte l'id préfixé) et un `Placement` (qui porte l'id
+ * réel) doit passer par ici : sans ça la comparaison échoue silencieusement et la même tâche
+ * peut être placée plusieurs fois.
+ */
+export function realTaskId(taskId: string): string {
+  return taskId.startsWith(PRE_NEUTRAL_PREFIX) ? taskId.slice(PRE_NEUTRAL_PREFIX.length) : taskId;
+}
+
+/**
+ * Tâches neutralisées qui ne sont pas (ou plus) posées sur le calendrier — c'est ce que la pioche
+ * affiche. Extrait en fonction pure parce que la comparaison est piégeuse : côté neutralisées les
+ * pré-neutralisées portent un id préfixé, côté placements l'id est toujours réel.
+ */
+export function selectUnplacedNeutralized(
+  activeNeutralizedTasks: NeutralizedTaskInfoJSON[],
+  placements: Placement[],
+): NeutralizedTaskInfoJSON[] {
+  const placedIds = new Set(placements.map((p) => p.taskId));
+  return activeNeutralizedTasks.filter((t) => !placedIds.has(realTaskId(t.task.taskId)));
+}
 
 export type TaskCardBaseProps = Pick<
   TaskCardProps,

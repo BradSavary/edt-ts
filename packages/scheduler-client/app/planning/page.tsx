@@ -8,8 +8,8 @@ import { usePlanningStore } from '@/store/usePlanningStore';
 import { SidebarLeft } from '@/components/planning/sidebar/SidebarLeft';
 import { GroupDrawer } from '@/components/planning/courses/GroupDrawer';
 import ScheduleCalendar from '@/components/planning/calendar/ScheduleCalendar';
-import { filterSolutionsByQuery } from '@/lib/calendar/calendarUtils';
-import { computeEffectiveSolution } from '@/lib/calendar/effectiveSolution';
+import { matchesSearchQuery } from '@/lib/calendar/calendarUtils';
+import { toTaskSolutionJSON } from '@/lib/calendar/placements';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,10 +31,7 @@ export default function PlanningPage() {
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
   const scheduleResult = usePlanningStore((s) => s.scheduleResult);
   const resetCurrentSolution = usePlanningStore((s) => s.resetCurrentSolution);
-  const activeSolution = usePlanningStore((s) => s.activeSolution);
-  const taskOverrides = usePlanningStore((s) => s.taskOverrides);
-  const manuallyNeutralizedTasks = usePlanningStore((s) => s.manuallyNeutralizedTasks);
-  const placedNeutralizedTasks = usePlanningStore((s) => s.placedNeutralizedTasks);
+  const placements = usePlanningStore((s) => s.placements);
   const searchQuery = usePlanningStore((s) => s.searchQuery);
   const status = usePlanningStore((s) => s.status);
   const pendingJobResult = usePlanningStore((s) => s.pendingJobResult);
@@ -57,19 +54,28 @@ export default function PlanningPage() {
     [allCourses, weekSaves, selectedWeek],
   );
 
-  // ── Solutions filtrées (recherche) ───────────────────────────────────────
-  const filteredSolutions = useMemo(
-    () => filterSolutionsByQuery(activeSolution ?? [], searchQuery),
-    [activeSolution, searchQuery],
+  // ── Cours indexés par id (résolution code/name/type/duration — règle 1, §3 du plan) ─────────
+  const courseById = useMemo(
+    () => new Map(parsedCourses.map((c) => [c.id, c])),
+    [parsedCourses],
   );
 
-  // ── Solution effective (activeSolution + taskOverrides, sans pioche, + neutralisées replacées) ──
-  const effectiveSolution = useMemo(
-    () => computeEffectiveSolution({
-      activeSolution, taskOverrides, manuallyNeutralizedTasks, placedNeutralizedTasks,
-      week: selectedWeek ?? 1,
+  // ── Placements filtrés (recherche) ───────────────────────────────────────
+  const filteredPlacements = useMemo(
+    () => placements.filter((p) => {
+      const course = courseById.get(p.taskId);
+      return matchesSearchQuery(
+        [course?.code ?? '', course?.name ?? '', course?.type ?? '', ...p.resources.teachers, ...p.resources.rooms, ...p.resources.groups],
+        searchQuery,
+      );
     }),
-    [activeSolution, taskOverrides, manuallyNeutralizedTasks, placedNeutralizedTasks, selectedWeek],
+    [placements, courseById, searchQuery],
+  );
+
+  // ── Placements convertis pour StatisticsDialog (frontière TaskSolutionJSON[]) ───────────────
+  const statisticsSolution = useMemo(
+    () => placements.map((p) => toTaskSolutionJSON(p, courseById.get(p.taskId), selectedWeek ?? 1)),
+    [placements, courseById, selectedWeek],
   );
 
   return (
@@ -109,7 +115,7 @@ export default function PlanningPage() {
           )}
 
           <ScheduleCalendar
-            solutions={filteredSolutions}
+            placements={filteredPlacements}
             parsedCourses={parsedCourses}
           />
         </main>
@@ -136,7 +142,7 @@ export default function PlanningPage() {
       <StatisticsDialog
         open={statsDialogOpen}
         onOpenChange={setStatsDialogOpen}
-        activeSolution={effectiveSolution}
+        activeSolution={statisticsSolution}
         resources={resources}
       />
       {/* Dialog de réinitialisation de la solution */}

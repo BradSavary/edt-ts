@@ -1,18 +1,34 @@
 // ── Types de session planning (non persistés) ──────────────────────────────
 
-/**
- * Override de position et/ou de ressources pour une tâche placée manuellement
- * via drag-and-drop ou édition dans le calendrier.
- */
-export interface PlacedTaskOverride {
+/** Origine d'un placement — d'où vient la décision de poser cette tâche là. */
+export type PlacementOrigin =
+  | 'pre-enforced'   // posé à la main AVANT toute planification auto ; transmis au moteur
+  | 'auto'           // posé par le moteur
+  | 'post-enforced'; // retouche manuelle d'un placement auto
+
+export interface Placement {
+  /**
+   * Identité du placement. Égale à `taskId` dans le cas courant (un placement par tâche) ;
+   * distincte pour les fragments d'une même tâche (morceaux d'Autonomie répartie).
+   */
+  placementId: string;
+  /** Tâche placée — c'est `CourseTaskDataWithId.id` (cf. docs/PlanStableTaskIds.md). */
+  taskId: string;
+  /** Minutes depuis lundi minuit. */
   startTime: number;
-  teachers: string[];
-  groups: string[];
-  rooms: string[];
-  /** Durée surchargée (minutes). Si absent, utilise la durée du cours original. */
+  /** Durée effective si elle diffère de celle du cours (retouche manuelle, fragment). */
   duration?: number;
-  /** Violation de contrainte détectée au moment du placement. */
+  /** Combo exact appliqué, sans alternatives. */
+  resources: { teachers: string[]; groups: string[]; rooms: string[] };
+  origin: PlacementOrigin;
+  /** Violation détectée au moment du placement. */
   constraintViolation?: 'red' | 'orange' | 'none';
+  /**
+   * `pre-enforced` uniquement : imposition propagée automatiquement depuis un groupe de tâches
+   * (jamais saisie à la main). Non persisté — exclu de `manualEnforcedMap` par
+   * `enforcedMapFromPlacements`, recalculé à la lecture (§4.2 du plan).
+   */
+  derived?: true;
 }
 
 /**
