@@ -30,8 +30,6 @@ export default function PlanningPage() {
 
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
   const scheduleResult = usePlanningStore((s) => s.scheduleResult);
-  const selectedSolutionIndex = usePlanningStore((s) => s.selectedSolutionIndex);
-  const setSelectedSolutionIndex = usePlanningStore((s) => s.setSelectedSolutionIndex);
   const resetCurrentSolution = usePlanningStore((s) => s.resetCurrentSolution);
   const activeSolution = usePlanningStore((s) => s.activeSolution);
   const taskOverrides = usePlanningStore((s) => s.taskOverrides);
@@ -87,18 +85,6 @@ export default function PlanningPage() {
         <main className="flex-1 overflow-hidden p-4 flex flex-col">
           {scheduleResult && (
             <div className="flex flex-wrap gap-1 mb-2 shrink-0 items-center">
-              {scheduleResult.solutions.length > 1 && scheduleResult.solutions.map((sol, i) => (
-                <Button
-                  key={i}
-                  type="button"
-                  size="sm"
-                  variant={selectedSolutionIndex === i ? 'default' : 'outline'}
-                  onClick={() => setSelectedSolutionIndex(i)}
-                  className="text-xs h-7 px-3"
-                >
-                  Solution {i + 1}{sol.score !== undefined ? ` — ${sol.score} pts` : ''}
-                </Button>
-              ))}
               <Button
                 type="button"
                 size="sm"

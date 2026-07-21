@@ -22,7 +22,14 @@ export const useAppConfigStore = create<AppConfigStore>()(
     }),
     {
       name: 'edt-app-config',
-      version: 1,
+      version: 2,
+      migrate: (persistedState) => {
+        const state = persistedState as { schedulerConfig?: Record<string, unknown> };
+        if (!state?.schedulerConfig || !('maxSolutions' in state.schedulerConfig)) return state;
+        const schedulerConfig = { ...state.schedulerConfig };
+        delete schedulerConfig.maxSolutions;
+        return { ...state, schedulerConfig };
+      },
     },
   ),
 );

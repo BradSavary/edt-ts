@@ -23,7 +23,7 @@ export interface NormalizedSolution {
 }
 
 export interface ScheduleResult {
-  solutions: NormalizedSolution[];
+  solution: NormalizedSolution;
   week: number;
 }
 
@@ -65,7 +65,10 @@ function _buildPayload(
 
   const effectiveConstraints = applyBlockedZonesToConstraints(resources, resolvedConstraintsData, blockedZones, weekNum);
   const hasConstraints = !!constraintsData || blockedZones.length > 0;
-  const options: Record<string, unknown> = { ...schedulerConfig };
+  // Le client ne gère plus qu'une solution (docs/PlanSingleSolution.md). Forcé ici plutôt que
+  // dans le store : `edt-app-config` déjà persisté chez les utilisateurs contient un
+  // `maxSolutions` hérité (6 par défaut) qui repartirait sinon dans la requête.
+  const options: Record<string, unknown> = { ...schedulerConfig, maxSolutions: 1 };
 
   return {
     week: weekNum,
@@ -77,88 +80,6 @@ function _buildPayload(
   };
 }
 
-/**
- * Logique commune : applique enforcedMap + blockedZones, construit le payload,
- * appelle l'API et normalise la réponse.
- */
-async function _callScheduleApi(
-  weekNum: number,
-  resources: ResourceGroupData[],
-  courses: CourseTaskData[],
-  constraintsData: ConstraintsData | null,
-  enforcedMap: Record<string, EnforcedData>,
-  blockedZones: BlockedZone[],
-  schedulerConfig?: SchedulerConfig,
-  groups?: TaskGroupDeclaration[],
-): Promise<ScheduleResult> {
-  const payload = _buildPayload(weekNum, resources, courses, constraintsData, enforcedMap, blockedZones, schedulerConfig, groups);
-
-  const endpoint = `${API_BASE}/api/schedule/v2`;
-  console.groupCollapsed(`📤 Requête ${endpoint}`);
-  console.log(payload);
-  console.groupEnd();
-
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-
-  const rawText = await response.text();
-  let data: unknown;
-  try {
-    data = JSON.parse(rawText);
-  } catch {
-    throw new Error(`L'API a répondu avec une erreur ${response.status} : ${rawText.slice(0, 200)}`);
-  }
-
-  
-  console.groupCollapsed(`📥 Réponse ${endpoint}`);
-  console.log(data);
-  console.groupEnd();
-
-  if (!response.ok) {
-    const err = data as { error?: string };
-    throw new Error(err?.error ?? `Erreur ${response.status}`);
-  }
-
-  const d = data as { solutions: TaskSolutionJSON[]; isComplete: boolean; score?: number; neutralizedTasks?: NeutralizedTaskInfoJSON[]; provenOptimal?: boolean; rootBound?: RootLowerBoundJSON }[];
-  const normalized: NormalizedSolution[] = d.map((s) => ({
-    isComplete: s.isComplete,
-    score: s.score,
-    tasks: s.solutions,
-    neutralizedTasks: s.neutralizedTasks,
-    provenOptimal: s.provenOptimal,
-    rootBound: s.rootBound,
-  }));
-
-  if (normalized.length === 0) {
-    throw new Error('Aucune solution trouvée.');
-  }
-
-  return { solutions: normalized, week: weekNum };
-}
-
-/**
- * Variante données pré-parsées : utilise les données déjà en mémoire (store).
- * Préférer cette fonction quand les données sont disponibles dans useSchedulerStore.
- */
-export async function runScheduleRequestFromData(params: RunScheduleParamsFromData): Promise<ScheduleResult> {
-  const { week, courses, resources, constraintsData, enforcedMap, blockedZones, schedulerConfig, groups } = params;
-
-  if (week < 1 || week > 53) {
-    throw new Error('"week" doit être un entier entre 1 et 53.');
-  }
-  if (!Array.isArray(resources) || resources.length === 0) {
-    throw new Error('resources est requis et ne peut pas être vide.');
-  }
-  if (courses.length === 0) {
-    throw new Error(`Aucun cours trouvé pour la semaine ${week}.`);
-  }
-
-  return _callScheduleApi(week, resources, courses, constraintsData, enforcedMap, blockedZones, schedulerConfig, groups);
-}
-
 export interface ScheduleStatus {
   message: string;
   kind: 'ok' | 'err' | 'inf';
@@ -168,7 +89,7 @@ export interface ScheduleStatus {
  * Construit le message de statut UI à partir d'un résultat de planification.
  */
 export function buildScheduleStatus(result: ScheduleResult): ScheduleStatus {
-  const best = result.solutions[0];
+  const best = result.solution;
    if (!best || best.tasks.length === 0) {
     const neutralized = best?.neutralizedTasks?.length ?? 0;
     const neutralizedMsg = neutralized ? ` — ${neutralized} cours neutralisé(s)` : '';
@@ -185,7 +106,7 @@ export function buildScheduleStatus(result: ScheduleResult): ScheduleStatus {
         : ' — optimum prouvé : le moteur ne placera pas plus sans relâchement de contraintes')
     : '';
   return {
-    message: `${best.isComplete ? '✅ Planification complète' : '⚠️ Incomplète'} — ${result.solutions.length} solution(s)${neutralizedMsg}${provenMsg}`,
+    message: `${best.isComplete ? '✅ Planification complète' : '⚠️ Incomplète'}${neutralizedMsg}${provenMsg}`,
     kind: best.isComplete ? 'ok' : 'err',
   };
 }

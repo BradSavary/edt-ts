@@ -69,17 +69,6 @@ export interface AutonomyDistribution {
   pieceIds: string[];
 }
 
-/**
- * État mutable par solution (overrides, placements, pioche).
- * Sauvegardé et restauré lors des changements de solution.
- */
-export interface SolutionState {
-  taskOverrides: Record<string, PlacedTaskOverride>;
-  placedNeutralizedTasks: PlacedNeutralizedTask[];
-  manuallyNeutralizedTasks: ManuallyNeutralizedTask[];
-  autonomyDistributions: Record<string, AutonomyDistribution>;
-}
-
 // ── Persistance de semaine (localStorage) ──────────────────────────────────
 
 /**

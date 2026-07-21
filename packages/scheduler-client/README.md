@@ -80,7 +80,7 @@ packages/scheduler-client/
 │   ├── calendarUtils.ts              # Helpers FullCalendar + détection conflits
 │   ├── blockedZones.ts               # Logique zones bloquées + indisponibilités ressources
 │   ├── parseCsvCourses.ts            # Parsing CSV → CourseTaskData[] + ressources
-│   ├── scheduleApi.ts                # Client API (runScheduleRequestFromData)
+│   ├── scheduleApi.ts                # Client API (submitJobAsync, pollJob, buildScheduleStatus)
 │   ├── icalExport.ts                 # Export iCal RFC 5545 (.ics)
 │   ├── constraintsUtils.ts           # Utilitaires UI contraintes (DayMap, normalisation)
 │   ├── clientSchedulerData.ts        # Sous-classe ClientSchedulerData extends SchedulerData
@@ -162,7 +162,6 @@ La sidebar gauche présente deux modes selon l'état :
 ### 3. Configuration du planificateur (`SchedulerConfigDialog`)
 
 Accessible via le bouton engrenage dans la sidebar. Permet de configurer :
-- `maxSolutions` — nombre de solutions à générer
 - `timeoutSeconds` — limite de temps en secondes
 - `maxIterations` / `maxEliminations` — paramètres d'élimination
 - **Pause déjeuner** : désactivée / fixe (`from`/`to`) / flottante (`duration`, `earliest`, `latest`)
@@ -294,7 +293,7 @@ Liste groupée des cours (par code ou par enseignant) avec accordéons. `CourseC
 
 ### `scheduleApi.ts`
 
-Une seule fonction publique : `runScheduleRequestFromData(params)`. Prend les données des stores, construit le payload `RawScheduleData`, applique impositions et zones bloquées, appelle l'API et normalise la réponse en `ScheduleResult`.
+`submitJobAsync(params, clientId)` : prend les données des stores, construit le payload `RawScheduleData`, applique impositions et zones bloquées, soumet le job de planification asynchrone. `pollJob`/`cancelJob` gèrent le suivi. `buildScheduleStatus(result: ScheduleResult)` construit le message de statut UI à partir de la solution unique retournée.
 
 ### `icalExport.ts`
 
@@ -354,8 +353,7 @@ Initialise le Draggable FullCalendar sur les tâches neutralisées. Synchronise 
 | Champ | Type | Description |
 |---|---|---|
 | `selectedWeek` | `number \| null` | Semaine ISO courante |
-| `scheduleResult` | `ScheduleResult \| null` | Résultat de la dernière planification |
-| `selectedSolutionIndex` | `number` | Index de la solution affichée |
+| `scheduleResult` | `ScheduleResult \| null` | Résultat de la dernière planification (une solution unique) |
 | `activeSolution` | `TaskSolutionJSON[]` | Tâches de la solution active |
 | `activeNeutralizedTasks` | `NeutralizedTaskInfoJSON[]` | Tâches non placées |
 | `taskOverrides` | `Record<string, PlacedTaskOverride>` | Overrides de position/ressources (drag manuel) |
@@ -396,7 +394,7 @@ Contraintes UI    →  constraintsSlice    →  useSchedulerStore.constraints
                                               ClientSchedulerData  (auto-reconstruit)
                                                         ↓
 usePlanningStore.runSchedule('elimination')
-  →  runScheduleRequestFromData()
+  →  submitJobAsync()
   →  POST /api/schedule/elimination
   →  scheduleResult → activeSolution → ScheduleCalendar
 ```
