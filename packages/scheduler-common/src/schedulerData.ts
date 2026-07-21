@@ -108,6 +108,12 @@ export class SchedulerData {
       this._resourcesManager.applyConstraintsForWeek(week, this._availabilityManager);
     }
 
+    const providedIds = courses.filter(c => c.id !== undefined).map(c => c.id!);
+    const dup = providedIds.find((id, i) => providedIds.indexOf(id) !== i);
+    if (dup !== undefined) {
+      throw new Error(`initTasks : identifiant de cours dupliqué « ${dup} » — les id fournis doivent être uniques dans la semaine.`);
+    }
+
     this._taskCounter = 0;
     const manager = new TasksManager();
 
@@ -121,7 +127,8 @@ export class SchedulerData {
 
       this._taskCounter++;
       const teacherIds = courseData.teacher.flat().join('_');
-      const taskId = `${courseData.code}_${teacherIds}_${courseData.groups.flat().join('_')}_${this._taskCounter}`;
+      const fallbackId = `${courseData.code}_${teacherIds}_${courseData.groups.flat().join('_')}_${this._taskCounter}`;
+      const taskId = courseData.id ?? fallbackId;
       const task = new Task(taskId, courseData, []);
 
       task.resources[ResourceType.TEACHER] = [];

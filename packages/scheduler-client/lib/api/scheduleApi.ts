@@ -1,4 +1,5 @@
-import type { RawScheduleData, TaskSolutionJSON, NeutralizedTaskInfoJSON, CourseTaskData, EnforcedData, ConstraintsData, ResourceGroupData, SchedulerConfig, TaskGroupDeclaration, JobSubmitResponse, JobStatusResponse, RootLowerBoundJSON } from '@edt-ts/scheduler-common';
+import type { RawScheduleData, TaskSolutionJSON, NeutralizedTaskInfoJSON, EnforcedData, ConstraintsData, ResourceGroupData, SchedulerConfig, TaskGroupDeclaration, JobSubmitResponse, JobStatusResponse, RootLowerBoundJSON } from '@edt-ts/scheduler-common';
+import type { CourseTaskDataWithId } from '@/lib/courseId';
 import { type BlockedZone, applyBlockedZonesToConstraints } from '@/lib/calendar/blockedZones';
 
 // En dev : vide → les rewrites Next.js proxifient /api/* vers localhost:3000
@@ -29,7 +30,7 @@ export interface ScheduleResult {
 
 export interface RunScheduleParamsFromData {
   week: number;
-  courses: CourseTaskData[];
+  courses: CourseTaskDataWithId[];
   resources: ResourceGroupData[];
   constraintsData: ConstraintsData | null;
   enforcedMap: Record<string, EnforcedData>;
@@ -41,15 +42,15 @@ export interface RunScheduleParamsFromData {
 function _buildPayload(
   weekNum: number,
   resources: ResourceGroupData[],
-  courses: CourseTaskData[],
+  courses: CourseTaskDataWithId[],
   constraintsData: ConstraintsData | null,
   enforcedMap: Record<string, EnforcedData>,
   blockedZones: BlockedZone[],
   schedulerConfig?: SchedulerConfig,
   groups?: TaskGroupDeclaration[],
 ): RawScheduleData & { options?: Record<string, unknown> } {
-  const coursesWithEnforced = courses.map((course, i) => {
-    const enforced = enforcedMap[String(i)];
+  const coursesWithEnforced = courses.map((course) => {
+    const enforced = enforcedMap[course.id];
     return enforced ? { ...course, enforced } : course;
   });
 

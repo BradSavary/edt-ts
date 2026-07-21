@@ -153,17 +153,6 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
-  /** Retrouve le CourseTaskData original à partir du taskId (format: code_teachers_groups_counter). */
-  function getCourseFromTaskId(taskId: string): import('@edt-ts/scheduler-common').CourseTaskData | null {
-    if (taskId.startsWith('pre-neutral-')) return null;
-    const parts = taskId.split('_');
-    const counterStr = parts.at(-1);
-    if (!counterStr) return null;
-    const counter = parseInt(counterStr, 10);
-    if (isNaN(counter) || counter < 1 || counter > parsedCourses.length) return null;
-    return parsedCourses[counter - 1] ?? null;
-  }
-
   function confirmEnforce(courseKey: string, enforced: EnforcedData, event: EventApi) {
     event.remove();
     const newMap = { ...usePlanningStore.getState().manualEnforcedMap, [courseKey]: enforced };
@@ -253,7 +242,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     info.event.remove();
 
     // Si le cours original a des alternatives de salle/enseignant, demander la sélection
-    const originalCourse = getCourseFromTaskId(taskId);
+    const originalCourse = courseById.get(taskId) ?? null;
     const hasAlts = originalCourse && [...originalCourse.teacher, ...originalCourse.rooms].some((e) => Array.isArray(e));
     // Si pas de cours original mais plusieurs rooms dans les candidats
     const hasMultipleRooms = !originalCourse && rooms.length > 1;

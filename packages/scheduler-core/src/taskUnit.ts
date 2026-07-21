@@ -35,6 +35,7 @@ export class TaskUnit implements ISchedulingUnit {
     }
 
     get id(): string { return this.task.id; }
+    get label(): string { return `${this.task.code} ${this.task.type}`; }
     get duration(): number { return this.task.duration; }
     get isEnforced(): boolean { return this.task.isEnforced; }
 

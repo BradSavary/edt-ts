@@ -211,7 +211,7 @@ export class Scheduler {
 
             const eliminated = this._units[targetIdx];
             const dependents = this._collectDependents(eliminated);
-            console.log(`🗑️  Élimination round ${round + 1} : unité "${eliminated.id}" (${maxCount} échec(s))${dependents.length > 0 ? ` + ${dependents.length} dépendant(s) neutralisé(s) en chaîne` : ''}`);
+            console.log(`🗑️  Élimination round ${round + 1} : unité "${eliminated.label}" (${maxCount} échec(s))${dependents.length > 0 ? ` + ${dependents.length} dépendant(s) neutralisé(s) en chaîne` : ''}`);
             neutralizedList.push({
                 unit: eliminated,
                 eliminationRound: round + 1,
@@ -223,7 +223,7 @@ export class Scheduler {
                     unit: dep,
                     eliminationRound: round + 1,
                     failureCount: counts.get(dep.id) ?? 0,
-                    reason: `Dépend de « ${eliminated.id} », neutralisée ce round — chaîne CM/TD/TP incomplète`,
+                    reason: `Dépend de « ${eliminated.label} », neutralisée ce round — chaîne CM/TD/TP incomplète`,
                 });
             }
             const removed = new Set<string>([eliminated.id, ...dependents.map(d => d.id)]);
@@ -293,7 +293,7 @@ export class Scheduler {
         const dep = unit.getDependsOn();
         if (dep && !this._scheduled.has(dep.id)) {
             throw new Error(
-                `Unité '${unit.id}' : dépendance '${dep.id}' non encore planifiée — ` +
+                `Unité '${unit.label}' : dépendance '${dep.label}' non encore planifiée — ` +
                 `vérifiez que le graphe de dépendances est acyclique et cohérent avec le tri.`
             );
         }
@@ -306,7 +306,7 @@ export class Scheduler {
         }
 /*
         if (this._iterations % 10000 === 0) {
-            console.log(`🔄 Itération ${this._iterations}, unité ${unitIndex}/${this._units.length} : ${unit.id}`);
+            console.log(`🔄 Itération ${this._iterations}, unité ${unitIndex}/${this._units.length} : ${unit.label}`);
         }
 */
         // Exploration des créneaux via earlySchedule

@@ -69,7 +69,7 @@ describe("Scheduler.solveWithElimination() — neutralisation en chaîne des dé
     const tdEntry = neutralized.find(n => n.unit.id.startsWith('OCCEND_R5'))!;
     const tpEntry = neutralized.find(n => n.unit.id.startsWith('OCCEND_RTP'))!;
     expect(tpEntry.eliminationRound).toBe(tdEntry.eliminationRound);
-    expect(tpEntry.reason).toContain(tdEntry.unit.id);
+    expect(tpEntry.reason).toContain(tdEntry.unit.label);
 
     // Le CM (aucun rapport avec la contention) et VICEND (jamais elle-même la cause) restent en place.
     expect(neutralizedIds.some(id => id.startsWith('OCCEND_RCM'))).toBe(false);

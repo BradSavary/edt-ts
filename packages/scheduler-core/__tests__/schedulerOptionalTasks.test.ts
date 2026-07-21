@@ -186,7 +186,7 @@ describe('OptionalTasksScheduler — branch-and-bound sur les sauts (docs/PlanOp
     // reçoit la formule de cascade (même texte que `_recordIncumbent` pour un incumbent B&B).
     expect(cm.reason).toBe('Ne peut pas tenir sous les contraintes actuelles — relâchement nécessaire pour atteindre 100%.');
     expect(td.reason).toContain('Sautée par cascade');
-    expect(td.reason).toContain(cm.unit.id);
+    expect(td.reason).toContain(cm.unit.label);
 
     // Coût de la cascade = 2 : la borne task-aware du B&B (min(1+1,2)=2) interdirait ce saut en
     // isolation, mais le gourmand (maxEliminations:1 = 1 ROUND, pas 1 tâche) trouve et cascade
