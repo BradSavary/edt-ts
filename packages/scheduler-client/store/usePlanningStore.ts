@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { EnforcedData, TaskSolutionJSON, NeutralizedTaskInfoJSON, ConstraintsData, JobStatusResponse } from '@edt-ts/scheduler-common';
 import type { BlockedZone } from '@/lib/calendar/blockedZones';
-import { runScheduleRequestFromData, submitJobAsync, pollJob, cancelJob, buildScheduleStatus, JobConflictError, type ScheduleResult, type ScheduleStatus } from '@/lib/api/scheduleApi';
+import { submitJobAsync, pollJob, cancelJob, buildScheduleStatus, JobConflictError, type ScheduleResult, type ScheduleStatus } from '@/lib/api/scheduleApi';
 import { getClientId } from '@/lib/api/clientId';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useAppConfigStore } from '@/store/useAppConfigStore';
@@ -20,8 +20,8 @@ import { computeAutonomyDistribution, type OccupancyEntry } from '@/lib/calendar
 import { resolveNeutralizedTaskById } from '@/lib/taskCardUtils';
 
 export type { TaskGroupConfig };
-export type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, SolutionState, AutonomyDistribution } from './types';
-import type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, SolutionState, AutonomyDistribution } from './types';
+export type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, AutonomyDistribution } from './types';
+import type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, AutonomyDistribution } from './types';
 export type { PreparedWeekSnapshot } from './slices/weekSavesSlice';
 
 export type Status = ScheduleStatus;
@@ -43,8 +43,6 @@ export interface PlanningStore extends NeutralizedSlice, BlockedZonesSlice, Task
 
   // Résultat de planification (immuable, vient de l'API)
   scheduleResult: ScheduleResult | null;
-  selectedSolutionIndex: number;
-  setSelectedSolutionIndex: (index: number) => void;
 
   // Vues dérivées du résultat (mutables via l'UI — drag, édition)
   activeSolution: TaskSolutionJSON[];
@@ -54,8 +52,6 @@ export interface PlanningStore extends NeutralizedSlice, BlockedZonesSlice, Task
   taskOverrides: Record<string, PlacedTaskOverride>;
   /** Tâches neutralisées placées manuellement sur le calendrier. */
   placedNeutralizedTasks: PlacedNeutralizedTask[];
-  /** État mutable sauvegardé par solution (overrides, pioche, placements). */
-  solutionStates: Record<number, SolutionState>;
   /** Remet la solution courante à son état initial du moteur. */
   resetCurrentSolution: () => void;
 
@@ -182,13 +178,11 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         selectedWeek: week,
         searchQuery: '',
         scheduleResult: null,
-        selectedSolutionIndex: 0,
         activeSolution: [],
         activeNeutralizedTasks: [],
         taskOverrides: {},
         placedNeutralizedTasks: [],
         manuallyNeutralizedTasks: [],
-        solutionStates: {},
         autonomyDistributions: {},
         syntheticNeutralizedTasks: [],
         status: null,
@@ -206,14 +200,12 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         selectedWeek: week,
         searchQuery: '',
         scheduleResult: null,
-        selectedSolutionIndex: 0,
         activeSolution: [],
         activeNeutralizedTasks: [],
         taskOverrides: {},
         placedNeutralizedTasks: [],
         preNeutralizedKeys: [],
         manuallyNeutralizedTasks: [],
-        solutionStates: {},
         autonomyDistributions: {},
         syntheticNeutralizedTasks: [],
         blockedZones: initialBlockedZones,
@@ -227,43 +219,16 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   },
 
   scheduleResult: null,
-  selectedSolutionIndex: 0,
-  setSelectedSolutionIndex: (index) => {
-    const { scheduleResult, selectedSolutionIndex, taskOverrides, placedNeutralizedTasks, manuallyNeutralizedTasks, autonomyDistributions, solutionStates, syntheticNeutralizedTasks } = get();
-    if (!scheduleResult) return;
-    // Sauvegarder l'état courant avant de changer de solution
-    const newSolutionStates: Record<number, SolutionState> = {
-      ...solutionStates,
-      [selectedSolutionIndex]: { taskOverrides, placedNeutralizedTasks, manuallyNeutralizedTasks, autonomyDistributions },
-    };
-    // Restaurer l'état sauvegardé pour la nouvelle solution (ou état initial)
-    const saved = newSolutionStates[index];
-    const solution = scheduleResult.solutions[index];
-    set({
-      selectedSolutionIndex: index,
-      solutionStates: newSolutionStates,
-      activeSolution: solution?.tasks ?? [],
-      activeNeutralizedTasks: [...(solution?.neutralizedTasks ?? []), ...syntheticNeutralizedTasks],
-      taskOverrides: saved?.taskOverrides ?? {},
-      placedNeutralizedTasks: saved?.placedNeutralizedTasks ?? [],
-      manuallyNeutralizedTasks: saved?.manuallyNeutralizedTasks ?? [],
-      autonomyDistributions: saved?.autonomyDistributions ?? {},
-    });
-  },
 
   activeSolution: [],
   activeNeutralizedTasks: [],
   taskOverrides: {},
   placedNeutralizedTasks: [],
-  solutionStates: {},
   resetCurrentSolution: () => {
-    const { scheduleResult, selectedSolutionIndex, solutionStates, syntheticNeutralizedTasks } = get();
+    const { scheduleResult, syntheticNeutralizedTasks } = get();
     if (!scheduleResult) return;
-    const solution = scheduleResult.solutions[selectedSolutionIndex];
-    const newStates = { ...solutionStates };
-    delete newStates[selectedSolutionIndex];
+    const solution = scheduleResult.solution;
     set({
-      solutionStates: newStates,
       taskOverrides: {},
       placedNeutralizedTasks: [],
       manuallyNeutralizedTasks: [],
@@ -459,8 +424,8 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     const { pendingJobResult } = get();
     if (!pendingJobResult) return;
     const { result, syntheticNeutralized, week } = pendingJobResult;
-    const best = result.solutions[0];
-    
+    const best = result.solution;
+
      // Si le moteur n'a placé aucune tâche, on reste en mode préparation
     if (!best || best.tasks.length === 0) {
       const neutralized = [...(best?.neutralizedTasks ?? []), ...syntheticNeutralized];
@@ -479,11 +444,9 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     set({
       selectedWeek: week,
       scheduleResult: result,
-      selectedSolutionIndex: 0,
       activeSolution: best.tasks,
       activeNeutralizedTasks: [...(best.neutralizedTasks ?? []), ...syntheticNeutralized],
       syntheticNeutralizedTasks: syntheticNeutralized,
-      solutionStates: {},
       taskOverrides: {},
       placedNeutralizedTasks: [],
       manuallyNeutralizedTasks: [],
@@ -539,7 +502,6 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       enforcedMap: augmented,
       enforcedViolations: {},
       scheduleResult: null,
-      selectedSolutionIndex: 0,
       activeSolution: [],
       activeNeutralizedTasks: [],
       taskOverrides: {},
@@ -699,13 +661,11 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     if (_pollingInterval !== null) { clearInterval(_pollingInterval); _pollingInterval = null; }
     set({
       scheduleResult: null,
-      selectedSolutionIndex: 0,
       activeSolution: [],
       activeNeutralizedTasks: [],
       taskOverrides: {},
       placedNeutralizedTasks: [],
       manuallyNeutralizedTasks: [],
-      solutionStates: {},
       autonomyDistributions: {},
       syntheticNeutralizedTasks: [],
       enforcedViolations: {},
@@ -721,14 +681,12 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     set({
       selectedWeek: DEFAULT_WEEK,
       scheduleResult: null,
-      selectedSolutionIndex: 0,
       activeSolution: [],
       activeNeutralizedTasks: [],
       taskOverrides: {},
       placedNeutralizedTasks: [],
       preNeutralizedKeys: [],
       manuallyNeutralizedTasks: [],
-      solutionStates: {},
       autonomyDistributions: {},
       syntheticNeutralizedTasks: [],
       enforcedMap: {},
@@ -777,15 +735,18 @@ function _normalizeJobResult(
   jobStatus: JobStatusResponse,
   syntheticNeutralized: NeutralizedTaskInfoJSON[],
 ): { week: number; result: ScheduleResult; syntheticNeutralized: NeutralizedTaskInfoJSON[] } {
+  const first = jobStatus.result?.[0];
   const result: ScheduleResult = {
-    solutions: jobStatus.result!.map((s) => ({
-      isComplete: s.isComplete,
-      score: s.score,
-      tasks: s.solutions,
-      neutralizedTasks: s.neutralizedTasks,
-      provenOptimal: s.provenOptimal,
-      rootBound: s.rootBound,
-    })),
+    solution: first
+      ? {
+          isComplete: first.isComplete,
+          score: first.score,
+          tasks: first.solutions,
+          neutralizedTasks: first.neutralizedTasks,
+          provenOptimal: first.provenOptimal,
+          rootBound: first.rootBound,
+        }
+      : { isComplete: false, tasks: [], neutralizedTasks: [] },
     week: jobStatus.week,
   };
   return { week: jobStatus.week, result, syntheticNeutralized };

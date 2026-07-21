@@ -48,11 +48,9 @@ Composé de `NeutralizedSlice`, `BlockedZonesSlice`, `TaskGroupsSlice` et d'un s
 - `searchQuery: string`, `setSearchQuery` — filtre de la liste des cours
 
 **Résultat de planification :**
-- `scheduleResult: ScheduleResult | null` — résultat brut de l'API (immuable)
-- `selectedSolutionIndex: number` — solution courante (plusieurs solutions possibles)
+- `scheduleResult: ScheduleResult | null` — résultat brut de l'API, une solution unique (immuable)
 - `activeSolution: TaskSolutionJSON[]` — tâches placées de la solution active
 - `activeNeutralizedTasks: NeutralizedTaskInfoJSON[]` — tâches non placées + synthétiques
-- `solutionStates: Record<number, SolutionState>` — overrides/pioche sauvegardés par index de solution
 - `resetCurrentSolution()` — remet la solution à son état initial moteur
 
 **Overrides manuels :**

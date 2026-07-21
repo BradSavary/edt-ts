@@ -43,7 +43,6 @@ interface LunchFloatingDraft {
 type LunchTab = 'none' | 'fixed' | 'floating';
 
 interface Draft {
-  maxSolutions: string;
   timeoutSeconds: string;
   maxIterations: string;
   maxEliminations: string;
@@ -78,7 +77,6 @@ function configToDraft(config: SchedulerConfig): Draft {
   }
 
   return {
-    maxSolutions: String(config.maxSolutions ?? DEFAULT_SCHEDULER_CONFIG.maxSolutions),
     timeoutSeconds: String(config.timeoutSeconds ?? DEFAULT_SCHEDULER_CONFIG.timeoutSeconds),
     maxIterations: String(config.maxIterations ?? DEFAULT_SCHEDULER_CONFIG.maxIterations),
     maxEliminations: String(config.maxEliminations ?? DEFAULT_SCHEDULER_CONFIG.maxEliminations),
@@ -109,7 +107,6 @@ function draftToConfig(draft: Draft): SchedulerConfig {
   }
 
   return {
-    maxSolutions: Math.max(1, parseInt(draft.maxSolutions, 10) || DEFAULT_SCHEDULER_CONFIG.maxSolutions),
     timeoutSeconds: Math.max(1, parseInt(draft.timeoutSeconds, 10) || DEFAULT_SCHEDULER_CONFIG.timeoutSeconds),
     maxIterations: Math.max(1000, parseInt(draft.maxIterations, 10) || DEFAULT_SCHEDULER_CONFIG.maxIterations),
     maxEliminations: Math.max(1, parseInt(draft.maxEliminations, 10) || DEFAULT_SCHEDULER_CONFIG.maxEliminations),
@@ -222,8 +219,7 @@ export function SchedulerConfigDialog() {
                   <span className="space-y-0.5">
                     <span className="block text-sm">Placement maximal (branch-and-bound)</span>
                     <span className="block text-xs text-muted-foreground">
-                      Maximise le nombre de cours placés, jamais pire que l&apos;élimination. Une
-                      seule solution (la meilleure) : le nombre max de solutions est ignoré. Peut
+                      Maximise le nombre de cours placés, jamais pire que l&apos;élimination. Peut
                       prouver qu&apos;aucun résultat meilleur n&apos;est atteignable par le moteur —
                       dans ce cas, seul un relâchement de contraintes peut débloquer les cours
                       restants.
@@ -233,40 +229,20 @@ export function SchedulerConfigDialog() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="cfg-maxSolutions">Nombre max de solutions</Label>
-                <Input
-                  id="cfg-maxSolutions"
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={draft.maxSolutions}
-                  onChange={(e) => setDraftField('maxSolutions', e.target.value)}
-                  disabled={draft.searchStrategy === 'maxPlacement'}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Le moteur s&apos;arrête dès qu&apos;il a trouvé ce nombre de solutions complètes.
-                  Une valeur trop haute peut ralentir le calcul.
-                  {draft.searchStrategy === 'maxPlacement' && ' (ignoré en placement maximal — une seule solution est rendue.)'}
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="cfg-maxEliminations">Éliminations max</Label>
-                <Input
-                  id="cfg-maxEliminations"
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={draft.maxEliminations}
-                  onChange={(e) => setDraftField('maxEliminations', e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Nombre de tâches que le moteur peut neutraliser pour
-                  trouver une solution. A augmenter si la planification échoue.
-                </p>
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cfg-maxEliminations">Éliminations max</Label>
+              <Input
+                id="cfg-maxEliminations"
+                type="number"
+                min="1"
+                max="20"
+                value={draft.maxEliminations}
+                onChange={(e) => setDraftField('maxEliminations', e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Nombre de tâches que le moteur peut neutraliser pour
+                trouver une solution. A augmenter si la planification échoue.
+              </p>
             </div>
 
             <div className="flex items-start gap-3 pt-1">
