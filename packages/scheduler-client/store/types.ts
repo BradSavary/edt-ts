@@ -21,8 +21,6 @@ export interface Placement {
   /** Combo exact appliqué, sans alternatives. */
   resources: { teachers: string[]; groups: string[]; rooms: string[] };
   origin: PlacementOrigin;
-  /** Violation détectée au moment du placement. */
-  constraintViolation?: 'red' | 'orange' | 'none';
   /**
    * `pre-enforced` uniquement : imposition propagée automatiquement depuis un groupe de tâches
    * (jamais saisie à la main). Non persisté — exclu de `manualEnforcedMap` par

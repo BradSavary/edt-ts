@@ -212,17 +212,7 @@ describe('updatePlacement — règle de bascule d\'origine', () => {
     expect(p.origin).toBe('pre-enforced');
   });
 
-  it('patch qui ne touche que constraintViolation → origine inchangée', () => {
-    usePlanningStore.setState({
-      placements: [{ placementId: 't1', taskId: 't1', startTime: 480, resources: { teachers: [], groups: [], rooms: [] }, origin: 'auto' }],
-    });
-    usePlanningStore.getState().updatePlacement('t1', { constraintViolation: 'red' });
-    const p = usePlanningStore.getState().placements[0];
-    expect(p.origin).toBe('auto');
-    expect(p.constraintViolation).toBe('red');
-  });
-
-  it('post-enforced + patch resources → reste post-enforced', () => {
+it('post-enforced + patch resources → reste post-enforced', () => {
     usePlanningStore.setState({
       placements: [{ placementId: 't1', taskId: 't1', startTime: 480, resources: { teachers: [], groups: [], rooms: [] }, origin: 'post-enforced' }],
     });

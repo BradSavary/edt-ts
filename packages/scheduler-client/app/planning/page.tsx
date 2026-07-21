@@ -29,9 +29,12 @@ export default function PlanningPage() {
   const resources = useProjectStore((s) => s.resources);
 
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
-  const scheduleResult = usePlanningStore((s) => s.scheduleResult);
+  // `lastRun` (persisté) plutôt que `scheduleResult` (session uniquement) : la présence des
+  // actions solution ("↺ Réinitialiser", Statistiques) doit survivre au rechargement (§4.6).
+  const lastRun = usePlanningStore((s) => s.lastRun);
   const resetCurrentSolution = usePlanningStore((s) => s.resetCurrentSolution);
   const placements = usePlanningStore((s) => s.placements);
+  const unplaced = usePlanningStore((s) => s.unplaced);
   const searchQuery = usePlanningStore((s) => s.searchQuery);
   const status = usePlanningStore((s) => s.status);
   const pendingJobResult = usePlanningStore((s) => s.pendingJobResult);
@@ -78,6 +81,15 @@ export default function PlanningPage() {
     [placements, courseById, selectedWeek],
   );
 
+  // ── Bandeau reconstruit après rechargement : plus de `scheduleResult` (métadonnées de calcul
+  // non persistées), donc pas de prétention à l'optimalité — juste un décompte (§4.6 du plan).
+  const fallbackStatus = useMemo(() => {
+    if (status || lastRun === null) return null;
+    const placedCount = new Set(placements.map((p) => p.taskId)).size;
+    return { message: `${placedCount} cours placé(s), ${unplaced.length} non placé(s)`, kind: 'inf' as const };
+  }, [status, lastRun, placements, unplaced]);
+  const displayedStatus = status ?? fallbackStatus;
+
   return (
     <div className="h-full flex flex-col overflow-hidden bg-secondary/30">
 
@@ -89,7 +101,7 @@ export default function PlanningPage() {
         <GroupDrawer parsedCourses={parsedCourses} />
 
         <main className="flex-1 overflow-hidden p-4 flex flex-col">
-          {scheduleResult && (
+          {lastRun !== null && (
             <div className="flex flex-wrap gap-1 mb-2 shrink-0 items-center">
               <Button
                 type="button"
@@ -123,17 +135,17 @@ export default function PlanningPage() {
       </div>
 
       {/* Bannière de statut */}
-      {status ? (
+      {displayedStatus ? (
         <Alert
           className={`shrink-0 rounded-none border-x-0 border-t-0 py-2 px-6 ${
-            status.kind === 'ok'
+            displayedStatus.kind === 'ok'
               ? 'border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/40 dark:text-green-300'
-              : status.kind === 'err'
+              : displayedStatus.kind === 'err'
               ? 'border-destructive/30 bg-destructive/10 text-destructive'
               : 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
           }`}
         >
-          <AlertDescription className="text-sm font-medium">{status.message}</AlertDescription>
+          <AlertDescription className="text-sm font-medium">{displayedStatus.message}</AlertDescription>
         </Alert>
       ) : (
         <div className="shrink-0 h-10.5 border-b border-border bg-background/50" />

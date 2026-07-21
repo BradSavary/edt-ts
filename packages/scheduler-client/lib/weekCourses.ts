@@ -32,9 +32,13 @@ export function getCoursesForWeek(
 
 /**
  * Élague sélectivement, pour chaque semaine listée dans `removedIdsByWeek`, les références
- * à des ids de cours supprimés dans `taskGroups[].courseKeys`, `manualEnforcedMap` et
- * `preNeutralizedKeys`. Un groupe de tâches tombé à moins de 2 membres est retiré entièrement
- * (un groupe à 1 membre n'a plus de sens). `manualCourses` n'est jamais touché.
+ * à des ids de cours supprimés dans `taskGroups[].courseKeys`, `manualEnforcedMap`,
+ * `preNeutralizedKeys`, ainsi que dans les placements et non-placés persistés
+ * (`placements`, `unplaced`, `lastRun`). Un groupe de tâches tombé à moins de 2 membres est
+ * retiré entièrement (un groupe à 1 membre n'a plus de sens). `manualCourses` n'est jamais touché.
+ *
+ * L'élagage défensif fait à la relecture (`setSelectedWeek`) ne remplace pas celui-ci : il masque
+ * les fantômes à l'affichage, alors qu'ici on les retire du disque.
  *
  * Les semaines absentes de `removedIdsByWeek` (ou sans snapshot) gardent leur référence
  * d'objet strictement inchangée — important pour ne pas déclencher de re-render/re-save inutile.
@@ -64,7 +68,22 @@ export function pruneWeekSavesOfCourseIds(
       Object.entries(snapshot.manualEnforcedMap).filter(([id]) => !removedIds.has(id)),
     );
 
-    next[key] = { ...snapshot, taskGroups, preNeutralizedKeys, manualEnforcedMap };
+    const placements = snapshot.placements?.filter((p) => !removedIds.has(p.taskId));
+    const unplaced = snapshot.unplaced?.filter((u) => !removedIds.has(u.taskId));
+    const lastRun = snapshot.lastRun && {
+      placements: snapshot.lastRun.placements.filter((p) => !removedIds.has(p.taskId)),
+      unplaced: snapshot.lastRun.unplaced.filter((u) => !removedIds.has(u.taskId)),
+    };
+
+    next[key] = {
+      ...snapshot,
+      taskGroups,
+      preNeutralizedKeys,
+      manualEnforcedMap,
+      ...(placements ? { placements } : {}),
+      ...(unplaced ? { unplaced } : {}),
+      ...(lastRun ? { lastRun } : {}),
+    };
     changed = true;
   }
 
