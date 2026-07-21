@@ -63,6 +63,12 @@ export interface CourseTaskData {
   enforced?: EnforcedData;
   /** Identifiant du groupe auquel appartient cette tâche (référence une TaskGroupDeclaration). */
   taskGroupId?: string;
+  /**
+   * Identifiant stable fourni par l'appelant. Quand il est présent, il devient le `taskId` de la
+   * tâche, de bout en bout jusqu'à la réponse JSON. Absent (fixtures, scripts d'essai), on retombe
+   * sur l'identifiant positionnel historique.
+   */
+  id?: string;
 }
 
 export interface CoursesData {

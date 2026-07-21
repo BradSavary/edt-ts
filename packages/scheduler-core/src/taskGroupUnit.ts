@@ -50,6 +50,9 @@ export class TaskGroupUnit implements ISchedulingUnit {
         this._tasks = tasks;
     }
 
+    get label(): string {
+        return `groupe [${this._tasks.map(t => `${t.code} ${t.type}`).join(', ')}]`;
+    }
     get duration(): number {
         if (this._tasks.length === 0) return 0;
         if (this._groupType === 'parallel') {

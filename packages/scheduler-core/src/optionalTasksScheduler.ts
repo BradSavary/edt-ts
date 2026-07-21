@@ -291,7 +291,7 @@ export class OptionalTasksScheduler extends Scheduler {
         const skippedUnits = new Set((greedyBest.neutralizedUnits ?? []).map(n => n.unit));
         const neutralizedUnits: NeutralizedUnitInfo[] = (greedyBest.neutralizedUnits ?? []).map(info => {
             const dep = info.unit.getDependsOn();
-            const reason = dep && skippedUnits.has(dep) ? cascadeReason(dep.id) : GENERIC_UNPLACEABLE_REASON;
+            const reason = dep && skippedUnits.has(dep) ? cascadeReason(dep.label) : GENERIC_UNPLACEABLE_REASON;
             return { ...info, reason };
         });
         return { ...greedyBest, neutralizedUnits };
@@ -340,7 +340,7 @@ export class OptionalTasksScheduler extends Scheduler {
         const dep = unit.getDependsOn();
         if (dep && !this._scheduled.has(dep.id) && !this._skippedSet.has(dep.id)) {
             throw new Error(
-                `OptionalTasksScheduler : unité '${unit.id}' atteinte avant sa dépendance '${dep.id}' — ` +
+                `OptionalTasksScheduler : unité '${unit.label}' atteinte avant sa dépendance '${dep.label}' — ` +
                 `vérifiez que le graphe de dépendances est acyclique et cohérent avec le tri.`
             );
         }
@@ -479,7 +479,7 @@ export class OptionalTasksScheduler extends Scheduler {
                     unit: dependent,
                     eliminationRound: 0,
                     failureCount: this._failureCounts.get(dependent.id) ?? 0,
-                    reason: cascadeReason(root.id),
+                    reason: cascadeReason(root.label),
                 });
             }
         }

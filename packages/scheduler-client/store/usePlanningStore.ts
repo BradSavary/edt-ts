@@ -292,27 +292,31 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     // Filtrage des tâches pré-neutralisées
     const preNeutSet = new Set(preNeutralizedKeys);
     const filteredCourses: CourseTaskDataWithId[] = [];
-    const idToNewIdx = new Map<string, number>();
+    const keptIds = new Set<string>();
     const preNeutCourses: CourseTaskDataWithId[] = [];
 
     for (const course of coursesForWeek) {
       if (preNeutSet.has(course.id)) {
         preNeutCourses.push(course);
       } else {
-        idToNewIdx.set(course.id, filteredCourses.length);
+        keptIds.add(course.id);
         filteredCourses.push(course);
       }
     }
 
-    // Remapping de enforcedMap et taskGroups vers les nouveaux indices
-    const remappedEnforced: Record<string, EnforcedData> = {};
-    for (const [courseId, data] of Object.entries(enforcedMap)) {
-      const newIdx = idToNewIdx.get(courseId);
-      if (newIdx !== undefined) remappedEnforced[String(newIdx)] = data;
-    }
+    // taskGroups filtré sur les cours conservés (non pré-neutralisés) — les impositions
+    // (enforcedMap) sont déjà clées par course.id, aucun remapping n'est nécessaire.
+    // Restreindre aux cours conservés reste en revanche nécessaire pour filterResourcesForCourses :
+    // sans ça, une ressource référencée uniquement par une imposition portant sur un cours
+    // pré-neutralisé rentrerait dans le payload, ce que ce filtrage existe précisément pour
+    // éviter. Un cours peut être à la fois pré-neutralisé et imposé — togglePreNeutralized ne
+    // nettoie pas manualEnforcedMap, et réciproquement.
+    const keptEnforced = Object.fromEntries(
+      Object.entries(enforcedMap).filter(([id]) => keptIds.has(id)),
+    );
     const remappedTaskGroups: TaskGroupConfig[] = taskGroups.map((g) => ({
       ...g,
-      courseKeys: g.courseKeys.filter((k) => idToNewIdx.has(k)),
+      courseKeys: g.courseKeys.filter((k) => keptIds.has(k)),
     }));
 
     const { coursesWithGroups, declarations } = buildTaskGroupData(filteredCourses, remappedTaskGroups);
@@ -347,7 +351,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     // de cette semaine (+ celles imposées) — évite les avertissements "non trouvée
     // dans les contraintes" pour des ressources sans rapport (ex. un enseignant qui
     // n'intervient que d'autres semaines) et allège le payload.
-    const filteredResources = filterResourcesForCourses(resources, coursesWithGroups, remappedEnforced);
+    const filteredResources = filterResourcesForCourses(resources, coursesWithGroups, keptEnforced);
 
     const clientId = getClientId();
     const submitParams = {
@@ -355,7 +359,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       courses: coursesWithGroups,
       resources: filteredResources,
       constraintsData: constraints as ConstraintsData | null,
-      enforcedMap: remappedEnforced,
+      enforcedMap,
       blockedZones,
       schedulerConfig,
       groups: declarations.length > 0 ? declarations : undefined,

@@ -1,4 +1,4 @@
-import type { CourseTaskData, EnforcedData, TaskGroupDeclaration } from '@edt-ts/scheduler-common';
+import type { EnforcedData, TaskGroupDeclaration } from '@edt-ts/scheduler-common';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
 
 export type GroupType = TaskGroupDeclaration['type'];
@@ -104,7 +104,7 @@ export interface TaskGroupConfig {
 export function buildTaskGroupData(
   courses: CourseTaskDataWithId[],
   groups: TaskGroupConfig[],
-): { coursesWithGroups: CourseTaskData[]; declarations: TaskGroupDeclaration[] } {
+): { coursesWithGroups: CourseTaskDataWithId[]; declarations: TaskGroupDeclaration[] } {
   // Construire une map courseId → groupId
   const idToGroupId = new Map<string, string>();
   const declarations: TaskGroupDeclaration[] = [];

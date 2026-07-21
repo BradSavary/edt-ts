@@ -39,6 +39,12 @@ export interface ISchedulingUnit {
     /** Identifiant unique */
     readonly id: string;
 
+    /**
+     * Chaîne d'affichage (logs, messages d'erreur, `reason` visible par l'utilisateur).
+     * Jamais une clé — ne pas l'utiliser pour indexer une Map/Set ni comparer des unités.
+     */
+    readonly label: string;
+
     /** Durée en minutes */
     readonly duration: number;
 
