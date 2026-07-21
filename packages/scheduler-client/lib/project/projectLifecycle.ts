@@ -1,7 +1,7 @@
 import { useProjectStore } from '@/store/useProjectStore';
 import { usePlanningStore, DEFAULT_WEEK } from '@/store/usePlanningStore';
 import type { SchoolYearConfig } from '@/lib/schoolHolidays';
-import { parseProjectFile } from './projectFile';
+import { parseProjectFile, clearAllWeekKeys } from './projectFile';
 
 /**
  * Point d'entrée unique pour créer/charger/refermer un Projet.
@@ -10,10 +10,17 @@ import { parseProjectFile } from './projectFile';
  * Réinitialise systématiquement la session de planification (`usePlanningStore.reset()`)
  * AVANT de muter le Projet, pour ne jamais laisser une semaine/solution d'un ancien
  * projet visible pendant la transition.
+ *
+ * `clearAllWeekKeys()` est appelé explicitement à chaque transition de projet : le storage
+ * engine découpé par semaine (`createProjectStorage`) balaie déjà les clés orphelines de
+ * lui-même dès que `weekSaves` change (voir `setItem`), donc c'est une ceinture-bretelles —
+ * mais un chemin qui muterait l'état sans passer par une écriture persistée ne serait pas
+ * couvert par cette seule garantie.
  */
 export function createNewProject(name: string, schoolYearConfig: SchoolYearConfig): void {
   usePlanningStore.getState().reset();
   useProjectStore.getState().createProject(name, schoolYearConfig);
+  clearAllWeekKeys();
   // Après reset() (semaine remise à DEFAULT_WEEK sans recalcul), reconstruit l'état dérivé
   // (zones bloquées vacances, etc.) maintenant que le Projet est en place.
   usePlanningStore.getState().setSelectedWeek(DEFAULT_WEEK);
@@ -27,6 +34,7 @@ export async function loadProjectFromFile(file: File): Promise<void> {
   usePlanningStore.getState().reset();
   useProjectStore.getState().closeProject();
   useProjectStore.getState().createProject(parsed.name, parsed.schoolYearConfig);
+  clearAllWeekKeys();
   useProjectStore.setState({
     coursesFileName: parsed.coursesFileName,
     allCourses: parsed.allCourses,
@@ -46,4 +54,5 @@ export async function loadProjectFromFile(file: File): Promise<void> {
 export function closeCurrentProject(): void {
   usePlanningStore.getState().reset();
   useProjectStore.getState().closeProject();
+  clearAllWeekKeys();
 }

@@ -9,15 +9,19 @@ import type { CourseTaskDataWithId } from '../lib/courseId';
 import { ClientSchedulerData } from '../lib/api/clientSchedulerData';
 import { type YearColorConfig, DEFAULT_YEAR_COLORS } from '../lib/calendar/yearColors';
 import type { SchoolYearConfig } from '../lib/schoolHolidays';
-import { migrateLegacyProjectStorage } from '../lib/project/legacyMigration';
+import { migrateLegacyProjectStorage, migrateProjectStorageToSplitKeys } from '../lib/project/legacyMigration';
 import { createProjectStorage, PROJECT_STORAGE_KEY } from '../lib/project/projectFile';
 import { DEFAULT_SLOTS } from '../lib/constraintsUtils';
 import { getManualCoursesForWeek, pruneWeekSavesOfCourseIds } from '../lib/weekCourses';
 import type { WeekSavesMap } from './slices/weekSavesSlice';
 import { diffCsvCourses, diffCsvResources, type ResourceGroupDataWithStatus } from '../lib/csvMerge';
 
-// Migration one-shot AVANT que le storage engine ci-dessous ne lise `edt-project`.
+// Migrations one-shot AVANT que le storage engine ci-dessous ne lise `edt-project`.
+// Ordre impératif : edt-scheduler (ancien monolithe pré-Projet) -> edt-project monolithe
+// -> edt-project + edt-project:week:* (découpé par semaine). Inverser casse la migration
+// des utilisateurs venant du plus ancien format.
 migrateLegacyProjectStorage();
+migrateProjectStorageToSplitKeys();
 
 // ── Slice : données du Projet actif ─────────────────────────────────────────
 // projectName === null ⇔ aucun projet chargé. Tous les autres champs sont

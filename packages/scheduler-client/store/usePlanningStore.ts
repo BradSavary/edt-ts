@@ -831,31 +831,55 @@ function _saveCurrentWeekSnapshot() {
   const ps = usePlanningStore.getState();
   const ss = useProjectStore.getState();
   if (ps.selectedWeek === null || !ss.schoolYearConfig) return;
+
+  const manualBlockedZones = ps.blockedZones
+    .filter((z) => !z.source || z.source === 'manual')
+    .map((z) => ({
+      id: z.id,
+      start: z.start.toISOString(),
+      end: z.end.toISOString(),
+      label: z.label,
+      source: z.source,
+    }));
+  const preNeutralizedKeys = ps.unplaced.filter((u) => u.origin === 'user-pre').map((u) => u.taskId);
+  // Dérivé de `placements` (source affichée), propagés exclus — reproduit `manualEnforcedMap`.
+  const manualEnforcedMap = enforcedMapFromPlacements(ps.placements, { excludeDerived: true });
+  // Read-back volontaire (pas une mutation) : les cours manuels sont désormais gérés par
+  // addManualCourse/removeManualCourse/updateManualCourse, qui écrivent directement dans
+  // weekSaves. saveWeek remplace tout le snapshot, donc il faut relire l'existant ici pour
+  // ne jamais le perdre lors d'une sauvegarde déclenchée par autre chose (taskGroups, etc.).
+  const manualCourses = getManualCoursesForWeek(ss.weekSaves, ps.selectedWeek);
+  // Idem pour la note libre (setWeekNote écrit directement dans weekSaves) : sans cette
+  // relecture, tout changement de taskGroups/blockedZones/enforcedMap effacerait la note.
+  const note = ss.weekSaves[String(ps.selectedWeek)]?.note;
+
+  // Ne pas créer un snapshot vide pour une semaine qui n'en a pas déjà un. Sans ça, ouvrir un
+  // projet suffit à en fabriquer un pour DEFAULT_WEEK : `createNewProject`/`loadProjectFromFile`
+  // enchaînent `reset()` — qui remet déjà `selectedWeek` à DEFAULT_WEEK — puis
+  // `setSelectedWeek(DEFAULT_WEEK)`. La semaine ne change donc pas, le garde-fou
+  // `state.selectedWeek !== prev.selectedWeek` du subscribe ne s'applique pas, et les nouvelles
+  // références de `taskGroups`/`blockedZones` déclenchent une sauvegarde.
+  // Si un snapshot existe déjà, on le met à jour même vide : c'est le cas légitime de
+  // l'utilisateur qui efface la préparation d'une semaine.
+  const isEmpty =
+    ps.taskGroups.length === 0 &&
+    manualBlockedZones.length === 0 &&
+    preNeutralizedKeys.length === 0 &&
+    Object.keys(manualEnforcedMap).length === 0 &&
+    manualCourses.length === 0 &&
+    note === undefined;
+  if (isEmpty && !ss.hasWeekSave(ps.selectedWeek)) return;
+
   ss.saveWeek({
     weekNumber: ps.selectedWeek,
     schoolYear: ss.schoolYearConfig.year,
     savedAt: Date.now(),
     taskGroups: ps.taskGroups,
-    manualBlockedZones: ps.blockedZones
-      .filter((z) => !z.source || z.source === 'manual')
-      .map((z) => ({
-        id: z.id,
-        start: z.start.toISOString(),
-        end: z.end.toISOString(),
-        label: z.label,
-        source: z.source,
-      })),
-    preNeutralizedKeys: ps.unplaced.filter((u) => u.origin === 'user-pre').map((u) => u.taskId),
-    // Dérivé de `placements` (source affichée), propagés exclus — reproduit `manualEnforcedMap`.
-    manualEnforcedMap: enforcedMapFromPlacements(ps.placements, { excludeDerived: true }),
-    // Read-back volontaire (pas une mutation) : les cours manuels sont désormais gérés par
-    // addManualCourse/removeManualCourse/updateManualCourse, qui écrivent directement dans
-    // weekSaves. saveWeek remplace tout le snapshot, donc il faut relire l'existant ici pour
-    // ne jamais le perdre lors d'une sauvegarde déclenchée par autre chose (taskGroups, etc.).
-    manualCourses: getManualCoursesForWeek(ss.weekSaves, ps.selectedWeek),
-    // Idem pour la note libre (setWeekNote écrit directement dans weekSaves) : sans cette
-    // relecture, tout changement de taskGroups/blockedZones/enforcedMap effacerait la note.
-    note: ss.weekSaves[String(ps.selectedWeek)]?.note,
+    manualBlockedZones,
+    preNeutralizedKeys,
+    manualEnforcedMap,
+    manualCourses,
+    note,
   });
 }
 

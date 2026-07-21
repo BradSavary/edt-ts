@@ -1,4 +1,12 @@
-import { PROJECT_FILE_VERSION, type ProjectFileV1 } from './projectFile';
+import {
+  PROJECT_FILE_VERSION,
+  STORAGE_VERSION,
+  isProjectFileV1,
+  projectFileToState,
+  weekStorageKey,
+  type ProjectFileV1,
+  type PersistedProjectEntry,
+} from './projectFile';
 import { getAvailableSchoolYears, type SchoolYearConfig } from '@/lib/schoolHolidays';
 import { DEFAULT_YEAR_COLORS } from '@/lib/calendar/yearColors';
 import { DEFAULT_SLOTS } from '@/lib/constraintsUtils';
@@ -73,6 +81,67 @@ export function migrateLegacyProjectStorage(): void {
     if (!hadSchoolYear) {
       try { sessionStorage.setItem(MIGRATION_BANNER_KEY, '1'); } catch { /* sessionStorage indisponible : tant pis pour le bandeau */ }
     }
+  } catch {
+    // localStorage indisponible/instrumenté de façon incomplète : on abandonne la migration
+    // sans bloquer le chargement du store.
+  }
+}
+
+/**
+ * Migration one-shot du monolithe `edt-project` (un seul blob `ProjectFileV1`, `weekSaves`
+ * inclus) vers le format découpé par semaine (§3 du plan de refactoring stockage) : une clé
+ * `edt-project:week:<n>` par semaine, l'entrée `edt-project` ne portant plus que le reste des
+ * champs + `weeks` + `storageVersion: 2`. Best-effort, jamais bloquant, sur le modèle de
+ * `migrateLegacyProjectStorage`. Doit s'exécuter juste après elle et avant toute lecture par le
+ * storage engine (voir l'appel dans `useProjectStore.ts`) — la chaîne de migration est
+ * `edt-scheduler` → monolithe `edt-project` → clés `edt-project` + `edt-project:week:*` découpées.
+ */
+export function migrateProjectStorageToSplitKeys(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(PROJECT_KEY);
+    if (!raw) return; // rien à migrer
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return; // blob illisible : on ne bloque pas le démarrage, tant pis pour la migration
+    }
+
+    if (typeof parsed === 'object' && parsed !== null && (parsed as { storageVersion?: unknown }).storageVersion === STORAGE_VERSION) {
+      return; // déjà migré
+    }
+    if (!isProjectFileV1(parsed)) return; // format inattendu (ni monolithe v1, ni v2) : on n'insiste pas
+
+    const fields = projectFileToState(parsed);
+    const weeks = Object.keys(fields.weekSaves).map(Number);
+
+    // Écrire les semaines AVANT l'entrée projet : si l'opération est interrompue au milieu, on
+    // préfère des orphelins (inoffensifs, ignorés à la lecture) à une entrée projet qui référence
+    // des semaines inexistantes.
+    for (const week of weeks) {
+      try {
+        localStorage.setItem(weekStorageKey(week), JSON.stringify(fields.weekSaves[String(week)]));
+      } catch {
+        // best-effort : semaine perdue plutôt que migration bloquée
+      }
+    }
+
+    const entry: PersistedProjectEntry = {
+      projectName: fields.projectName,
+      schoolYearConfig: fields.schoolYearConfig,
+      allCourses: fields.allCourses,
+      resources: fields.resources,
+      coursesFileName: fields.coursesFileName,
+      constraints: fields.constraints,
+      yearColorConfig: fields.yearColorConfig,
+      tightThreshold: fields.tightThreshold,
+      criticalThreshold: fields.criticalThreshold,
+      weeks,
+      storageVersion: STORAGE_VERSION,
+    };
+    localStorage.setItem(PROJECT_KEY, JSON.stringify(entry));
   } catch {
     // localStorage indisponible/instrumenté de façon incomplète : on abandonne la migration
     // sans bloquer le chargement du store.
