@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { EnforcedData, TaskSolutionJSON, NeutralizedTaskInfoJSON, ConstraintsData, JobStatusResponse } from '@edt-ts/scheduler-common';
+import type { EnforcedData, NeutralizedTaskInfoJSON, ConstraintsData, JobStatusResponse } from '@edt-ts/scheduler-common';
 import type { BlockedZone } from '@/lib/calendar/blockedZones';
 import { submitJobAsync, pollJob, cancelJob, buildScheduleStatus, JobConflictError, type ScheduleResult, type ScheduleStatus } from '@/lib/api/scheduleApi';
 import { getClientId } from '@/lib/api/clientId';
@@ -15,13 +15,13 @@ import { createTaskGroupsSlice, type TaskGroupsSlice } from '@/store/slices/task
 import { createAutonomyDistributionSlice, type AutonomyDistributionSlice } from '@/store/slices/autonomyDistributionSlice';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
 import { getMondayOfISOWeek, dateToStartTime } from '@/lib/calendar/calendarUtils';
-import { computeEffectiveSolution } from '@/lib/calendar/effectiveSolution';
+import { placementsFromSolution, placementsFromEnforcedMap, enforcedMapFromPlacements } from '@/lib/calendar/placements';
 import { computeAutonomyDistribution, type OccupancyEntry } from '@/lib/calendar/autonomyDistribution';
 import { resolveNeutralizedTaskById } from '@/lib/taskCardUtils';
 
 export type { TaskGroupConfig };
-export type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, AutonomyDistribution } from './types';
-import type { PlacedTaskOverride, ManuallyNeutralizedTask, PlacedNeutralizedTask, AutonomyDistribution } from './types';
+export type { Placement, PlacementOrigin, ManuallyNeutralizedTask, PlacedNeutralizedTask, AutonomyDistribution } from './types';
+import type { Placement, AutonomyDistribution } from './types';
 export type { PreparedWeekSnapshot } from './slices/weekSavesSlice';
 
 export type Status = ScheduleStatus;
@@ -41,17 +41,18 @@ export interface PlanningStore extends NeutralizedSlice, BlockedZonesSlice, Task
   selectedWeek: number | null;
   setSelectedWeek: (week: number | null) => void;
 
-  // Résultat de planification (immuable, vient de l'API)
+  // Résultat de planification (immuable, vient de l'API — source du "↺ Réinitialiser" et des
+  // diagnostics de non-placés ; n'est plus lu pour l'affichage, voir `placements`)
   scheduleResult: ScheduleResult | null;
 
-  // Vues dérivées du résultat (mutables via l'UI — drag, édition)
-  activeSolution: TaskSolutionJSON[];
   activeNeutralizedTasks: NeutralizedTaskInfoJSON[];
 
-  /** Overrides de position/ressources pour les tâches de activeSolution modifiées manuellement. */
-  taskOverrides: Record<string, PlacedTaskOverride>;
-  /** Tâches neutralisées placées manuellement sur le calendrier. */
-  placedNeutralizedTasks: PlacedNeutralizedTask[];
+  /** Emploi du temps courant de la semaine — toutes origines confondues (auto, imposé, retouché). */
+  placements: Placement[];
+  /** Déplace/édite un placement. Un `auto` dont le patch touche startTime/duration/resources bascule en `post-enforced`. */
+  updatePlacement: (placementId: string, patch: Partial<Omit<Placement, 'placementId' | 'taskId'>>) => void;
+  addPlacement: (placement: Placement) => void;
+  removePlacement: (placementId: string) => void;
   /** Remet la solution courante à son état initial du moteur. */
   resetCurrentSolution: () => void;
 
@@ -59,11 +60,10 @@ export interface PlanningStore extends NeutralizedSlice, BlockedZonesSlice, Task
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 
-  // Contraintes de session
+  // Contraintes de session — map augmentée (manuelle + propagation de groupe), consommée par
+  // SidebarPreparation (badge "imposé" en mode préparation) et par runSchedule (payload moteur).
+  // Le rendu calendrier ne la lit plus directement : voir `placements` (origin: 'pre-enforced').
   enforcedMap: Record<string, EnforcedData>;
-  /** Violations de contrainte pour les tâches imposées déplacées manuellement. */
-  enforcedViolations: Record<string, 'red' | 'orange' | 'none'>;
-  setEnforcedViolation: (courseKey: string, violation: 'red' | 'orange' | 'none') => void;
 
   // Statut UI
   isLoading: boolean;
@@ -90,15 +90,6 @@ export interface PlanningStore extends NeutralizedSlice, BlockedZonesSlice, Task
 
   // Cours forcés (reçoit la map MANUELLE — la propagation de groupes est calculée automatiquement)
   handleEnforceChange: (map: Record<string, EnforcedData>) => void;
-
-  // Overrides de tâches planifiées
-  setTaskOverride: (taskId: string, override: PlacedTaskOverride) => void;
-  moveTaskOverride: (taskId: string, startTime: number) => void;
-
-  // Tâches neutralisées placées manuellement
-  addPlacedNeutralizedTask: (task: PlacedNeutralizedTask) => void;
-  updatePlacedNeutralizedTask: (taskId: string, patch: Partial<Omit<PlacedNeutralizedTask, 'taskId'>>) => void;
-  removePlacedNeutralizedTask: (taskId: string) => void;
 
   /** Calcule et applique la répartition automatique d'un cours Autonomie neutralisé (taskId). */
   distributeAutonomy: (taskId: string) => void;
@@ -178,10 +169,8 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         selectedWeek: week,
         searchQuery: '',
         scheduleResult: null,
-        activeSolution: [],
+        placements: placementsFromEnforcedMap(restoredEnforcedMap, snapshot.manualEnforcedMap),
         activeNeutralizedTasks: [],
-        taskOverrides: {},
-        placedNeutralizedTasks: [],
         manuallyNeutralizedTasks: [],
         autonomyDistributions: {},
         syntheticNeutralizedTasks: [],
@@ -189,7 +178,6 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         taskGroups: snapshot.taskGroups,
         manualEnforcedMap: snapshot.manualEnforcedMap,
         enforcedMap: restoredEnforcedMap,
-        enforcedViolations: {},
         preNeutralizedKeys: snapshot.preNeutralizedKeys,
         blockedZones: [...initialBlockedZones, ...restoredManualZones],
       });
@@ -200,10 +188,8 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         selectedWeek: week,
         searchQuery: '',
         scheduleResult: null,
-        activeSolution: [],
+        placements: [],
         activeNeutralizedTasks: [],
-        taskOverrides: {},
-        placedNeutralizedTasks: [],
         preNeutralizedKeys: [],
         manuallyNeutralizedTasks: [],
         autonomyDistributions: {},
@@ -213,24 +199,46 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         taskGroups: [],
         manualEnforcedMap: {},
         enforcedMap: {},
-        enforcedViolations: {},
       });
     }
   },
 
   scheduleResult: null,
 
-  activeSolution: [],
   activeNeutralizedTasks: [],
-  taskOverrides: {},
-  placedNeutralizedTasks: [],
+  placements: [],
+  updatePlacement: (placementId, patch) => {
+    set((state) => ({
+      placements: state.placements.map((p) => {
+        if (p.placementId !== placementId) return p;
+        const touchesPosition = 'startTime' in patch || 'duration' in patch || 'resources' in patch;
+        const origin = p.origin === 'auto' && touchesPosition ? 'post-enforced' : p.origin;
+        return { ...p, ...patch, origin };
+      }),
+    }));
+  },
+  addPlacement: (placement) => {
+    set((state) => ({
+      placements: [...state.placements.filter((p) => p.placementId !== placement.placementId), placement],
+    }));
+  },
+  removePlacement: (placementId) => {
+    set((state) => ({
+      placements: state.placements.filter((p) => p.placementId !== placementId),
+    }));
+  },
   resetCurrentSolution: () => {
-    const { scheduleResult, syntheticNeutralizedTasks } = get();
+    const { scheduleResult, syntheticNeutralizedTasks, enforcedMap } = get();
     if (!scheduleResult) return;
     const solution = scheduleResult.solution;
+    // Les tâches imposées reviennent placées par le moteur (origin 'auto') : les repasser en
+    // 'pre-enforced' pour tout taskId présent dans l'imposition courante, sinon l'origine se
+    // perdrait à chaque réinitialisation (même règle que applyPendingResult).
+    const placements = placementsFromSolution(solution?.tasks ?? []).map((p) =>
+      p.taskId in enforcedMap ? { ...p, origin: 'pre-enforced' as const } : p,
+    );
     set({
-      taskOverrides: {},
-      placedNeutralizedTasks: [],
+      placements,
       manuallyNeutralizedTasks: [],
       autonomyDistributions: {},
       activeNeutralizedTasks: [...(solution?.neutralizedTasks ?? []), ...syntheticNeutralizedTasks],
@@ -241,10 +249,6 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   setSearchQuery: (query) => set({ searchQuery: query }),
 
   enforcedMap: {},
-  enforcedViolations: {},
-  setEnforcedViolation: (courseKey, violation) => set((state) => ({
-    enforcedViolations: { ...state.enforcedViolations, [courseKey]: violation },
-  })),
 
   isLoading: false,
   status: null,
@@ -268,7 +272,11 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       set({ currentJobId: null, currentJobStatus: null });
     }
 
-    const { selectedWeek, enforcedMap, blockedZones, taskGroups, preNeutralizedKeys, pendingJobResult } = get();
+    const { selectedWeek, placements, blockedZones, taskGroups, preNeutralizedKeys, pendingJobResult } = get();
+    // Reconstruit depuis `placements` (source de vérité affichée) plutôt que de lire l'ancien
+    // champ `enforcedMap` séparément — propagés compris, le moteur doit recevoir la même
+    // imposition augmentée qu'avant ce chantier (cf. lib/calendar/placements.ts).
+    const enforcedMap = enforcedMapFromPlacements(placements);
     if (selectedWeek === null) {
       set({ status: { message: '❌ Semaine non sélectionnée.', kind: 'err' } });
       return;
@@ -425,7 +433,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   },
 
   applyPendingResult: () => {
-    const { pendingJobResult } = get();
+    const { pendingJobResult, enforcedMap } = get();
     if (!pendingJobResult) return;
     const { result, syntheticNeutralized, week } = pendingJobResult;
     const best = result.solution;
@@ -445,14 +453,19 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       return;
     }
 
+    // Les tâches imposées reviennent placées par le moteur (origin 'auto') : les repasser en
+    // 'pre-enforced' pour tout taskId présent dans l'imposition courante, sinon l'origine se
+    // perdrait à chaque planification.
+    const placements = placementsFromSolution(best.tasks).map((p) =>
+      p.taskId in enforcedMap ? { ...p, origin: 'pre-enforced' as const } : p,
+    );
+
     set({
       selectedWeek: week,
       scheduleResult: result,
-      activeSolution: best.tasks,
+      placements,
       activeNeutralizedTasks: [...(best.neutralizedTasks ?? []), ...syntheticNeutralized],
       syntheticNeutralizedTasks: syntheticNeutralized,
-      taskOverrides: {},
-      placedNeutralizedTasks: [],
       manuallyNeutralizedTasks: [],
       autonomyDistributions: {},
       isLoading: false,
@@ -504,12 +517,11 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     set({
       manualEnforcedMap: manualMap,
       enforcedMap: augmented,
-      enforcedViolations: {},
       scheduleResult: null,
-      activeSolution: [],
+      // Cette action invalide déjà la solution : elle remplace toute la liste par les seuls
+      // placements pre-enforced (comportement actuel conservé, cf. §4.4 du plan).
+      placements: placementsFromEnforcedMap(augmented, manualMap),
       activeNeutralizedTasks: [],
-      taskOverrides: {},
-      placedNeutralizedTasks: [],
       autonomyDistributions: {},
     });
   },
@@ -537,48 +549,9 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     }));
   },
 
-  setTaskOverride: (taskId, override) => {
-    set((state) => ({
-      taskOverrides: { ...state.taskOverrides, [taskId]: override },
-    }));
-  },
-
-  moveTaskOverride: (taskId, startTime) => {
-    set((state) => {
-      const existing = state.taskOverrides[taskId];
-      if (!existing) return {};
-      return { taskOverrides: { ...state.taskOverrides, [taskId]: { ...existing, startTime } } };
-    });
-  },
-
-  addPlacedNeutralizedTask: (task) => {
-    set((state) => ({
-      placedNeutralizedTasks: [
-        ...state.placedNeutralizedTasks.filter((t) => t.taskId !== task.taskId),
-        task,
-      ],
-      // Retirer de la pioche si la tâche y était
-      manuallyNeutralizedTasks: state.manuallyNeutralizedTasks.filter((t) => t.taskId !== task.taskId),
-    }));
-  },
-
-  updatePlacedNeutralizedTask: (taskId, patch) => {
-    set((state) => ({
-      placedNeutralizedTasks: state.placedNeutralizedTasks.map((t) =>
-        t.taskId === taskId ? { ...t, ...patch } : t,
-      ),
-    }));
-  },
-
-  removePlacedNeutralizedTask: (taskId) => {
-    set((state) => ({
-      placedNeutralizedTasks: state.placedNeutralizedTasks.filter((t) => t.taskId !== taskId),
-    }));
-  },
-
   distributeAutonomy: (taskId) => {
     const {
-      activeSolution, taskOverrides, manuallyNeutralizedTasks, placedNeutralizedTasks,
+      placements, manuallyNeutralizedTasks,
       activeNeutralizedTasks, autonomyDistributions, selectedWeek, blockedZones,
     } = get();
     if (selectedWeek === null) return;
@@ -586,22 +559,20 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     const info = resolveNeutralizedTaskById(taskId, activeNeutralizedTasks, manuallyNeutralizedTasks);
     if (!info || info.type !== 'Autonomie') return;
 
-    const { availabilityManager, schoolYearConfig } = useProjectStore.getState();
+    const { allCourses, weekSaves, availabilityManager, schoolYearConfig } = useProjectStore.getState();
     if (!availabilityManager) return;
 
     const monday = getMondayOfISOWeek(selectedWeek, resolveCalendarYear(schoolYearConfig, selectedWeek));
 
-    // Ce qui occupe déjà le calendrier affiché : solution effective (moteur + overrides +
-    // neutralisées replacées manuellement). Les morceaux déjà distribués pour D'AUTRES cours
-    // Autonomie susceptibles de partager un groupe y figurent déjà : ce sont désormais des
-    // `placedNeutralizedTasks` de plein droit, donc inclus dans `computeEffectiveSolution`.
-    const effective = computeEffectiveSolution({
-      activeSolution, taskOverrides, manuallyNeutralizedTasks, placedNeutralizedTasks, week: selectedWeek,
-    });
-    const occupancy: OccupancyEntry[] = effective.map((t) => ({
-      startTime: t.startTime,
-      duration: t.duration,
-      groups: t.resources.filter((r) => r.type === 'group').map((r) => r.id),
+    // Ce qui occupe déjà le calendrier affiché : la liste unique des placements (toutes
+    // origines). Les morceaux déjà distribués pour D'AUTRES cours Autonomie susceptibles de
+    // partager un groupe y figurent déjà : ce sont des placements de plein droit, donc inclus.
+    // `duration` résolue via le cours quand le placement ne la porte pas explicitement (règle 1).
+    const courseById = new Map(getCoursesForWeek(allCourses, weekSaves, selectedWeek).map((c) => [c.id, c]));
+    const occupancy: OccupancyEntry[] = placements.map((p) => ({
+      startTime: p.startTime,
+      duration: p.duration ?? courseById.get(p.taskId)?.duration ?? 0,
+      groups: p.resources.groups,
     }));
 
     const blockedZonesMinutes = blockedZones
@@ -617,45 +588,44 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       totalDuration: info.duration,
     });
 
-    // Chaque morceau devient une tâche neutralisée placée de plein droit (déplaçable,
-    // éditable, exportée en iCal), reliée à la carte pilote par `sourceAutonomyId`.
-    // constraintViolation:'none' car posés dans des créneaux réellement libres.
-    const pieces: PlacedNeutralizedTask[] = result.pieces.map((p, i) => ({
-      taskId: `${taskId}-piece-${i}`,
-      code: info.code,
-      name: info.name,
-      type: info.type,
+    // Chaque morceau devient un placement `post-enforced` de plein droit (déplaçable, éditable,
+    // exporté en iCal). `taskId` référence le cours Autonomie réel (résolvable via courseById) ;
+    // `placementId` distingue les morceaux entre eux — c'est le cas de fragmentation
+    // (placementId ≠ taskId, règle 3, §3 du plan) déjà nécessaire à l'étape 1 pour cette
+    // fonctionnalité préexistante. constraintViolation:'none' car posés dans des créneaux
+    // réellement libres.
+    const pieces: Placement[] = result.pieces.map((p, i) => ({
+      placementId: `${taskId}-piece-${i}`,
+      taskId,
       startTime: p.startTime,
       duration: p.duration,
-      teachers: info.teachers,
-      groups: info.groups,
-      rooms: info.rooms,
+      resources: { teachers: info.teachers, groups: info.groups, rooms: info.rooms },
+      origin: 'post-enforced',
       constraintViolation: 'none',
-      sourceAutonomyId: taskId,
     }));
 
     const distribution: AutonomyDistribution = {
       originalTaskId: taskId,
       totalDuration: info.duration,
       remainingDuration: result.remainingDuration,
-      pieceIds: pieces.map((pc) => pc.taskId),
+      pieceIds: pieces.map((pc) => pc.placementId),
     };
 
     set({
-      placedNeutralizedTasks: [...placedNeutralizedTasks, ...pieces],
+      placements: [...placements, ...pieces],
       autonomyDistributions: { ...autonomyDistributions, [taskId]: distribution },
     });
   },
 
   cancelAutonomyDistribution: (taskId) => {
     set((state) => {
+      const dist = state.autonomyDistributions[taskId];
       const next = { ...state.autonomyDistributions };
       delete next[taskId];
       return {
-        // Retirer tous les morceaux issus de cette répartition. Le filtre sur
-        // `sourceAutonomyId` nettoie proprement même si un morceau a déjà été retiré
-        // à la main entre-temps.
-        placedNeutralizedTasks: state.placedNeutralizedTasks.filter((t) => t.sourceAutonomyId !== taskId),
+        // Retirer tous les morceaux issus de cette répartition (par placementId — `pieceIds`
+        // reste correct même si un morceau a déjà été retiré à la main entre-temps).
+        placements: dist ? state.placements.filter((p) => !dist.pieceIds.includes(p.placementId)) : state.placements,
         autonomyDistributions: next,
       };
     });
@@ -663,16 +633,17 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
 
   resetScheduleResult: () => {
     if (_pollingInterval !== null) { clearInterval(_pollingInterval); _pollingInterval = null; }
+    const { enforcedMap, manualEnforcedMap } = get();
     set({
       scheduleResult: null,
-      activeSolution: [],
       activeNeutralizedTasks: [],
-      taskOverrides: {},
-      placedNeutralizedTasks: [],
+      // Retour à la préparation : les impositions restent visibles sur le calendrier (comme
+      // avant ce chantier, cf. `activeSolution.length === 0 ? enforcedEventsState : []`) ;
+      // auto/post-enforced disparaissent avec la solution.
+      placements: placementsFromEnforcedMap(enforcedMap, manualEnforcedMap),
       manuallyNeutralizedTasks: [],
       autonomyDistributions: {},
       syntheticNeutralizedTasks: [],
-      enforcedViolations: {},
       currentJobId: null,
       currentJobStatus: null,
       pendingJobResult: null,
@@ -685,16 +656,13 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     set({
       selectedWeek: DEFAULT_WEEK,
       scheduleResult: null,
-      activeSolution: [],
       activeNeutralizedTasks: [],
-      taskOverrides: {},
-      placedNeutralizedTasks: [],
+      placements: [],
       preNeutralizedKeys: [],
       manuallyNeutralizedTasks: [],
       autonomyDistributions: {},
       syntheticNeutralizedTasks: [],
       enforcedMap: {},
-      enforcedViolations: {},
       manualEnforcedMap: {},
       blockedZones: [],
       isLoading: false,
@@ -869,7 +837,8 @@ function _saveCurrentWeekSnapshot() {
         source: z.source,
       })),
     preNeutralizedKeys: ps.preNeutralizedKeys,
-    manualEnforcedMap: ps.manualEnforcedMap,
+    // Dérivé de `placements` (source affichée), propagés exclus — reproduit `manualEnforcedMap`.
+    manualEnforcedMap: enforcedMapFromPlacements(ps.placements, { excludeDerived: true }),
     // Read-back volontaire (pas une mutation) : les cours manuels sont désormais gérés par
     // addManualCourse/removeManualCourse/updateManualCourse, qui écrivent directement dans
     // weekSaves. saveWeek remplace tout le snapshot, donc il faut relire l'existant ici pour
@@ -888,11 +857,19 @@ if (typeof window !== 'undefined') {
   usePlanningStore.subscribe((state, prev) => {
     // Ignorer les changements de semaine (setSelectedWeek gère la restauration)
     if (state.selectedWeek !== prev.selectedWeek) return;
+    // `placements` change à chaque déplacement d'une tâche auto/post-enforced — ne redéclencher
+    // une sauvegarde que si les `pre-enforced` (non dérivés) ont réellement changé, sinon chaque
+    // retouche réécrirait tout le projet en localStorage.
+    const enforcedChanged =
+      state.placements !== prev.placements &&
+      JSON.stringify(enforcedMapFromPlacements(state.placements, { excludeDerived: true })) !==
+        JSON.stringify(enforcedMapFromPlacements(prev.placements, { excludeDerived: true }));
     if (
       state.taskGroups === prev.taskGroups &&
       state.blockedZones === prev.blockedZones &&
       state.preNeutralizedKeys === prev.preNeutralizedKeys &&
-      state.manualEnforcedMap === prev.manualEnforcedMap
+      state.manualEnforcedMap === prev.manualEnforcedMap &&
+      !enforcedChanged
     ) return;
     _saveCurrentWeekSnapshot();
   });

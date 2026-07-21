@@ -5,40 +5,91 @@ import type FullCalendar from '@fullcalendar/react';
 import type { EventApi, EventDropArg } from '@fullcalendar/core';
 import type { EventReceiveArg, EventDragStopArg } from '@fullcalendar/interaction';
 import type { EventClickArg } from '@fullcalendar/core';
-import type { TaskSolutionJSON, CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
+import type { CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
+import type { Placement } from '@/store/types';
 import type { EnforceSelection } from '@/components/planning/modals/EnforceModal';
 import type { TaskEditUpdate } from '@/components/planning/modals/TaskEditModal';
-import { getMondayOfISOWeek, startTimeToDate, computeStaticConflicts, computeDragHighlights, computeConstraintViolation, matchesSearchQuery } from '@/lib/calendar/calendarUtils';
+import { getMondayOfISOWeek, startTimeToDate, computeStaticConflicts, computeDragHighlights, computeConstraintViolation } from '@/lib/calendar/calendarUtils';
 import type { ResourceEventInfo } from '@/lib/calendar/calendarUtils';
 import { computeConstraintUnavailableZones, subtractDateZones } from '@/lib/calendar/blockedZones';
 import { resolveCalendarYear } from '@/lib/schoolHolidays';
 import { levelFromCode, getEventColors } from '@/lib/calendar/yearColors';
+import type { YearColorConfig } from '@/lib/calendar/yearColors';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import type { PendingDrop, PendingNeutralizedDrop, CalendarEventExtProps, CalendarEventData, DraggingState, PendingEditData } from '@/lib/calendar/types';
+import { realTaskId } from '@/lib/taskCardUtils';
 
 export type { PendingDrop, PendingNeutralizedDrop, CalendarEventExtProps, CalendarEventData, DraggingState, PendingEditData };
 
+/**
+ * Construction unique d'événement calendrier pour un placement, quelle que soit son origine —
+ * modèle repris de l'ancien `enforcedEventsState` (résolution du cours, titre, couleurs, durée).
+ */
+function buildPlacementEvent(
+  placement: Placement,
+  course: CourseTaskDataWithId | undefined,
+  monday: Date,
+  yearColorConfig: YearColorConfig,
+): CalendarEventData {
+  const { teachers, groups, rooms } = placement.resources;
+  const duration = placement.duration ?? course?.duration ?? 60;
+  const start = startTimeToDate(monday, placement.startTime);
+  const end = new Date(start.getTime() + duration * 60 * 1000);
+  const teacherStr = teachers.join(', ');
+  const title = [course?.code ?? '?', course?.type ?? '', teacherStr].filter(Boolean).join(' • ');
+  const violation = placement.constraintViolation;
+
+  // Badge "placé manuellement" : toujours pour un retouche/replacement (`post-enforced`), et
+  // uniquement sur violation pour une imposition (`pre-enforced`) — le 📌 marque déjà son
+  // origine manuelle, pas la peine de doubler l'indicateur en l'absence de violation.
+  const manuallyPlaced =
+    placement.origin === 'post-enforced' ? true :
+    placement.origin === 'pre-enforced' ? ((violation !== undefined && violation !== 'none') || undefined) :
+    undefined;
+  const constraintViolationProp =
+    placement.origin === 'auto' ? undefined :
+    placement.origin === 'pre-enforced' ? violation :
+    (violation ?? 'none');
+
+  return {
+    id: placement.placementId,
+    title,
+    start,
+    end,
+    ...getEventColors(course?.level ?? levelFromCode(course?.code ?? ''), course?.type ?? '', yearColorConfig),
+    // Morceau d'Autonomie réparti (placementId ≠ taskId) : hachures pour préserver son identité
+    // visuelle — il reste un placement de plein droit (déplaçable/éditable/exporté).
+    ...(placement.taskId !== placement.placementId ? { classNames: ['fc-autonomy-piece'] } : {}),
+    extendedProps: {
+      name: course?.name ?? '',
+      code: course?.code ?? '',
+      type: course?.type ?? '',
+      teachers,
+      groups,
+      rooms,
+      durationMin: duration,
+      origin: placement.origin,
+      taskId: placement.taskId,
+      manuallyPlaced,
+      constraintViolation: constraintViolationProp,
+    },
+  };
+}
+
 // ── Hook principal ─────────────────────────────────────────────────────────
 
-export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: CourseTaskDataWithId[]) {
+export function useCalendarCore(placements: Placement[], parsedCourses: CourseTaskDataWithId[]) {
   // ── Store planning ──────────────────────────────────────────────────────
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
   const week = selectedWeek ?? 1;
-  const taskOverrides = usePlanningStore((s) => s.taskOverrides);
-  const placedNeutralizedTasks = usePlanningStore((s) => s.placedNeutralizedTasks);
-  const manuallyNeutralizedTasks = usePlanningStore((s) => s.manuallyNeutralizedTasks);
-  const searchQuery = usePlanningStore((s) => s.searchQuery);
-  const activeSolution = usePlanningStore((s) => s.activeSolution);
-  const setTaskOverride = usePlanningStore((s) => s.setTaskOverride);
-  const addPlacedNeutralizedTask = usePlanningStore((s) => s.addPlacedNeutralizedTask);
-  const updatePlacedNeutralizedTask = usePlanningStore((s) => s.updatePlacedNeutralizedTask);
-  const removePlacedNeutralizedTask = usePlanningStore((s) => s.removePlacedNeutralizedTask);
+  const scheduleResult = usePlanningStore((s) => s.scheduleResult);
+  const activeNeutralizedTasks = usePlanningStore((s) => s.activeNeutralizedTasks);
   const addManuallyNeutralizedTask = usePlanningStore((s) => s.addManuallyNeutralizedTask);
-  const storeEnforcedMap = usePlanningStore((s) => s.enforcedMap);
-  const enforcedViolations = usePlanningStore((s) => s.enforcedViolations);
-  const setEnforcedViolation = usePlanningStore((s) => s.setEnforcedViolation);
+  const updatePlacement = usePlanningStore((s) => s.updatePlacement);
+  const addPlacement = usePlanningStore((s) => s.addPlacement);
+  const removePlacement = usePlanningStore((s) => s.removePlacement);
   const handleEnforceChange = usePlanningStore((s) => s.handleEnforceChange);
   const blockedZones = usePlanningStore((s) => s.blockedZones);
   const handleBlockedZoneAdd = usePlanningStore((s) => s.handleBlockedZoneAdd);
@@ -78,38 +129,6 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     () => new Map(parsedCourses.map((c) => [c.id, c])),
     [parsedCourses],
   );
-
-  // ── Événements imposés dérivés ─────────────────────────────────────────
-  const enforcedEventsState = useMemo<CalendarEventData[]>(() => {
-    return Object.entries(storeEnforcedMap).map(([courseKey, enforced]) => {
-      const course = courseById.get(courseKey);
-      const teacherStr = enforced.teacher.join(', ');
-      const title = [course?.code ?? '?', course?.type ?? '', teacherStr].filter(Boolean).join(' • ');
-      const startDate = new Date(monday.getTime() + enforced.startTime * 60 * 1000);
-      const endDate = new Date(startDate.getTime() + (course?.duration ?? 60) * 60 * 1000);
-      const violation = enforcedViolations[courseKey];
-      return {
-        id: `enforced-${courseKey}`,
-        title,
-        start: startDate,
-        end: endDate,
-        ...getEventColors(course?.level ?? levelFromCode(course?.code ?? ''), course?.type ?? '', yearColorConfig),
-        extendedProps: {
-          name: course?.name ?? '',
-          code: course?.code ?? '',
-          type: course?.type ?? '',
-          teachers: enforced.teacher,
-          groups: enforced.groups,
-          rooms: enforced.rooms,
-          durationMin: course?.duration ?? 0,
-          isEnforced: true,
-          courseKey,
-          manuallyPlaced: (violation !== undefined && violation !== 'none') ? true : undefined,
-          constraintViolation: violation,
-        },
-      };
-    });
-  }, [storeEnforcedMap, courseById, monday, yearColorConfig, enforcedViolations]);
 
   const prevParsedCoursesRef = useRef<CourseTaskData[]>(parsedCourses);
   const prevSelectedWeekRef = useRef<number | null>(selectedWeek);
@@ -189,16 +208,15 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       : 0;
 
     setPendingEdit({
-      taskId: arg.event.id,
-      courseKey: ext.courseKey,
+      placementId: arg.event.id,
+      taskId: ext.taskId ?? arg.event.id,
       title: arg.event.title,
       teachers: ext.teachers ?? [],
       groups: ext.groups ?? [],
       rooms: ext.rooms ?? [],
       startTime,
       durationMin: ext.durationMin ?? 0,
-      isEnforced: ext.isEnforced,
-      isNeutralizedPlaced: ext.isNeutralizedPlaced,
+      origin: ext.origin ?? 'auto',
       showDuration: true,
       ...resourceOptions,
     });
@@ -226,9 +244,10 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       name?: string;
       type?: string;
     };
-    const taskId = ext.taskId;
+    const rawTaskId = ext.taskId;
     const startDate = info.event.start;
-    if (!startDate || !taskId) { info.event.remove(); return; }
+    if (!startDate || !rawTaskId) { info.event.remove(); return; }
+    const taskId = realTaskId(rawTaskId);
 
     const teachers = ext.teachers ?? [];
     const groups = ext.groups ?? [];
@@ -254,7 +273,7 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
 
     if (hasMultipleRooms) {
       // Construire un CourseTaskData synthétique pour réutiliser EnforceModal
-      const syntheticCourse: import('@edt-ts/scheduler-common').CourseTaskData = {
+      const syntheticCourse: CourseTaskData = {
         week: 0, semester: 0, level: 0, code, name, type, duration: durationMin,
         teacher: teachers,
         groups: groups,
@@ -267,7 +286,15 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     const violation = availabilityManager
       ? computeConstraintViolation(startTime, durationMin, teachers, groups, rooms, availabilityManager, week)
       : 'none';
-    addPlacedNeutralizedTask({ taskId, code, name, type, startTime, duration: durationMin, teachers, groups, rooms, constraintViolation: violation });
+    addPlacement({
+      placementId: taskId,
+      taskId,
+      startTime,
+      duration: durationMin,
+      resources: { teachers, groups, rooms },
+      origin: 'post-enforced',
+      constraintViolation: violation,
+    });
   }
 
   function handleEventReceive(info: EventReceiveArg) {
@@ -320,16 +347,13 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     const violation = availabilityManager
       ? computeConstraintViolation(sel.startTime, pendingNeutralizedDrop.durationMin, sel.teacher, sel.groups, sel.rooms, availabilityManager, week)
       : 'none';
-    addPlacedNeutralizedTask({
+    addPlacement({
+      placementId: pendingNeutralizedDrop.taskId,
       taskId: pendingNeutralizedDrop.taskId,
-      code: pendingNeutralizedDrop.code,
-      name: pendingNeutralizedDrop.name,
-      type: pendingNeutralizedDrop.type,
       startTime: sel.startTime,
       duration: pendingNeutralizedDrop.durationMin,
-      teachers: sel.teacher,
-      groups: sel.groups,
-      rooms: sel.rooms,
+      resources: { teachers: sel.teacher, groups: sel.groups, rooms: sel.rooms },
+      origin: 'post-enforced',
       constraintViolation: violation,
     });
     setPendingNeutralizedDrop(null);
@@ -342,8 +366,8 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
   function handleEditConfirm(update: TaskEditUpdate) {
     if (!pendingEdit) return;
 
-    if (pendingEdit.isEnforced && pendingEdit.courseKey) {
-      const courseKey = pendingEdit.courseKey;
+    if (pendingEdit.origin === 'pre-enforced') {
+      const courseKey = pendingEdit.taskId;
       const state = usePlanningStore.getState();
       const existing = state.manualEnforcedMap[courseKey] ?? state.enforcedMap[courseKey];
       if (existing) {
@@ -351,42 +375,30 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
         const newMap = { ...state.manualEnforcedMap, [courseKey]: updated };
         handleEnforceChange({ ...newMap });
       }
-    } else if (pendingEdit.isNeutralizedPlaced) {
-      updatePlacedNeutralizedTask(pendingEdit.taskId, {
-        teachers: update.teachers.flat(),
-        groups: update.groups.flat(),
-        rooms: update.rooms.flat(),
-        ...(update.duration !== undefined ? { duration: update.duration } : {}),
-      });
-    } else {
-      const taskId = pendingEdit.taskId;
-      const existingOverride = taskOverrides[taskId];
-      setTaskOverride(taskId, {
-        startTime: existingOverride?.startTime ?? pendingEdit.startTime,
-        teachers: update.teachers.flat(),
-        groups: update.groups.flat(),
-        rooms: update.rooms.flat(),
-        ...(existingOverride?.constraintViolation !== undefined ? { constraintViolation: existingOverride.constraintViolation } : {}),
-        ...(update.duration !== undefined ? { duration: update.duration } : (existingOverride?.duration !== undefined ? { duration: existingOverride.duration } : {})),
-      });
-    }
 
-    // Mise à jour de la durée du cours pour que la CourseCard en sidebar reflète le changement.
-    // teacher/groups/rooms ne sont volontairement PAS synchronisés ici : cette édition porte sur
-    // un placement concret (sans alternatives), alors que le cours-modèle peut en avoir — les y
-    // recopier écraserait silencieusement ses alternatives (cf. mémoire du projet).
-    if (pendingEdit.courseKey !== undefined && update.duration !== undefined) {
-      const course = courseById.get(pendingEdit.courseKey);
-      if (course) {
-        const patch = { duration: update.duration };
-        skipNextParsedCoursesResetRef.current = true;
-        if (course.source === 'manual') {
-          if (selectedWeek !== null) useProjectStore.getState().updateManualCourse(selectedWeek, course.id, patch);
-        } else {
-          const { allCourses, setCourses } = useProjectStore.getState();
-          setCourses(allCourses.map((c) => (c === course ? { ...c, ...patch } : c)));
+      // Durée : EnforcedData ne porte pas de champ duration, la seule persistance possible
+      // pour une imposition est le cours lui-même (acquis du modèle précédent).
+      if (update.duration !== undefined) {
+        const course = courseById.get(courseKey);
+        if (course) {
+          const patch = { duration: update.duration };
+          skipNextParsedCoursesResetRef.current = true;
+          if (course.source === 'manual') {
+            if (selectedWeek !== null) useProjectStore.getState().updateManualCourse(selectedWeek, course.id, patch);
+          } else {
+            const { allCourses, setCourses } = useProjectStore.getState();
+            setCourses(allCourses.map((c) => (c === course ? { ...c, ...patch } : c)));
+          }
         }
       }
+    } else {
+      // auto / post-enforced : retouche d'un placement concret (sans alternatives) — teacher/
+      // groups/rooms ne sont volontairement PAS recopiés sur le cours-modèle, qui peut en avoir
+      // (cf. mémoire du projet).
+      updatePlacement(pendingEdit.placementId, {
+        resources: { teachers: update.teachers.flat(), groups: update.groups.flat(), rooms: update.rooms.flat() },
+        ...(update.duration !== undefined ? { duration: update.duration } : {}),
+      });
     }
 
     setPendingEdit(null);
@@ -404,12 +416,13 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       return;
     }
 
-    if (ext.isEnforced) {
-      const courseKey = ext.courseKey;
-      const startDate = info.event.start;
-      if (!startDate || !courseKey) return;
+    const startDate = info.event.start;
+    const taskId = ext.taskId;
+    if (!startDate || !taskId) return;
+    const newStartTime = Math.round((startDate.getTime() - monday.getTime()) / 60000);
 
-      const newStartTime = Math.round((startDate.getTime() - monday.getTime()) / 60000);
+    if (ext.origin === 'pre-enforced') {
+      const courseKey = taskId;
       const state = usePlanningStore.getState();
       const existing = state.manualEnforcedMap[courseKey] ?? state.enforcedMap[courseKey];
       if (!existing) return;
@@ -421,41 +434,23 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       if (availabilityManager) {
         const duration = ext.durationMin ?? 0;
         const violation = computeConstraintViolation(newStartTime, duration, existing.teacher, existing.groups, existing.rooms, availabilityManager, week);
-        setEnforcedViolation(courseKey, violation);
+        updatePlacement(courseKey, { constraintViolation: violation });
       }
       return;
     }
 
-    const taskId = info.event.id;
-    const startDate = info.event.start;
-    if (!startDate || !taskId) return;
-    const newStartTime = Math.round((startDate.getTime() - monday.getTime()) / 60000);
+    // auto / post-enforced : chemin unique, la bascule d'origine est faite par le store.
     const teachers = ext.teachers ?? [];
     const groups = ext.groups ?? [];
     const rooms = ext.rooms ?? [];
 
-    if (ext.isNeutralizedPlaced) {
-      const violation = availabilityManager
-        ? computeConstraintViolation(newStartTime, ext.durationMin ?? 0, teachers, groups, rooms, availabilityManager, week)
-        : 'none';
-      updatePlacedNeutralizedTask(taskId, { startTime: newStartTime, constraintViolation: violation });
-      return;
-    }
-
-    // Déterminer si la tâche est revenue à sa position d'origine
-    const originalTask = solutions.find((t) => t.taskId === taskId);
-    const originalStartTime = originalTask?.startTime ?? null;
-    const isAtOrigin = originalStartTime !== null && newStartTime === originalStartTime;
+    const originalTask = (scheduleResult?.solution?.tasks ?? []).find((t) => t.taskId === taskId);
+    const isAtOrigin = originalTask !== undefined && newStartTime === originalTask.startTime;
     const violation = (!isAtOrigin && availabilityManager)
       ? computeConstraintViolation(newStartTime, ext.durationMin ?? 0, teachers, groups, rooms, availabilityManager, week)
       : 'none';
 
-    if (taskId in taskOverrides) {
-      const existing = taskOverrides[taskId];
-      setTaskOverride(taskId, { ...existing, startTime: newStartTime, constraintViolation: isAtOrigin ? undefined : violation });
-    } else {
-      setTaskOverride(taskId, { startTime: newStartTime, teachers, groups, rooms, constraintViolation: isAtOrigin ? undefined : violation });
-    }
+    updatePlacement(info.event.id, { startTime: newStartTime, constraintViolation: violation });
   }
 
   function handleEventDragStop(info: EventDragStopArg) {
@@ -473,49 +468,44 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
 
     const ext = info.event.extendedProps as CalendarEventExtProps;
 
-    if (ext.isEnforced && ext.courseKey) {
-      const courseKey = ext.courseKey;
+    if (ext.isBlockedZone) return;
+
+    if (ext.origin === 'pre-enforced' && ext.taskId) {
+      const courseKey = ext.taskId;
       const state = usePlanningStore.getState();
       // Si auto-propagé (pas dans manualEnforcedMap), on le retire de la propagation
       // en l'ajoutant d'abord dans manualEnforcedMap puis en le supprimant
       const newMap = { ...state.manualEnforcedMap };
       delete newMap[courseKey];
       handleEnforceChange({ ...newMap });
+      return;
     }
 
-    if (ext.isNeutralizedPlaced && info.event.id) {
-      const taskId = info.event.id;
-      removePlacedNeutralizedTask(taskId);
-      // Si la tâche vient de activeSolution, la remettre dans la pioche
-      const solutionTask = usePlanningStore.getState().activeSolution.find((t) => t.taskId === taskId);
-      if (solutionTask) {
+    // Placement auto/post-enforced déposé hors du calendrier → pioche. Si la tâche était
+    // engine-placée à l'origine (donc absente de activeNeutralizedTasks), la re-signaler dans la
+    // pioche ; sinon elle y réapparaît d'elle-même (toujours dans activeNeutralizedTasks, plus
+    // dans placements — cf. SidebarAnalysis.unplacedNeutralized).
+    if (ext.taskId) {
+      const taskId = ext.taskId;
+      const placementId = info.event.id;
+      info.event.remove();
+      removePlacement(placementId);
+      // `realTaskId` des deux côtés : une pré-neutralisée porte un id préfixé dans
+      // activeNeutralizedTasks et un id réel dans le placement. Sans normalisation, elle
+      // serait re-signalée dans la pioche alors qu'elle y réapparaît déjà d'elle-même —
+      // d'où deux cartes pour la même tâche.
+      if (!activeNeutralizedTasks.some((t) => realTaskId(t.task.taskId) === taskId)) {
         addManuallyNeutralizedTask({
           taskId,
-          code: ext.code ?? solutionTask.code,
-          name: ext.name ?? solutionTask.name,
-          type: ext.type ?? solutionTask.type,
-          duration: ext.durationMin ?? solutionTask.duration,
+          code: ext.code ?? '',
+          name: ext.name ?? '',
+          type: ext.type ?? '',
+          duration: ext.durationMin ?? 60,
           teachers: ext.teachers ?? [],
           groups: ext.groups ?? [],
           rooms: ext.rooms ?? [],
         });
       }
-    }
-
-    // Tâche planifiée ordinaire déposée hors du calendrier → pioche
-    if (!ext.isEnforced && !ext.isNeutralizedPlaced && !ext.isBlockedZone) {
-      const taskId = info.event.id;
-      info.event.remove();
-      addManuallyNeutralizedTask({
-        taskId,
-        code: ext.code ?? '',
-        name: ext.name ?? '',
-        type: ext.type ?? '',
-        duration: ext.durationMin ?? 60,
-        teachers: ext.teachers ?? [],
-        groups: ext.groups ?? [],
-        rooms: ext.rooms ?? [],
-      });
     }
   }
 
@@ -546,92 +536,19 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
       },
     }));
 
-    const solEvts: CalendarEventData[] = solutions
-      .filter((task) =>
-        !placedNeutralizedTasks.some((p) => p.taskId === task.taskId) &&
-        !manuallyNeutralizedTasks.some((m) => m.taskId === task.taskId),
-      )
-      .map((task) => {
-      const override = taskOverrides[task.taskId];
-      const teachers = override?.teachers ?? task.resources.filter((r) => r.type === 'teacher').map((r) => r.id);
-      const groups = override?.groups ?? task.resources.filter((r) => r.type === 'group').map((r) => r.id);
-      const rooms = override?.rooms ?? task.resources.filter((r) => r.type === 'room').map((r) => r.id);
-      const startTime = override?.startTime ?? task.startTime;
-      const duration = override?.duration ?? task.duration;
-      const isManuallyPlaced = override !== undefined && override.startTime !== task.startTime;
-      const start = startTimeToDate(monday, startTime);
-      const end = new Date(start.getTime() + duration * 60 * 1000);
-      return {
-        id: task.taskId,
-        title: [task.code, task.type, ...teachers].join(' • '),
-        start,
-        end,
-        ...getEventColors(levelFromCode(task.code), task.type, yearColorConfig),
-        extendedProps: { name: task.name, code: task.code, type: task.type, teachers, groups, rooms, durationMin: duration, manuallyPlaced: isManuallyPlaced || undefined, constraintViolation: isManuallyPlaced ? (override?.constraintViolation ?? 'none') : undefined },
-      };
-    });
+    // Une seule liste rendue, toujours — plus de test de mode selon la présence d'une solution.
+    const placementEvts: CalendarEventData[] = placements.map((p) =>
+      buildPlacementEvent(p, courseById.get(p.taskId), monday, yearColorConfig),
+    );
 
-    const placedNeutralizedEvts: CalendarEventData[] = placedNeutralizedTasks
-      .filter((task) =>
-        matchesSearchQuery([task.code, task.name, task.type, ...task.teachers, ...task.rooms, ...task.groups], searchQuery),
-      )
-      .map((task) => {
-      const start = startTimeToDate(monday, task.startTime);
-      const end = new Date(start.getTime() + task.duration * 60 * 1000);
-      const title = [task.code, task.type, ...task.teachers].filter(Boolean).join(' • ');
-      const originalTask = solutions.find((t) => t.taskId === task.taskId);
-      const isAtOrigin = originalTask !== undefined && task.startTime === originalTask.startTime;
-      return {
-        id: task.taskId,
-        title,
-        start,
-        end,
-        ...getEventColors(levelFromCode(task.code), task.type, yearColorConfig),
-        // Morceau d'Autonomie réparti : hachures pour préserver son identité visuelle
-        // (il reste une placée-neutralisée de plein droit : déplaçable/éditable/exportée).
-        ...(task.sourceAutonomyId ? { classNames: ['fc-autonomy-piece'] } : {}),
-        extendedProps: {
-          name: task.name,
-          code: task.code,
-          type: task.type,
-          teachers: task.teachers,
-          groups: task.groups,
-          rooms: task.rooms,
-          durationMin: task.duration,
-          isNeutralizedPlaced: true,
-          taskId: task.taskId,
-          manuallyPlaced: isAtOrigin ? undefined : true,
-          constraintViolation: isAtOrigin ? undefined : (task.constraintViolation ?? 'none'),
-        },
-      };
-    });
-
-    const resourceEvents: ResourceEventInfo[] = [
-      ...solEvts.map((e) => ({
-        id: e.id,
-        start: e.start,
-        end: e.end,
-        teachers: e.extendedProps.teachers ?? [],
-        groups: e.extendedProps.groups ?? [],
-        rooms: e.extendedProps.rooms ?? [],
-      })),
-      ...(!activeSolution || activeSolution.length === 0 ? enforcedEventsState : []).map((e) => ({
-        id: e.id,
-        start: e.start,
-        end: e.end,
-        teachers: e.extendedProps.teachers ?? [],
-        groups: e.extendedProps.groups ?? [],
-        rooms: e.extendedProps.rooms ?? [],
-      })),
-      ...placedNeutralizedEvts.map((e) => ({
-        id: e.id,
-        start: e.start,
-        end: e.end,
-        teachers: e.extendedProps.teachers ?? [],
-        groups: e.extendedProps.groups ?? [],
-        rooms: e.extendedProps.rooms ?? [],
-      })),
-    ];
+    const resourceEvents: ResourceEventInfo[] = placementEvts.map((e) => ({
+      id: e.id,
+      start: e.start,
+      end: e.end,
+      teachers: e.extendedProps.teachers ?? [],
+      groups: e.extendedProps.groups ?? [],
+      rooms: e.extendedProps.rooms ?? [],
+    }));
 
     const activeDragResources = dragging ?? externalDragging ?? null;
     const highlights = dragging
@@ -700,13 +617,11 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     }
 
     return [
-      ...solEvts.map(applyHighlight),
+      ...placementEvts.map(applyHighlight),
       ...blockEvts,
-      ...(!activeSolution || activeSolution.length === 0 ? enforcedEventsState.map(applyHighlight) : []),
-      ...placedNeutralizedEvts.map(applyHighlight),
       ...constraintBgEvents,
     ];
-  }, [solutions, activeSolution, blockedZones, monday, enforcedEventsState, taskOverrides, placedNeutralizedTasks, manuallyNeutralizedTasks, searchQuery, enforcedViolations, dragging, externalDragging, availabilityManager, week, yearColorConfig]);
+  }, [placements, courseById, blockedZones, monday, dragging, externalDragging, availabilityManager, week, yearColorConfig]);
 
   return {
     week,
@@ -714,6 +629,8 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     calendarRef,
     calendarWrapperRef,
     calendarEvents,
+    /** Une solution moteur existe pour la semaine courante (bascule les interactions de la préparation). */
+    hasSolution: scheduleResult !== null,
     // État des modals
     pendingDrop,
     pendingEdit,
@@ -737,6 +654,6 @@ export function useCalendarCore(solutions: TaskSolutionJSON[], parsedCourses: Co
     handleNeutralizedPlaceCancel,
     handleEditConfirm,
     // Données pour les modals
-    solutions,
+    placements,
   };
 }

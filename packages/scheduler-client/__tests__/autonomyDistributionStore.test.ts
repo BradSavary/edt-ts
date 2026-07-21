@@ -1,17 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AvailabilityManager } from '@edt-ts/scheduler-common';
 import type { NeutralizedTaskInfoJSON } from '@edt-ts/scheduler-common';
-import type { PlacedNeutralizedTask } from '../store/types';
+import type { Placement } from '../store/types';
 
 /**
  * `useProjectStore`/`usePlanningStore` lisent localStorage dès leur import : on stub un
  * stockage mémoire avant l'import dynamique, avec reset de la registry entre chaque test
  * (même motif que useProjectStore.test.ts).
  *
- * Vérifie le CÂBLAGE store de la répartition d'Autonomie après refactor : les morceaux
- * sont désormais des `PlacedNeutralizedTask` de plein droit (porteurs de `sourceAutonomyId`),
- * plus une structure parallèle. Le calcul lui-même (créneaux libres, midi, seuil 60min) est
- * couvert par autonomyDistribution.test.ts sur la fonction pure.
+ * Vérifie le CÂBLAGE store de la répartition d'Autonomie après le chantier modèle unifié
+ * (docs/PlanUnifiedPlacements.md) : les morceaux sont désormais des `Placement` `post-enforced`
+ * de plein droit, avec `taskId` = cours Autonomie réel et `placementId` synthétique par morceau
+ * (fragmentation placementId ≠ taskId, cas préexistant conservé — voir STATUT du plan, arbitrage
+ * n°2). Le calcul lui-même (créneaux libres, midi, seuil 60min) est couvert par
+ * autonomyDistribution.test.ts sur la fonction pure.
  */
 class MemoryStorage implements Storage {
   private store = new Map<string, string>();
@@ -45,23 +47,20 @@ function autonomyNeutralized(taskId: string, duration: number, groups: string[] 
   };
 }
 
-function placedTask(taskId: string, overrides: Partial<PlacedNeutralizedTask> = {}): PlacedNeutralizedTask {
+function placedTask(placementId: string, overrides: Partial<Placement> = {}): Placement {
   return {
-    taskId,
-    code: 'R2.02',
-    name: 'TD manuel',
-    type: 'TD',
+    placementId,
+    taskId: placementId,
     startTime: 15 * 60,
     duration: 60,
-    teachers: ['DUPONT'],
-    groups: ['G1'],
-    rooms: ['A101'],
+    resources: { teachers: ['DUPONT'], groups: ['G1'], rooms: ['A101'] },
+    origin: 'post-enforced',
     ...overrides,
   };
 }
 
 /** Semaine 1 : G1 disponible lundi 08:00-12:00 (240 min), rien d'autre. */
-function seedPlanning(neutralized: NeutralizedTaskInfoJSON[], placed: PlacedNeutralizedTask[] = []): void {
+function seedPlanning(neutralized: NeutralizedTaskInfoJSON[], placed: Placement[] = []): void {
   const availabilityManager = new AvailabilityManager({
     Default: [],
     G1: [{ days: 'lundi', from: '08:00', to: '12:00' }],
@@ -70,10 +69,8 @@ function seedPlanning(neutralized: NeutralizedTaskInfoJSON[], placed: PlacedNeut
   useProjectStore.setState({ availabilityManager, schoolYearConfig: null });
   usePlanningStore.setState({
     selectedWeek: 1,
-    activeSolution: [],
-    taskOverrides: {},
+    placements: placed,
     manuallyNeutralizedTasks: [],
-    placedNeutralizedTasks: placed,
     activeNeutralizedTasks: neutralized,
     autonomyDistributions: {},
     blockedZones: [],
@@ -93,20 +90,20 @@ afterEach(() => {
 });
 
 describe('distributeAutonomy (câblage store)', () => {
-  it('crée des PlacedNeutralizedTask porteurs de sourceAutonomyId + une entrée de suivi', () => {
+  it('crée des placements post-enforced référençant le cours Autonomie réel + une entrée de suivi', () => {
     seedPlanning([autonomyNeutralized('auto-1', 180)]);
 
     usePlanningStore.getState().distributeAutonomy('auto-1');
 
-    const { placedNeutralizedTasks, autonomyDistributions } = usePlanningStore.getState();
-    expect(placedNeutralizedTasks).toHaveLength(1);
-    const piece = placedNeutralizedTasks[0];
-    expect(piece.taskId).toBe('auto-1-piece-0');
-    expect(piece.sourceAutonomyId).toBe('auto-1');
-    expect(piece.type).toBe('Autonomie');
+    const { placements, autonomyDistributions } = usePlanningStore.getState();
+    expect(placements).toHaveLength(1);
+    const piece = placements[0];
+    expect(piece.placementId).toBe('auto-1-piece-0');
+    expect(piece.taskId).toBe('auto-1');
+    expect(piece.origin).toBe('post-enforced');
     expect(piece.startTime).toBe(8 * 60);
     expect(piece.duration).toBe(180);
-    expect(piece.groups).toEqual(['G1']);
+    expect(piece.resources.groups).toEqual(['G1']);
 
     const dist = autonomyDistributions['auto-1'];
     expect(dist).toBeDefined();
@@ -120,22 +117,22 @@ describe('distributeAutonomy (câblage store)', () => {
 
     usePlanningStore.getState().distributeAutonomy('auto-1');
 
-    const { placedNeutralizedTasks, autonomyDistributions } = usePlanningStore.getState();
-    const placed = placedNeutralizedTasks.reduce((sum, p) => sum + p.duration, 0);
+    const { placements, autonomyDistributions } = usePlanningStore.getState();
+    const placed = placements.reduce((sum, p) => sum + (p.duration ?? 0), 0);
     expect(placed).toBe(240);
     expect(autonomyDistributions['auto-1'].remainingDuration).toBe(160);
     // Invariant : posé = total − reste
     expect(placed).toBe(400 - autonomyDistributions['auto-1'].remainingDuration);
   });
 
-  it('préserve les tâches déjà placées et n\'écrase pas une autre répartition', () => {
+  it('préserve les placements déjà présents et n\'écrase pas une autre répartition', () => {
     seedPlanning([autonomyNeutralized('auto-1', 120)], [placedTask('manuel-1')]);
 
     usePlanningStore.getState().distributeAutonomy('auto-1');
 
-    const { placedNeutralizedTasks } = usePlanningStore.getState();
-    expect(placedNeutralizedTasks.some((t) => t.taskId === 'manuel-1')).toBe(true);
-    expect(placedNeutralizedTasks.some((t) => t.sourceAutonomyId === 'auto-1')).toBe(true);
+    const { placements } = usePlanningStore.getState();
+    expect(placements.some((p) => p.placementId === 'manuel-1')).toBe(true);
+    expect(placements.some((p) => p.placementId === 'auto-1-piece-0')).toBe(true);
   });
 
   it('une seconde répartition voit les morceaux de la première comme occupation (pas de chevauchement)', () => {
@@ -145,13 +142,13 @@ describe('distributeAutonomy (câblage store)', () => {
     store.distributeAutonomy('auto-1'); // 08:00-10:00
     store.distributeAutonomy('auto-2'); // doit tomber en 10:00-12:00
 
-    const pieces = usePlanningStore.getState().placedNeutralizedTasks;
-    const p1 = pieces.find((p) => p.sourceAutonomyId === 'auto-1')!;
-    const p2 = pieces.find((p) => p.sourceAutonomyId === 'auto-2')!;
+    const placements = usePlanningStore.getState().placements;
+    const p1 = placements.find((p) => p.placementId === 'auto-1-piece-0')!;
+    const p2 = placements.find((p) => p.placementId === 'auto-2-piece-0')!;
     expect(p1.startTime).toBe(8 * 60);
     expect(p2.startTime).toBe(10 * 60);
     // Aucun recouvrement
-    expect(p2.startTime).toBeGreaterThanOrEqual(p1.startTime + p1.duration);
+    expect(p2.startTime).toBeGreaterThanOrEqual(p1.startTime + (p1.duration ?? 0));
   });
 });
 
@@ -163,10 +160,10 @@ describe('cancelAutonomyDistribution (câblage store)', () => {
 
     store.cancelAutonomyDistribution('auto-1');
 
-    const { placedNeutralizedTasks, autonomyDistributions } = usePlanningStore.getState();
-    // Les morceaux ont disparu, la tâche placée manuellement reste
-    expect(placedNeutralizedTasks.some((t) => t.sourceAutonomyId === 'auto-1')).toBe(false);
-    expect(placedNeutralizedTasks.some((t) => t.taskId === 'manuel-1')).toBe(true);
+    const { placements, autonomyDistributions } = usePlanningStore.getState();
+    // Les morceaux ont disparu, le placement manuel reste
+    expect(placements.some((p) => p.placementId === 'auto-1-piece-0')).toBe(false);
+    expect(placements.some((p) => p.placementId === 'manuel-1')).toBe(true);
     expect(autonomyDistributions['auto-1']).toBeUndefined();
   });
 
@@ -176,13 +173,13 @@ describe('cancelAutonomyDistribution (câblage store)', () => {
     store.distributeAutonomy('auto-1');
 
     // Simule le retrait manuel d'un morceau (drag hors calendrier)
-    const remaining = usePlanningStore.getState().placedNeutralizedTasks.slice(1);
-    usePlanningStore.setState({ placedNeutralizedTasks: remaining });
+    const remaining = usePlanningStore.getState().placements.slice(1);
+    usePlanningStore.setState({ placements: remaining });
 
     store.cancelAutonomyDistribution('auto-1');
 
-    const { placedNeutralizedTasks, autonomyDistributions } = usePlanningStore.getState();
-    expect(placedNeutralizedTasks.some((t) => t.sourceAutonomyId === 'auto-1')).toBe(false);
+    const { placements, autonomyDistributions } = usePlanningStore.getState();
+    expect(placements.some((p) => p.taskId === 'auto-1')).toBe(false);
     expect(autonomyDistributions['auto-1']).toBeUndefined();
   });
 });

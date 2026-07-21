@@ -48,19 +48,26 @@ Composé de `NeutralizedSlice`, `BlockedZonesSlice`, `TaskGroupsSlice` et d'un s
 - `searchQuery: string`, `setSearchQuery` — filtre de la liste des cours
 
 **Résultat de planification :**
-- `scheduleResult: ScheduleResult | null` — résultat brut de l'API, une solution unique (immuable)
-- `activeSolution: TaskSolutionJSON[]` — tâches placées de la solution active
+- `scheduleResult: ScheduleResult | null` — résultat brut de l'API, une solution unique (immuable).
+  N'est plus lu pour l'affichage, seulement pour reconstruire `placements` (↺ Réinitialiser) et
+  les diagnostics des non-placés.
 - `activeNeutralizedTasks: NeutralizedTaskInfoJSON[]` — tâches non placées + synthétiques
 - `resetCurrentSolution()` — remet la solution à son état initial moteur
 
-**Overrides manuels :**
-- `taskOverrides: Record<string, PlacedTaskOverride>` — déplacements manuels de tâches planifiées
-- `placedNeutralizedTasks: PlacedNeutralizedTask[]` — tâches neutralisées replacées sur le calendrier
+**Placements (modèle unifié) :**
+- `placements: Placement[]` — emploi du temps courant de la semaine, toutes origines confondues
+  (`auto` posé par le moteur, `pre-enforced` imposé avant planification, `post-enforced` retouche
+  manuelle). Remplace `activeSolution`/`taskOverrides`/`placedNeutralizedTasks`/`enforcedViolations`.
+- `addPlacement` / `updatePlacement` / `removePlacement` — CRUD ; `updatePlacement` fait basculer
+  un placement `auto` en `post-enforced` dès que le patch touche `startTime`/`duration`/`resources`.
+- Conversions pures dans `lib/calendar/placements.ts` (`placementsFromSolution`,
+  `placementsFromEnforcedMap`, `enforcedMapFromPlacements`, `toTaskSolutionJSON`).
 
 **Contraintes de session :**
-- `enforcedMap: Record<string, EnforcedData>` — placements imposés (auto-propagé depuis groupes)
+- `enforcedMap: Record<string, EnforcedData>` — map augmentée (manuelle + propagation de groupe).
+  N'est plus lue pour le rendu calendrier (voir `placements`, origin `pre-enforced`) ; sert encore
+  au payload moteur (`runSchedule`) et au badge "imposé" de `SidebarPreparation` en préparation.
 - `manualEnforcedMap` (via `taskGroupsSlice`) — enforcements manuels bruts (sans propagation)
-- `enforcedViolations: Record<string, 'red' | 'orange' | 'none'>` — violations détectées au drag
 
 **Neutralisation :**
 - `preNeutralizedKeys: string[]` — cours exclus avant planification (via `neutralizedSlice`)
