@@ -96,6 +96,15 @@ Composé de `BlockedZonesSlice`, `TaskGroupsSlice` et d'un slice inline.
 - `cancelCurrentJob()` — annule le job en cours
 - `applyPendingResult()` — applique `pendingJobResult` à la vue courante
 
+**Retour à la préparation :**
+- `returnToPreparation(promotedPlacementIds)` — retour à l'étape préparation (remplace
+  `resetScheduleResult`). Promeut les placements `post-enforced` désignés (retouches) en
+  impositions manuelles (`manualEnforcedMap`) avant de reconstruire `placements` depuis la map
+  augmentée ; liste vide = ancien comportement de `resetScheduleResult`. Un seul `set` — ne pas
+  enchaîner `handleEnforceChange()` puis un reset séparé, ce qui redéclencherait deux fois
+  l'auto-save. Voir `lib/calendar/promotion.ts` (`selectPromotionCandidates`,
+  `enforcedDataFromPlacement`) pour la sélection des candidats promouvables côté UI.
+
 **UI :**
 - `isLoading / status` — feedback UI
 - `draggingExternal` — ressources du cours en cours de drag depuis la sidebar

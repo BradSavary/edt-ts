@@ -14,6 +14,7 @@ import { createTaskGroupsSlice, type TaskGroupsSlice } from '@/store/slices/task
 import type { CourseTaskDataWithId } from '@/lib/courseId';
 import { getMondayOfISOWeek, dateToStartTime } from '@/lib/calendar/calendarUtils';
 import { placementsFromSolution, placementsFromEnforcedMap, enforcedMapFromPlacements } from '@/lib/calendar/placements';
+import { enforcedDataFromPlacement } from '@/lib/calendar/promotion';
 import { computeAutonomyDistribution, type OccupancyEntry } from '@/lib/calendar/autonomyDistribution';
 import { unplacedFromEngine, unplacedFromPreNeutralized } from '@/lib/calendar/unplaced';
 
@@ -38,6 +39,33 @@ function dedupeUnplaced(entries: Unplaced[]): Unplaced[] {
     result.push(entry);
   }
   return result;
+}
+
+/**
+ * Map manuelle → map augmentée (manuelle + propagation de groupe). Même calcul pour
+ * `handleEnforceChange`, `setSelectedWeek` (restauration) et `returnToPreparation` (promotion) :
+ * factorisé ici pour ne pas dupliquer l'appel à `computeGroupEnforcements`.
+ */
+function augmentEnforcedMap(
+  manualMap: Record<string, EnforcedData>,
+  taskGroups: TaskGroupConfig[],
+  courses: CourseTaskDataWithId[],
+): Record<string, EnforcedData> {
+  const augmented = { ...manualMap };
+  if (taskGroups.length > 0 && courses.length > 0) {
+    for (const [key, data] of Object.entries(manualMap)) {
+      const info = getCourseGroupInfo(taskGroups, key);
+      if (!info) continue;
+      const group = taskGroups.find((g) => g.id === info.groupId);
+      if (!group) continue;
+      const propagated = computeGroupEnforcements(key, data, group, courses);
+      // Ne pas écraser un enforcement manuel existant
+      for (const [pKey, pData] of Object.entries(propagated)) {
+        if (!(pKey in manualMap)) augmented[pKey] = pData;
+      }
+    }
+  }
+  return augmented;
 }
 
 export type Status = ScheduleStatus;
@@ -121,8 +149,11 @@ export interface PlanningStore extends BlockedZonesSlice, TaskGroupsSlice {
   // Reset (ex: changement de semaine ou de fichiers)
   reset: () => void;
 
-  // Reset uniquement le résultat (retour à l'étape préparation sans perdre la semaine/config)
-  resetScheduleResult: () => void;
+  /**
+   * Retour à la préparation, en promouvant les placements désignés (retouches `post-enforced`)
+   * en impositions manuelles. Liste vide = ancien comportement de `resetScheduleResult`.
+   */
+  returnToPreparation: (promotedPlacementIds: string[]) => void;
 }
 
 // ── Type export pour les hooks ──────────────────────────────────────────────
@@ -161,19 +192,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       // manuels du snapshot — snapshot.weekNumber plutôt que le paramètre `week` pour que TS
       // n'ait pas besoin d'une assertion non-null ici.
       const restoredCourses = getCoursesForWeek(projectState.allCourses, projectState.weekSaves, snapshot.weekNumber);
-      const restoredEnforcedMap: Record<string, EnforcedData> = { ...snapshot.manualEnforcedMap };
-      if (snapshot.taskGroups.length > 0 && restoredCourses.length > 0) {
-        for (const [key, data] of Object.entries(snapshot.manualEnforcedMap)) {
-          const info = getCourseGroupInfo(snapshot.taskGroups, key);
-          if (!info) continue;
-          const group = snapshot.taskGroups.find((g) => g.id === info.groupId);
-          if (!group) continue;
-          const propagated = computeGroupEnforcements(key, data, group, restoredCourses);
-          for (const [pKey, pData] of Object.entries(propagated)) {
-            if (!(pKey in snapshot.manualEnforcedMap)) restoredEnforcedMap[pKey] = pData;
-          }
-        }
-      }
+      const restoredEnforcedMap = augmentEnforcedMap(snapshot.manualEnforcedMap, snapshot.taskGroups, restoredCourses);
 
       // Désérialiser les zones bloquées manuelles (ISO string → Date)
       const restoredManualZones: BlockedZone[] = snapshot.manualBlockedZones.map((z) => ({
@@ -502,20 +521,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     const week = get().selectedWeek;
     const courses = week !== null ? getCoursesForWeek(allCourses, weekSaves, week) : [];
 
-    const augmented = { ...manualMap };
-    if (taskGroups.length > 0 && courses.length > 0) {
-      for (const [key, data] of Object.entries(manualMap)) {
-        const info = getCourseGroupInfo(taskGroups, key);
-        if (!info) continue;
-        const group = taskGroups.find((g) => g.id === info.groupId);
-        if (!group) continue;
-        const propagated = computeGroupEnforcements(key, data, group, courses);
-        // Ne pas écraser un enforcement manuel existant
-        for (const [pKey, pData] of Object.entries(propagated)) {
-          if (!(pKey in manualMap)) augmented[pKey] = pData;
-        }
-      }
-    }
+    const augmented = augmentEnforcedMap(manualMap, taskGroups, courses);
 
     set({
       manualEnforcedMap: manualMap,
@@ -525,7 +531,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       // placements pre-enforced (comportement actuel conservé, cf. §4.4 du plan).
       placements: placementsFromEnforcedMap(augmented, manualMap),
       // Plus de solution moteur : les `engine`/`user-post` n'ont plus lieu d'être, seuls les
-      // `user-pre` survivent (même règle que `resetScheduleResult`).
+      // `user-pre` survivent (même règle que `returnToPreparation`).
       unplaced: get().unplaced.filter((u) => u.origin === 'user-pre'),
     });
   },
@@ -622,16 +628,36 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     }));
   },
 
-  resetScheduleResult: () => {
+  returnToPreparation: (promotedPlacementIds) => {
     if (_pollingInterval !== null) { clearInterval(_pollingInterval); _pollingInterval = null; }
-    const { enforcedMap, manualEnforcedMap, unplaced } = get();
+    const { placements, manualEnforcedMap, taskGroups, selectedWeek, unplaced } = get();
+    const { allCourses, weekSaves } = useProjectStore.getState();
+    const courses = selectedWeek !== null ? getCoursesForWeek(allCourses, weekSaves, selectedWeek) : [];
+
+    // Retouches désignées (post-enforced uniquement) → impositions manuelles, combo exact.
+    const promotedIds = new Set(promotedPlacementIds);
+    const promoted: Record<string, EnforcedData> = {};
+    for (const p of placements) {
+      if (p.origin === 'post-enforced' && promotedIds.has(p.placementId)) {
+        promoted[p.taskId] = enforcedDataFromPlacement(p);
+      }
+    }
+
+    const newManualMap = { ...manualEnforcedMap, ...promoted };
+    const augmented = augmentEnforcedMap(newManualMap, taskGroups, courses);
+
+    // Un seul `set` : deux appels (ex. handleEnforceChange() puis un reset séparé)
+    // déclencheraient deux fois le `subscribe` d'auto-save, donc deux réécritures complètes du
+    // fichier projet en localStorage.
     set({
-      scheduleResult: null,
-      // Retour à la préparation : les impositions restent visibles sur le calendrier (comme
-      // avant ce chantier, cf. `activeSolution.length === 0 ? enforcedEventsState : []`) ;
-      // auto/post-enforced disparaissent avec la solution, ne gardent que les `user-pre`.
-      placements: placementsFromEnforcedMap(enforcedMap, manualEnforcedMap),
+      manualEnforcedMap: newManualMap,
+      enforcedMap: augmented,
+      // Retour à la préparation : les impositions (dont celles tout juste promues) restent
+      // visibles sur le calendrier ; auto/post-enforced non promues disparaissent avec la
+      // solution, ne gardent que les `user-pre`.
+      placements: placementsFromEnforcedMap(augmented, newManualMap),
       unplaced: unplaced.filter((u) => u.origin === 'user-pre'),
+      scheduleResult: null,
       currentJobId: null,
       currentJobStatus: null,
       pendingJobResult: null,

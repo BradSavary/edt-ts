@@ -6,8 +6,9 @@ import { usePlanningStore } from '@/store/usePlanningStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useNeutralizedDraggable } from '@/hooks/useNeutralizedDraggable';
 import { downloadIcalSolution } from '@/lib/icalExport';
-import { matchesSearchQuery } from '@/lib/calendar/calendarUtils';
+import { matchesSearchQuery, formatStartTime } from '@/lib/calendar/calendarUtils';
 import { toTaskSolutionJSON } from '@/lib/calendar/placements';
+import { selectPromotionCandidates } from '@/lib/calendar/promotion';
 import { selectPiocheEntries } from '@/lib/calendar/unplaced';
 import { getCoursesForWeek } from '@/lib/weekCourses';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
@@ -17,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog,
   DialogContent,
@@ -62,10 +64,11 @@ function toEngineNeutralizedInfo(entry: Unplaced, course: CourseTaskDataWithId):
 }
 
 export function SidebarAnalysis() {
-  const resetScheduleResult = usePlanningStore((s) => s.resetScheduleResult);
+  const returnToPreparation = usePlanningStore((s) => s.returnToPreparation);
   const scheduleResult = usePlanningStore((s) => s.scheduleResult);
   const placements = usePlanningStore((s) => s.placements);
   const unplaced = usePlanningStore((s) => s.unplaced);
+  const taskGroups = usePlanningStore((s) => s.taskGroups);
   const distributeAutonomy = usePlanningStore((s) => s.distributeAutonomy);
   const cancelAutonomyDistribution = usePlanningStore((s) => s.cancelAutonomyDistribution);
   const searchQuery = usePlanningStore((s) => s.searchQuery);
@@ -79,6 +82,7 @@ export function SidebarAnalysis() {
   const weekSaves = useProjectStore((s) => s.weekSaves);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [checkedPromotionIds, setCheckedPromotionIds] = useState<Set<string>>(new Set());
   const neutralizedContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Résolution de cours nécessaire à toTaskSolutionJSON (règle 1, §3 du plan) : les placements
@@ -92,6 +96,12 @@ export function SidebarAnalysis() {
   const piocheEntries = useMemo(
     () => selectPiocheEntries(unplaced, placements, courseById),
     [unplaced, placements, courseById],
+  );
+
+  // Retouches proposables à la promotion en impositions, au retour à la préparation.
+  const promotionCandidates = useMemo(
+    () => selectPromotionCandidates(placements, taskGroups, courseById),
+    [placements, taskGroups, courseById],
   );
 
   useNeutralizedDraggable({
@@ -122,10 +132,24 @@ export function SidebarAnalysis() {
     ),
   );
 
+  function openReturnDialog() {
+    setCheckedPromotionIds(new Set());
+    setConfirmOpen(true);
+  }
+
+  function togglePromotionChecked(placementId: string) {
+    setCheckedPromotionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(placementId)) next.delete(placementId);
+      else next.add(placementId);
+      return next;
+    });
+  }
+
   function handleConfirmRetour() {
     setConfirmOpen(false);
     setSearchQuery('');
-    resetScheduleResult();
+    returnToPreparation([...checkedPromotionIds]);
   }
 
   return (
@@ -135,7 +159,7 @@ export function SidebarAnalysis() {
           type="button"
           variant="ghost"
           className="w-full text-muted-foreground justify-start p-1 pt-0 pb-0"
-          onClick={() => setConfirmOpen(true)}
+          onClick={openReturnDialog}
         >
           ← Retour à la préparation
         </Button>
@@ -236,18 +260,63 @@ export function SidebarAnalysis() {
         )}
       </aside>
 
-      {/* Dialog de confirmation */}
+      {/* Dialog de confirmation / promotion des retouches */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Retour à la préparation</DialogTitle>
             <DialogDescription>
-              Attention, cette action va supprimer toutes les solutions en cours. Voulez-vous continuer ?
+              {promotionCandidates.length === 0
+                ? 'Attention, cette action va supprimer toutes les solutions en cours. Voulez-vous continuer ?'
+                : 'Les retouches manuelles vont être perdues, sauf celles que vous choisissez de conserver comme impositions pour la prochaine planification.'}
             </DialogDescription>
           </DialogHeader>
+
+          {promotionCandidates.length > 0 && (
+            <ScrollArea className="max-h-64">
+              <div className="flex flex-col gap-2 pr-3">
+                {promotionCandidates.map((candidate) => {
+                  const blocked = candidate.blockedBy !== undefined;
+                  const reason =
+                    candidate.blockedBy === 'multi-placement'
+                      ? "répartie en plusieurs créneaux : une imposition ne peut porter qu'un seul créneau"
+                      : candidate.blockedBy === 'task-group'
+                        ? 'membre d\'un groupe de tâches : le moteur ne respecterait pas cette imposition'
+                        : undefined;
+                  const groupsLabel = normalizeResourceEntries(candidate.course.groups).join(', ');
+                  return (
+                    <label
+                      key={candidate.placementId}
+                      className={`flex items-start gap-3 ${blocked ? 'opacity-50' : 'cursor-pointer'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4 accent-primary cursor-pointer disabled:cursor-not-allowed"
+                        checked={checkedPromotionIds.has(candidate.placementId)}
+                        disabled={blocked}
+                        onChange={() => togglePromotionChecked(candidate.placementId)}
+                      />
+                      <div className="space-y-0.5">
+                        <p className="text-sm">
+                          {candidate.course.code} {candidate.course.type} — {formatStartTime(candidate.startTime)}
+                        </p>
+                        {groupsLabel && <p className="text-xs text-muted-foreground">{groupsLabel}</p>}
+                        {reason && <p className="text-xs text-muted-foreground italic">{reason}</p>}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          )}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>Annuler</Button>
-            <Button variant="destructive" onClick={handleConfirmRetour}>Confirmer</Button>
+            <Button variant="destructive" onClick={handleConfirmRetour}>
+              {checkedPromotionIds.size > 0
+                ? `Conserver ${checkedPromotionIds.size} imposition${checkedPromotionIds.size > 1 ? 's' : ''} et revenir`
+                : 'Retour à la préparation'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
