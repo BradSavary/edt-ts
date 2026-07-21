@@ -31,6 +31,7 @@ function buildPlacementEvent(
   course: CourseTaskDataWithId | undefined,
   monday: Date,
   yearColorConfig: YearColorConfig,
+  violation: 'red' | 'orange' | 'none',
 ): CalendarEventData {
   const { teachers, groups, rooms } = placement.resources;
   const duration = placement.duration ?? course?.duration ?? 60;
@@ -38,19 +39,14 @@ function buildPlacementEvent(
   const end = new Date(start.getTime() + duration * 60 * 1000);
   const teacherStr = teachers.join(', ');
   const title = [course?.code ?? '?', course?.type ?? '', teacherStr].filter(Boolean).join(' • ');
-  const violation = placement.constraintViolation;
 
   // Badge "placé manuellement" : toujours pour un retouche/replacement (`post-enforced`), et
   // uniquement sur violation pour une imposition (`pre-enforced`) — le 📌 marque déjà son
   // origine manuelle, pas la peine de doubler l'indicateur en l'absence de violation.
   const manuallyPlaced =
     placement.origin === 'post-enforced' ? true :
-    placement.origin === 'pre-enforced' ? ((violation !== undefined && violation !== 'none') || undefined) :
+    placement.origin === 'pre-enforced' ? (violation !== 'none' || undefined) :
     undefined;
-  const constraintViolationProp =
-    placement.origin === 'auto' ? undefined :
-    placement.origin === 'pre-enforced' ? violation :
-    (violation ?? 'none');
 
   return {
     id: placement.placementId,
@@ -72,7 +68,7 @@ function buildPlacementEvent(
       origin: placement.origin,
       taskId: placement.taskId,
       manuallyPlaced,
-      constraintViolation: constraintViolationProp,
+      constraintViolation: violation,
     },
   };
 }
@@ -83,7 +79,7 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
   // ── Store planning ──────────────────────────────────────────────────────
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
   const week = selectedWeek ?? 1;
-  const scheduleResult = usePlanningStore((s) => s.scheduleResult);
+  const lastRun = usePlanningStore((s) => s.lastRun);
   const updatePlacement = usePlanningStore((s) => s.updatePlacement);
   const addPlacement = usePlanningStore((s) => s.addPlacement);
   const unplaceTask = usePlanningStore((s) => s.unplaceTask);
@@ -279,9 +275,6 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
       return;
     }
 
-    const violation = availabilityManager
-      ? computeConstraintViolation(startTime, durationMin, teachers, groups, rooms, availabilityManager, week)
-      : 'none';
     addPlacement({
       placementId: taskId,
       taskId,
@@ -289,7 +282,6 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
       duration: durationMin,
       resources: { teachers, groups, rooms },
       origin: 'post-enforced',
-      constraintViolation: violation,
     });
   }
 
@@ -340,9 +332,6 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
 
   function handleNeutralizedPlaceConfirm(sel: EnforceSelection) {
     if (!pendingNeutralizedDrop) return;
-    const violation = availabilityManager
-      ? computeConstraintViolation(sel.startTime, pendingNeutralizedDrop.durationMin, sel.teacher, sel.groups, sel.rooms, availabilityManager, week)
-      : 'none';
     addPlacement({
       placementId: pendingNeutralizedDrop.taskId,
       taskId: pendingNeutralizedDrop.taskId,
@@ -350,7 +339,6 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
       duration: pendingNeutralizedDrop.durationMin,
       resources: { teachers: sel.teacher, groups: sel.groups, rooms: sel.rooms },
       origin: 'post-enforced',
-      constraintViolation: violation,
     });
     setPendingNeutralizedDrop(null);
   }
@@ -426,27 +414,11 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
       const updated: EnforcedData = { ...existing, startTime: newStartTime };
       const newMap = { ...state.manualEnforcedMap, [courseKey]: updated };
       handleEnforceChange({ ...newMap });
-      // Calculer la violation au nouveau créneau
-      if (availabilityManager) {
-        const duration = ext.durationMin ?? 0;
-        const violation = computeConstraintViolation(newStartTime, duration, existing.teacher, existing.groups, existing.rooms, availabilityManager, week);
-        updatePlacement(courseKey, { constraintViolation: violation });
-      }
       return;
     }
 
     // auto / post-enforced : chemin unique, la bascule d'origine est faite par le store.
-    const teachers = ext.teachers ?? [];
-    const groups = ext.groups ?? [];
-    const rooms = ext.rooms ?? [];
-
-    const originalTask = (scheduleResult?.solution?.tasks ?? []).find((t) => t.taskId === taskId);
-    const isAtOrigin = originalTask !== undefined && newStartTime === originalTask.startTime;
-    const violation = (!isAtOrigin && availabilityManager)
-      ? computeConstraintViolation(newStartTime, ext.durationMin ?? 0, teachers, groups, rooms, availabilityManager, week)
-      : 'none';
-
-    updatePlacement(info.event.id, { startTime: newStartTime, constraintViolation: violation });
+    updatePlacement(info.event.id, { startTime: newStartTime });
   }
 
   function handleEventDragStop(info: EventDragStopArg) {
@@ -515,9 +487,16 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
     }));
 
     // Une seule liste rendue, toujours — plus de test de mode selon la présence d'une solution.
-    const placementEvts: CalendarEventData[] = placements.map((p) =>
-      buildPlacementEvent(p, courseById.get(p.taskId), monday, yearColorConfig),
-    );
+    // Violation dérivée au rendu (§1.1/§4.1 du plan) : alignée sur computeStaticConflicts,
+    // recalculée à chaque changement de zone bloquée/contrainte plutôt que figée au drag.
+    const placementEvts: CalendarEventData[] = placements.map((p) => {
+      const course = courseById.get(p.taskId);
+      const duration = p.duration ?? course?.duration ?? 60;
+      const violation = availabilityManager
+        ? computeConstraintViolation(p.startTime, duration, p.resources.teachers, p.resources.groups, p.resources.rooms, availabilityManager, week)
+        : 'none';
+      return buildPlacementEvent(p, course, monday, yearColorConfig, violation);
+    });
 
     const resourceEvents: ResourceEventInfo[] = placementEvts.map((e) => ({
       id: e.id,
@@ -608,7 +587,10 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
     calendarWrapperRef,
     calendarEvents,
     /** Une solution moteur existe pour la semaine courante (bascule les interactions de la préparation). */
-    hasSolution: scheduleResult !== null,
+    // Fondé sur `lastRun` (persisté) et non `scheduleResult` (session) : après un rechargement en
+    // vue solution restaurée, `scheduleResult` est null et la sélection de zone bloquée
+    // (`selectable={!hasSolution}`) se réactiverait alors qu'on n'est pas en préparation.
+    hasSolution: lastRun !== null,
     // État des modals
     pendingDrop,
     pendingEdit,

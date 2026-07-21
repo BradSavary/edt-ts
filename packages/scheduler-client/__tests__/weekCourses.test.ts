@@ -138,6 +138,45 @@ describe('pruneWeekSavesOfCourseIds', () => {
     expect(result['44'].manualCourses).toBe(weekSaves['44'].manualCourses);
   });
 
+  it('élague les placements, non-placés et lastRun persistés des cours supprimés', () => {
+    // Sans ça, un réimport CSV laisse des fantômes sur le disque indéfiniment : l'élagage
+    // défensif de `setSelectedWeek` les masque à l'affichage, il ne les retire pas.
+    const placement = (taskId: string) => ({
+      placementId: taskId,
+      taskId,
+      startTime: 480,
+      resources: { teachers: [], groups: [], rooms: [] },
+      origin: 'auto' as const,
+    });
+    const saves: WeekSavesMap = {
+      '44': makeSnapshot({
+        placements: [placement('c1'), placement('c2')],
+        unplaced: [{ taskId: 'c1', origin: 'engine' }, { taskId: 'c2', origin: 'user-post' }],
+        lastRun: {
+          placements: [placement('c1'), placement('c2')],
+          unplaced: [{ taskId: 'c1', origin: 'engine' }],
+        },
+      }),
+    };
+
+    const next = pruneWeekSavesOfCourseIds(saves, new Map([[44, new Set(['c1'])]]));
+
+    expect(next['44'].placements!.map((p) => p.taskId)).toEqual(['c2']);
+    expect(next['44'].unplaced!.map((u) => u.taskId)).toEqual(['c2']);
+    expect(next['44'].lastRun!.placements.map((p) => p.taskId)).toEqual(['c2']);
+    expect(next['44'].lastRun!.unplaced).toEqual([]);
+  });
+
+  it('laisse les nouveaux champs absents absents (snapshot ancien format)', () => {
+    const saves: WeekSavesMap = { '44': makeSnapshot({ preNeutralizedKeys: ['c1'] }) };
+
+    const next = pruneWeekSavesOfCourseIds(saves, new Map([[44, new Set(['c1'])]]));
+
+    expect(next['44'].placements).toBeUndefined();
+    expect(next['44'].unplaced).toBeUndefined();
+    expect(next['44'].lastRun).toBeUndefined();
+  });
+
   it("no-op si la semaine listée n'a pas de snapshot", () => {
     const weekSaves: WeekSavesMap = { '44': makeSnapshot() };
     const result = pruneWeekSavesOfCourseIds(weekSaves, new Map([[99, new Set(['x'])]]));

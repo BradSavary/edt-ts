@@ -1,7 +1,7 @@
 import type { StateCreator } from 'zustand';
 import type { CourseTaskData, EnforcedData } from '@edt-ts/scheduler-common';
 import type { TaskGroupConfig } from '@/lib/taskGroupUtils';
-import type { SerializedBlockedZone } from '@/store/types';
+import type { SerializedBlockedZone, Placement, Unplaced } from '@/store/types';
 import { manualCourseId, type CourseTaskDataWithId } from '@/lib/courseId';
 import { getManualCoursesForWeek } from '@/lib/weekCourses';
 
@@ -27,6 +27,22 @@ export interface PreparedWeekSnapshot {
   manualCourses: CourseTaskDataWithId[];
   /** Note libre associée à la semaine (contexte de préparation, ex. contraintes ponctuelles). */
   note?: string;
+  /**
+   * Placements `auto` et `post-enforced`. Les `pre-enforced` (dont les propagés `derived`) sont
+   * recalculés depuis `manualEnforcedMap` + `taskGroups`, jamais dupliqués ici (§1.2 du plan).
+   * Absent sur un snapshot ancien — lecture défensive, se lit comme « aucun placement persisté ».
+   */
+  placements?: Placement[];
+  /**
+   * Non-placés `engine` et `user-post`. Les `user-pre` sont recalculés depuis
+   * `preNeutralizedKeys`, jamais dupliqués ici (§1.2 du plan).
+   */
+  unplaced?: Unplaced[];
+  /**
+   * Sortie brute du dernier calcul, pour « ↺ Réinitialiser » sans relancer le moteur.
+   * Absent si aucun calcul n'a encore tourné pour cette semaine.
+   */
+  lastRun?: { placements: Placement[]; unplaced: Unplaced[] };
 }
 
 /** saves[weekNumber] */

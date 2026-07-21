@@ -66,6 +66,9 @@ function toEngineNeutralizedInfo(entry: Unplaced, course: CourseTaskDataWithId):
 export function SidebarAnalysis() {
   const returnToPreparation = usePlanningStore((s) => s.returnToPreparation);
   const scheduleResult = usePlanningStore((s) => s.scheduleResult);
+  // `lastRun` (persisté) plutôt que `scheduleResult` (session uniquement) pour le bouton export :
+  // même raisonnement que la bascule de mode (§4.6 du plan) — sinon il disparaît après rechargement.
+  const lastRun = usePlanningStore((s) => s.lastRun);
   const placements = usePlanningStore((s) => s.placements);
   const unplaced = usePlanningStore((s) => s.unplaced);
   const taskGroups = usePlanningStore((s) => s.taskGroups);
@@ -181,7 +184,7 @@ export function SidebarAnalysis() {
 
         {/* Actions */}
         <div className="flex flex-col gap-2">
-          {scheduleResult !== null && (
+          {lastRun !== null && (
             <Button
               type="button"
               variant="outline"

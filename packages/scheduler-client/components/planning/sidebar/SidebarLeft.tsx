@@ -10,8 +10,10 @@ interface SidebarLeftProps {
 }
 
 export function SidebarLeft({ parsedCourses }: SidebarLeftProps) {
-  const scheduleResult = usePlanningStore((s) => s.scheduleResult);
-  if (scheduleResult) return <SidebarAnalysis />;
+  // `lastRun` (persisté) plutôt que `scheduleResult` (session uniquement) : la bascule doit
+  // survivre au rechargement de page (§4.6 du plan).
+  const lastRun = usePlanningStore((s) => s.lastRun);
+  if (lastRun !== null) return <SidebarAnalysis />;
   return <SidebarPreparation parsedCourses={parsedCourses} />;
 }
 

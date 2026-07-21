@@ -42,6 +42,22 @@ function dedupeUnplaced(entries: Unplaced[]): Unplaced[] {
 }
 
 /**
+ * Déduplique par `placementId` en gardant la **première** occurrence. Les appelants passent les
+ * `pre-enforced` recalculés en tête (§4.3 du plan) : une imposition perdue est plus grave qu'un
+ * placement persisté perdu, même raisonnement que `dedupeUnplaced`.
+ */
+function dedupePlacements(entries: Placement[]): Placement[] {
+  const seen = new Set<string>();
+  const result: Placement[] = [];
+  for (const entry of entries) {
+    if (seen.has(entry.placementId)) continue;
+    seen.add(entry.placementId);
+    result.push(entry);
+  }
+  return result;
+}
+
+/**
  * Map manuelle → map augmentée (manuelle + propagation de groupe). Même calcul pour
  * `handleEnforceChange`, `setSelectedWeek` (restauration) et `returnToPreparation` (promotion) :
  * factorisé ici pour ne pas dupliquer l'appel à `computeGroupEnforcements`.
@@ -85,9 +101,16 @@ export interface PlanningStore extends BlockedZonesSlice, TaskGroupsSlice {
   selectedWeek: number | null;
   setSelectedWeek: (week: number | null) => void;
 
-  // Résultat de planification (immuable, vient de l'API — source du "↺ Réinitialiser" et des
-  // diagnostics de non-placés ; n'est plus lu pour l'affichage, voir `placements`)
+  // Résultat de planification (immuable, vient de l'API — source des diagnostics de non-placés ;
+  // pas persisté, n'est plus lu pour l'affichage ni pour "↺ Réinitialiser", voir `placements`/`lastRun`)
   scheduleResult: ScheduleResult | null;
+
+  /**
+   * Sortie brute du dernier calcul (placements `auto` + non-placés `engine`, avant remap
+   * `pre-enforced`/dédup `user-pre`) — persistée, source de "↺ Réinitialiser" qui survit au
+   * rechargement (§4.6 du plan). `null` si aucun calcul n'a encore tourné pour cette semaine.
+   */
+  lastRun: { placements: Placement[]; unplaced: Unplaced[] } | null;
 
   /** Tâches de la semaine qui ne sont pas (ou pas entièrement) posées. */
   unplaced: Unplaced[];
@@ -203,12 +226,41 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         source: z.source,
       }));
 
+      // Élaguer les placements persistés dont le cours n'existe plus (réimport CSV) : sans ça,
+      // un placement fantôme reste dans l'état sans jamais s'afficher, et repart en sauvegarde
+      // indéfiniment (§4.3 du plan).
+      // Même élagage sur les non-placés : un `taskId` fantôme y resterait tout aussi
+      // indéfiniment, et alimenterait une pioche affichant une carte sans cours.
+      //
+      // ⚠️ Garde indispensable : n'élaguer QUE si des cours ont été résolus pour cette semaine.
+      // Une liste vide veut dire « aucun cours connu », ce qui recouvre deux situations
+      // indiscernables ici — la semaine n'a réellement aucun cours, ou `allCourses` n'est pas
+      // encore disponible. Élaguer sans cette garde effacerait silencieusement TOUS les
+      // placements et non-placés persistés dans le second cas.
+      const restoredCourseIds = new Set(restoredCourses.map((c) => c.id));
+      const canPrune = restoredCourseIds.size > 0;
+      const persistedPlacements = (snapshot.placements ?? []).filter(
+        (p) => !canPrune || restoredCourseIds.has(p.taskId),
+      );
+      const persistedUnplaced = (snapshot.unplaced ?? []).filter(
+        (u) => !canPrune || restoredCourseIds.has(u.taskId),
+      );
+
       set({
         selectedWeek: week,
         searchQuery: '',
         scheduleResult: null,
-        placements: placementsFromEnforcedMap(restoredEnforcedMap, snapshot.manualEnforcedMap),
-        unplaced: unplacedFromPreNeutralized(snapshot.preNeutralizedKeys),
+        // Les `pre-enforced` recalculés priment sur les placements persistés (dédup par
+        // placementId) : une imposition perdue est plus grave qu'un placement auto perdu.
+        placements: dedupePlacements([
+          ...placementsFromEnforcedMap(restoredEnforcedMap, snapshot.manualEnforcedMap),
+          ...persistedPlacements,
+        ]),
+        unplaced: dedupeUnplaced([
+          ...unplacedFromPreNeutralized(snapshot.preNeutralizedKeys),
+          ...persistedUnplaced,
+        ]),
+        lastRun: snapshot.lastRun ?? null,
         status: null,
         taskGroups: snapshot.taskGroups,
         manualEnforcedMap: snapshot.manualEnforcedMap,
@@ -224,6 +276,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         scheduleResult: null,
         placements: [],
         unplaced: [],
+        lastRun: null,
         blockedZones: initialBlockedZones,
         status: null,
         taskGroups: [],
@@ -234,6 +287,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   },
 
   scheduleResult: null,
+  lastRun: null,
 
   unplaced: [],
   togglePreNeutralized: (taskId) => {
@@ -280,19 +334,20 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     }));
   },
   resetCurrentSolution: () => {
-    const { scheduleResult, unplaced, enforcedMap } = get();
-    if (!scheduleResult) return;
-    const solution = scheduleResult.solution;
+    // Lit `lastRun` (persisté) plutôt que `scheduleResult` (session uniquement) : survit au
+    // rechargement de page (§4.6 du plan).
+    const { lastRun, unplaced, enforcedMap } = get();
+    if (!lastRun) return;
     // Les tâches imposées reviennent placées par le moteur (origin 'auto') : les repasser en
     // 'pre-enforced' pour tout taskId présent dans l'imposition courante, sinon l'origine se
     // perdrait à chaque réinitialisation (même règle que applyPendingResult).
-    const placements = placementsFromSolution(solution?.tasks ?? []).map((p) =>
+    const placements = lastRun.placements.map((p) =>
       p.taskId in enforcedMap ? { ...p, origin: 'pre-enforced' as const } : p,
     );
     const userPre = unplaced.filter((u) => u.origin === 'user-pre');
     set({
       placements,
-      unplaced: dedupeUnplaced([...userPre, ...unplacedFromEngine(solution?.neutralizedTasks ?? [])]),
+      unplaced: dedupeUnplaced([...userPre, ...lastRun.unplaced]),
     });
   },
 
@@ -476,10 +531,15 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       return;
     }
 
+    // Sortie brute du calcul, avant remap `pre-enforced`/dédup `user-pre` — persistée telle
+    // quelle, c'est la référence de "↺ Réinitialiser" après rechargement (§4.6 du plan).
+    const rawPlacements = placementsFromSolution(best.tasks);
+    const rawUnplaced = unplacedFromEngine(best.neutralizedTasks ?? []);
+
     // Les tâches imposées reviennent placées par le moteur (origin 'auto') : les repasser en
     // 'pre-enforced' pour tout taskId présent dans l'imposition courante, sinon l'origine se
     // perdrait à chaque planification.
-    const placements = placementsFromSolution(best.tasks).map((p) =>
+    const placements = rawPlacements.map((p) =>
       p.taskId in enforcedMap ? { ...p, origin: 'pre-enforced' as const } : p,
     );
 
@@ -488,8 +548,9 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     set({
       selectedWeek: week,
       scheduleResult: result,
+      lastRun: { placements: rawPlacements, unplaced: rawUnplaced },
       placements,
-      unplaced: dedupeUnplaced([...userPre, ...unplacedFromEngine(best.neutralizedTasks ?? [])]),
+      unplaced: dedupeUnplaced([...userPre, ...rawUnplaced]),
       isLoading: false,
       status: buildScheduleStatus(result),
       currentJobId: null,
@@ -527,6 +588,11 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       manualEnforcedMap: manualMap,
       enforcedMap: augmented,
       scheduleResult: null,
+      // La bascule de mode est désormais fondée sur `lastRun` et non sur `scheduleResult` : sans
+      // ce `null`, cette action laisserait la vue solution ouverte sur un calendrier réduit aux
+      // seules impositions. « Ne pas toucher à handleEnforceChange » (§4.5) veut dire préserver
+      // son comportement observable, ce qui impose de suivre le déménagement de la porte du mode.
+      lastRun: null,
       // Cette action invalide déjà la solution : elle remplace toute la liste par les seuls
       // placements pre-enforced (comportement actuel conservé, cf. §4.4 du plan).
       placements: placementsFromEnforcedMap(augmented, manualMap),
@@ -536,13 +602,15 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     });
   },
 
+  // Ne touche plus ni `placements`, ni `unplaced`, ni `scheduleResult` : « signaler, jamais
+  // supprimer » (§1.1/§4.5 du plan) — une tâche recouverte devient rouge au rendu (§4.1), elle
+  // n'est plus détruite.
   handleBlockedZoneAdd: (start, end) => {
     set((state) => ({
       blockedZones: [
         ...state.blockedZones,
         { id: `bz-${Date.now()}-${Math.random().toString(36).slice(2)}`, start, end },
       ],
-      scheduleResult: null,
     }));
   },
 
@@ -555,7 +623,6 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   handleBlockedZoneMove: (id, start, end) => {
     set((state) => ({
       blockedZones: state.blockedZones.map((z) => (z.id === id ? { ...z, start, end } : z)),
-      scheduleResult: null,
     }));
   },
 
@@ -605,8 +672,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     // exporté en iCal). `taskId` référence le cours Autonomie réel (résolvable via courseById) ;
     // `placementId` distingue les morceaux entre eux — c'est le cas de fragmentation
     // (placementId ≠ taskId, règle 3, §3 du plan) déjà nécessaire à l'étape 1 pour cette
-    // fonctionnalité préexistante. constraintViolation:'none' car posés dans des créneaux
-    // réellement libres.
+    // fonctionnalité préexistante. La violation n'est plus stockée, elle est dérivée au rendu.
     const pieces: Placement[] = result.pieces.map((p, i) => ({
       placementId: `${taskId}-piece-${i}`,
       taskId,
@@ -614,7 +680,6 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       duration: p.duration,
       resources: { teachers, groups, rooms },
       origin: 'post-enforced',
-      constraintViolation: 'none',
     }));
 
     set({ placements: [...placements, ...pieces] });
@@ -658,6 +723,9 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       placements: placementsFromEnforcedMap(augmented, newManualMap),
       unplaced: unplaced.filter((u) => u.origin === 'user-pre'),
       scheduleResult: null,
+      // Sans quoi la bascule de mode (§4.6, fondée sur `lastRun`) referait apparaître la vue
+      // solution après un rechargement suivant un retour explicite à la préparation.
+      lastRun: null,
       currentJobId: null,
       currentJobStatus: null,
       pendingJobResult: null,
@@ -670,6 +738,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     set({
       selectedWeek: DEFAULT_WEEK,
       scheduleResult: null,
+      lastRun: null,
       placements: [],
       unplaced: [],
       enforcedMap: {},
@@ -852,6 +921,11 @@ function _saveCurrentWeekSnapshot() {
   // Idem pour la note libre (setWeekNote écrit directement dans weekSaves) : sans cette
   // relecture, tout changement de taskGroups/blockedZones/enforcedMap effacerait la note.
   const note = ss.weekSaves[String(ps.selectedWeek)]?.note;
+  // Placements/non-placés à persister : seuls `auto`/`post-enforced` et `engine`/`user-post` —
+  // `pre-enforced` et `user-pre` sont déjà couverts par `manualEnforcedMap`/`preNeutralizedKeys`
+  // ci-dessus, les dupliquer créerait deux sources de vérité pour la même chose (§1.2 du plan).
+  const persistedPlacements = ps.placements.filter((p) => p.origin !== 'pre-enforced');
+  const persistedUnplaced = ps.unplaced.filter((u) => u.origin !== 'user-pre');
 
   // Ne pas créer un snapshot vide pour une semaine qui n'en a pas déjà un. Sans ça, ouvrir un
   // projet suffit à en fabriquer un pour DEFAULT_WEEK : `createNewProject`/`loadProjectFromFile`
@@ -860,14 +934,18 @@ function _saveCurrentWeekSnapshot() {
   // `state.selectedWeek !== prev.selectedWeek` du subscribe ne s'applique pas, et les nouvelles
   // références de `taskGroups`/`blockedZones` déclenchent une sauvegarde.
   // Si un snapshot existe déjà, on le met à jour même vide : c'est le cas légitime de
-  // l'utilisateur qui efface la préparation d'une semaine.
+  // l'utilisateur qui efface la préparation d'une semaine. Une semaine avec des placements mais
+  // sans préparation n'est pas vide non plus (§4.2 du plan).
   const isEmpty =
     ps.taskGroups.length === 0 &&
     manualBlockedZones.length === 0 &&
     preNeutralizedKeys.length === 0 &&
     Object.keys(manualEnforcedMap).length === 0 &&
     manualCourses.length === 0 &&
-    note === undefined;
+    note === undefined &&
+    persistedPlacements.length === 0 &&
+    persistedUnplaced.length === 0 &&
+    ps.lastRun === null;
   if (isEmpty && !ss.hasWeekSave(ps.selectedWeek)) return;
 
   ss.saveWeek({
@@ -880,35 +958,29 @@ function _saveCurrentWeekSnapshot() {
     manualEnforcedMap,
     manualCourses,
     note,
+    placements: persistedPlacements,
+    unplaced: persistedUnplaced,
+    lastRun: ps.lastRun ?? undefined,
   });
 }
 
 if (typeof window !== 'undefined') {
   void _resumePendingJob();
 
-  // Sauvegarde déclenchée par une modification dans usePlanningStore
+  // Sauvegarde déclenchée par une modification dans usePlanningStore. La garde ne comparait
+  // avant que les `pre-enforced`/`user-pre` (par JSON.stringify) pour éviter qu'une retouche de
+  // tuile ne réécrive tout le projet — devenu inutile depuis le découpage par semaine
+  // (~2,4 Ko/écriture, cbc0caa) : simplification, pas un ajout de portée (§4.4 du plan).
   usePlanningStore.subscribe((state, prev) => {
     // Ignorer les changements de semaine (setSelectedWeek gère la restauration)
     if (state.selectedWeek !== prev.selectedWeek) return;
-    // `placements` change à chaque déplacement d'une tâche auto/post-enforced — ne redéclencher
-    // une sauvegarde que si les `pre-enforced` (non dérivés) ont réellement changé, sinon chaque
-    // retouche réécrirait tout le projet en localStorage.
-    const enforcedChanged =
-      state.placements !== prev.placements &&
-      JSON.stringify(enforcedMapFromPlacements(state.placements, { excludeDerived: true })) !==
-        JSON.stringify(enforcedMapFromPlacements(prev.placements, { excludeDerived: true }));
-    // `unplaced` change aussi à chaque neutralisation moteur/retrait manuel — ne redéclencher
-    // que si les `user-pre` (seuls persistés) ont réellement changé, même précaution.
-    const userPreChanged =
-      state.unplaced !== prev.unplaced &&
-      JSON.stringify(state.unplaced.filter((u) => u.origin === 'user-pre').map((u) => u.taskId)) !==
-        JSON.stringify(prev.unplaced.filter((u) => u.origin === 'user-pre').map((u) => u.taskId));
     if (
+      state.placements === prev.placements &&
+      state.unplaced === prev.unplaced &&
       state.taskGroups === prev.taskGroups &&
       state.blockedZones === prev.blockedZones &&
       state.manualEnforcedMap === prev.manualEnforcedMap &&
-      !enforcedChanged &&
-      !userPreChanged
+      state.lastRun === prev.lastRun
     ) return;
     _saveCurrentWeekSnapshot();
   });
