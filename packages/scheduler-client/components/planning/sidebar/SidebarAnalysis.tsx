@@ -1,13 +1,17 @@
 'use client';
 
 import { useRef, useMemo, useState } from 'react';
+import type { NeutralizedTaskInfoJSON, ResourceEntry } from '@edt-ts/scheduler-common';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useNeutralizedDraggable } from '@/hooks/useNeutralizedDraggable';
 import { downloadIcalSolution } from '@/lib/icalExport';
 import { matchesSearchQuery } from '@/lib/calendar/calendarUtils';
 import { toTaskSolutionJSON } from '@/lib/calendar/placements';
+import { selectPiocheEntries } from '@/lib/calendar/unplaced';
 import { getCoursesForWeek } from '@/lib/weekCourses';
+import type { CourseTaskDataWithId } from '@/lib/courseId';
+import type { Unplaced } from '@/store/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,16 +27,45 @@ import {
 } from '@/components/ui/dialog';
 import NeutralizedTaskCard from '@/components/planning/courses/NeutralizedTaskCard';
 import ResourceLoadPopover from '@/components/planning/courses/ResourceLoadPopover';
-import { solutionToBaseProps, manuallyNeutralizedToBaseProps, selectUnplacedNeutralized, PRE_NEUTRAL_PREFIX } from '@/lib/taskCardUtils';
+import { courseToBaseProps, normalizeResourceEntries } from '@/lib/taskCardUtils';
 import { buildAnalysisLoadRows } from '@/lib/resourceLoadAnalysis';
+
+/** Ressources candidates (toutes alternatives, dédupliquées) — même règle que
+ *  `serializeNeutralizedUnit` côté API. Adaptateur local : `buildAnalysisLoadRows` n'est pas
+ *  modifié, il vit dans `lib/resourceLoadAnalysis.ts` et reste couvert par ses propres tests. */
+function candidateIds(entries: ResourceEntry[]): string[] {
+  const ids = new Set<string>();
+  for (const e of entries) for (const id of Array.isArray(e) ? e : [e]) ids.add(id);
+  return [...ids];
+}
+
+function toEngineNeutralizedInfo(entry: Unplaced, course: CourseTaskDataWithId): NeutralizedTaskInfoJSON {
+  return {
+    task: {
+      taskId: entry.taskId,
+      code: course.code,
+      name: course.name,
+      type: course.type,
+      week: course.week,
+      duration: course.duration,
+      startTime: -1,
+      resources: [
+        ...candidateIds(course.teacher).map((id) => ({ id, type: 'teacher' })),
+        ...candidateIds(course.groups).map((id) => ({ id, type: 'group' })),
+        ...candidateIds(course.rooms ?? []).map((id) => ({ id, type: 'room' })),
+      ],
+    },
+    eliminationRound: entry.diagnostics?.eliminationRound ?? 0,
+    failureCount: entry.diagnostics?.failureCount ?? 0,
+    reason: entry.diagnostics?.reason ?? '',
+  };
+}
 
 export function SidebarAnalysis() {
   const resetScheduleResult = usePlanningStore((s) => s.resetScheduleResult);
   const scheduleResult = usePlanningStore((s) => s.scheduleResult);
   const placements = usePlanningStore((s) => s.placements);
-  const activeNeutralizedTasks = usePlanningStore((s) => s.activeNeutralizedTasks);
-  const manuallyNeutralizedTasks = usePlanningStore((s) => s.manuallyNeutralizedTasks);
-  const autonomyDistributions = usePlanningStore((s) => s.autonomyDistributions);
+  const unplaced = usePlanningStore((s) => s.unplaced);
   const distributeAutonomy = usePlanningStore((s) => s.distributeAutonomy);
   const cancelAutonomyDistribution = usePlanningStore((s) => s.cancelAutonomyDistribution);
   const searchQuery = usePlanningStore((s) => s.searchQuery);
@@ -48,19 +81,25 @@ export function SidebarAnalysis() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const neutralizedContainerRef = useRef<HTMLDivElement | null>(null);
 
-  useNeutralizedDraggable({
-    containerRef: neutralizedContainerRef,
-    hasItems: selectUnplacedNeutralized(activeNeutralizedTasks, placements).length > 0 || manuallyNeutralizedTasks.length > 0,
-  });
-
-  const iCalWeek = selectedWeek ?? 1;
-
   // Résolution de cours nécessaire à toTaskSolutionJSON (règle 1, §3 du plan) : les placements
   // ne recopient plus code/name/type.
   const courseById = useMemo(() => {
     const courses = selectedWeek !== null ? getCoursesForWeek(allCourses, weekSaves, selectedWeek) : [];
     return new Map(courses.map((c) => [c.id, c]));
   }, [allCourses, weekSaves, selectedWeek]);
+
+  // Pioche unique : une seule dérivation, quelle que soit l'origine (§4.5 du plan).
+  const piocheEntries = useMemo(
+    () => selectPiocheEntries(unplaced, placements, courseById),
+    [unplaced, placements, courseById],
+  );
+
+  useNeutralizedDraggable({
+    containerRef: neutralizedContainerRef,
+    hasItems: piocheEntries.length > 0,
+  });
+
+  const iCalWeek = selectedWeek ?? 1;
 
   // Export iCal : les placements (toutes origines confondues) reflètent l'état affiché,
   // retouches manuelles comprises — remplace filteredSolutions + filteredPlacedNeutralized.
@@ -76,14 +115,11 @@ export function SidebarAnalysis() {
       .map((p) => toTaskSolutionJSON(p, courseById.get(p.taskId), iCalWeek));
   }, [placements, courseById, searchQuery, iCalWeek]);
 
-  const unplacedNeutralized = selectUnplacedNeutralized(activeNeutralizedTasks, placements);
-  const hasAnyNeutralizedItems = unplacedNeutralized.length > 0 || manuallyNeutralizedTasks.length > 0;
-
-  const filteredUnplacedNeutralized = unplacedNeutralized.filter((t) =>
-    matchesSearchQuery([t.task.code, t.task.name, t.task.type, ...t.task.resources.map((r) => r.id)], searchQuery),
-  );
-  const filteredManuallyNeutralized = manuallyNeutralizedTasks.filter((task) =>
-    matchesSearchQuery([task.code, task.name, task.type, ...task.teachers, ...task.rooms, ...task.groups], searchQuery),
+  const filteredPiocheEntries = piocheEntries.filter(({ course }) =>
+    matchesSearchQuery(
+      [course.code, course.name, course.type, ...normalizeResourceEntries(course.teacher), ...normalizeResourceEntries(course.groups), ...normalizeResourceEntries(course.rooms ?? [])],
+      searchQuery,
+    ),
   );
 
   function handleConfirmRetour() {
@@ -134,66 +170,54 @@ export function SidebarAnalysis() {
         </div>
 
         {/* Pioche — tâches neutralisées et tâches retirées du calendrier */}
-        {hasAnyNeutralizedItems && (
+        {piocheEntries.length > 0 && (
           <>
             <Separator />
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Non placés
               </p>
-              <Badge variant="secondary">{filteredUnplacedNeutralized.length + filteredManuallyNeutralized.length}</Badge>
+              <Badge variant="secondary">{filteredPiocheEntries.length}</Badge>
             </div>
             <p className="text-xs text-muted-foreground italic">
               Glissez un cours sur le calendrier pour le placer.
             </p>
             <div ref={neutralizedContainerRef} className="flex flex-col gap-2">
-              {/* Tâches neutralisées par le moteur ou pré-neutralisées */}
-              {filteredUnplacedNeutralized.map((neutralizedInfo) => {
-                const task = neutralizedInfo.task;
-                const isPreNeutralized = task.taskId.startsWith(PRE_NEUTRAL_PREFIX);
-                const tooltipLines: string[] = [neutralizedInfo.reason];
-                if (!isPreNeutralized) {
-                  tooltipLines.push(`Échecs : ${neutralizedInfo.failureCount}`);
-                  if (neutralizedInfo.requiredMinutes !== undefined) {
-                    tooltipLines.push(`Temps nécessaire : ${neutralizedInfo.requiredMinutes} min`);
-                  }
-                  if (neutralizedInfo.schedulableMinutes !== undefined) {
-                    tooltipLines.push(`Temps dispo : ${neutralizedInfo.schedulableMinutes} min`);
-                  }
-                  if (neutralizedInfo.resourceSnapshots && neutralizedInfo.resourceSnapshots.length > 0) {
-                    const conflicting = neutralizedInfo.resourceSnapshots.filter(
-                      (s) => s.availableMinutes < (neutralizedInfo.requiredMinutes ?? Infinity),
-                    );
-                    if (conflicting.length > 0) {
-                      tooltipLines.push(`Ressources limitantes : ${conflicting.map((s) => s.resourceId).join(', ')}`);
-                    }
-                  }
-                }
-                const baseProps = solutionToBaseProps(task);
-                const dist = autonomyDistributions[task.taskId];
-                const isAutonomie = task.type === 'Autonomie';
+              {filteredPiocheEntries.map(({ entry, course, remaining }) => {
+                const tooltipContent =
+                  entry.origin === 'engine'
+                    ? [entry.diagnostics?.reason, `Échecs : ${entry.diagnostics?.failureCount ?? 0}`].filter(Boolean).join('\n')
+                    : entry.origin === 'user-pre'
+                      ? 'Neutralisée manuellement avant planification'
+                      : 'Retirée manuellement du calendrier';
+                const baseProps = courseToBaseProps(course);
+                // Une tâche déjà partiellement distribuée (Autonomie) reste dans la pioche avec
+                // sa durée résiduelle, mais ne peut pas être redéposée tant qu'elle ne l'est pas
+                // annulée — même état pilote le libellé du bouton (§4.5 du plan).
+                const hasPlacements = placements.some((p) => p.taskId === entry.taskId);
+                const isAutonomie = course.type === 'Autonomie';
                 return (
-                  <div key={task.taskId} className="relative">
+                  <div key={entry.taskId} className="relative">
                     <NeutralizedTaskCard
                       {...baseProps}
-                      duration={dist ? dist.remainingDuration : baseProps.duration}
-                      taskId={task.taskId}
-                      tooltipContent={tooltipLines.join('\n')}
-                      dragEnabled={!dist}
+                      duration={remaining}
+                      taskId={entry.taskId}
+                      tooltipContent={tooltipContent}
+                      dragEnabled={!hasPlacements}
                       onDistribute={
                         isAutonomie
-                          ? () => (dist ? cancelAutonomyDistribution(task.taskId) : distributeAutonomy(task.taskId))
+                          ? () => (hasPlacements ? cancelAutonomyDistribution(entry.taskId) : distributeAutonomy(entry.taskId))
                           : undefined
                       }
-                      distributeLabel={dist ? 'Annuler la répartition' : 'Répartir'}
+                      distributeLabel={hasPlacements ? 'Annuler la répartition' : 'Répartir'}
                     />
-                    {!isPreNeutralized && availabilityManager && selectedWeek !== null && (
+                    {entry.origin === 'engine' && availabilityManager && selectedWeek !== null && (
                       <div className="absolute top-1 right-1">
                         <ResourceLoadPopover
                           mode="analysis"
-                          taskDurationMin={task.duration}
+                          taskDurationMin={course.duration}
                           rows={buildAnalysisLoadRows(
-                            neutralizedInfo,
+                            toEngineNeutralizedInfo(entry, course),
                             scheduleResult?.solution?.tasks ?? [],
                             availabilityManager,
                             selectedWeek,
@@ -205,29 +229,6 @@ export function SidebarAnalysis() {
                       </div>
                     )}
                   </div>
-                );
-              })}
-
-              {/* Tâches retirées manuellement du calendrier */}
-              {filteredManuallyNeutralized.map((task) => {
-                const baseProps = manuallyNeutralizedToBaseProps(task);
-                const dist = autonomyDistributions[task.taskId];
-                const isAutonomie = task.type === 'Autonomie';
-                return (
-                  <NeutralizedTaskCard
-                    key={task.taskId}
-                    {...baseProps}
-                    duration={dist ? dist.remainingDuration : baseProps.duration}
-                    taskId={task.taskId}
-                    tooltipContent="Retirée manuellement du calendrier"
-                    dragEnabled={!dist}
-                    onDistribute={
-                      isAutonomie
-                        ? () => (dist ? cancelAutonomyDistribution(task.taskId) : distributeAutonomy(task.taskId))
-                        : undefined
-                    }
-                    distributeLabel={dist ? 'Annuler la répartition' : 'Répartir'}
-                  />
                 );
               })}
             </div>

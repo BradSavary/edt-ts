@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { EnforcedData, NeutralizedTaskInfoJSON, ConstraintsData, JobStatusResponse } from '@edt-ts/scheduler-common';
+import type { EnforcedData, ConstraintsData, JobStatusResponse } from '@edt-ts/scheduler-common';
 import type { BlockedZone } from '@/lib/calendar/blockedZones';
 import { submitJobAsync, pollJob, cancelJob, buildScheduleStatus, JobConflictError, type ScheduleResult, type ScheduleStatus } from '@/lib/api/scheduleApi';
 import { getClientId } from '@/lib/api/clientId';
@@ -9,20 +9,36 @@ import { type TaskGroupConfig, type GroupType, buildTaskGroupData, getCourseGrou
 import { computeHolidayZonesForWeek, resolveCalendarYear } from '@/lib/schoolHolidays';
 import { getCoursesForWeek, getManualCoursesForWeek } from '@/lib/weekCourses';
 import { filterResourcesForCourses } from '@/lib/filterResourcesForCourses';
-import { createNeutralizedSlice, type NeutralizedSlice } from '@/store/slices/neutralizedSlice';
 import { createBlockedZonesSlice, type BlockedZonesSlice } from '@/store/slices/blockedZonesSlice';
 import { createTaskGroupsSlice, type TaskGroupsSlice } from '@/store/slices/taskGroupsSlice';
-import { createAutonomyDistributionSlice, type AutonomyDistributionSlice } from '@/store/slices/autonomyDistributionSlice';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
 import { getMondayOfISOWeek, dateToStartTime } from '@/lib/calendar/calendarUtils';
 import { placementsFromSolution, placementsFromEnforcedMap, enforcedMapFromPlacements } from '@/lib/calendar/placements';
 import { computeAutonomyDistribution, type OccupancyEntry } from '@/lib/calendar/autonomyDistribution';
-import { resolveNeutralizedTaskById } from '@/lib/taskCardUtils';
+import { unplacedFromEngine, unplacedFromPreNeutralized } from '@/lib/calendar/unplaced';
 
 export type { TaskGroupConfig };
-export type { Placement, PlacementOrigin, ManuallyNeutralizedTask, PlacedNeutralizedTask, AutonomyDistribution } from './types';
-import type { Placement, AutonomyDistribution } from './types';
+export type { Placement, PlacementOrigin, Unplaced, UnplacedOrigin } from './types';
+import type { Placement, Unplaced } from './types';
 export type { PreparedWeekSnapshot } from './slices/weekSavesSlice';
+
+/**
+ * Déduplique par `taskId` en gardant la **première** occurrence. Les appelants passent donc les
+ * `user-pre` en tête : une collision ne devrait pas se produire (un `user-pre` n'est jamais envoyé
+ * au moteur, donc jamais renvoyé neutralisé), mais si elle survenait, perdre l'exclusion amont
+ * serait bien plus grave que perdre des diagnostics — la tâche cesserait d'être exclue des runs
+ * suivants **et** ne serait plus persistée dans `preNeutralizedKeys`, en silence.
+ */
+function dedupeUnplaced(entries: Unplaced[]): Unplaced[] {
+  const seen = new Set<string>();
+  const result: Unplaced[] = [];
+  for (const entry of entries) {
+    if (seen.has(entry.taskId)) continue;
+    seen.add(entry.taskId);
+    result.push(entry);
+  }
+  return result;
+}
 
 export type Status = ScheduleStatus;
 
@@ -36,7 +52,7 @@ export const DEFAULT_WEEK = 35;
 // ── Interface ──────────────────────────────────────────────────────────────
 // Contient les données "de travail" de la session : non persistées.
 
-export interface PlanningStore extends NeutralizedSlice, BlockedZonesSlice, TaskGroupsSlice, AutonomyDistributionSlice {
+export interface PlanningStore extends BlockedZonesSlice, TaskGroupsSlice {
   // Sélection de la semaine
   selectedWeek: number | null;
   setSelectedWeek: (week: number | null) => void;
@@ -45,7 +61,12 @@ export interface PlanningStore extends NeutralizedSlice, BlockedZonesSlice, Task
   // diagnostics de non-placés ; n'est plus lu pour l'affichage, voir `placements`)
   scheduleResult: ScheduleResult | null;
 
-  activeNeutralizedTasks: NeutralizedTaskInfoJSON[];
+  /** Tâches de la semaine qui ne sont pas (ou pas entièrement) posées. */
+  unplaced: Unplaced[];
+  /** Bascule l'exclusion amont d'un cours (mode préparation). */
+  togglePreNeutralized: (taskId: string) => void;
+  /** Retire un placement du calendrier et signale la tâche comme non placée. */
+  unplaceTask: (placementId: string, origin: Unplaced['origin']) => void;
 
   /** Emploi du temps courant de la semaine — toutes origines confondues (auto, imposé, retouché). */
   placements: Placement[];
@@ -82,7 +103,7 @@ export interface PlanningStore extends NeutralizedSlice, BlockedZonesSlice, Task
   // Planification asynchrone
   currentJobId: string | null;
   currentJobStatus: JobStatusResponse | null;
-  pendingJobResult: { week: number; result: ScheduleResult; syntheticNeutralized: NeutralizedTaskInfoJSON[] } | null;
+  pendingJobResult: { week: number; result: ScheduleResult } | null;
   runSchedule: () => Promise<void>;
   cancelCurrentJob: () => Promise<void>;
   /** Applique le résultat en attente pour la semaine donnée et vide pendingJobResult. */
@@ -115,10 +136,8 @@ let _pollingInterval: ReturnType<typeof setInterval> | null = null;
 export const usePlanningStore = create<PlanningStore>()((...a) => {
   const [set, get] = a;
   return {
-  ...createNeutralizedSlice(...a),
   ...createBlockedZonesSlice(...a),
   ...createTaskGroupsSlice(...a),
-  ...createAutonomyDistributionSlice(...a),
 
   selectedWeek: DEFAULT_WEEK,
   setSelectedWeek: (week) => {
@@ -170,15 +189,11 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         searchQuery: '',
         scheduleResult: null,
         placements: placementsFromEnforcedMap(restoredEnforcedMap, snapshot.manualEnforcedMap),
-        activeNeutralizedTasks: [],
-        manuallyNeutralizedTasks: [],
-        autonomyDistributions: {},
-        syntheticNeutralizedTasks: [],
+        unplaced: unplacedFromPreNeutralized(snapshot.preNeutralizedKeys),
         status: null,
         taskGroups: snapshot.taskGroups,
         manualEnforcedMap: snapshot.manualEnforcedMap,
         enforcedMap: restoredEnforcedMap,
-        preNeutralizedKeys: snapshot.preNeutralizedKeys,
         blockedZones: [...initialBlockedZones, ...restoredManualZones],
       });
       // Plus besoin de toucher allCourses : les cours CSV y restent en permanence,
@@ -189,11 +204,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         searchQuery: '',
         scheduleResult: null,
         placements: [],
-        activeNeutralizedTasks: [],
-        preNeutralizedKeys: [],
-        manuallyNeutralizedTasks: [],
-        autonomyDistributions: {},
-        syntheticNeutralizedTasks: [],
+        unplaced: [],
         blockedZones: initialBlockedZones,
         status: null,
         taskGroups: [],
@@ -205,7 +216,29 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
 
   scheduleResult: null,
 
-  activeNeutralizedTasks: [],
+  unplaced: [],
+  togglePreNeutralized: (taskId) => {
+    set((state) => {
+      const exists = state.unplaced.some((u) => u.taskId === taskId && u.origin === 'user-pre');
+      return {
+        unplaced: exists
+          ? state.unplaced.filter((u) => !(u.taskId === taskId && u.origin === 'user-pre'))
+          : [...state.unplaced, { taskId, origin: 'user-pre' as const }],
+      };
+    });
+  },
+  unplaceTask: (placementId, origin) => {
+    set((state) => {
+      const removed = state.placements.find((p) => p.placementId === placementId);
+      if (!removed) return {};
+      const placements = state.placements.filter((p) => p.placementId !== placementId);
+      const exists = state.unplaced.some((u) => u.taskId === removed.taskId);
+      return {
+        placements,
+        unplaced: exists ? state.unplaced : [...state.unplaced, { taskId: removed.taskId, origin }],
+      };
+    });
+  },
   placements: [],
   updatePlacement: (placementId, patch) => {
     set((state) => ({
@@ -228,7 +261,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     }));
   },
   resetCurrentSolution: () => {
-    const { scheduleResult, syntheticNeutralizedTasks, enforcedMap } = get();
+    const { scheduleResult, unplaced, enforcedMap } = get();
     if (!scheduleResult) return;
     const solution = scheduleResult.solution;
     // Les tâches imposées reviennent placées par le moteur (origin 'auto') : les repasser en
@@ -237,11 +270,10 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     const placements = placementsFromSolution(solution?.tasks ?? []).map((p) =>
       p.taskId in enforcedMap ? { ...p, origin: 'pre-enforced' as const } : p,
     );
+    const userPre = unplaced.filter((u) => u.origin === 'user-pre');
     set({
       placements,
-      manuallyNeutralizedTasks: [],
-      autonomyDistributions: {},
-      activeNeutralizedTasks: [...(solution?.neutralizedTasks ?? []), ...syntheticNeutralizedTasks],
+      unplaced: dedupeUnplaced([...userPre, ...unplacedFromEngine(solution?.neutralizedTasks ?? [])]),
     });
   },
 
@@ -272,7 +304,8 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       set({ currentJobId: null, currentJobStatus: null });
     }
 
-    const { selectedWeek, placements, blockedZones, taskGroups, preNeutralizedKeys, pendingJobResult } = get();
+    const { selectedWeek, placements, blockedZones, taskGroups, unplaced, pendingJobResult } = get();
+    const userPreTaskIds = unplaced.filter((u) => u.origin === 'user-pre').map((u) => u.taskId);
     // Reconstruit depuis `placements` (source de vérité affichée) plutôt que de lire l'ancien
     // champ `enforcedMap` séparément — propagés compris, le moteur doit recevoir la même
     // imposition augmentée qu'avant ce chantier (cf. lib/calendar/placements.ts).
@@ -298,18 +331,14 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     }
 
     // Filtrage des tâches pré-neutralisées
-    const preNeutSet = new Set(preNeutralizedKeys);
+    const preNeutSet = new Set(userPreTaskIds);
     const filteredCourses: CourseTaskDataWithId[] = [];
     const keptIds = new Set<string>();
-    const preNeutCourses: CourseTaskDataWithId[] = [];
 
     for (const course of coursesForWeek) {
-      if (preNeutSet.has(course.id)) {
-        preNeutCourses.push(course);
-      } else {
-        keptIds.add(course.id);
-        filteredCourses.push(course);
-      }
+      if (preNeutSet.has(course.id)) continue;
+      keptIds.add(course.id);
+      filteredCourses.push(course);
     }
 
     // taskGroups filtré sur les cours conservés (non pré-neutralisés) — les impositions
@@ -328,32 +357,6 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     }));
 
     const { coursesWithGroups, declarations } = buildTaskGroupData(filteredCourses, remappedTaskGroups);
-
-    // Pré-calculer les entrées synthétiques pour les tâches pré-neutralisées
-    const syntheticNeutralized = preNeutCourses.map((course) => {
-      return {
-        task: {
-          taskId: `pre-neutral-${course.id}`,
-          code: course.code,
-          name: course.name,
-          type: course.type,
-          week: selectedWeek,
-          duration: course.duration,
-          startTime: 0,
-          resources: [
-            ...course.teacher.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e])).filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'teacher' })),
-            ...course.groups.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e])).filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'group' })),
-            ...course.rooms.flat().filter((id): id is string => Boolean(id)).map((id) => ({ id, type: 'room' })),
-          ],
-        },
-        eliminationRound: 0,
-        failureCount: 0,
-        requiredMinutes: course.duration,
-        schedulableMinutes: 0,
-        resourceSnapshots: [],
-        reason: 'Neutralisée manuellement avant planification',
-      };
-    });
 
     // Ne transmet au moteur que les ressources réellement référencées par les cours
     // de cette semaine (+ celles imposées) — évite les avertissements "non trouvée
@@ -379,8 +382,8 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       const { jobId } = await submitJobAsync(submitParams, clientId);
 
       set({ currentJobId: jobId, status: { message: 'Planification en cours…', kind: 'inf' } });
-      _saveJobToStorage(jobId, syntheticNeutralized);
-      _startPolling(jobId, syntheticNeutralized);
+      _saveJobToStorage(jobId);
+      _startPolling(jobId);
 
     } catch (err: unknown) {
       if (err instanceof JobConflictError && err.existingJobId) {
@@ -393,8 +396,8 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
             try {
               const { jobId: newJobId } = await submitJobAsync(submitParams, clientId);
               set({ currentJobId: newJobId, status: { message: 'Planification en cours…', kind: 'inf' } });
-              _saveJobToStorage(newJobId, syntheticNeutralized);
-              _startPolling(newJobId, syntheticNeutralized);
+              _saveJobToStorage(newJobId);
+              _startPolling(newJobId);
             } catch (retryErr: unknown) {
               const msg = retryErr instanceof Error ? retryErr.message : String(retryErr);
               set({ isLoading: false, status: { message: `❌ ${msg}`, kind: 'err' }, currentJobId: null, currentJobStatus: null });
@@ -405,8 +408,8 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
             try {
               const { jobId: newJobId } = await submitJobAsync(submitParams, clientId);
               set({ currentJobId: newJobId, status: { message: 'Planification en cours…', kind: 'inf' } });
-              _saveJobToStorage(newJobId, syntheticNeutralized);
-              _startPolling(newJobId, syntheticNeutralized);
+              _saveJobToStorage(newJobId);
+              _startPolling(newJobId);
             } catch (retryErr: unknown) {
               const msg = retryErr instanceof Error ? retryErr.message : String(retryErr);
               set({ isLoading: false, status: { message: `❌ ${msg}`, kind: 'err' }, currentJobId: null, currentJobStatus: null });
@@ -417,7 +420,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
               isLoading: false,
               currentJobId: null,
               currentJobStatus: null,
-              pendingJobResult: _normalizeJobResult(jobStatus, syntheticNeutralized),
+              pendingJobResult: _normalizeJobResult(jobStatus),
               status: { message: `✅ Planification semaine ${jobStatus.week} terminée`, kind: 'ok' },
             });
             void cancelJob(existingId);
@@ -433,15 +436,16 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   },
 
   applyPendingResult: () => {
-    const { pendingJobResult, enforcedMap } = get();
+    const { pendingJobResult, enforcedMap, unplaced } = get();
     if (!pendingJobResult) return;
-    const { result, syntheticNeutralized, week } = pendingJobResult;
+    const { result, week } = pendingJobResult;
     const best = result.solution;
+    const userPre = unplaced.filter((u) => u.origin === 'user-pre');
 
      // Si le moteur n'a placé aucune tâche, on reste en mode préparation
     if (!best || best.tasks.length === 0) {
-      const neutralized = [...(best?.neutralizedTasks ?? []), ...syntheticNeutralized];
-      const neutralizedMsg = neutralized.length ? ` — ${neutralized.length} cours neutralisé(s)` : '';
+      const neutralizedCount = (best?.neutralizedTasks?.length ?? 0) + userPre.length;
+      const neutralizedMsg = neutralizedCount ? ` — ${neutralizedCount} cours neutralisé(s)` : '';
       set({
         selectedWeek: week,
         isLoading: false,
@@ -460,14 +464,13 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       p.taskId in enforcedMap ? { ...p, origin: 'pre-enforced' as const } : p,
     );
 
+    // Les `user-post` sont vidés (nouvelle solution) ; dédup sur `taskId` plutôt que de supposer
+    // qu'un `user-pre` (jamais envoyé au moteur) ne peut pas revenir dans neutralizedTasks (§4.3).
     set({
       selectedWeek: week,
       scheduleResult: result,
       placements,
-      activeNeutralizedTasks: [...(best.neutralizedTasks ?? []), ...syntheticNeutralized],
-      syntheticNeutralizedTasks: syntheticNeutralized,
-      manuallyNeutralizedTasks: [],
-      autonomyDistributions: {},
+      unplaced: dedupeUnplaced([...userPre, ...unplacedFromEngine(best.neutralizedTasks ?? [])]),
       isLoading: false,
       status: buildScheduleStatus(result),
       currentJobId: null,
@@ -521,8 +524,9 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       // Cette action invalide déjà la solution : elle remplace toute la liste par les seuls
       // placements pre-enforced (comportement actuel conservé, cf. §4.4 du plan).
       placements: placementsFromEnforcedMap(augmented, manualMap),
-      activeNeutralizedTasks: [],
-      autonomyDistributions: {},
+      // Plus de solution moteur : les `engine`/`user-post` n'ont plus lieu d'être, seuls les
+      // `user-pre` survivent (même règle que `resetScheduleResult`).
+      unplaced: get().unplaced.filter((u) => u.origin === 'user-pre'),
     });
   },
 
@@ -550,17 +554,21 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   },
 
   distributeAutonomy: (taskId) => {
-    const {
-      placements, manuallyNeutralizedTasks,
-      activeNeutralizedTasks, autonomyDistributions, selectedWeek, blockedZones,
-    } = get();
+    const { placements, selectedWeek, blockedZones } = get();
     if (selectedWeek === null) return;
-
-    const info = resolveNeutralizedTaskById(taskId, activeNeutralizedTasks, manuallyNeutralizedTasks);
-    if (!info || info.type !== 'Autonomie') return;
 
     const { allCourses, weekSaves, availabilityManager, schoolYearConfig } = useProjectStore.getState();
     if (!availabilityManager) return;
+
+    const courseById = new Map(getCoursesForWeek(allCourses, weekSaves, selectedWeek).map((c) => [c.id, c]));
+    const course = courseById.get(taskId);
+    if (!course || course.type !== 'Autonomie') return;
+
+    // Le bouton « Répartir » n'est visible (SidebarAnalysis) que si `taskId` n'a encore aucun
+    // placement : pas d'alternatives à résoudre, premier alternatif = seul possible.
+    const teachers = course.teacher.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e]));
+    const groups = course.groups.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e]));
+    const rooms = course.rooms.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e]));
 
     const monday = getMondayOfISOWeek(selectedWeek, resolveCalendarYear(schoolYearConfig, selectedWeek));
 
@@ -568,7 +576,6 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     // origines). Les morceaux déjà distribués pour D'AUTRES cours Autonomie susceptibles de
     // partager un groupe y figurent déjà : ce sont des placements de plein droit, donc inclus.
     // `duration` résolue via le cours quand le placement ne la porte pas explicitement (règle 1).
-    const courseById = new Map(getCoursesForWeek(allCourses, weekSaves, selectedWeek).map((c) => [c.id, c]));
     const occupancy: OccupancyEntry[] = placements.map((p) => ({
       startTime: p.startTime,
       duration: p.duration ?? courseById.get(p.taskId)?.duration ?? 0,
@@ -580,12 +587,12 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       .filter((z) => z.end > z.start);
 
     const result = computeAutonomyDistribution({
-      groupIds: info.groups,
+      groupIds: groups,
       week: selectedWeek,
       availabilityManager,
       blockedZonesMinutes,
       occupancy,
-      totalDuration: info.duration,
+      totalDuration: course.duration,
     });
 
     // Chaque morceau devient un placement `post-enforced` de plein droit (déplaçable, éditable,
@@ -599,51 +606,32 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       taskId,
       startTime: p.startTime,
       duration: p.duration,
-      resources: { teachers: info.teachers, groups: info.groups, rooms: info.rooms },
+      resources: { teachers, groups, rooms },
       origin: 'post-enforced',
       constraintViolation: 'none',
     }));
 
-    const distribution: AutonomyDistribution = {
-      originalTaskId: taskId,
-      totalDuration: info.duration,
-      remainingDuration: result.remainingDuration,
-      pieceIds: pieces.map((pc) => pc.placementId),
-    };
-
-    set({
-      placements: [...placements, ...pieces],
-      autonomyDistributions: { ...autonomyDistributions, [taskId]: distribution },
-    });
+    set({ placements: [...placements, ...pieces] });
   },
 
   cancelAutonomyDistribution: (taskId) => {
-    set((state) => {
-      const dist = state.autonomyDistributions[taskId];
-      const next = { ...state.autonomyDistributions };
-      delete next[taskId];
-      return {
-        // Retirer tous les morceaux issus de cette répartition (par placementId — `pieceIds`
-        // reste correct même si un morceau a déjà été retiré à la main entre-temps).
-        placements: dist ? state.placements.filter((p) => !dist.pieceIds.includes(p.placementId)) : state.placements,
-        autonomyDistributions: next,
-      };
-    });
+    set((state) => ({
+      // Plus de `pieceIds` à tenir à jour séparément : tous les morceaux d'une répartition
+      // partagent le `taskId` du cours Autonomie source (§4.3 du plan).
+      placements: state.placements.filter((p) => p.taskId !== taskId),
+    }));
   },
 
   resetScheduleResult: () => {
     if (_pollingInterval !== null) { clearInterval(_pollingInterval); _pollingInterval = null; }
-    const { enforcedMap, manualEnforcedMap } = get();
+    const { enforcedMap, manualEnforcedMap, unplaced } = get();
     set({
       scheduleResult: null,
-      activeNeutralizedTasks: [],
       // Retour à la préparation : les impositions restent visibles sur le calendrier (comme
       // avant ce chantier, cf. `activeSolution.length === 0 ? enforcedEventsState : []`) ;
-      // auto/post-enforced disparaissent avec la solution.
+      // auto/post-enforced disparaissent avec la solution, ne gardent que les `user-pre`.
       placements: placementsFromEnforcedMap(enforcedMap, manualEnforcedMap),
-      manuallyNeutralizedTasks: [],
-      autonomyDistributions: {},
-      syntheticNeutralizedTasks: [],
+      unplaced: unplaced.filter((u) => u.origin === 'user-pre'),
       currentJobId: null,
       currentJobStatus: null,
       pendingJobResult: null,
@@ -656,12 +644,8 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     set({
       selectedWeek: DEFAULT_WEEK,
       scheduleResult: null,
-      activeNeutralizedTasks: [],
       placements: [],
-      preNeutralizedKeys: [],
-      manuallyNeutralizedTasks: [],
-      autonomyDistributions: {},
-      syntheticNeutralizedTasks: [],
+      unplaced: [],
       enforcedMap: {},
       manualEnforcedMap: {},
       blockedZones: [],
@@ -682,31 +666,30 @@ const JOB_PERSISTENCE_KEY = 'edt-pending-job';
 
 const JOB_TTL_MS = 24 * 60 * 60 * 1000; // 8 heures
 
-function _saveJobToStorage(jobId: string, syntheticNeutralized: NeutralizedTaskInfoJSON[]) {
-  try { localStorage.setItem(JOB_PERSISTENCE_KEY, JSON.stringify({ jobId, syntheticNeutralized, savedAt: Date.now() })); } catch {}
+function _saveJobToStorage(jobId: string) {
+  try { localStorage.setItem(JOB_PERSISTENCE_KEY, JSON.stringify({ jobId, savedAt: Date.now() })); } catch {}
 }
 
 function _clearJobFromStorage() {
   try { localStorage.removeItem(JOB_PERSISTENCE_KEY); } catch {}
 }
 
-function _loadJobFromStorage(): { jobId: string; syntheticNeutralized: NeutralizedTaskInfoJSON[] } | null {
+function _loadJobFromStorage(): { jobId: string } | null {
   try {
     const raw = localStorage.getItem(JOB_PERSISTENCE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { jobId: string; syntheticNeutralized: NeutralizedTaskInfoJSON[]; savedAt?: number };
+    // Un ancien contenu peut porter un `syntheticNeutralized` disparu : simplement ignoré, pas
+    // besoin de le typer ni de le lire (§4.3 du plan — tolérer, pas planter).
+    const parsed = JSON.parse(raw) as { jobId: string; savedAt?: number };
     if (parsed.savedAt && Date.now() - parsed.savedAt > JOB_TTL_MS) {
       _clearJobFromStorage();
       return null;
     }
-    return { jobId: parsed.jobId, syntheticNeutralized: parsed.syntheticNeutralized };
+    return { jobId: parsed.jobId };
   } catch { return null; }
 }
 
-function _normalizeJobResult(
-  jobStatus: JobStatusResponse,
-  syntheticNeutralized: NeutralizedTaskInfoJSON[],
-): { week: number; result: ScheduleResult; syntheticNeutralized: NeutralizedTaskInfoJSON[] } {
+function _normalizeJobResult(jobStatus: JobStatusResponse): { week: number; result: ScheduleResult } {
   const first = jobStatus.result?.[0];
   const result: ScheduleResult = {
     solution: first
@@ -721,10 +704,10 @@ function _normalizeJobResult(
       : { isComplete: false, tasks: [], neutralizedTasks: [] },
     week: jobStatus.week,
   };
-  return { week: jobStatus.week, result, syntheticNeutralized };
+  return { week: jobStatus.week, result };
 }
 
-function _startPolling(jobId: string, syntheticNeutralized: NeutralizedTaskInfoJSON[]) {
+function _startPolling(jobId: string) {
   if (_pollingInterval !== null) clearInterval(_pollingInterval);
   _pollingInterval = setInterval(() => {
     void (async () => {
@@ -739,7 +722,7 @@ function _startPolling(jobId: string, syntheticNeutralized: NeutralizedTaskInfoJ
             isLoading: false,
             currentJobId: null,
             currentJobStatus: null,
-            pendingJobResult: _normalizeJobResult(jobStatus, syntheticNeutralized),
+            pendingJobResult: _normalizeJobResult(jobStatus),
             status: { message: `✅ Planification semaine ${jobStatus.week} terminée`, kind: 'ok' },
           });
           void cancelJob(jobId);
@@ -788,13 +771,13 @@ function _startPolling(jobId: string, syntheticNeutralized: NeutralizedTaskInfoJ
 async function _resumePendingJob() {
   const persisted = _loadJobFromStorage();
   if (!persisted) return;
-  const { jobId, syntheticNeutralized } = persisted;
+  const { jobId } = persisted;
   try {
     const jobStatus = await pollJob(jobId);
     if (jobStatus.status === 'done') {
       _clearJobFromStorage();
       usePlanningStore.setState({
-        pendingJobResult: _normalizeJobResult(jobStatus, syntheticNeutralized),
+        pendingJobResult: _normalizeJobResult(jobStatus),
         status: { message: `✅ Planification semaine ${jobStatus.week} terminée`, kind: 'ok' },
       });
       void cancelJob(jobId);
@@ -805,7 +788,7 @@ async function _resumePendingJob() {
         isLoading: true,
         status: { message: 'Planification en cours…', kind: 'inf' },
       });
-      _startPolling(jobId, syntheticNeutralized);
+      _startPolling(jobId);
     } else {
       // error ou cancelled — job terminé côté serveur, on vide le storage
       _clearJobFromStorage();
@@ -836,7 +819,7 @@ function _saveCurrentWeekSnapshot() {
         label: z.label,
         source: z.source,
       })),
-    preNeutralizedKeys: ps.preNeutralizedKeys,
+    preNeutralizedKeys: ps.unplaced.filter((u) => u.origin === 'user-pre').map((u) => u.taskId),
     // Dérivé de `placements` (source affichée), propagés exclus — reproduit `manualEnforcedMap`.
     manualEnforcedMap: enforcedMapFromPlacements(ps.placements, { excludeDerived: true }),
     // Read-back volontaire (pas une mutation) : les cours manuels sont désormais gérés par
@@ -864,12 +847,18 @@ if (typeof window !== 'undefined') {
       state.placements !== prev.placements &&
       JSON.stringify(enforcedMapFromPlacements(state.placements, { excludeDerived: true })) !==
         JSON.stringify(enforcedMapFromPlacements(prev.placements, { excludeDerived: true }));
+    // `unplaced` change aussi à chaque neutralisation moteur/retrait manuel — ne redéclencher
+    // que si les `user-pre` (seuls persistés) ont réellement changé, même précaution.
+    const userPreChanged =
+      state.unplaced !== prev.unplaced &&
+      JSON.stringify(state.unplaced.filter((u) => u.origin === 'user-pre').map((u) => u.taskId)) !==
+        JSON.stringify(prev.unplaced.filter((u) => u.origin === 'user-pre').map((u) => u.taskId));
     if (
       state.taskGroups === prev.taskGroups &&
       state.blockedZones === prev.blockedZones &&
-      state.preNeutralizedKeys === prev.preNeutralizedKeys &&
       state.manualEnforcedMap === prev.manualEnforcedMap &&
-      !enforcedChanged
+      !enforcedChanged &&
+      !userPreChanged
     ) return;
     _saveCurrentWeekSnapshot();
   });

@@ -10,7 +10,6 @@ store/
   slices/
     constraintsSlice.ts     ← contraintes + resourceWeeks + saveNotice
     weekSavesSlice.ts       ← sauvegardes de préparation par semaine (persisté)
-    neutralizedSlice.ts     ← pré-neutralisations + pioche de tâches
     blockedZonesSlice.ts    ← zones bloquées (drag)
     taskGroupsSlice.ts      ← groupes de tâches + manualEnforcedMap
 ```
@@ -41,7 +40,7 @@ Composé de `ConstraintsSlice`, `WeekSavesSlice` et d'un slice inline `Scheduler
 
 ### `usePlanningStore` — session (non persisté)
 
-Composé de `NeutralizedSlice`, `BlockedZonesSlice`, `TaskGroupsSlice` et d'un slice inline.
+Composé de `BlockedZonesSlice`, `TaskGroupsSlice` et d'un slice inline.
 
 **Sélection / navigation :**
 - `selectedWeek: number | null`, `setSelectedWeek` — charge la sauvegarde si elle existe, réinitialise sinon
@@ -51,7 +50,6 @@ Composé de `NeutralizedSlice`, `BlockedZonesSlice`, `TaskGroupsSlice` et d'un s
 - `scheduleResult: ScheduleResult | null` — résultat brut de l'API, une solution unique (immuable).
   N'est plus lu pour l'affichage, seulement pour reconstruire `placements` (↺ Réinitialiser) et
   les diagnostics des non-placés.
-- `activeNeutralizedTasks: NeutralizedTaskInfoJSON[]` — tâches non placées + synthétiques
 - `resetCurrentSolution()` — remet la solution à son état initial moteur
 
 **Placements (modèle unifié) :**
@@ -69,10 +67,18 @@ Composé de `NeutralizedSlice`, `BlockedZonesSlice`, `TaskGroupsSlice` et d'un s
   au payload moteur (`runSchedule`) et au badge "imposé" de `SidebarPreparation` en préparation.
 - `manualEnforcedMap` (via `taskGroupsSlice`) — enforcements manuels bruts (sans propagation)
 
-**Neutralisation :**
-- `preNeutralizedKeys: string[]` — cours exclus avant planification (via `neutralizedSlice`)
-- `manuallyNeutralizedTasks` — tâches planifiées glissées dans la pioche
-- `syntheticNeutralizedTasks` — entrées synthétiques pour les pré-neutralisées (injectées dans `activeNeutralizedTasks`)
+**Non-placés (modèle unifié) :**
+- `unplaced: Unplaced[]` — tâches de la semaine qui ne sont pas (ou pas entièrement) posées,
+  taguées par origine (`user-pre` exclue avant planification, `engine` neutralisée par le moteur,
+  `user-post` retirée du calendrier après coup). Remplace `preNeutralizedKeys` (session — la
+  version persistée reste dans `weekSaves`)/`syntheticNeutralizedTasks`/`activeNeutralizedTasks`/
+  `manuallyNeutralizedTasks`/`autonomyDistributions`.
+- `togglePreNeutralized(taskId)` — bascule l'exclusion `user-pre` d'un cours (mode préparation).
+- `unplaceTask(placementId, origin)` — retire un placement et signale la tâche non placée ; dédup
+  sur `taskId` (n'ajoute pas de seconde entrée si une existe déjà pour cette tâche).
+- Dérivations pures dans `lib/calendar/unplaced.ts` (`unplacedFromEngine`,
+  `unplacedFromPreNeutralized`, `remainingDuration`, `selectPiocheEntries`) : l'affichage dans la
+  pioche suit un invariant unique, `reste = durée(cours) − Σ durée(placements de cette tâche)`.
 
 **Zones bloquées** (via `blockedZonesSlice`) :
 - `blockedZones: BlockedZone[]` — plages indisponibles (vacances auto + manuelles)
@@ -95,7 +101,9 @@ Composé de `NeutralizedSlice`, `BlockedZonesSlice`, `TaskGroupsSlice` et d'un s
 - `draggingExternal` — ressources du cours en cours de drag depuis la sidebar
 - `groupDrawerOpen / toggleGroupDrawer` — panneau GroupDrawer
 
-**Auto-save :** toute modification de `taskGroups`, `blockedZones`, `preNeutralizedKeys` ou `manualEnforcedMap` déclenche automatiquement `saveWeek()` dans `useSchedulerStore`. Restauré au `setSelectedWeek`.
+**Auto-save :** toute modification de `taskGroups`, `blockedZones`, `manualEnforcedMap` ou des
+`user-pre` de `unplaced` déclenche automatiquement `saveWeek()` dans `useSchedulerStore` (les
+`engine`/`user-post` ne sont pas persistés). Restauré au `setSelectedWeek`.
 
 ---
 

@@ -1,0 +1,63 @@
+import type { NeutralizedTaskInfoJSON } from '@edt-ts/scheduler-common';
+import type { CourseTaskDataWithId } from '@/lib/courseId';
+import type { Placement, Unplaced } from '@/store/types';
+
+/**
+ * Diagnostics moteur d'une tâche non placée par le moteur. `taskId` est déjà le `course.id`
+ * réel (acquis du chantier identifiants stables) : aucun préfixe à retirer.
+ */
+export function unplacedFromEngine(neutralized: NeutralizedTaskInfoJSON[]): Unplaced[] {
+  return neutralized.map((n) => ({
+    taskId: n.task.taskId,
+    origin: 'engine',
+    diagnostics: {
+      reason: n.reason,
+      failureCount: n.failureCount,
+      eliminationRound: n.eliminationRound,
+    },
+  }));
+}
+
+/** Cours exclus par l'utilisateur avant planification — jamais envoyés au moteur. */
+export function unplacedFromPreNeutralized(taskIds: string[]): Unplaced[] {
+  return taskIds.map((taskId) => ({ taskId, origin: 'user-pre' }));
+}
+
+/**
+ * `resteÀPlacer(tâche) = durée(cours) − Σ durée(placements de cette tâche)`, jamais négatif.
+ * Invariant unique derrière l'affichage de la pioche (§1.2 du plan) : une tâche ordinaire posée
+ * disparaît (reste = 0), une Autonomie répartie partiellement y reste avec sa durée résiduelle —
+ * même règle, pas un cas particulier. `course` absent (tâche introuvable) → 0, rien à placer.
+ */
+export function remainingDuration(
+  taskId: string,
+  placements: Placement[],
+  course: CourseTaskDataWithId | undefined,
+): number {
+  if (!course) return 0;
+  const placed = placements
+    .filter((p) => p.taskId === taskId)
+    .reduce((sum, p) => sum + (p.duration ?? course.duration), 0);
+  return Math.max(0, course.duration - placed);
+}
+
+/**
+ * Entrées à afficher dans la pioche : celles dont le reste est > 0. **Unique** point de décision
+ * « affiché ou non » — une tâche entièrement posée ne doit jamais y réapparaître (c'est le bug
+ * de l'étape 1, cf. docs/PlanUnifiedPlacements.md). Un `taskId` sans cours correspondant est
+ * ignoré silencieusement plutôt que de jeter.
+ */
+export function selectPiocheEntries(
+  unplaced: Unplaced[],
+  placements: Placement[],
+  courseById: Map<string, CourseTaskDataWithId>,
+): Array<{ entry: Unplaced; course: CourseTaskDataWithId; remaining: number }> {
+  const result: Array<{ entry: Unplaced; course: CourseTaskDataWithId; remaining: number }> = [];
+  for (const entry of unplaced) {
+    const course = courseById.get(entry.taskId);
+    if (!course) continue;
+    const remaining = remainingDuration(entry.taskId, placements, course);
+    if (remaining > 0) result.push({ entry, course, remaining });
+  }
+  return result;
+}
