@@ -41,7 +41,19 @@ function candidateIds(entries: ResourceEntry[]): string[] {
   return [...ids];
 }
 
-function toEngineNeutralizedInfo(entry: Unplaced, course: CourseTaskDataWithId): NeutralizedTaskInfoJSON {
+/**
+ * Adaptateur vers la forme attendue par `buildAnalysisLoadRows`. Seuls `task.duration` et
+ * `task.resources` sont lus par l'analyse de charge : les champs de diagnostic tombent à leur
+ * valeur neutre pour les entrées d'origine `user-pre`/`user-post`, qui n'en ont jamais.
+ * `remaining` (et non `course.duration`) : la question posée est « où reste-t-il assez de mou pour
+ * ce qu'il reste à placer ? » — identique pour une tâche jamais placée (reste = durée entière) et
+ * pour une Autonomie déjà partiellement répartie.
+ */
+function toNeutralizedInfo(
+  entry: Unplaced,
+  course: CourseTaskDataWithId,
+  remaining: number,
+): NeutralizedTaskInfoJSON {
   return {
     task: {
       taskId: entry.taskId,
@@ -49,7 +61,7 @@ function toEngineNeutralizedInfo(entry: Unplaced, course: CourseTaskDataWithId):
       name: course.name,
       type: course.type,
       week: course.week,
-      duration: course.duration,
+      duration: remaining,
       startTime: -1,
       resources: [
         ...candidateIds(course.teacher).map((id) => ({ id, type: 'teacher' })),
@@ -69,7 +81,6 @@ export function SidebarAnalysis() {
   // seulement à annuler la planification automatique — non renommé pour ne pas brouiller le lien
   // avec le code déjà écrit (§3.2 du plan).
   const returnToPreparation = usePlanningStore((s) => s.returnToPreparation);
-  const scheduleResult = usePlanningStore((s) => s.scheduleResult);
   // `lastRun` (persisté) plutôt que `scheduleResult` (session uniquement) pour le bouton export :
   // même raisonnement que la bascule de mode (§4.6 du plan) — sinon il disparaît après rechargement.
   const lastRun = usePlanningStore((s) => s.lastRun);
@@ -131,6 +142,17 @@ export function SidebarAnalysis() {
       })
       .map((p) => toTaskSolutionJSON(p, courseById.get(p.taskId), iCalWeek));
   }, [placements, courseById, searchQuery, iCalWeek]);
+
+  // Charge de référence de l'analyse : les placements affichés, **non filtrés** par la recherche
+  // (la charge d'une ressource ne dépend pas de ce que l'utilisateur cherche) et non plus
+  // `scheduleResult.solution.tasks`. Deux raisons : le résultat brut du moteur n'est pas persisté
+  // (après rechargement la table afficherait une charge nulle), et il compte encore les créneaux
+  // des cours remis dans la pioche depuis — la table nierait alors le mou que le geste vient
+  // justement de libérer.
+  const loadReferenceSolution = useMemo(
+    () => placements.map((p) => toTaskSolutionJSON(p, courseById.get(p.taskId), iCalWeek)),
+    [placements, courseById, iCalWeek],
+  );
 
   const filteredPiocheEntries = piocheEntries.filter(({ course }) =>
     matchesSearchQuery(
@@ -241,14 +263,18 @@ export function SidebarAnalysis() {
                       }
                       distributeLabel={hasPlacements ? 'Annuler la répartition' : 'Répartir'}
                     />
-                    {entry.origin === 'engine' && availabilityManager && selectedWeek !== null && (
+                    {/* Toutes les origines, pas seulement `engine` : la question « où reste-t-il du
+                        mou pour cette tâche ? » se pose à l'identique pour un cours remis dans la
+                        pioche à la main. L'ancienne restriction à `engine` n'était que le report
+                        du test de préfixe historique (PlanUnifiedUnplaced §5). */}
+                    {availabilityManager && selectedWeek !== null && (
                       <div className="absolute top-1 right-1">
                         <ResourceLoadPopover
                           mode="analysis"
-                          taskDurationMin={course.duration}
+                          taskDurationMin={remaining}
                           rows={buildAnalysisLoadRows(
-                            toEngineNeutralizedInfo(entry, course),
-                            scheduleResult?.solution?.tasks ?? [],
+                            toNeutralizedInfo(entry, course, remaining),
+                            loadReferenceSolution,
                             availabilityManager,
                             selectedWeek,
                             resources,
