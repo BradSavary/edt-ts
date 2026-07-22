@@ -116,6 +116,14 @@ export interface PlanningStore extends BlockedZonesSlice, TaskGroupsSlice {
   unplaced: Unplaced[];
   /** Bascule l'exclusion amont d'un cours (mode préparation). */
   togglePreNeutralized: (taskId: string) => void;
+
+  /**
+   * Retire de l'état vivant de la semaine courante toute référence aux cours donnés (suppression
+   * d'un cours). Pendant de `pruneWeekSavesOfCourseIds`, qui fait le même travail sur le disque :
+   * sans cet élagage-ci, l'auto-save réécrirait aussitôt les références fantômes que le store
+   * projet vient d'élaguer.
+   */
+  pruneCourseIds: (courseIds: string[]) => void;
   /** Retire un placement du calendrier et signale la tâche comme non placée. */
   unplaceTask: (placementId: string, origin: Unplaced['origin']) => void;
 
@@ -297,6 +305,47 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         unplaced: exists
           ? state.unplaced.filter((u) => !(u.taskId === taskId && u.origin === 'user-pre'))
           : [...state.unplaced, { taskId, origin: 'user-pre' as const }],
+      };
+    });
+  },
+  pruneCourseIds: (courseIds) => {
+    const removed = new Set(courseIds);
+    if (removed.size === 0) return;
+    set((state) => {
+      // Un groupe tombé sous 2 membres n'a plus de sens — même règle que
+      // `pruneWeekSavesOfCourseIds`, dont ceci est le pendant en mémoire.
+      const taskGroups = state.taskGroups
+        .map((g) => ({ ...g, courseKeys: g.courseKeys.filter((k) => !removed.has(k)) }))
+        .filter((g) => g.courseKeys.length >= 2);
+      const manualEnforcedMap = Object.fromEntries(
+        Object.entries(state.manualEnforcedMap).filter(([id]) => !removed.has(id)),
+      );
+      // `enforcedMap` est recalculée depuis la map manuelle élaguée ET les groupes élagués : un
+      // simple filtrage laisserait les propagations d'un cours supprimé vers ses coéquipiers.
+      const { allCourses, weekSaves } = useProjectStore.getState();
+      const courses =
+        state.selectedWeek !== null ? getCoursesForWeek(allCourses, weekSaves, state.selectedWeek) : [];
+      const enforcedMap = augmentEnforcedMap(manualEnforcedMap, taskGroups, courses);
+      // Les `pre-enforced` sont intégralement re-dérivés de la map recalculée, pas filtrés : une
+      // imposition propagée depuis le cours supprimé vers ses coéquipiers a disparu de
+      // `enforcedMap`, un simple filtre sur `taskId` la laisserait affichée (même schéma que
+      // `setSelectedWeek`).
+      const survivors = state.placements.filter(
+        (p) => !removed.has(p.taskId) && p.origin !== 'pre-enforced',
+      );
+      return {
+        taskGroups,
+        manualEnforcedMap,
+        enforcedMap,
+        placements: dedupePlacements([
+          ...placementsFromEnforcedMap(enforcedMap, manualEnforcedMap),
+          ...survivors,
+        ]),
+        unplaced: state.unplaced.filter((u) => !removed.has(u.taskId)),
+        lastRun: state.lastRun && {
+          placements: state.lastRun.placements.filter((p) => !removed.has(p.taskId)),
+          unplaced: state.lastRun.unplaced.filter((u) => !removed.has(u.taskId)),
+        },
       };
     });
   },

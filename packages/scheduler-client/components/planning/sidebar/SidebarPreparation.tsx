@@ -36,6 +36,7 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
   const taskGroups = usePlanningStore((s) => s.taskGroups);
   const groupDrawerOpen = usePlanningStore((s) => s.groupDrawerOpen);
   const toggleGroupDrawer = usePlanningStore((s) => s.toggleGroupDrawer);
+  const pruneCourseIds = usePlanningStore((s) => s.pruneCourseIds);
 
   const allCourses = useProjectStore((s) => s.allCourses);
   const setCourses = useProjectStore((s) => s.setCourses);
@@ -85,6 +86,21 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
       setCourses(allCourses.map((c) => (c === courseRef ? { ...c, ...patch } : c)));
     }
     setEditingCourse(null);
+  }
+
+  // Supprimer un cours retire l'objet des données du projet ; `removeCourse`/`removeManualCourse`
+  // élaguent les références dans `weekSaves` (sur disque), mais pas l'état vivant de la semaine
+  // affichée — que l'auto-save réécrirait aussitôt. D'où `pruneCourseIds`, appelé après.
+  function handleDeleteCourse(courseId: string) {
+    const course = parsedCourses.find((c) => c.id === courseId);
+    if (!course) return;
+    if (course.source === 'manual') {
+      if (selectedWeek === null) return;
+      removeManualCourse(selectedWeek, courseId);
+    } else {
+      removeCourse(courseId);
+    }
+    pruneCourseIds([courseId]);
   }
 
   function handleCreateConfirm(course: CourseTaskData) {
@@ -221,15 +237,7 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
                     } : undefined}
                     onEditCourse={handleEditCourse}
                     onDuplicateCourse={(course) => setCreateModal({ initialCourse: course })}
-                  onDeleteCourse={(courseId) => {
-                      const course = parsedCourses.find((c) => c.id === courseId);
-                      if (!course) return;
-                      if (course.source === 'manual') {
-                        if (selectedWeek !== null) removeManualCourse(selectedWeek, courseId);
-                      } else {
-                        removeCourse(courseId);
-                      }
-                    }}
+                    onDeleteCourse={handleDeleteCourse}
                   />
                 </>
               ) : (
@@ -251,15 +259,7 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
                 } : undefined}
                 onEditCourse={handleEditCourse}
                 onDuplicateCourse={(course) => setCreateModal({ initialCourse: course })}
-                onDeleteCourse={(courseId) => {
-                  const course = parsedCourses.find((c) => c.id === courseId);
-                  if (!course) return;
-                  if (course.source === 'manual') {
-                    if (selectedWeek !== null) removeManualCourse(selectedWeek, courseId);
-                  } else {
-                    removeCourse(courseId);
-                  }
-                }}
+                onDeleteCourse={handleDeleteCourse}
               />
             )}
           </div>

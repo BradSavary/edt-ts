@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import type FullCalendar from '@fullcalendar/react';
 import type { EventApi, EventDropArg } from '@fullcalendar/core';
 import type { EventReceiveArg, EventDragStopArg } from '@fullcalendar/interaction';
@@ -123,45 +123,14 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
     [parsedCourses],
   );
 
-  const prevParsedCoursesRef = useRef<CourseTaskData[]>(parsedCourses);
-  const prevSelectedWeekRef = useRef<number | null>(selectedWeek);
-  const skipNextParsedCoursesResetRef = useRef(false);
-  const weekChangedRef = useRef(false);
-
-  // Marque le flag quand la semaine change (setSelectedWeek gère déjà manualEnforcedMap)
-  useEffect(() => {
-    if (prevSelectedWeekRef.current !== selectedWeek) {
-      prevSelectedWeekRef.current = selectedWeek;
-      weekChangedRef.current = true;
-    }
-  }, [selectedWeek]);
-
-  useEffect(() => {
-    if (prevParsedCoursesRef.current !== parsedCourses) {
-      const prev = prevParsedCoursesRef.current;
-      prevParsedCoursesRef.current = parsedCourses;
-      // Un ajout de cours (append) ne change pas les indices existants — pas de reset.
-      const isAppendOnly =
-        parsedCourses.length > prev.length &&
-        prev.every((c, i) => parsedCourses[i] === c);
-      // parsedCourses fusionne allCourses + weekSaves[week].manualCourses (getCoursesForWeek) :
-      // un nouveau tableau est reconstruit à chaque changement de weekSaves, y compris quand
-      // l'autosave de préparation de semaine réécrit weekSaves sans qu'aucun cours n'ait
-      // réellement changé (ex: juste après ce même handleEnforceChange({}) plus bas). Sans ce
-      // garde, ce rebuild "à contenu identique" serait pris pour un vrai changement et
-      // redéclencherait handleEnforceChange({}) indéfiniment (boucle infinie).
-      const sameContent =
-        parsedCourses.length === prev.length &&
-        prev.every((c, i) => parsedCourses[i] === c);
-      if (skipNextParsedCoursesResetRef.current || weekChangedRef.current || isAppendOnly || sameContent) {
-        skipNextParsedCoursesResetRef.current = false;
-        weekChangedRef.current = false;
-      } else {
-        handleEnforceChange({});
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parsedCourses]);
+  // Plus de remise à zéro des impositions sur changement de `parsedCourses`. Ce reset datait de
+  // l'époque où la clé d'un cours était son INDEX dans la liste : toute modification de celle-ci
+  // invalidait effectivement toutes les impositions. Depuis les identifiants stables, l'id est
+  // figé à la création (lib/courseId.ts) et `courseIdentityKey` exclut `rooms`/`name` — éditer un
+  // cours ne peut plus invalider quoi que ce soit. Les seuls cas où des ids disparaissent
+  // réellement sont traités là où ils surviennent : `removeCourse`/`mergeCsvData` élaguent
+  // `weekSaves` (pruneWeekSavesOfCourseIds) et l'état vivant de la semaine (pruneCourseIds),
+  // `importCsvData` réinitialise délibérément.
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -366,7 +335,6 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
         const course = courseById.get(courseKey);
         if (course) {
           const patch = { duration: update.duration };
-          skipNextParsedCoursesResetRef.current = true;
           if (course.source === 'manual') {
             if (selectedWeek !== null) useProjectStore.getState().updateManualCourse(selectedWeek, course.id, patch);
           } else {
