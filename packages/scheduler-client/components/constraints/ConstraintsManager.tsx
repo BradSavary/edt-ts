@@ -14,6 +14,7 @@ import {
   RESOURCE_TYPE_LABELS,
 } from '@/lib/constraintsUtils';
 import { useProjectStore } from '@/store/useProjectStore';
+import { useConstraintsUiStore } from '@/store/useConstraintsUiStore';
 import { downloadJson } from '@/lib/downloadJson';
 import { getManualCoursesForWeek } from '@/lib/weekCourses';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
@@ -63,10 +64,14 @@ export function ConstraintsManager() {
   const setResourceMaxDailyMinutes = useProjectStore((s) => s.setResourceMaxDailyMinutes);
   const setResourceWeeklyMaxDailyMinutes = useProjectStore((s) => s.setResourceWeeklyMaxDailyMinutes);
 
-  // --- État local UI uniquement ---
+  // --- Sélection persistée en store : survit à la navigation de page ---
+  const activeTab   = useConstraintsUiStore((s) => s.activeTab);
+  const setActiveTab = useConstraintsUiStore((s) => s.setActiveTab);
+  const selectedId   = useConstraintsUiStore((s) => s.selectedId);
+  const setSelectedId = useConstraintsUiStore((s) => s.setSelectedId);
+
+  // --- État local UI éphémère ---
   const [search, setSearch]           = useState('');
-  const [activeTab, setActiveTab]     = useState<ResourceTypeUI>('teacher');
-  const [selectedId, setSelectedId]   = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [importError, setImportError] = useState('');
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -198,9 +203,14 @@ export function ConstraintsManager() {
   }
 
   const isDefaultSelected = selectedId === 'Default';
+  // La sélection est persistée en store (survit à la navigation) : une ressource mémorisée
+  // peut avoir disparu depuis (changement de projet, réimport CSV). On retombe alors sur le
+  // placeholder plutôt que d'afficher un éditeur fantôme.
+  const hasValidSelection =
+    isDefaultSelected || (selectedId != null && allIds.includes(selectedId));
   const selectedValue =
-    selectedId && selectedId !== 'Default'
-      ? normalizeToRC(constraints[selectedId])
+    hasValidSelection && !isDefaultSelected
+      ? normalizeToRC(constraints[selectedId!])
       : null;
 
   return (
@@ -349,7 +359,7 @@ export function ConstraintsManager() {
 
         {/* Main content panel */}
         <main className="flex-1 overflow-hidden bg-background flex flex-col">
-          {!selectedId ? (
+          {!selectedId || !hasValidSelection ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-8 gap-2">
               <p className="text-base font-medium text-muted-foreground">
                 Sélectionnez une ressource
