@@ -164,8 +164,7 @@ export function SidebarAnalysis() {
       <aside className="w-80 shrink-0 bg-card border-r border-border p-4 overflow-y-auto flex flex-col gap-4">
         <Button
           type="button"
-          variant="ghost"
-          className="w-full text-muted-foreground justify-start p-1 pt-0 pb-0"
+          className="w-full bg-black hover:bg-zinc-800 text-white dark:bg-zinc-900 dark:hover:bg-zinc-700"
           onClick={openReturnDialog}
         >
           Annuler la planification automatique
