@@ -125,12 +125,17 @@ Composé de `BlockedZonesSlice`, `TaskGroupsSlice` et d'un slice inline.
 | Données lues par une action d'un autre store | Tout ce qui ne sort pas du composant |
 
 ```ts
-// store → partagé
+// store → partagé / survit à la navigation de page
 constraints, resourceWeeks, scheduleResult, enforcedMap, taskGroups
+selectedId, activeTab (menu Contraintes → useConstraintsUiStore, session non persistée)
 
-// useState local → UI uniquement
-activeTab, selectedId, showAddModal, importError
+// useState local → UI éphémère d'un seul composant
+search, showAddModal, importError
 ```
+
+> `useConstraintsUiStore` (non persisté, comme `usePlanningStore`) porte la ressource
+> sélectionnée et l'onglet de type du menu Contraintes. Extrait du `useState` local pour
+> qu'un aller-retour Planification ⇄ Contraintes retombe sur la dernière ressource éditée.
 
 ---
 
