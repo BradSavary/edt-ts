@@ -15,8 +15,6 @@ import TaskEditModal, { type TaskEditUpdate } from '@/components/planning/modals
 import CourseCreateModal from '@/components/planning/modals/CourseCreateModal';
 import { CopyWeekPrepModal } from '@/components/planning/modals/CopyWeekPrepModal';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -27,7 +25,6 @@ interface SidebarPreparationProps {
 
 export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
-  const setSelectedWeek = usePlanningStore((s) => s.setSelectedWeek);
   const isLoading = usePlanningStore((s) => s.isLoading);
   const runSchedule = usePlanningStore((s) => s.runSchedule);
   const currentJobId = usePlanningStore((s) => s.currentJobId);
@@ -63,8 +60,6 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
   const cardContainerRef = useCallback((node: HTMLDivElement | null) => setCardContainer(node), []);
 
   useSidebarCourseDrag({ container: cardContainer, courses: parsedCourses });
-
-  const [weekInput, setWeekInput] = useState<string>(selectedWeek !== null ? String(selectedWeek) : '');
 
   // ── Edit modal state ───────────────────────────────────────────────────
   const [editingCourse, setEditingCourse] = useState<{ courseKey: string; course: CourseTaskDataWithId } | null>(null);
@@ -109,21 +104,6 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
     .filter((g) => g.resourceType === 'room')
     .flatMap((g) => g.resources.map((r) => r.id));
 
-  function handleSetWeek(v: string) {
-    setWeekInput(v);
-    if (v === '') {
-      setSelectedWeek(null);
-      return;
-    }
-    const n = parseInt(v, 10);
-    if (isNaN(n)) return;
-    // Cycle sur 52 semaines : au-delà de 52 on repart à 1, en dessous de 1 on reboucle sur 52
-    // (pas de bornes natives min/max — une année universitaire n'a pas de "semaine 1" logique).
-    const wrapped = ((n - 1) % 52 + 52) % 52 + 1;
-    setWeekInput(String(wrapped));
-    setSelectedWeek(wrapped);
-  }
-
   return (
     <aside className="w-80 shrink-0 bg-card border-r border-border p-4 overflow-hidden flex flex-col gap-4">
 
@@ -133,16 +113,6 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
           Planification
         </p>
         <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-          <div className="space-y-1.5">
-            <Label htmlFor="week-input">Semaine (1-52)</Label>
-            <Input
-              id="week-input"
-              type="number"
-              value={weekInput}
-              onChange={(e) => handleSetWeek(e.target.value)}
-            />
-          </div>
-
           <div className="flex gap-2">
             <Button
               type="button"

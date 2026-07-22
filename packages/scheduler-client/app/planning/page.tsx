@@ -12,6 +12,8 @@ import { matchesSearchQuery } from '@/lib/calendar/calendarUtils';
 import { toTaskSolutionJSON } from '@/lib/calendar/placements';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +31,7 @@ export default function PlanningPage() {
   const resources = useProjectStore((s) => s.resources);
 
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
+  const setSelectedWeek = usePlanningStore((s) => s.setSelectedWeek);
   // `lastRun` (persisté) plutôt que `scheduleResult` (session uniquement) : la présence des
   // actions solution ("↺ Réinitialiser", Statistiques) doit survivre au rechargement (§4.6).
   const lastRun = usePlanningStore((s) => s.lastRun);
@@ -50,6 +53,24 @@ export default function PlanningPage() {
   // ── État local ──────────────────────────────────────────────────────────
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [statsDialogOpen, setStatsDialogOpen] = useState(false);
+  // Déménagé tel quel depuis SidebarPreparation (§3.1 du plan) : la barre d'outils permanente
+  // remplace la sidebar comme seul point d'entrée du sélecteur de semaine.
+  const [weekInput, setWeekInput] = useState<string>(selectedWeek !== null ? String(selectedWeek) : '');
+
+  function handleSetWeek(v: string) {
+    setWeekInput(v);
+    if (v === '') {
+      setSelectedWeek(null);
+      return;
+    }
+    const n = parseInt(v, 10);
+    if (isNaN(n)) return;
+    // Cycle sur 52 semaines : au-delà de 52 on repart à 1, en dessous de 1 on reboucle sur 52
+    // (pas de bornes natives min/max — une année universitaire n'a pas de "semaine 1" logique).
+    const wrapped = ((n - 1) % 52 + 52) % 52 + 1;
+    setWeekInput(String(wrapped));
+    setSelectedWeek(wrapped);
+  }
 
   // ── Cours dérivés pour la semaine courante ───────────────────────────────
   const parsedCourses: CourseTaskDataWithId[] = useMemo(
@@ -101,30 +122,45 @@ export default function PlanningPage() {
         <GroupDrawer parsedCourses={parsedCourses} />
 
         <main className="flex-1 overflow-hidden p-4 flex flex-col">
-          {lastRun !== null && (
-            <div className="flex flex-wrap gap-1 mb-2 shrink-0 items-center">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setStatsDialogOpen(true)}
-                className="text-xs h-7 px-3 ml-auto"
-                title="Afficher les statistiques de la solution"
-              >
-                Statistiques
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => setResetDialogOpen(true)}
-                className="text-xs h-7 px-3 text-muted-foreground hover:text-destructive"
-                title="Remettre la solution à son état initial"
-              >
-                ↺ Réinitialiser
-              </Button>
+          {/* Barre d'outils permanente : le sélecteur de semaine ne dépend plus de l'état de
+              planification (§3.1 du plan) — seuls Statistiques/Réinitialiser restent conditionnés
+              par l'existence d'une solution (`lastRun`). */}
+          <div className="flex flex-wrap gap-2 mb-2 shrink-0 items-center">
+            <div className="flex items-center gap-1.5">
+              <Label htmlFor="week-input" className="text-xs whitespace-nowrap">Semaine (1-52)</Label>
+              <Input
+                id="week-input"
+                type="number"
+                value={weekInput}
+                onChange={(e) => handleSetWeek(e.target.value)}
+                className="w-20 h-7 text-xs"
+              />
             </div>
-          )}
+            {lastRun !== null && (
+              <>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setStatsDialogOpen(true)}
+                  className="text-xs h-7 px-3 ml-auto"
+                  title="Afficher les statistiques de la solution"
+                >
+                  Statistiques
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setResetDialogOpen(true)}
+                  className="text-xs h-7 px-3 text-muted-foreground hover:text-destructive"
+                  title="Remettre la solution à son état initial"
+                >
+                  ↺ Réinitialiser
+                </Button>
+              </>
+            )}
+          </div>
 
           <ScheduleCalendar
             placements={filteredPlacements}
