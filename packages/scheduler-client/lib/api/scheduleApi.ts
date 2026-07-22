@@ -1,5 +1,7 @@
-import type { RawScheduleData, TaskSolutionJSON, NeutralizedTaskInfoJSON, EnforcedData, ConstraintsData, ResourceGroupData, SchedulerConfig, TaskGroupDeclaration, JobSubmitResponse, JobStatusResponse, RootLowerBoundJSON } from '@edt-ts/scheduler-common';
+import type { RawScheduleData, TaskSolutionJSON, NeutralizedTaskInfoJSON, EnforcedData, ConstraintsData, SchedulerConfig, TaskGroupDeclaration, JobSubmitResponse, JobStatusResponse, RootLowerBoundJSON } from '@edt-ts/scheduler-common';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
+import type { ResourceGroupDataWithStatus } from '@/lib/csvMerge';
+import { resolveMaxDailyMinutes } from '@/lib/maxDailyResolution';
 import { type BlockedZone, applyBlockedZonesToConstraints } from '@/lib/calendar/blockedZones';
 
 // En dev : vide → les rewrites Next.js proxifient /api/* vers localhost:3000
@@ -31,7 +33,7 @@ export interface ScheduleResult {
 export interface RunScheduleParamsFromData {
   week: number;
   courses: CourseTaskDataWithId[];
-  resources: ResourceGroupData[];
+  resources: ResourceGroupDataWithStatus[];
   constraintsData: ConstraintsData | null;
   enforcedMap: Record<string, EnforcedData>;
   blockedZones: BlockedZone[];
@@ -41,7 +43,7 @@ export interface RunScheduleParamsFromData {
 
 function _buildPayload(
   weekNum: number,
-  resources: ResourceGroupData[],
+  resources: ResourceGroupDataWithStatus[],
   courses: CourseTaskDataWithId[],
   constraintsData: ConstraintsData | null,
   enforcedMap: Record<string, EnforcedData>,
@@ -54,6 +56,18 @@ function _buildPayload(
     return enforced ? { ...course, enforced } : course;
   });
 
+  // `weeklyMaxDailyMinutes` est purement client : le moteur est mono-semaine et n'attend
+  // qu'un scalaire `maxDailyMinutes`. Résolution ici, au même endroit et dans le même esprit
+  // que la résolution hebdomadaire de `Default` juste en dessous.
+  const resolvedResources = resources.map((group) => ({
+    ...group,
+    resources: group.resources.map((r) => {
+      const { weeklyMaxDailyMinutes: _weekly, maxDailyMinutes: _perResource, ...rest } = r;
+      const maxDailyMinutes = resolveMaxDailyMinutes(r, weekNum);
+      return maxDailyMinutes !== undefined ? { ...rest, maxDailyMinutes } : rest;
+    }),
+  }));
+
   let resolvedConstraintsData = constraintsData;
   if (resolvedConstraintsData && resolvedConstraintsData.Default !== undefined && !Array.isArray(resolvedConstraintsData.Default)) {
     const rc = resolvedConstraintsData.Default as import('@edt-ts/scheduler-common').ResourceConstraints;
@@ -64,7 +78,7 @@ function _buildPayload(
     };
   }
 
-  const effectiveConstraints = applyBlockedZonesToConstraints(resources, resolvedConstraintsData, blockedZones, weekNum);
+  const effectiveConstraints = applyBlockedZonesToConstraints(resolvedResources, resolvedConstraintsData, blockedZones, weekNum);
   const hasConstraints = !!constraintsData || blockedZones.length > 0;
   // Le client ne gère plus qu'une solution (docs/PlanSingleSolution.md). Forcé ici plutôt que
   // dans le store : `edt-app-config` déjà persisté chez les utilisateurs contient un
@@ -73,7 +87,7 @@ function _buildPayload(
 
   return {
     week: weekNum,
-    resources,
+    resources: resolvedResources,
     courses: coursesWithEnforced,
     ...(hasConstraints ? { constraints: effectiveConstraints } : {}),
     ...(groups && groups.length > 0 ? { groups } : {}),

@@ -61,6 +61,7 @@ export function ConstraintsManager() {
   const setDefaultConstraint = useProjectStore((s) => s.setDefaultConstraint);
   const importConstraints  = useProjectStore((s) => s.importConstraints);
   const setResourceMaxDailyMinutes = useProjectStore((s) => s.setResourceMaxDailyMinutes);
+  const setResourceWeeklyMaxDailyMinutes = useProjectStore((s) => s.setResourceWeeklyMaxDailyMinutes);
 
   // --- État local UI uniquement ---
   const [search, setSearch]           = useState('');
@@ -70,13 +71,19 @@ export function ConstraintsManager() {
   const [importError, setImportError] = useState('');
   const importInputRef = useRef<HTMLInputElement>(null);
 
-  const selectedMaxDailyMinutes = useMemo(() => {
-    if (!selectedId || selectedId === 'Default') return undefined;
+  /** null ⇒ ressource absente de storeResources : aucun ResourceData où écrire les limites. */
+  const selectedMaxDaily = useMemo(() => {
+    if (!selectedId || selectedId === 'Default') return null;
     for (const group of storeResources) {
       const found = group.resources.find((r) => r.id === selectedId);
-      if (found) return found.maxDailyMinutes;
+      if (found) {
+        return {
+          maxDailyMinutes: found.maxDailyMinutes,
+          weeklyMaxDailyMinutes: found.weeklyMaxDailyMinutes,
+        };
+      }
     }
-    return undefined;
+    return null;
   }, [selectedId, storeResources]);
 
   // Lookup exact depuis les ressources chargées (plus fiable que les regex heuristiques).
@@ -377,10 +384,14 @@ export function ConstraintsManager() {
                 value={selectedValue}
                 alwaysExpanded
                 csvWeeks={resourceWeeks[selectedId] ?? []}
-                maxDailyMinutes={selectedMaxDailyMinutes}
+                maxDailyMinutes={selectedMaxDaily?.maxDailyMinutes}
+                weeklyMaxDailyMinutes={selectedMaxDaily?.weeklyMaxDailyMinutes}
                 onMaxDailyMinutesChange={
-                  storeResources.some((g) => g.resources.some((r) => r.id === selectedId))
-                    ? (v) => setResourceMaxDailyMinutes(selectedId, v)
+                  selectedMaxDaily ? (v) => setResourceMaxDailyMinutes(selectedId, v) : undefined
+                }
+                onWeeklyMaxDailyMinutesChange={
+                  selectedMaxDaily
+                    ? (wk, v) => setResourceWeeklyMaxDailyMinutes(selectedId, wk, v)
                     : undefined
                 }
                 onChange={(v) => handleResourceChange(selectedId, v)}

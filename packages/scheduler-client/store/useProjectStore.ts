@@ -65,6 +65,13 @@ interface ProjectDataSlice {
   setCriticalThreshold: (threshold: number) => void;
   setResourceMaxDailyMinutes: (id: string, maxDailyMinutes: number | undefined) => void;
   /**
+   * Limite quotidienne d'une ressource pour la seule semaine `weekKey` (« S36 »).
+   * `minutes === undefined` ⇒ suppression de la clé (retour à l'héritage du défaut) ;
+   * si plus aucune semaine n'est surchargée, `weeklyMaxDailyMinutes` disparaît entièrement
+   * (pas d'objet vide dans le localStorage, cf. docs/PlanSplitWeekStorage.md).
+   */
+  setResourceWeeklyMaxDailyMinutes: (id: string, weekKey: string, minutes: number | undefined) => void;
+  /**
    * "Tout remplacer" : remplace cours (CSV uniquement, `source` forcé) et ressources,
    * élague les contraintes obsolètes. Préserve les cours manuels de chaque semaine (`weekSaves`)
    * mais réinitialise le reste de leur préparation (taskGroups/zones/impositions manuelles),
@@ -210,6 +217,19 @@ export const useProjectStore = create<ProjectStore>()(
           resources: group.resources.map((r) =>
             r.id === id ? { ...r, maxDailyMinutes } : r
           ),
+        })),
+      })),
+      setResourceWeeklyMaxDailyMinutes: (id, weekKey, minutes) => set((state) => ({
+        resources: state.resources.map((group) => ({
+          ...group,
+          resources: group.resources.map((r) => {
+            if (r.id !== id) return r;
+            const next = { ...(r.weeklyMaxDailyMinutes ?? {}) };
+            if (minutes === undefined) delete next[weekKey];
+            else next[weekKey] = minutes;
+            const { weeklyMaxDailyMinutes: _drop, ...rest } = r;
+            return Object.keys(next).length > 0 ? { ...rest, weeklyMaxDailyMinutes: next } : rest;
+          }),
         })),
       })),
     }),

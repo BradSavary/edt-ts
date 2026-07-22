@@ -113,6 +113,13 @@ export function diffCsvCourses(
 export interface ResourceDataWithStatus extends ResourceData {
   /** true si absent du dernier CSV importé en mode fusion — conservée pour ne pas perdre ses contraintes. */
   unused?: boolean;
+  /**
+   * Limites quotidiennes spécifiques à une semaine, en minutes, clés « S36 » (même
+   * convention que ResourceConstraints). Absent pour une semaine ⇒ `maxDailyMinutes`
+   * (le défaut de la ressource) s'applique. Champ purement client : résolu en un
+   * scalaire par `_buildPayload` avant l'envoi au moteur, qui ne le voit jamais.
+   */
+  weeklyMaxDailyMinutes?: Record<string, number>;
 }
 
 export interface ResourceGroupDataWithStatus {

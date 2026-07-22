@@ -161,6 +161,107 @@ function DayCell({ slots: slotsProp, inherited, defaultSlots, onChange }: DayCel
   );
 }
 
+// --- MaxDailyCell ---
+
+interface MaxDailyCellProps {
+  /** Minutes propres à cette ligne. `undefined` ⇒ la ligne hérite. */
+  minutes?: number;
+  /** Minutes du défaut de la ressource, servant de valeur héritée. */
+  inheritedMinutes?: number;
+  /** Semaine non cochée : la limite se lit mais ne s'édite pas (même règle que les horaires). */
+  readOnly?: boolean;
+  onChange: (minutes: number | undefined) => void;
+}
+
+const minutesToHours = (m?: number) => (m !== undefined ? String(m / 60) : '');
+
+/**
+ * Saisie de la limite quotidienne, en heures (l'unité est dans l'en-tête de colonne).
+ * Éditable seulement sur une semaine cochée : modifier une limite EST une modification des
+ * données de cette semaine, elle ne doit pas pouvoir se faire pendant que la semaine est
+ * affichée comme inactive (arbitrage Frédéric, 2026-07-22 — voir §2 du plan).
+ */
+function MaxDailyCell({ minutes, inheritedMinutes, readOnly, onChange }: MaxDailyCellProps) {
+  const [hours, setHours] = useState<string>(() => minutesToHours(minutes));
+
+  useEffect(() => { setHours(minutesToHours(minutes)); }, [minutes]);
+
+  const isInherited = minutes === undefined;
+  const inheritedHours = minutesToHours(inheritedMinutes);
+
+  if (readOnly) {
+    // Ce qui s'applique réellement à la semaine, pas ce qu'on voudrait qu'il s'applique.
+    const effective = minutes ?? inheritedMinutes;
+    return (
+      <div className="py-1 text-center">
+        {effective !== undefined ? (
+          <span className={cn('font-mono text-[11px] text-muted-foreground/50', isInherited && 'italic')}>
+            {minutesToHours(effective)}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/20 text-xs select-none">—</span>
+        )}
+      </div>
+    );
+  }
+
+  function commit() {
+    const n = parseFloat(hours);
+    if (hours === '' || isNaN(n) || n <= 0) {
+      setHours('');
+      onChange(undefined);
+      return;
+    }
+    const mins = Math.round(n * 60);
+    // Champ pré-rempli au focus avec la valeur héritée puis laissé tel quel : rester en
+    // héritage plutôt que de figer un override numériquement identique au défaut.
+    if (isInherited && mins === inheritedMinutes) {
+      setHours('');
+      return;
+    }
+    setHours(String(mins / 60));
+    onChange(mins);
+  }
+
+  return (
+    <div className="flex items-center gap-1 py-1">
+      <Input
+        type="number"
+        min={0}
+        step={0.5}
+        placeholder={inheritedHours !== '' ? inheritedHours : 'illimité'}
+        value={hours}
+        onChange={(e) => setHours(e.target.value)}
+        onFocus={(e) => {
+          // Les flèches haut/bas (clavier comme spinner souris) doivent repartir de la valeur
+          // héritée affichée en placeholder, pas de zéro. Non commité tant qu'elle est inchangée.
+          if (hours !== '' || inheritedHours === '') return;
+          setHours(inheritedHours);
+          const input = e.currentTarget;
+          setTimeout(() => input.select(), 0);
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+        className={cn(
+          'h-7 w-16 text-xs',
+          isInherited && 'placeholder:italic placeholder:text-muted-foreground/50',
+        )}
+      />
+      <button
+        type="button"
+        onClick={() => { setHours(''); onChange(undefined); }}
+        className={cn(
+          'text-muted-foreground/60 hover:text-destructive text-base leading-none',
+          isInherited && 'invisible',
+        )}
+        aria-label="Supprimer la limite quotidienne"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
 // --- WeekRow ---
 
 interface WeekRowProps {
@@ -172,6 +273,8 @@ interface WeekRowProps {
   onToggle?: (checked: boolean) => void;
   onDelete?: () => void;
   onChange: (dm: DayMap) => void;
+  /** Absent ⇒ pas de colonne « Max quot. » du tout (fiche Défaut de l'établissement). */
+  maxDaily?: MaxDailyCellProps;
 }
 
 function WeekRow({
@@ -183,6 +286,7 @@ function WeekRow({
   onToggle,
   onDelete,
   onChange,
+  maxDaily,
 }: WeekRowProps) {
   function updateDay(day: DayName, slots: DaySlot[]) {
     onChange({ ...dayMap, [day]: slots });
@@ -216,6 +320,11 @@ function WeekRow({
           <span className={cn(inherited && 'text-muted-foreground/60 italic')}>{label}</span>
         </div>
       </td>
+      {maxDaily && (
+        <td className="px-2 sticky left-20 bg-inherit z-10 border-r border-border align-middle">
+          <MaxDailyCell {...maxDaily} />
+        </td>
+      )}
       {DAYS.map((day) => (
         <td
           key={day}
@@ -245,8 +354,13 @@ export interface ResourceConstraintEditorProps {
   isDefault?: boolean;
   alwaysExpanded?: boolean;
   csvWeeks?: number[];
+  /** Limite quotidienne par défaut de la ressource, en minutes. */
   maxDailyMinutes?: number;
+  /** Limites quotidiennes spécifiques à une semaine, en minutes, clés « S36 ». */
+  weeklyMaxDailyMinutes?: Record<string, number>;
+  /** Absent ⇒ colonne « Max quot. » masquée (fiche Défaut, ou ressource sans ResourceData). */
   onMaxDailyMinutesChange?: (v: number | undefined) => void;
+  onWeeklyMaxDailyMinutesChange?: (weekKey: string, v: number | undefined) => void;
   onChange: (newValue: ResourceConstraints | null) => void;
   onDelete?: () => void;
   className?: string;
@@ -260,7 +374,9 @@ export function ResourceConstraintEditor({
   alwaysExpanded,
   csvWeeks = [],
   maxDailyMinutes,
+  weeklyMaxDailyMinutes,
   onMaxDailyMinutesChange,
+  onWeeklyMaxDailyMinutesChange,
   onChange,
   onDelete,
   className,
@@ -270,13 +386,6 @@ export function ResourceConstraintEditor({
   const [newWeekKey, setNewWeekKey] = useState('');
   const [weekError, setWeekError] = useState('');
   const [confirmDisableOpen, setConfirmDisableOpen] = useState(false);
-  const [localHours, setLocalHours] = useState<string>(
-    () => maxDailyMinutes !== undefined ? String(maxDailyMinutes / 60) : '',
-  );
-
-  useEffect(() => {
-    setLocalHours(maxDailyMinutes !== undefined ? String(maxDailyMinutes / 60) : '');
-  }, [maxDailyMinutes]);
 
   const [localDefault, setLocalDefault] = useState<DayMap>(() =>
     value?.default ? slotsToDayMap(value.default) : emptyDayMap(),
@@ -292,7 +401,16 @@ export function ResourceConstraintEditor({
   const weekKeys = value ? getWeekKeys(value) : [];
 
   const csvWeekKeys = csvWeeks.map((w) => `S${w}`);
-  const allDisplayWeekKeys = [...new Set([...csvWeekKeys, ...weekKeys])].sort(
+  // Les semaines qui n'ont QU'une limite quotidienne (ni override de dispo, ni semaine CSV)
+  // doivent apparaître, sinon leur limite reste active mais invisible et non éditable.
+  const maxDailyWeekKeys = Object.keys(weeklyMaxDailyMinutes ?? {});
+  // Pas de colonne sur la fiche « Défaut » de l'établissement (aucun héritage de
+  // maxDailyMinutes depuis Default côté moteur), ni quand l'appelant ne fournit pas de
+  // setter (ressource absente de storeResources : pas de ResourceData où écrire).
+  const maxDailyHandlers = !isDefault && onMaxDailyMinutesChange && onWeeklyMaxDailyMinutesChange
+    ? { onDefault: onMaxDailyMinutesChange, onWeek: onWeeklyMaxDailyMinutesChange }
+    : null;
+  const allDisplayWeekKeys = [...new Set([...csvWeekKeys, ...weekKeys, ...maxDailyWeekKeys])].sort(
     (a, b) => parseInt(a.replace(/^S/, ''), 10) - parseInt(b.replace(/^S/, ''), 10),
   );
 
@@ -316,6 +434,9 @@ export function ResourceConstraintEditor({
     const next = { ...value };
     delete next[weekKey];
     onChange(next);
+    // La limite quotidienne de la semaine est purgée par le store, qui réconcilie limites et
+    // semaines cochées à chaque écriture de `constraints` (pruneOrphanWeeklyMaxDaily) — y
+    // compris sur les chemins qui décochent sans passer par cette case.
   }
 
   function handleToggleWeek(wk: string, checked: boolean) {
@@ -324,6 +445,11 @@ export function ResourceConstraintEditor({
       const newDayMap = slotsToDayMap(defaultSlots);
       setLocalWeeks((prev) => ({ ...prev, [wk]: newDayMap }));
       onChange({ ...(value ?? { default: [] }), [wk]: [...defaultSlots] });
+      // Cocher copie ET fige la limite quotidienne du défaut, exactement comme les horaires :
+      // la valeur s'affiche alors en noir, ce qui signale qu'elle est devenue modifiable.
+      if (maxDailyMinutes !== undefined && weeklyMaxDailyMinutes?.[wk] === undefined) {
+        onWeeklyMaxDailyMinutesChange?.(wk, maxDailyMinutes);
+      }
     } else {
       handleWeekDelete(wk);
     }
@@ -337,6 +463,9 @@ export function ResourceConstraintEditor({
     const newDayMap = slotsToDayMap(defaultSlots);
     setLocalWeeks((prev) => ({ ...prev, [key]: newDayMap }));
     onChange({ ...(value ?? { default: [] }), [key]: [...defaultSlots] });
+    if (maxDailyMinutes !== undefined && weeklyMaxDailyMinutes?.[key] === undefined) {
+      onWeeklyMaxDailyMinutesChange?.(key, maxDailyMinutes);
+    }
     setNewWeekKey('');
     setWeekError('');
     setAddingWeek(false);
@@ -412,51 +541,27 @@ export function ResourceConstraintEditor({
       {/* Body */}
       {(expanded || alwaysExpanded) && (
         <div className="border-t border-border bg-background flex-1 min-h-0 flex flex-col">
-          {/* Max quotidien (hors Default) */}
-          {!isDefault && onMaxDailyMinutesChange && (
-            <div className="px-4 py-2 border-b border-border flex items-center gap-2 shrink-0">
-              <span className="text-xs text-muted-foreground shrink-0">Max. quotidien :</span>
-              <Input
-                type="number"
-                min={0}
-                step={0.5}
-                placeholder="illimité"
-                value={localHours}
-                onChange={(e) => setLocalHours(e.target.value)}
-                onBlur={() => {
-                  const n = parseFloat(localHours);
-                  if (localHours === '' || isNaN(n) || n <= 0) {
-                    setLocalHours('');
-                    onMaxDailyMinutesChange(undefined);
-                  } else {
-                    const mins = Math.round(n * 60);
-                    setLocalHours(String(mins / 60));
-                    onMaxDailyMinutesChange(mins);
-                  }
-                }}
-                className="h-7 w-24 text-xs"
-              />
-              <span className="text-xs text-muted-foreground shrink-0">h / jour</span>
-              {localHours !== '' && (
-                <button
-                  type="button"
-                  onClick={() => { setLocalHours(''); onMaxDailyMinutesChange(undefined); }}
-                  className="text-muted-foreground/60 hover:text-destructive text-base leading-none"
-                  aria-label="Supprimer la limite quotidienne"
-                >
-                  ×
-                </button>
-              )}
-            </div>
-          )}
           {value === null ? (
-            <div className="p-4 flex items-center gap-4">
-              <p className="text-sm text-muted-foreground flex-1">
-                Aucune contrainte définie — l&apos;algorithme utilise le Default de l&apos;établissement.
-              </p>
-              <Button size="sm" variant="outline" onClick={handleEnableConstraints}>
-                + Ajouter des contraintes
-              </Button>
+            <div className="p-4 flex flex-col gap-3">
+              <div className="flex items-center gap-4">
+                <p className="text-sm text-muted-foreground flex-1">
+                  Aucune contrainte définie — l&apos;algorithme utilise le Default de l&apos;établissement.
+                </p>
+                <Button size="sm" variant="outline" onClick={handleEnableConstraints}>
+                  + Ajouter des contraintes
+                </Button>
+              </div>
+              {/* Sans contraintes il n'y a pas de tableau, donc pas de colonne « Max quot. » :
+                  la limite quotidienne reste néanmoins réglable ici. Une ressource aux
+                  disponibilités par défaut mais plafonnée à N h/jour est un cas courant, et
+                  c'était déjà possible avant que la colonne ne remplace le bandeau. */}
+              {maxDailyHandlers && (
+                <div className="flex items-center gap-2 border-t border-border pt-3">
+                  <span className="text-xs text-muted-foreground shrink-0">Max. quotidien :</span>
+                  <MaxDailyCell minutes={maxDailyMinutes} onChange={maxDailyHandlers.onDefault} />
+                  <span className="text-xs text-muted-foreground shrink-0">h / jour</span>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
@@ -467,6 +572,11 @@ export function ResourceConstraintEditor({
                       <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-muted-foreground sticky left-0 top-0 bg-muted/50 z-20 border-b border-r border-border w-20">
                         Semaine
                       </th>
+                      {maxDailyHandlers && (
+                        <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-muted-foreground sticky left-20 top-0 bg-muted/50 z-20 border-b border-r border-border whitespace-nowrap">
+                          Max quot. (h)
+                        </th>
+                      )}
                       {DAYS.map((day) => (
                         <th
                           key={day}
@@ -484,6 +594,10 @@ export function ResourceConstraintEditor({
                       dayMap={localDefault}
                       defaultDayMap={localDefault}
                       onChange={handleDefaultChange}
+                      maxDaily={maxDailyHandlers ? {
+                        minutes: maxDailyMinutes,
+                        onChange: maxDailyHandlers.onDefault,
+                      } : undefined}
                     />
 
                     {/* Toutes les semaines : CSV + overrides, avec checkbox */}
@@ -503,13 +617,19 @@ export function ResourceConstraintEditor({
                           checked={hasOverride}
                           onToggle={(v) => handleToggleWeek(wk, v)}
                           onChange={(dm) => handleWeekChange(wk, dm)}
+                          maxDaily={maxDailyHandlers ? {
+                            minutes: weeklyMaxDailyMinutes?.[wk],
+                            inheritedMinutes: maxDailyMinutes,
+                            readOnly: !hasOverride,
+                            onChange: (v) => maxDailyHandlers.onWeek(wk, v),
+                          } : undefined}
                         />
                       );
                     })}
 
                     {/* Ajout manuel (semaines personnalisées) */}
                     <tr>
-                        <td colSpan={DAYS.length + 1} className="px-3 py-2">
+                        <td colSpan={DAYS.length + (maxDailyHandlers ? 2 : 1)} className="px-3 py-2">
                           {addingWeek ? (
                             <div className="flex items-center gap-2">
                               <Input

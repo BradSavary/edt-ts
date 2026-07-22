@@ -264,3 +264,119 @@ describe('useProjectStore.mergeCsvData', () => {
     expect(useProjectStore.getState().coursesFileName).toBe('fusionné.csv');
   });
 });
+
+describe('useProjectStore.setResourceWeeklyMaxDailyMinutes', () => {
+  const teacherOf = () =>
+    useProjectStore.getState().resources.find((g) => g.resourceType === 'teacher')!.resources[0];
+
+  beforeEach(() => {
+    useProjectStore.setState({ resources: makeResources() });
+  });
+
+  it('pose une limite sur une seule semaine, sans toucher au défaut', () => {
+    useProjectStore.getState().setResourceMaxDailyMinutes('DUPONT', 240);
+    useProjectStore.getState().setResourceWeeklyMaxDailyMinutes('DUPONT', 'S40', 120);
+
+    expect(teacherOf()).toEqual({ id: 'DUPONT', maxDailyMinutes: 240, weeklyMaxDailyMinutes: { S40: 120 } });
+  });
+
+  it('plusieurs semaines coexistent', () => {
+    useProjectStore.getState().setResourceWeeklyMaxDailyMinutes('DUPONT', 'S40', 120);
+    useProjectStore.getState().setResourceWeeklyMaxDailyMinutes('DUPONT', 'S41', 180);
+
+    expect(teacherOf().weeklyMaxDailyMinutes).toEqual({ S40: 120, S41: 180 });
+  });
+
+  it('undefined supprime la clé de la semaine et laisse les autres', () => {
+    useProjectStore.getState().setResourceWeeklyMaxDailyMinutes('DUPONT', 'S40', 120);
+    useProjectStore.getState().setResourceWeeklyMaxDailyMinutes('DUPONT', 'S41', 180);
+    useProjectStore.getState().setResourceWeeklyMaxDailyMinutes('DUPONT', 'S40', undefined);
+
+    expect(teacherOf().weeklyMaxDailyMinutes).toEqual({ S41: 180 });
+  });
+
+  it('dernière semaine supprimée : la clé weeklyMaxDailyMinutes disparaît (pas d\'objet vide persisté)', () => {
+    useProjectStore.getState().setResourceWeeklyMaxDailyMinutes('DUPONT', 'S40', 120);
+    useProjectStore.getState().setResourceWeeklyMaxDailyMinutes('DUPONT', 'S40', undefined);
+
+    expect(teacherOf()).toEqual({ id: 'DUPONT' });
+    expect('weeklyMaxDailyMinutes' in teacherOf()).toBe(false);
+  });
+
+  it('n\'affecte que la ressource visée', () => {
+    useProjectStore.getState().setResourceWeeklyMaxDailyMinutes('A101', 'S40', 120);
+
+    expect(teacherOf().weeklyMaxDailyMinutes).toBeUndefined();
+    const rooms = useProjectStore.getState().resources.find((g) => g.resourceType === 'room')!;
+    expect(rooms.resources[0].weeklyMaxDailyMinutes).toEqual({ S40: 120 });
+  });
+});
+
+/**
+ * La limite quotidienne d'une semaine suit sa case à cocher : elle ne doit jamais survivre à
+ * la disparition de l'override de disponibilité qui la porte, sinon elle reste appliquée par
+ * le moteur alors que l'UI ne l'affiche plus (donc invisible et non modifiable).
+ * Trois chemins décochent sans passer par la case — d'où une réconciliation à chaque écriture
+ * de `constraints` plutôt qu'une purge par chemin.
+ */
+describe('limites hebdomadaires orphelines : réconciliation à chaque écriture de constraints', () => {
+  const weeklyOf = () =>
+    useProjectStore.getState().resources.find((g) => g.resourceType === 'teacher')!.resources[0]
+      .weeklyMaxDailyMinutes;
+
+  const slots = [{ days: 'lundi', from: '08:00', to: '18:00' }];
+
+  beforeEach(() => {
+    useProjectStore.setState({
+      resources: makeResources(),
+      constraints: { Default: slots, DUPONT: { default: slots, S40: slots } },
+    });
+    useProjectStore.getState().setResourceWeeklyMaxDailyMinutes('DUPONT', 'S40', 120);
+    expect(weeklyOf()).toEqual({ S40: 120 });
+  });
+
+  it('semaine toujours cochée : la limite est conservée', () => {
+    useProjectStore.getState().setConstraint('DUPONT', { default: slots, S40: slots, S41: slots });
+    expect(weeklyOf()).toEqual({ S40: 120 });
+  });
+
+  it('override de la semaine retiré : la limite part avec lui', () => {
+    useProjectStore.getState().setConstraint('DUPONT', { default: slots });
+    expect(weeklyOf()).toBeUndefined();
+  });
+
+  it('toutes les contraintes de la ressource supprimées (setConstraint(null))', () => {
+    useProjectStore.getState().setConstraint('DUPONT', null);
+    expect(weeklyOf()).toBeUndefined();
+  });
+
+  it('deleteConstraint', () => {
+    useProjectStore.getState().deleteConstraint('DUPONT');
+    expect(weeklyOf()).toBeUndefined();
+  });
+
+  it('importConstraints sans la semaine', () => {
+    useProjectStore.getState().importConstraints({ Default: slots, DUPONT: { default: slots } });
+    expect(weeklyOf()).toBeUndefined();
+  });
+
+  it('importConstraints qui conserve la semaine', () => {
+    useProjectStore.getState().importConstraints({ Default: slots, DUPONT: { default: slots, S40: slots } });
+    expect(weeklyOf()).toEqual({ S40: 120 });
+  });
+
+  it('la limite par DÉFAUT de la ressource n\'est jamais purgée (elle ne dépend d\'aucune semaine)', () => {
+    useProjectStore.getState().setResourceMaxDailyMinutes('DUPONT', 240);
+    useProjectStore.getState().deleteConstraint('DUPONT');
+
+    const teacher = useProjectStore.getState().resources.find((g) => g.resourceType === 'teacher')!.resources[0];
+    expect(teacher.maxDailyMinutes).toBe(240);
+    expect(teacher.weeklyMaxDailyMinutes).toBeUndefined();
+  });
+
+  it('rien d\'orphelin : `resources` garde sa référence (pas de réécriture localStorage ni de rebuild inutile)', () => {
+    const before = useProjectStore.getState().resources;
+    useProjectStore.getState().setConstraint('AUTRE', { default: slots });
+    expect(useProjectStore.getState().resources).toBe(before);
+  });
+});
