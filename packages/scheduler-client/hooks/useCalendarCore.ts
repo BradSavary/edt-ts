@@ -140,7 +140,18 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
     handleEnforceChange(newMap);
   }
 
+  // « Retirer l'imposition » depuis la modale d'édition — même geste que sortir la tuile du
+  // calendrier, donc même bascule de mode (voir handleEventDragStop).
   function removeEnforced(courseKey: string) {
+    if (lastRun !== null) {
+      const placement = usePlanningStore
+        .getState()
+        .placements.find((p) => p.taskId === courseKey && p.origin === 'pre-enforced');
+      if (placement) {
+        unplaceTask(placement.placementId, 'user-post');
+        return;
+      }
+    }
     const newMap = { ...usePlanningStore.getState().manualEnforcedMap };
     delete newMap[courseKey];
     handleEnforceChange(newMap);
@@ -319,7 +330,9 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
   function handleEditConfirm(update: TaskEditUpdate) {
     if (!pendingEdit) return;
 
-    if (pendingEdit.origin === 'pre-enforced') {
+    // Même bascule qu'au déplacement : en préparation l'édition passe par la map (propagation de
+    // groupe), après planification c'est une retouche du placement.
+    if (pendingEdit.origin === 'pre-enforced' && lastRun === null) {
       const courseKey = pendingEdit.taskId;
       const state = usePlanningStore.getState();
       const existing = state.manualEnforcedMap[courseKey] ?? state.enforcedMap[courseKey];
@@ -373,7 +386,11 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
     if (!startDate || !taskId) return;
     const newStartTime = Math.round((startDate.getTime() - monday.getTime()) / 60000);
 
-    if (ext.origin === 'pre-enforced') {
+    // Déplacer une imposition en préparation repasse par la map : la propagation de groupe doit
+    // suivre le déplacement. Une fois la planification faite, c'est une retouche comme une autre
+    // (même raison qu'au dépôt hors calendrier) — `updatePlacement` la garde `pre-enforced` et
+    // réaligne les maps sur sa nouvelle position.
+    if (ext.origin === 'pre-enforced' && lastRun === null) {
       const courseKey = taskId;
       const state = usePlanningStore.getState();
       const existing = state.manualEnforcedMap[courseKey] ?? state.enforcedMap[courseKey];
@@ -406,7 +423,10 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
 
     if (ext.isBlockedZone) return;
 
-    if (ext.origin === 'pre-enforced' && ext.taskId) {
+    // En préparation, sortir une imposition du calendrier ne fait que la supprimer : le cours
+    // repart dans la liste de la sidebar, et la propagation de groupe doit être recalculée — d'où
+    // `handleEnforceChange`, qui reconstruit toute la liste des placements depuis la map.
+    if (ext.origin === 'pre-enforced' && ext.taskId && lastRun === null) {
       const courseKey = ext.taskId;
       const state = usePlanningStore.getState();
       // Si auto-propagé (pas dans manualEnforcedMap), on le retire de la propagation
@@ -417,9 +437,13 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
       return;
     }
 
-    // Placement auto/post-enforced déposé hors du calendrier → pioche. `unplaceTask` dédup sur
-    // `taskId` : si la tâche a déjà une entrée non placée (ex. neutralisée par le moteur), elle
-    // n'en gagne pas une seconde — voir lib/calendar/unplaced.ts.
+    // Placement déposé hors du calendrier → pioche. Une fois la planification faite, une
+    // imposition passe par ce chemin comme n'importe quel placement : `handleEnforceChange`
+    // invaliderait `lastRun` et rebâtirait `placements` depuis la seule map d'imposition, ce qui
+    // détruirait toute la solution pour un cours sorti. `unplaceTask` retire le placement, met la
+    // tâche dans la pioche et — s'il s'agissait d'une imposition — la retire des maps. Il dédup
+    // sur `taskId` : si la tâche a déjà une entrée non placée (ex. neutralisée par le moteur),
+    // elle n'en gagne pas une seconde — voir lib/calendar/unplaced.ts.
     if (ext.taskId) {
       const placementId = info.event.id;
       info.event.remove();

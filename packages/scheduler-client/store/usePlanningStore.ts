@@ -58,6 +58,15 @@ function dedupePlacements(entries: Placement[]): Placement[] {
 }
 
 /**
+ * Copie de `map` privée de `key` — référence inchangée si la clé n'y est pas, pour ne pas
+ * déclencher l'auto-save (dont la garde compare les références) sans raison.
+ */
+function omitKey<T>(map: Record<string, T>, key: string): Record<string, T> {
+  if (!(key in map)) return map;
+  return Object.fromEntries(Object.entries(map).filter(([k]) => k !== key));
+}
+
+/**
  * Map manuelle → map augmentée (manuelle + propagation de groupe). Même calcul pour
  * `handleEnforceChange`, `setSelectedWeek` (restauration) et `returnToPreparation` (promotion) :
  * factorisé ici pour ne pas dupliquer l'appel à `computeGroupEnforcements`.
@@ -254,6 +263,14 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         (u) => !canPrune || restoredCourseIds.has(u.taskId),
       );
 
+      // Une tâche explicitement retirée du calendrier après un calcul (`user-post`) ne doit pas
+      // revenir posée à la restauration. Le cas ne se produit que pour une imposition *propagée*
+      // par un groupe : une imposition manuelle retirée a déjà quitté `manualEnforcedMap`
+      // (`unplaceTask`), alors qu'une propagée est re-dérivée ici à chaque lecture.
+      const removedByUser = new Set(
+        persistedUnplaced.filter((u) => u.origin === 'user-post').map((u) => u.taskId),
+      );
+
       set({
         selectedWeek: week,
         searchQuery: '',
@@ -261,7 +278,9 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         // Les `pre-enforced` recalculés priment sur les placements persistés (dédup par
         // placementId) : une imposition perdue est plus grave qu'un placement auto perdu.
         placements: dedupePlacements([
-          ...placementsFromEnforcedMap(restoredEnforcedMap, snapshot.manualEnforcedMap),
+          ...placementsFromEnforcedMap(restoredEnforcedMap, snapshot.manualEnforcedMap).filter(
+            (p) => !removedByUser.has(p.taskId),
+          ),
           ...persistedPlacements,
         ]),
         unplaced: dedupeUnplaced([
@@ -358,19 +377,44 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       return {
         placements,
         unplaced: exists ? state.unplaced : [...state.unplaced, { taskId: removed.taskId, origin }],
+        // Une imposition retirée du calendrier n'est plus une imposition : les maps sont la
+        // projection des `pre-enforced` affichés (hypothèse déjà faite par
+        // `_saveCurrentWeekSnapshot`, qui les re-dérive de `placements`). Les laisser diverger la
+        // ferait resurgir — au prochain `returnToPreparation`, qui relit `manualEnforcedMap`, ou
+        // au prochain rechargement.
+        ...(removed.origin === 'pre-enforced'
+          ? {
+              manualEnforcedMap: omitKey(state.manualEnforcedMap, removed.taskId),
+              enforcedMap: omitKey(state.enforcedMap, removed.taskId),
+            }
+          : {}),
       };
     });
   },
   placements: [],
   updatePlacement: (placementId, patch) => {
-    set((state) => ({
-      placements: state.placements.map((p) => {
+    set((state) => {
+      const placements = state.placements.map((p) => {
         if (p.placementId !== placementId) return p;
         const touchesPosition = 'startTime' in patch || 'duration' in patch || 'resources' in patch;
         const origin = p.origin === 'auto' && touchesPosition ? 'post-enforced' : p.origin;
         return { ...p, ...patch, origin };
-      }),
-    }));
+      });
+      const target = placements.find((p) => p.placementId === placementId);
+      // Retoucher une imposition déjà planifiée doit suivre dans les maps, même raison que dans
+      // `unplaceTask` : sinon `returnToPreparation` (ou un rechargement) la replacerait à son
+      // ancienne position. Un `derived` (propagé par un groupe) ne remonte pas dans la map
+      // manuelle — il est recalculé à la lecture, jamais persisté (cf. placements.ts).
+      if (!target || target.origin !== 'pre-enforced') return { placements };
+      const enforced = enforcedDataFromPlacement(target);
+      return {
+        placements,
+        enforcedMap: { ...state.enforcedMap, [target.taskId]: enforced },
+        manualEnforcedMap: target.derived
+          ? state.manualEnforcedMap
+          : { ...state.manualEnforcedMap, [target.taskId]: enforced },
+      };
+    });
   },
   addPlacement: (placement) => {
     set((state) => ({

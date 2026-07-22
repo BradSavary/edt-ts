@@ -58,6 +58,9 @@ Composé de `BlockedZonesSlice`, `TaskGroupsSlice` et d'un slice inline.
   manuelle). Remplace `activeSolution`/`taskOverrides`/`placedNeutralizedTasks`/`enforcedViolations`.
 - `addPlacement` / `updatePlacement` / `removePlacement` — CRUD ; `updatePlacement` fait basculer
   un placement `auto` en `post-enforced` dès que le patch touche `startTime`/`duration`/`resources`.
+  Sur un `pre-enforced`, il réaligne `enforcedMap`/`manualEnforcedMap` sur la nouvelle position
+  (les maps sont la projection des impositions affichées — `_saveCurrentWeekSnapshot` les
+  re-dérive de `placements`) ; `unplaceTask` en retire l'entrée pour la même raison.
 - Conversions pures dans `lib/calendar/placements.ts` (`placementsFromSolution`,
   `placementsFromEnforcedMap`, `enforcedMapFromPlacements`, `toTaskSolutionJSON`).
 
