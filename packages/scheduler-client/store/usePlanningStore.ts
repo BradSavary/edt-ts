@@ -379,7 +379,13 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     }
 
     const { selectedWeek, placements, blockedZones, taskGroups, unplaced, pendingJobResult } = get();
-    const userPreTaskIds = unplaced.filter((u) => u.origin === 'user-pre').map((u) => u.taskId);
+    // On n'envoie pas au moteur ce que l'utilisateur a explicitement écarté, quel que soit le
+    // moment où il l'a fait (`user-pre` avant le run, `user-post` après un run précédent) : un
+    // "Planifier" ne doit pas défaire un retrait manuel. Les `engine` (le moteur seul a échoué à
+    // les placer) restent envoyées : les conditions ont pu changer entre-temps (§3.3 du plan).
+    const excludedTaskIds = unplaced
+      .filter((u) => u.origin === 'user-pre' || u.origin === 'user-post')
+      .map((u) => u.taskId);
     // Reconstruit depuis `placements` (source de vérité affichée) plutôt que de lire l'ancien
     // champ `enforcedMap` séparément — propagés compris, le moteur doit recevoir la même
     // imposition augmentée qu'avant ce chantier (cf. lib/calendar/placements.ts).
@@ -404,24 +410,24 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       return;
     }
 
-    // Filtrage des tâches pré-neutralisées
-    const preNeutSet = new Set(userPreTaskIds);
+    // Filtrage des tâches exclues (§3.3 du plan)
+    const excludedSet = new Set(excludedTaskIds);
     const filteredCourses: CourseTaskDataWithId[] = [];
     const keptIds = new Set<string>();
 
     for (const course of coursesForWeek) {
-      if (preNeutSet.has(course.id)) continue;
+      if (excludedSet.has(course.id)) continue;
       keptIds.add(course.id);
       filteredCourses.push(course);
     }
 
-    // taskGroups filtré sur les cours conservés (non pré-neutralisés) — les impositions
+    // taskGroups filtré sur les cours conservés (non exclus) — les impositions
     // (enforcedMap) sont déjà clées par course.id, aucun remapping n'est nécessaire.
     // Restreindre aux cours conservés reste en revanche nécessaire pour filterResourcesForCourses :
     // sans ça, une ressource référencée uniquement par une imposition portant sur un cours
-    // pré-neutralisé rentrerait dans le payload, ce que ce filtrage existe précisément pour
-    // éviter. Un cours peut être à la fois pré-neutralisé et imposé — togglePreNeutralized ne
-    // nettoie pas manualEnforcedMap, et réciproquement.
+    // exclu rentrerait dans le payload, ce que ce filtrage existe précisément pour
+    // éviter. Un cours peut être à la fois exclu et imposé — togglePreNeutralized/unplaceTask ne
+    // nettoient pas manualEnforcedMap, et réciproquement.
     const keptEnforced = Object.fromEntries(
       Object.entries(enforcedMap).filter(([id]) => keptIds.has(id)),
     );
@@ -515,6 +521,10 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     const { result, week } = pendingJobResult;
     const best = result.solution;
     const userPre = unplaced.filter((u) => u.origin === 'user-pre');
+    // Comme `userPre`, les `user-post` d'avant ce run ne sont jamais envoyées au moteur (§3.3 du
+    // plan) : elles ne peuvent donc pas revenir dans `rawUnplaced` et seraient sinon effacées par
+    // le `set` ci-dessous plutôt que de survivre au run comme les `user-pre`.
+    const userPost = unplaced.filter((u) => u.origin === 'user-post');
 
      // Si le moteur n'a placé aucune tâche, on reste en mode préparation
     if (!best || best.tasks.length === 0) {
@@ -543,14 +553,14 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       p.taskId in enforcedMap ? { ...p, origin: 'pre-enforced' as const } : p,
     );
 
-    // Les `user-post` sont vidés (nouvelle solution) ; dédup sur `taskId` plutôt que de supposer
-    // qu'un `user-pre` (jamais envoyé au moteur) ne peut pas revenir dans neutralizedTasks (§4.3).
+    // Dédup sur `taskId` plutôt que de supposer qu'un `user-pre`/`user-post` (jamais envoyé au
+    // moteur) ne peut pas revenir dans neutralizedTasks (§4.3 du plan précédent, toujours valable).
     set({
       selectedWeek: week,
       scheduleResult: result,
       lastRun: { placements: rawPlacements, unplaced: rawUnplaced },
       placements,
-      unplaced: dedupeUnplaced([...userPre, ...rawUnplaced]),
+      unplaced: dedupeUnplaced([...userPre, ...userPost, ...rawUnplaced]),
       isLoading: false,
       status: buildScheduleStatus(result),
       currentJobId: null,
@@ -693,6 +703,10 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     }));
   },
 
+  // Nom hérité de l'ancienne formulation « retour à la préparation » : depuis que le sélecteur de
+  // semaine vit dans la barre d'outils (§3.1 du plan), cette action ne sert plus à naviguer —
+  // seulement à annuler la planification automatique (§3.2 du plan). Non renommée délibérément :
+  // c'est du code, pas de l'UI, et le renommage brouillerait le lien avec les usages existants.
   returnToPreparation: (promotedPlacementIds) => {
     if (_pollingInterval !== null) { clearInterval(_pollingInterval); _pollingInterval = null; }
     const { placements, manualEnforcedMap, taskGroups, selectedWeek, unplaced } = get();

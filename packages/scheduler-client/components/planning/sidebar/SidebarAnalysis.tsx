@@ -64,6 +64,10 @@ function toEngineNeutralizedInfo(entry: Unplaced, course: CourseTaskDataWithId):
 }
 
 export function SidebarAnalysis() {
+  // Nom hérité de l'ancienne formulation « retour à la préparation » : le geste ne sert plus à
+  // naviguer (le sélecteur de semaine vit désormais dans la barre d'outils, §3.1 du plan), mais
+  // seulement à annuler la planification automatique — non renommé pour ne pas brouiller le lien
+  // avec le code déjà écrit (§3.2 du plan).
   const returnToPreparation = usePlanningStore((s) => s.returnToPreparation);
   const scheduleResult = usePlanningStore((s) => s.scheduleResult);
   // `lastRun` (persisté) plutôt que `scheduleResult` (session uniquement) pour le bouton export :
@@ -164,7 +168,7 @@ export function SidebarAnalysis() {
           className="w-full text-muted-foreground justify-start p-1 pt-0 pb-0"
           onClick={openReturnDialog}
         >
-          ← Retour à la préparation
+          Annuler la planification automatique
         </Button>
 
         {/* Recherche */}
@@ -267,7 +271,7 @@ export function SidebarAnalysis() {
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Retour à la préparation</DialogTitle>
+            <DialogTitle>Annuler la planification automatique</DialogTitle>
             <DialogDescription>
               {promotionCandidates.length === 0
                 ? 'Attention, cette action va supprimer toutes les solutions en cours. Voulez-vous continuer ?'
@@ -317,8 +321,8 @@ export function SidebarAnalysis() {
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>Annuler</Button>
             <Button variant="destructive" onClick={handleConfirmRetour}>
               {checkedPromotionIds.size > 0
-                ? `Conserver ${checkedPromotionIds.size} imposition${checkedPromotionIds.size > 1 ? 's' : ''} et revenir`
-                : 'Retour à la préparation'}
+                ? `Conserver ${checkedPromotionIds.size} imposition${checkedPromotionIds.size > 1 ? 's' : ''} et annuler`
+                : 'Annuler la planification automatique'}
             </Button>
           </DialogFooter>
         </DialogContent>
