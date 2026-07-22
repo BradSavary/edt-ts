@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { AvailabilityManager } from '@edt-ts/scheduler-common';
 import type { ConstraintsData, CourseTaskData, EnforcedData, NeutralizedTaskInfoJSON, ResourceGroupData, TaskSolutionJSON } from '@edt-ts/scheduler-common';
 import { buildPreparationLoadRows, buildAnalysisLoadRows, hasCommonFeasibleDay } from '../lib/resourceLoadAnalysis';
+import type { ResourceGroupDataWithStatus } from '../lib/csvMerge';
 
 function makeManager(data: ConstraintsData): AvailabilityManager {
   return new AvailabilityManager(data);
@@ -62,6 +63,23 @@ describe('buildPreparationLoadRows', () => {
 
     expect(rows[0].days[0].capacityMin).toBe(90); // plafonné, pas 240
     expect(rows[0].weeklyCapacity).toBe(90);
+  });
+
+  it('weeklyMaxDailyMinutes : la capacité plafonnée suit la semaine demandée', () => {
+    const am = makeManager({
+      Default: [],
+      T1: [{ days: 'lundi', from: '08:00', to: '12:00' }], // 240min bruts, toutes semaines
+    });
+    const resources: ResourceGroupDataWithStatus[] = [
+      { resourceType: 'teacher', resources: [{ id: 'T1', maxDailyMinutes: 240, weeklyMaxDailyMinutes: { S30: 60 } }] },
+    ];
+    const c1 = course({ code: 'C1', duration: 30, teacher: ['T1'] });
+
+    const s30 = buildPreparationLoadRows(c1, [c1], new Map(), (c) => c.code, am, 30, resources);
+    expect(s30[0].days[0].capacityMin).toBe(60); // limite propre à S30
+
+    const s31 = buildPreparationLoadRows(c1, [c1], new Map(), (c) => c.code, am, 31, resources);
+    expect(s31[0].days[0].capacityMin).toBe(240); // S31 hérite du défaut de la ressource
   });
 
   it('jour vide : capacité et charge nulles, pas d\'erreur', () => {
@@ -142,6 +160,29 @@ describe('buildAnalysisLoadRows', () => {
     expect(rows[0].days[0].slackMin).toBe(60);
     expect(rows[0].days[0].fits).toBe(false); // 60min de mou < 90min requis
     expect(rows[0].anyDayFits).toBe(false);
+  });
+
+  it('weeklyMaxDailyMinutes : le mou du mode analyse suit aussi la semaine demandée', () => {
+    const am = makeManager({
+      Default: [],
+      T1: [{ days: 'lundi', from: '08:00', to: '12:00' }], // 240min bruts
+    });
+    const resources: ResourceGroupDataWithStatus[] = [
+      { resourceType: 'teacher', resources: [{ id: 'T1', maxDailyMinutes: 240, weeklyMaxDailyMinutes: { S30: 120 } }] },
+    ];
+    const placed: TaskSolutionJSON[] = [
+      { taskId: 'P1', code: 'P1', name: 'P1', type: 'TD', week: 30, duration: 60, startTime: 480, resources: [{ id: 'T1', type: 'teacher' }] },
+    ];
+    const skipped = neutralizedTask(90, [{ id: 'T1', type: 'teacher' }]);
+
+    const s30 = buildAnalysisLoadRows(skipped, placed, am, 30, resources);
+    expect(s30[0].days[0].capacityMin).toBe(120); // limite de S30
+    expect(s30[0].days[0].slackMin).toBe(60);
+    expect(s30[0].days[0].fits).toBe(false); // 60 < 90
+
+    const s31 = buildAnalysisLoadRows(skipped, placed, am, 31, resources);
+    expect(s31[0].days[0].capacityMin).toBe(240); // défaut de la ressource
+    expect(s31[0].days[0].fits).toBe(true);
   });
 
   it('mou suffisant sur un autre jour → anyDayFits true', () => {

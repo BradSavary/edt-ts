@@ -4,6 +4,8 @@ import {
   exportAsJSON, // utilisé uniquement pour l'export/import JSON (pas de localStorage)
   DEFAULT_SLOTS,
 } from '@/lib/constraintsUtils';
+import type { ResourceGroupDataWithStatus } from '@/lib/csvMerge';
+import { pruneOrphanWeeklyMaxDaily } from '@/lib/maxDailyResolution';
 
 // Type interne correspondant au format JSON réel des contraintes
 type ConstraintValue = ResourceConstraints | TimeSlot[] | null | undefined;
@@ -24,10 +26,31 @@ export interface ConstraintsSlice {
   pruneConstraints: (validIds: string[]) => void;
 }
 
+/**
+ * `resources` appartient à ProjectDataSlice — type structurel minimal plutôt qu'un import de
+ * `ProjectStore`, qui créerait un cycle (useProjectStore importe déjà ce slice).
+ */
+type WithResources = { resources: ResourceGroupDataWithStatus[] };
+
 export const createConstraintsSlice: StateCreator<ConstraintsSlice> = (set, get) => {
   // Timer dans la closure : chaque instance du store a son propre timer,
   // évite le partage d'état entre instances (hot-reload, tests).
   let saveNoticeTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Écrit `constraints` en réconciliant dans la MÊME transaction les limites quotidiennes
+   * hebdomadaires (une limite ne survit pas à la semaine qui la porte). Toute écriture de
+   * `constraints` passe par ici : c'est ce qui rend l'invariant vrai par construction plutôt
+   * que dépendant du chemin emprunté.
+   */
+  function setConstraints(constraints: ConstraintsRecord) {
+    const resources = (get() as unknown as WithResources).resources;
+    set({
+      constraints,
+      // Store partiel dans les tests du slice seul : pas de `resources` à réconcilier.
+      ...(resources ? { resources: pruneOrphanWeeklyMaxDaily(resources, constraints) } : {}),
+    } as Partial<ConstraintsSlice>);
+  }
 
   function triggerSaveNotice() {
     set({ saveNotice: true });
@@ -40,28 +63,26 @@ export const createConstraintsSlice: StateCreator<ConstraintsSlice> = (set, get)
     saveNotice: false,
 
     setConstraint: (id, value) => {
-      const next = { ...get().constraints, [id]: value };
-      set({ constraints: next });
+      setConstraints({ ...get().constraints, [id]: value });
       triggerSaveNotice();
     },
 
     deleteConstraint: (id) => {
       const next = { ...get().constraints };
       delete next[id];
-      set({ constraints: next });
+      setConstraints(next);
       triggerSaveNotice();
     },
 
     addResource: (id) => {
-      const next = { ...get().constraints, [id]: null };
-      set({ constraints: next });
+      setConstraints({ ...get().constraints, [id]: null });
       triggerSaveNotice();
     },
 
     setDefaultConstraint: (value) => {
       if (value === null) {
         const next = { ...get().constraints, Default: [] };
-        set({ constraints: next });
+        setConstraints(next);
       } else {
         // value est un ResourceConstraints : { default?: TimeSlot[], S36?: TimeSlot[], ... }
         // On serialise en ConstraintsData.Default = TimeSlot[] (legacy) +
@@ -69,13 +90,13 @@ export const createConstraintsSlice: StateCreator<ConstraintsSlice> = (set, get)
         // Architecture existante : constraints.Default est TimeSlot[] OU ResourceConstraints.
         // Ici on stocke directement l'objet ResourceConstraints sous constraints.Default.
         const next = { ...get().constraints, Default: value };
-        set({ constraints: next });
+        setConstraints(next);
       }
       triggerSaveNotice();
     },
 
     importConstraints: (data) => {
-      set({ constraints: data });
+      setConstraints(data);
       triggerSaveNotice();
     },
 
@@ -92,7 +113,7 @@ export const createConstraintsSlice: StateCreator<ConstraintsSlice> = (set, get)
       for (const [id, value] of Object.entries(current)) {
         if (id !== 'Default' && validSet.has(id)) next[id] = value;
       }
-      set({ constraints: next });
+      setConstraints(next);
     },
   };
 };

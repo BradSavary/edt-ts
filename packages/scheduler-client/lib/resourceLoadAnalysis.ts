@@ -1,9 +1,11 @@
 import type {
-  CourseTaskData, EnforcedData, ResourceEntry, ResourceGroupData,
+  CourseTaskData, EnforcedData, ResourceEntry,
   TaskSolutionJSON, NeutralizedTaskInfoJSON,
 } from '@edt-ts/scheduler-common';
 import { AvailabilityManager, SolutionAnalysis } from '@edt-ts/scheduler-common';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
+import type { ResourceGroupDataWithStatus } from '@/lib/csvMerge';
+import { resolveMaxDailyMinutes } from '@/lib/maxDailyResolution';
 import type { BlockedZone } from '@/lib/calendar/blockedZones';
 import { getMondayOfISOWeek } from '@/lib/calendar/calendarUtils';
 import { resolveCalendarYear, type SchoolYearConfig } from '@/lib/schoolHolidays';
@@ -96,11 +98,17 @@ function capacityByDay(
   return byDay;
 }
 
-function maxDailyMinutesById(resources: ResourceGroupData[]): Map<string, number> {
+/**
+ * Limites quotidiennes effectives POUR LA SEMAINE demandée : même résolution que le payload
+ * moteur (`resolveMaxDailyMinutes`), sinon l'analyse de charge affichée contredirait
+ * silencieusement ce que le moteur applique.
+ */
+function maxDailyMinutesById(resources: ResourceGroupDataWithStatus[], weekNumber: number): Map<string, number> {
   const m = new Map<string, number>();
   for (const group of resources) {
     for (const r of group.resources) {
-      if (r.maxDailyMinutes !== undefined) m.set(r.id, r.maxDailyMinutes);
+      const resolved = resolveMaxDailyMinutes(r, weekNumber);
+      if (resolved !== undefined) m.set(r.id, resolved);
     }
   }
   return m;
@@ -166,12 +174,12 @@ export function buildPreparationLoadRows(
   courseIdOf: (c: CourseTaskData) => string,
   am: AvailabilityManager,
   weekNumber: number,
-  resources: ResourceGroupData[],
+  resources: ResourceGroupDataWithStatus[],
   blockedZones: BlockedZone[] = [],
   schoolYearConfig: SchoolYearConfig | null = null,
 ): ResourceLoadRow[] {
   const mondayMs = mondayMsFor(weekNumber, schoolYearConfig, blockedZones);
-  const maxDaily = maxDailyMinutesById(resources);
+  const maxDaily = maxDailyMinutesById(resources, weekNumber);
 
   return courseCandidates(course).map(({ id, kind }) => {
     const capacity = capacityByDay(am, id, weekNumber, blockedZones, mondayMs, maxDaily.get(id));
@@ -206,12 +214,12 @@ export function buildAnalysisLoadRows(
   placedSolutions: TaskSolutionJSON[],
   am: AvailabilityManager,
   weekNumber: number,
-  resources: ResourceGroupData[],
+  resources: ResourceGroupDataWithStatus[],
   blockedZones: BlockedZone[] = [],
   schoolYearConfig: SchoolYearConfig | null = null,
 ): ResourceLoadRow[] {
   const mondayMs = mondayMsFor(weekNumber, schoolYearConfig, blockedZones);
-  const maxDaily = maxDailyMinutesById(resources);
+  const maxDaily = maxDailyMinutesById(resources, weekNumber);
   const duration = neutralizedTask.task.duration;
   const analysis = new SolutionAnalysis({ solutions: placedSolutions, isComplete: false });
   const candidateIds = [...new Set(neutralizedTask.task.resources.map(r => r.id))];

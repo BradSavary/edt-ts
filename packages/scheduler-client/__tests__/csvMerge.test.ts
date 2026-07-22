@@ -5,6 +5,7 @@ import {
   diffCsvCourses,
   diffCsvResources,
   summarizeCsvDiff,
+  type ResourceDataWithStatus,
   type ResourceGroupDataWithStatus,
 } from '../lib/csvMerge';
 
@@ -163,6 +164,29 @@ describe('diffCsvResources', () => {
     const result = diffCsvResources(old, next);
     const teacher = result.find((g) => g.resourceType === 'teacher')!;
     expect(teacher.resources).toEqual([{ id: 'DUPONT', maxDailyMinutes: 240, unused: undefined }]);
+  });
+
+  it('weeklyMaxDailyMinutes survit à une fusion (ressource appariée)', () => {
+    const old = makeResources(['DUPONT']);
+    old[0].resources[0].maxDailyMinutes = 240;
+    (old[0].resources[0] as ResourceDataWithStatus).weeklyMaxDailyMinutes = { S40: 120 };
+    const next = makeResources(['DUPONT']);
+    const result = diffCsvResources(old, next);
+    const teacher = result.find((g) => g.resourceType === 'teacher')!;
+    expect(teacher.resources).toEqual([
+      { id: 'DUPONT', maxDailyMinutes: 240, weeklyMaxDailyMinutes: { S40: 120 }, unused: undefined },
+    ]);
+  });
+
+  it('weeklyMaxDailyMinutes survit aussi sur une ressource devenue unused', () => {
+    const old = makeResources(['DUPONT']);
+    (old[0].resources[0] as ResourceDataWithStatus).weeklyMaxDailyMinutes = { S40: 120 };
+    const next = makeResources([]);
+    const result = diffCsvResources(old, next);
+    const teacher = result.find((g) => g.resourceType === 'teacher')!;
+    expect(teacher.resources).toEqual([
+      { id: 'DUPONT', weeklyMaxDailyMinutes: { S40: 120 }, unused: true },
+    ]);
   });
 
   it('nouvelle ressource ajoutée sans flag unused', () => {
