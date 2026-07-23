@@ -52,6 +52,7 @@ interface Draft {
   ignoreDailyLimits: boolean;
   conflictOrderingSearch: boolean;
   conflictSetExact: boolean;
+  postRepair: boolean;
   searchStrategy: 'elimination' | 'maxPlacement';
 }
 
@@ -86,6 +87,7 @@ function configToDraft(config: SchedulerConfig): Draft {
     ignoreDailyLimits: config.ignoreDailyLimits ?? DEFAULT_SCHEDULER_CONFIG.ignoreDailyLimits,
     conflictOrderingSearch: config.conflictOrderingSearch ?? DEFAULT_SCHEDULER_CONFIG.conflictOrderingSearch,
     conflictSetExact: config.conflictSetExact ?? DEFAULT_SCHEDULER_CONFIG.conflictSetExact,
+    postRepair: config.postRepair ?? DEFAULT_SCHEDULER_CONFIG.postRepair,
     searchStrategy: config.searchStrategy ?? DEFAULT_SCHEDULER_CONFIG.searchStrategy,
   };
 }
@@ -114,6 +116,7 @@ function draftToConfig(draft: Draft): SchedulerConfig {
     ignoreDailyLimits: draft.ignoreDailyLimits,
     conflictOrderingSearch: draft.conflictOrderingSearch,
     conflictSetExact: draft.conflictSetExact,
+    postRepair: draft.postRepair,
     searchStrategy: draft.searchStrategy,
   };
 }
@@ -299,6 +302,26 @@ export function SchedulerConfigDialog() {
                   À chaque échec, identifie précisément les tâches responsables au lieu d&apos;une
                   estimation. À ne pas combiner avec la priorité aux tâches en échec ci-dessus :
                   la combinaison des deux donne de moins bons résultats sur les semaines difficiles.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 pt-1">
+              <input
+                id="cfg-postRepair"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+                checked={draft.postRepair}
+                onChange={(e) => setDraftField('postRepair', e.target.checked)}
+              />
+              <div className="space-y-0.5">
+                <Label htmlFor="cfg-postRepair" className="cursor-pointer">
+                  Réparation post-résolution des neutralisées
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Après résolution, tente de replacer les cours neutralisés en changeant la
+                  salle (ou autre ressource alternative) d&apos;un cours déjà placé. Sans effet
+                  en stratégie « Placement maximal ».
                 </p>
               </div>
             </div>

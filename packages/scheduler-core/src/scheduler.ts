@@ -68,6 +68,7 @@ export class Scheduler {
         conflictSetExact: false,
         comboBranching: false,
         searchStrategy: 'elimination',
+        postRepair: true,
     };
 
     configure(config: SchedulerConfig): this {
@@ -471,6 +472,289 @@ export class Scheduler {
         } else {
             this._failureCounts.set(unit.id, (this._failureCounts.get(unit.id) ?? 0) + 1); // repli, comportement actuel
         }
+    }
+
+    // ── Réparation post-résolution (docs/PlanPostRepair.md) ──────────────────
+    // Flag `postRepair` (défaut false, appelée par les sites d'appel scheduler-api, pas par
+    // le moteur lui-même — ne pollue jamais la passe gourmande du B&B). Révise le combo d'une
+    // unité déjà placée UNIQUEMENT là où un échec avéré (une unité neutralisée) le réclame,
+    // APRÈS solveWithElimination() — jamais de biais a priori (la famille tie-break est morte,
+    // cf. docs/PlanTieBreakContention.md §9), jamais de modification de `_backtrack`.
+
+    /**
+     * Tente de re-placer les unités neutralisées d'un résultat, par sondage direct puis
+     * swap de combo À START CONSTANT d'unités placées. Pure : retourne un NOUVEAU
+     * SchedulerSolution, restaure intégralement l'état moteur avant de rendre la main.
+     * Précondition : appelée immédiatement après solveWithElimination(), même instance —
+     * `_solution` ne doit contenir que des entrées enforced (vérifié, throw sinon).
+     *
+     * Limites v1 : un seul swap à la fois (pas de chaînes d'éjection) ; les occupants
+     * TaskGroupUnit ne sont jamais swappés (`getComboCount() > 1` les exclut naturellement —
+     * `book()` y est couplé à `_pendingAssignment`) ; les occupants enforced ne sont jamais
+     * touchés ; hors périmètre `searchStrategy: 'maxPlacement'` (à l'appelant de ne pas
+     * invoquer cette méthode dans ce cas — un résultat « prouvé optimal » réparé contredirait
+     * la sémantique de la preuve).
+     *
+     * Refuse (no-op) le résultat DÉGÉNÉRÉ de solveWithElimination (`isComplete: false`,
+     * `solutions: []` — aucun round n'a abouti, voir la branche « solution partielle vide ») :
+     * ses `neutralizedUnits` ne listent qu'un sous-ensemble STRICT des tâches non placées, et
+     * les « réparer » sur un planning vide produirait un pseudo-résultat trompeur (les seules
+     * unités éliminées placées, la grande majorité des tâches silencieusement absentes). Les
+     * résultats légitimes de la stratégie elimination portent toujours `isComplete: true`
+     * (complétude relative à l'ensemble RÉDUIT — cf. la normalisation documentée dans
+     * OptionalTasksScheduler.solveWithElimination).
+     */
+    repairNeutralized(result: SchedulerSolution): SchedulerSolution {
+        if (this._solution.some(e => !e.unit.isEnforced)) {
+            throw new Error(
+                'repairNeutralized() : précondition violée — _solution contient une unité non ' +
+                'enforced. À appeler immédiatement après solveWithElimination(), sur la même instance.'
+            );
+        }
+        if (!result.neutralizedUnits || result.neutralizedUnits.length === 0) return result;
+        if (!result.isComplete) {
+            console.log('🔧 Réparation post-résolution : résultat de base dégénéré (aucun round abouti) — réparation sans objet.');
+            return result;
+        }
+
+        const undo: Array<() => void> = [];
+        const workingSolutions: UnitSolution[] = result.solutions.map(us => ({ ...us }));
+        const indexByUnit = new Map<ISchedulingUnit, number[]>();
+        for (let i = 0; i < workingSolutions.length; i++) {
+            const u = workingSolutions[i].unit;
+            const idxs = indexByUnit.get(u);
+            if (idxs) idxs.push(i); else indexByUnit.set(u, [i]);
+        }
+
+        try {
+            this._rematerialize(result.solutions, undo);
+
+            let remaining = [...result.neutralizedUnits];
+            let progress = true;
+            while (progress) {
+                progress = false;
+                const stillRemaining: NeutralizedUnitInfo[] = [];
+                for (const info of remaining) {
+                    const placed = this._tryRepairOne(info.unit, workingSolutions, indexByUnit, undo);
+                    if (placed) progress = true;
+                    else stillRemaining.push(info);
+                }
+                remaining = stillRemaining;
+            }
+
+            const placedCount = result.neutralizedUnits.length - remaining.length;
+            console.log(`🔧 Réparation post-résolution : ${placedCount} re-placée(s), ${remaining.length} restante(s)`);
+
+            return {
+                solutions: workingSolutions,
+                isComplete: result.isComplete,
+                score: workingSolutions.length,
+                neutralizedUnits: remaining,
+            };
+        } finally {
+            // Restauration miroir intégrale (§2.1) : succès ou échec, l'instance revient à
+            // l'état exact d'avant l'appel — LIFO strict, symétrique de chaque mutation ci-dessus.
+            for (let i = undo.length - 1; i >= 0; i--) undo[i]();
+        }
+    }
+
+    /**
+     * Re-matérialise les entrées non enforced du snapshot `solutions` sur l'état moteur
+     * (disponibilités, usage quotidien, `_solution`/`_scheduled` au format moteur — §2.1).
+     * Manipulation DIRECTE des ressources, jamais via `unit.book()` : pour un TaskGroupUnit,
+     * `book()` exige un `_pendingAssignment` fraîchement écrit par `earlySchedule()`, que ce
+     * snapshot n'a pas (il vient d'un round de résolution déjà terminé et intégralement
+     * dénoué). Empile dans `undo` l'inverse de chaque mutation, dans l'ordre effectué.
+     */
+    private _rematerialize(solutions: UnitSolution[], undo: Array<() => void>): void {
+        const byUnit = new Map<ISchedulingUnit, UnitSolution[]>();
+        for (const us of solutions) {
+            if (us.unit.isEnforced) continue;
+            const arr = byUnit.get(us.unit);
+            if (arr) arr.push(us); else byUnit.set(us.unit, [us]);
+        }
+
+        for (const [unit, sols] of byUnit) {
+            for (const us of sols) {
+                const dur = us.task?.duration ?? us.unit.duration;
+                const r: SchedulingResult = { start: us.start, resources: us.resources };
+                this._rawBook(r, dur);
+                undo.push(() => this._rawRelease(r, dur));
+            }
+            const start = Math.min(...sols.map(s => s.start));
+            const resources = sols.flatMap(s => s.resources);
+            const engineResult: SchedulingResult = { start, resources };
+            this._pushSolutionEntry(unit, engineResult);
+            undo.push(() => this._removeSolutionEntry(unit));
+        }
+    }
+
+    /**
+     * Tente de replacer une unité neutralisée `U` : sondage direct (§2.2) puis, en dernier
+     * recours, swap de combo d'un occupant (§2.3, `_trySwapRepair`). Sur succès, place `U`
+     * via le flux normal earlySchedule→book (§2.4 — nécessaire pour les groupes, dont
+     * `toSolutions()` lit `_appliedResources` écrit par `book()`) et met à jour
+     * `workingSolutions`/`indexByUnit`. Retourne `false` sans effet si `U` ne peut pas encore
+     * être tentée (dépendance non planifiée) ou si aucun placement n'a été trouvé.
+     */
+    private _tryRepairOne(
+        U: ISchedulingUnit,
+        workingSolutions: UnitSolution[],
+        indexByUnit: Map<ISchedulingUnit, number[]>,
+        undo: Array<() => void>,
+    ): boolean {
+        const dep = U.getDependsOn();
+        if (dep && !this._scheduled.has(dep.id)) return false;
+        const fromTime = dep ? this._scheduled.get(dep.id)!.start + dep.duration : 0;
+
+        let r = this._probePlacement(U, fromTime);
+        let swappedOccupant: ISchedulingUnit | null = null;
+        let newOccupantResources: Resource[] | null = null;
+
+        if (r === null) {
+            const swap = this._trySwapRepair(U, fromTime, undo);
+            if (swap) {
+                r = swap.result;
+                swappedOccupant = swap.occupant;
+                newOccupantResources = swap.newResources;
+            }
+        }
+        if (r === null) return false;
+        const placedResult = r;
+
+        U.book(placedResult);
+        this._addDailyUsage(placedResult, U.duration);
+        this._pushSolutionEntry(U, placedResult);
+        undo.push(() => {
+            U.unBook(placedResult);
+            this._subtractDailyUsage(placedResult, U.duration);
+            this._removeSolutionEntry(U);
+        });
+
+        if (swappedOccupant && newOccupantResources) {
+            const idxs = indexByUnit.get(swappedOccupant) ?? [];
+            for (const idx of idxs) workingSolutions[idx] = { ...workingSolutions[idx], resources: newOccupantResources };
+            console.log(`🔧 Réparation : « ${U.label} » placée via swap de « ${swappedOccupant.label} » vers [${newOccupantResources.map(res => res.id).join(', ')}]`);
+        } else {
+            console.log(`🔧 Réparation : « ${U.label} » placée directement`);
+        }
+
+        const newSols = U.toSolutions(placedResult);
+        const startIdx = workingSolutions.length;
+        workingSolutions.push(...newSols);
+        indexByUnit.set(U, newSols.map((_, k) => startIdx + k));
+
+        return true;
+    }
+
+    /** Miroir de `_probePlaceable` (ci-dessus) qui retourne le résultat plutôt qu'un booléen. */
+    private _probePlacement(unit: ISchedulingUnit, fromTime: number): SchedulingResult | null {
+        let ft = fromTime;
+        while (true) {
+            const result = unit.earlySchedule(ft);
+            if (result === null) return null;
+            if (!this._floatingLBAllows(result, unit.duration)) { ft = result.start + SLOT_STEP; continue; }
+            if (!this._dailyLimitAllows(result, unit.duration)) { ft = result.start + SLOT_STEP; continue; }
+            return result;
+        }
+    }
+
+    /**
+     * Swap de combo à START CONSTANT (§2.3) : cherche, parmi les occupants non enforced
+     * multi-combos dont une ressource intersecte les slots candidats de `U`, un combo
+     * alternatif qui débloque `U` sans jamais déplacer l'occupant dans le temps (ses
+     * dépendants et le reste du planning n'en sont pas affectés). Un seul swap à la fois —
+     * jamais deux occupants simultanément (limite v1). Restaure intégralement chaque occupant
+     * essayé sans succès avant de passer au suivant ; empile l'undo du swap gagnant dans
+     * `undo` (miroir exact : release cand, restore combo d'origine).
+     */
+    private _trySwapRepair(
+        U: ISchedulingUnit,
+        fromTime: number,
+        undo: Array<() => void>,
+    ): { result: SchedulingResult; occupant: ISchedulingUnit; newResources: Resource[] } | null {
+        const candRes = new Set(U.getCandidateResourceSlots().flat());
+        const occupantEntries = this._solution.filter(e =>
+            !e.unit.isEnforced &&
+            e.unit.getComboCount() > 1 &&
+            e.result.resources.some(r => candRes.has(r)),
+        );
+
+        for (const entry of occupantEntries) {
+            const occupant = entry.unit;
+            const origResult = entry.result;
+            const dur = occupant.duration;
+
+            this._rawRelease(origResult, dur);
+            this._removeSolutionEntry(occupant);
+
+            let committed = false;
+            const comboCount = occupant.getComboCount();
+            for (let c = 0; c < comboCount && !committed; c++) {
+                const cand = occupant.earlyScheduleForCombo(c, origResult.start);
+                if (cand === null) continue;
+                if (cand.start !== origResult.start) continue; // start constant strict
+                if (this._sameResourceSet(cand.resources, origResult.resources)) continue; // même combo, sans effet
+                if (!this._dailyLimitAllows(cand, dur)) continue; // usage de l'ancien combo déjà soustrait — l'ordre compte
+                if (!this._floatingLBAllows(cand, dur)) continue;
+
+                this._rawBook(cand, dur);
+                this._pushSolutionEntry(occupant, cand);
+
+                const r = this._probePlacement(U, fromTime);
+                if (r !== null) {
+                    committed = true;
+                    undo.push(() => {
+                        this._rawRelease(cand, dur);
+                        this._removeSolutionEntry(occupant);
+                        this._rawBook(origResult, dur);
+                        this._pushSolutionEntry(occupant, origResult);
+                    });
+                    return { result: r, occupant, newResources: cand.resources };
+                }
+
+                this._rawRelease(cand, dur);
+                this._removeSolutionEntry(occupant);
+            }
+
+            // Aucun combo ne débloque U → restaurer l'occupant à l'identique, essayer le suivant.
+            this._rawBook(origResult, dur);
+            this._pushSolutionEntry(occupant, origResult);
+        }
+
+        return null;
+    }
+
+    /** Compare deux tableaux de ressources par CONTENU (pas par objets tableau) — §2.3 étape 2. */
+    private _sameResourceSet(a: Resource[], b: Resource[]): boolean {
+        if (a.length !== b.length) return false;
+        const setB = new Set(b);
+        return a.every(r => setB.has(r));
+    }
+
+    /** Réserve directement (disponibilités + usage quotidien), sans passer par `unit.book()`. */
+    private _rawBook(result: SchedulingResult, duration: number): void {
+        for (const r of result.resources) r.availability.removeAvailability(result.start, result.start + duration);
+        this._addDailyUsage(result, duration);
+    }
+
+    /** Miroir exact de `_rawBook`. */
+    private _rawRelease(result: SchedulingResult, duration: number): void {
+        for (const r of result.resources) r.availability.addAvailability(result.start, result.start + duration);
+        this._subtractDailyUsage(result, duration);
+    }
+
+    /** Insère l'entrée courante de `unit` au format moteur dans `_solution`/`_scheduled`. */
+    private _pushSolutionEntry(unit: ISchedulingUnit, result: SchedulingResult): void {
+        this._solution.push({ unit, result });
+        this._scheduled.set(unit.id, result);
+    }
+
+    /** Retire l'entrée courante de `unit` de `_solution`/`_scheduled` (miroir de `_pushSolutionEntry`). */
+    private _removeSolutionEntry(unit: ISchedulingUnit): void {
+        const idx = this._solution.findIndex(e => e.unit === unit);
+        if (idx !== -1) this._solution.splice(idx, 1);
+        this._scheduled.delete(unit.id);
     }
 
     // ── Heuristiques ─────────────────────────────────────────────────────────

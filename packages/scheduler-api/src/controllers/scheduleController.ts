@@ -47,6 +47,13 @@ export async function schedulerV2Handler(req: Request, res: Response): Promise<v
     if (body.options) scheduler.configure(body.options);
 
     const results: SchedulerSolution[] = scheduler.solveWithElimination();
+    if (
+      (body.options?.postRepair ?? DEFAULT_SCHEDULER_CONFIG.postRepair) &&
+      body.options?.searchStrategy !== 'maxPlacement' &&
+      (results[0]?.neutralizedUnits?.length ?? 0) > 0
+    ) {
+      results[0] = scheduler.repairNeutralized(results[0]);
+    }
 
     const response: ScheduleSolutionJSON[] = results.map(r => serializeSchedulerSolution(r, taskMap));
     if (scheduler instanceof OptionalTasksScheduler) {
