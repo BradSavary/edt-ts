@@ -24,8 +24,8 @@ export const createTaskGroupsSlice: StateCreator<TaskGroupsSlice> = (set, get) =
     const id = `tg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     set((state) => ({
       taskGroups: [
-        ...state.taskGroups,
         { id, type, courseKeys: courseKey ? [courseKey] : [] },
+        ...state.taskGroups,
       ],
     }));
     return id;
