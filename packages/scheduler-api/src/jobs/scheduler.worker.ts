@@ -38,6 +38,13 @@ try {
   if (payload.options) scheduler.configure(payload.options);
 
   const results: SchedulerSolution[] = scheduler.solveWithElimination();
+  if (
+    payload.options?.postRepair &&
+    payload.options?.searchStrategy !== 'maxPlacement' &&
+    (results[0]?.neutralizedUnits?.length ?? 0) > 0
+  ) {
+    results[0] = scheduler.repairNeutralized(results[0]);
+  }
   const response: ScheduleSolutionJSON[] = results.map(r => serializeSchedulerSolution(r, taskMap));
   if (scheduler instanceof OptionalTasksScheduler) {
     for (const sol of response) {

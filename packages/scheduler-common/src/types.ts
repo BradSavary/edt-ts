@@ -305,6 +305,16 @@ export interface SchedulerConfig {
    *   finale (docs/ConceptionTachesOptionnelles.md §1).
    */
   searchStrategy?: 'elimination' | 'maxPlacement';
+  /**
+   * Paramètre transitoire : si true, une passe de réparation post-résolution
+   * (`Scheduler.repairNeutralized`, docs/PlanPostRepair.md) tente de re-placer les unités
+   * neutralisées par `solveWithElimination` — par sondage direct, puis par swap de combo à
+   * start constant d'une unité déjà placée. Ne modifie jamais `_backtrack`, le blâme, ni
+   * l'élimination — une révision APRÈS coup, seulement là où un échec avéré le réclame. Sans
+   * effet si `searchStrategy` vaut 'maxPlacement' (hors périmètre, §1). Défaut : false
+   * (expérimental — généralisation à décider après le gate §5 du plan).
+   */
+  postRepair?: boolean;
 }
 
 /** Valeurs par défaut appliquées par le solver lorsqu'une option n'est pas fournie. */
@@ -319,4 +329,5 @@ export const DEFAULT_SCHEDULER_CONFIG: Required<SchedulerConfig> = {
   conflictSetExact: false,
   comboBranching: false,
   searchStrategy: 'elimination',
+  postRepair: false,
 };
