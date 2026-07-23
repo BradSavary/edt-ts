@@ -5,6 +5,7 @@ import {
   createScheduler,
 } from '@edt-ts/scheduler-core';
 import type { RawScheduleData, SchedulerConfig, ScheduleSolutionJSON, ISchedulable } from '@edt-ts/scheduler-common';
+import { DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
 import type { SchedulerSolution } from '@edt-ts/scheduler-core';
 import { serializeSchedulerSolution } from '../serializeScheduler.js';
 
@@ -39,7 +40,7 @@ try {
 
   const results: SchedulerSolution[] = scheduler.solveWithElimination();
   if (
-    payload.options?.postRepair &&
+    (payload.options?.postRepair ?? DEFAULT_SCHEDULER_CONFIG.postRepair) &&
     payload.options?.searchStrategy !== 'maxPlacement' &&
     (results[0]?.neutralizedUnits?.length ?? 0) > 0
   ) {

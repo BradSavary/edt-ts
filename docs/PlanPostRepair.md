@@ -2,7 +2,9 @@
 
 *Plan rédigé par Fable pour implémentation par Sonnet. Branche : `feature/post-repair`. Flag défaut `false` — généralisation = décision de Frédéric après le gate §5.*
 
-> **STATUT (Sonnet, 2026-07-23) : implémenté, testé, DoD verte. Gate §5 (validation réelle) reste à faire par Frédéric avant fusion/généralisation.**
+> **GATE §5 VALIDÉ (Frédéric, 2026-07-23) : feature retenue, fusionnée sur master, `postRepair` passe à `true` par défaut.** Mesure sur le projet réel : **0 à 3 tâches supplémentaires placées selon les semaines, pour un coût négligeable**. Décision : l'option reste débrayable dans l'UI (checkbox conservée, cochée par défaut — `DEFAULT_SCHEDULER_CONFIG.postRepair: true`, les DEUX littéraux mis à jour, sites d'appel scheduler-api alignés sur le défaut pour les payloads sans option, libellé « (expérimental) » retiré).
+>
+> **STATUT (Sonnet, 2026-07-23) : implémenté, testé, DoD verte.**
 >
 > Écarts par rapport au libellé initial :
 > - **§4, méthode de construction des scénarios de test.** Le scénario de référence tel que

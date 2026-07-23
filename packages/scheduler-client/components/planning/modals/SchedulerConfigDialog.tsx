@@ -316,7 +316,7 @@ export function SchedulerConfigDialog() {
               />
               <div className="space-y-0.5">
                 <Label htmlFor="cfg-postRepair" className="cursor-pointer">
-                  Réparation post-résolution des neutralisées (expérimental)
+                  Réparation post-résolution des neutralisées
                 </Label>
                 <p className="text-xs text-muted-foreground">
                   Après résolution, tente de replacer les cours neutralisés en changeant la

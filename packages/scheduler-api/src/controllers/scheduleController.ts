@@ -48,7 +48,7 @@ export async function schedulerV2Handler(req: Request, res: Response): Promise<v
 
     const results: SchedulerSolution[] = scheduler.solveWithElimination();
     if (
-      body.options?.postRepair &&
+      (body.options?.postRepair ?? DEFAULT_SCHEDULER_CONFIG.postRepair) &&
       body.options?.searchStrategy !== 'maxPlacement' &&
       (results[0]?.neutralizedUnits?.length ?? 0) > 0
     ) {
