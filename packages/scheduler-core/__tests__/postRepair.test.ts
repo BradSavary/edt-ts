@@ -38,7 +38,11 @@ function buildNeutralizedResult(scheduler: InspectableScheduler, excludeIds: str
     return { unit, eliminationRound: 1, failureCount: 1, reason: 'test' };
   });
 
-  return { solutions: base.solutions, isComplete: false, score: base.solutions.length, neutralizedUnits };
+  // isComplete: true — fidèle au contrat réel : les résultats de la stratégie elimination
+  // portent TOUJOURS true (complétude relative à l'ensemble réduit) ; seul le résultat
+  // dégénéré (solutions: [], aucun round abouti) porte false — et repairNeutralized le
+  // refuse (no-op), voir le test dédié.
+  return { solutions: base.solutions, isComplete: true, score: base.solutions.length, neutralizedUnits };
 }
 
 // ── Scénarios ────────────────────────────────────────────────────────────────
@@ -365,6 +369,32 @@ describe('Scheduler.repairNeutralized() — réparation post-résolution (docs/P
     const repaired = scheduler.repairNeutralized(result);
 
     expect(repaired).toBe(result);
+  });
+
+  it('h. dégénéré : un résultat sans aucun round abouti (isComplete: false, solutions vides) est refusé tel quel', () => {
+    // Reproduit la forme EXACTE de la branche « solution partielle vide » de solveWithElimination
+    // (scheduler.ts) : solutions: [], isComplete: false, neutralizedUnits = les seules éliminées
+    // (sous-ensemble STRICT des non-placées). Sans la garde, repairNeutralized « placerait » les
+    // éliminées sur un planning vide — pseudo-résultat trompeur (revue Fable, bug corrigé).
+    Loader.loadFromRawData(buildSwapScenario());
+    const scheduler = new InspectableScheduler();
+    scheduler.initSolver();
+    const excluded = scheduler.excludeUnits(new Set(['U']));
+    const degenerate: SchedulerSolution = {
+      solutions: [],
+      isComplete: false,
+      score: 0,
+      neutralizedUnits: excluded.map(unit => ({ unit, eliminationRound: 1, failureCount: 1, reason: 'test' })),
+    };
+
+    const rm = Loader.resourcesManager;
+    const before = ['A', 'B'].map(id => rm.getResource(id)!.availability.getAvailableIntervals());
+
+    const repaired = scheduler.repairNeutralized(degenerate);
+
+    expect(repaired).toBe(degenerate); // no-op strict — jamais de « réparation » sur planning vide
+    const after = ['A', 'B'].map(id => rm.getResource(id)!.availability.getAvailableIntervals());
+    expect(after).toEqual(before); // aucune mutation d'état
   });
 
   it("h. pureté : l'objet résultat d'entrée n'est jamais muté par repairNeutralized", () => {

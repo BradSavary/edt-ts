@@ -494,6 +494,15 @@ export class Scheduler {
      * touchés ; hors périmètre `searchStrategy: 'maxPlacement'` (à l'appelant de ne pas
      * invoquer cette méthode dans ce cas — un résultat « prouvé optimal » réparé contredirait
      * la sémantique de la preuve).
+     *
+     * Refuse (no-op) le résultat DÉGÉNÉRÉ de solveWithElimination (`isComplete: false`,
+     * `solutions: []` — aucun round n'a abouti, voir la branche « solution partielle vide ») :
+     * ses `neutralizedUnits` ne listent qu'un sous-ensemble STRICT des tâches non placées, et
+     * les « réparer » sur un planning vide produirait un pseudo-résultat trompeur (les seules
+     * unités éliminées placées, la grande majorité des tâches silencieusement absentes). Les
+     * résultats légitimes de la stratégie elimination portent toujours `isComplete: true`
+     * (complétude relative à l'ensemble RÉDUIT — cf. la normalisation documentée dans
+     * OptionalTasksScheduler.solveWithElimination).
      */
     repairNeutralized(result: SchedulerSolution): SchedulerSolution {
         if (this._solution.some(e => !e.unit.isEnforced)) {
@@ -503,6 +512,10 @@ export class Scheduler {
             );
         }
         if (!result.neutralizedUnits || result.neutralizedUnits.length === 0) return result;
+        if (!result.isComplete) {
+            console.log('🔧 Réparation post-résolution : résultat de base dégénéré (aucun round abouti) — réparation sans objet.');
+            return result;
+        }
 
         const undo: Array<() => void> = [];
         const workingSolutions: UnitSolution[] = result.solutions.map(us => ({ ...us }));

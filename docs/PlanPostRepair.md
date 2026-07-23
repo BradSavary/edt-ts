@@ -29,6 +29,26 @@
 >   des groupes — et restauration miroir intégrale via une pile d'undo LIFO), sites d'appel
 >   scheduler-api (controller + worker) ✅, checkbox client ✅, tests §4 a-h verts (11/11) ✅,
 >   suites existantes intactes (148/148) ✅, typecheck 4 workspaces ✅.
+>
+> **Revue Fable (2026-07-23) : validée, avec un correctif.** Audité sur pièces : imbrication
+> LIFO de la pile d'undo (tracée sur le cas « occupant swappé deux fois » — les inversions
+> s'emboîtent exactement), pureté du résultat d'entrée (copies superficielles, remplacement
+> plutôt que mutation), placement de U via `earlySchedule`→`book` (obligatoire pour
+> `toSolutions` des groupes — l'écart « jamais `unit.book()` » du STATUT ne concerne que la
+> re-matérialisation du snapshot, justification valable), discipline de swap conforme (§2.3 :
+> start constant strict, comparaison par contenu, soustraction avant `_dailyLimitAllows`,
+> retrait de `_solution` pendant les checks), gating des deux sites d'appel, écarts de test
+> documentés acceptés (la construction forcée reste fidèle à la précondition ; le blâme qui
+> élimine O et non U est cohérent avec le moteur et souligne que le sondage direct — l'unité
+> éliminée re-sondée avec TOUS ses combos — sera le chemin le plus fréquent en réel).
+> **Bug trouvé et corrigé (commit de revue)** : le résultat DÉGÉNÉRÉ de `solveWithElimination`
+> (`solutions: []`, `isComplete: false`, aucun round abouti — ex. S37 pendant l'incident
+> tie-break) passait la garde des sites d'appel (`neutralizedUnits` non vide) et aurait été
+> « réparé » sur planning vide : seules les unités éliminées placées, la grande majorité des
+> tâches silencieusement absentes — pseudo-résultat trompeur. Correctif : garde no-op
+> `!result.isComplete` dans `repairNeutralized` (les résultats légitimes d'elimination portent
+> toujours `true`) + builder de test aligné sur le contrat réel (`isComplete: true`) + test
+> dédié « h. dégénéré ». 149/149, typecheck 4 workspaces clean.
 
 ## 0. Contexte
 
