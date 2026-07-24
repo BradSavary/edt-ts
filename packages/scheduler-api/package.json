@@ -8,7 +8,9 @@
     "dev": "npx tsx --watch src/index.ts",
     "start": "npx tsx src/index.ts",
     "build": "npx esbuild src/jobs/scheduler.worker.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/scheduler.worker.cjs --external:node:* && npx esbuild src/index.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/server.cjs --external:esbuild",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@edt-ts/scheduler-core": "*",
@@ -19,6 +21,7 @@
     "@types/express": "^5.0.1",
     "@types/node": "^22.18.3",
     "esbuild": "*",
-    "typescript": "~5.8.3"
+    "typescript": "~5.8.3",
+    "vitest": "^3.0.0"
   }
 }

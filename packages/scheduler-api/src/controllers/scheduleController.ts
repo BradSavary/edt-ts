@@ -1,13 +1,7 @@
 import type { Request, Response } from 'express';
-import {
-  Loader,
-  OptionalTasksScheduler,
-  createScheduler,
-} from '@edt-ts/scheduler-core';
-import type { RawScheduleData, ScheduleSolutionJSON, SchedulerConfig, ISchedulable } from '@edt-ts/scheduler-common';
+import type { RawScheduleData, SchedulerConfig } from '@edt-ts/scheduler-common';
 import { DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
-import type { SchedulerSolution } from '@edt-ts/scheduler-core';
-import { serializeSchedulerSolution } from '../serializeScheduler.js';
+import { runEngine } from '../runEngine.js';
 
 // --------------------------------------------------------------------------
 // POST /api/schedule/v2
@@ -30,38 +24,7 @@ export async function schedulerV2Handler(req: Request, res: Response): Promise<v
       return;
     }
 
-    Loader.reload();
-    Loader.loadFromRawData({
-      week:        body.week,
-      resources:   body.resources ?? [],
-      courses:     body.courses,
-      constraints: body.constraints,
-      groups:      body.groups,
-    });
-
-    // Construire la map id→ISchedulable avant la résolution (état stable après loadFromRawData)
-    const allTasks = Loader.tasksManager.getAllUnits();
-    const taskMap = new Map<string, ISchedulable>(allTasks.map(t => [t.id, t]));
-
-    const scheduler = createScheduler(body.options);
-    if (body.options) scheduler.configure(body.options);
-
-    const results: SchedulerSolution[] = scheduler.solveWithElimination();
-    if (
-      (body.options?.postRepair ?? DEFAULT_SCHEDULER_CONFIG.postRepair) &&
-      body.options?.searchStrategy !== 'maxPlacement' &&
-      (results[0]?.neutralizedUnits?.length ?? 0) > 0
-    ) {
-      results[0] = scheduler.repairNeutralized(results[0]);
-    }
-
-    const response: ScheduleSolutionJSON[] = results.map(r => serializeSchedulerSolution(r, taskMap));
-    if (scheduler instanceof OptionalTasksScheduler) {
-      for (const sol of response) {
-        sol.provenOptimal = scheduler.provenOptimal;
-        sol.rootBound = scheduler.rootBound;
-      }
-    }
+    const response = await runEngine(body);
     res.status(200).json(response);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
