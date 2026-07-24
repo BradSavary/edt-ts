@@ -15,18 +15,36 @@ import pytest
 
 from cpsat_engine import solve
 
+# Export de référence des mesures de parité S38/S39 (README §Résultats de parité). Local et
+# gitignoré : absent en CI et sur les postes qui ont mis à jour leurs données → les tests qui en
+# dépendent se skippent INDIVIDUELLEMENT (décorateur ci-dessous), et non plus au niveau module —
+# sinon un skip global masquerait aussi les tests basés sur un autre export (ex. S48 plus bas).
 DATA = (Path(__file__).resolve().parents[2] / "packages" / "scheduler-core" / "data"
         / "BUT MMI 2026-2027_2026-07-23_18-29.json")
 
-pytestmark = pytest.mark.skipif(not DATA.exists(), reason=f"données réelles absentes : {DATA}")
+_skip_if_no_data = pytest.mark.skipif(not DATA.exists(), reason=f"données réelles absentes : {DATA}")
 
 
 def _build_raw(proj: dict, week: int) -> dict:
-    """Export projet → RawScheduleData (contrat) pour une semaine, tel que le client l'envoie."""
+    """
+    Export projet → RawScheduleData (contrat) pour une semaine, tel que le client l'envoie.
+
+    Réplique fidèlement `scheduleApi.ts::_buildPayload`, y compris deux étapes indispensables sur
+    les exports récents (sans effet — idempotentes — sur les anciens où elles ne s'appliquent pas) :
+      - filtre des `preNeutralizedKeys` (cours exclus manuellement, jamais envoyés au moteur) ;
+      - résolution du `Default` par-semaine (dict `{Sxx, default}` → tableau plat pour `week`).
+    Sans la 2e étape, les ressources dont la dispo retombe sur `Default` reçoivent des fenêtres
+    vides et « disparaissent » → faux sous-placement (piège documenté, mémoire `cpsat-second-engine`).
+    """
     courses = [dict(c) for c in proj["allCourses"] if c["week"] == week]
 
     # weekSaves.taskGroups → groups[] + taskGroupId sur les cours membres.
     ws = proj.get("weekSaves", {}).get(str(week), {})
+
+    # preNeutralizedKeys → cours exclus manuellement, retirés avant envoi (comme le client).
+    pre_neutralized = set(ws.get("preNeutralizedKeys", []))
+    courses = [c for c in courses if c.get("id") not in pre_neutralized]
+
     groups = []
     key_to_group = {}
     for g in ws.get("taskGroups", []):
@@ -44,11 +62,17 @@ def _build_raw(proj: dict, week: int) -> dict:
         if e is not None:
             c["enforced"] = e
 
+    # Default par-semaine (dict) → tableau plat pour `week` (no-op si déjà un tableau).
+    constraints = dict(proj["constraints"])
+    default = constraints.get("Default")
+    if default is not None and not isinstance(default, list):
+        constraints["Default"] = default.get(f"S{week}") or default.get("default") or []
+
     return {
         "week": week,
         "resources": proj["resources"],
         "courses": courses,
-        "constraints": proj["constraints"],
+        "constraints": constraints,
         "groups": groups,
     }
 
@@ -72,6 +96,7 @@ CASES = [
 ]
 
 
+@_skip_if_no_data
 @pytest.mark.parametrize("week,label,lunch,expected_placed", CASES)
 def test_parity_with_spike_measurements(project, week, label, lunch, expected_placed):
     raw = _build_raw(project, week)
@@ -83,6 +108,7 @@ def test_parity_with_spike_measurements(project, week, label, lunch, expected_pl
     assert sol["provenOptimal"] is True, f"S{week} / {label} — optimum non prouvé"
 
 
+@_skip_if_no_data
 @pytest.mark.parametrize("week", [38, 39])
 def test_contract_fields_and_group_semantics(project, week):
     raw = _build_raw(project, week)
