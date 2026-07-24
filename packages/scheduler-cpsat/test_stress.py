@@ -22,7 +22,7 @@ pytestmark = pytest.mark.skipif(not DATA.exists(), reason=f"données réelles ab
 
 
 def _build_raw(proj: dict, week: int) -> dict:
-    """Export projet → RawScheduleData (contrat) pour une semaine."""
+    """Export projet → RawScheduleData (contrat) pour une semaine, tel que le client l'envoie."""
     courses = [dict(c) for c in proj["allCourses"] if c["week"] == week]
 
     # weekSaves.taskGroups → groups[] + taskGroupId sur les cours membres.
@@ -33,10 +33,16 @@ def _build_raw(proj: dict, week: int) -> dict:
         groups.append({"id": g["id"], "type": g["type"]})
         for k in g.get("courseKeys", []):
             key_to_group[k] = g["id"]
+
+    # weekSaves.manualEnforcedMap → CourseTaskData.enforced (fusion par id, comme _buildPayload client).
+    enforced_map = ws.get("manualEnforcedMap", {}) or {}
     for c in courses:
         gid = key_to_group.get(c.get("id"))
         if gid is not None:
             c["taskGroupId"] = gid
+        e = enforced_map.get(c.get("id"))
+        if e is not None:
+            c["enforced"] = e
 
     return {
         "week": week,

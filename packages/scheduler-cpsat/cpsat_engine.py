@@ -217,6 +217,38 @@ def _task_json(course: dict, tid: str, week: int, start_time: int, resources: li
     return out
 
 
+class EnforcedConflictError(ValueError):
+    """Deux cours enforced se chevauchent sur une ressource partagée (instance incohérente)."""
+
+
+def _validate_enforced(courses: list[dict]) -> None:
+    """
+    Réplique Loader.validateEnforcedCourses : le chemin CP-SAT ne passe pas par le Loader Node,
+    donc cette cohérence doit être vérifiée ici — sinon deux enforced en conflit rendent le modèle
+    INFEASIBLE et effondrent silencieusement toute la semaine, au lieu d'une erreur ciblée.
+    (Les alternatives dans un enforced sont déjà interdites côté client ; on ne revalide que les
+    chevauchements, seul cas atteignable via l'UI.)
+    """
+    enforced = [c for c in courses if c.get("enforced")]
+    for i in range(len(enforced)):
+        a = enforced[i]
+        ea = a["enforced"]
+        end_a = ea["startTime"] + a["duration"]
+        res_a = set(ea["teacher"]) | set(ea["groups"]) | set(ea["rooms"])
+        for j in range(i + 1, len(enforced)):
+            b = enforced[j]
+            eb = b["enforced"]
+            end_b = eb["startTime"] + b["duration"]
+            if ea["startTime"] < end_b and end_a > eb["startTime"]:
+                shared = res_a & (set(eb["teacher"]) | set(eb["groups"]) | set(eb["rooms"]))
+                if shared:
+                    raise EnforcedConflictError(
+                        f'Conflit entre cours enforced "{a.get("code")}" ({a.get("type")}) et '
+                        f'"{b.get("code")}" ({b.get("type")}) : ressource(s) partagée(s) '
+                        f'[{", ".join(sorted(shared))}] sur le même créneau.'
+                    )
+
+
 def _candidate_resources(course: dict, rtype_of: dict[str, str]) -> list[dict]:
     """Union (dédupliquée, ordre stable) de toutes les ressources candidates — pour le report neutralisé."""
     seen, out = set(), []
@@ -288,6 +320,9 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
         counters[i] = i + 1
     courses = [(i, c) for i, c in enumerate(all_courses) if c.get("type") not in exclude_types]
     excluded = [(i, c) for i, c in enumerate(all_courses) if c.get("type") in exclude_types]
+
+    # Cohérence des enforced (le chemin CP-SAT court-circuite le Loader Node qui la vérifie).
+    _validate_enforced([c for _, c in courses])
 
     model = cp_model.CpModel()
     scheduled: dict[int, Any] = {}
@@ -363,9 +398,16 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
             model.AddNoOverlap(ivs)
 
     # Dépendances CM→TD→TP : précédence temporelle (conditionnée) + intégrité de chaîne.
-    for gdep, gpre in _determine_dependencies([c for _, c in courses]):
-        # _determine_dependencies raisonne sur la liste `courses` compacte → indices locaux directs.
-        dep, pre = gdep, gpre
+    # _determine_dependencies raisonne sur la liste `courses` compacte → indices locaux directs.
+    for dep, pre in _determine_dependencies([c for _, c in courses]):
+        # Un dépendant ENFORCED est épinglé par l'utilisateur : son placement est autoritaire et
+        # échappe à la chaîne auto-dérivée (fidèle à scheduler-core, où les enforced sont exclus de
+        # la vérification de dépendance — _collectDependents / _backtrack). Sans cette exclusion, un
+        # cours épinglé ayant un frère de type antérieur (même code/groupes) forcerait ce prérequis
+        # avant l'heure figée — souvent impossible → modèle INFEASIBLE, toute la semaine s'effondre.
+        # (Un prérequis enforced, lui, reste une contrainte amont valide pour un dépendant normal.)
+        if courses[dep][1].get("enforced"):
+            continue
         model.Add(start[dep] >= start[pre] + courses[pre][1]["duration"]) \
              .OnlyEnforceIf([scheduled[dep], scheduled[pre]])
         model.AddImplication(scheduled[dep], scheduled[pre])

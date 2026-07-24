@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 import cpsat_runner
-from cpsat_engine import solve
+from cpsat_engine import EnforcedConflictError, solve
 
 ALL_DAY = [{"days": "lundi mardi mercredi jeudi vendredi", "from": "08:00", "to": "18:00"}]
 MONDAY_MORNING = [{"days": "lundi", "from": "08:00", "to": "09:00"}]  # 60 min pile
@@ -80,6 +80,84 @@ def test_chain_integrity_dependent_never_placed_without_prerequisite():
         assert ("C1", "CM") in by_code_type, "TD placé sans son prérequis CM — intégrité de chaîne violée"
         cm, td = by_code_type[("C1", "CM")], by_code_type[("C1", "TD")]
         assert td["startTime"] >= cm["startTime"] + cm["duration"]
+
+
+# ── Tâches enforced ──────────────────────────────────────────────────────────
+
+def _enforced_resources() -> list[dict]:
+    return [
+        {"resourceType": "teacher", "resources": [{"id": "T1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}, {"id": "R2"}]},
+    ]
+
+
+def _enforced_base(courses: list[dict]) -> dict:
+    return {"week": 1, "resources": _enforced_resources(), "courses": courses,
+            "constraints": {r: ALL_DAY for r in ("T1", "G1", "R1", "R2")}}
+
+
+def test_enforced_pinned_at_start_and_pushes_normal_task():
+    """Un enforced est placé pile à son startTime avec ses ressources ; une normale en conflit bouge."""
+    raw = _enforced_base([
+        {"week": 1, "code": "X", "type": "CM", "name": "", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 480, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+        {"week": 1, "code": "Y", "type": "CM", "name": "", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": [["R1", "R2"]]},
+    ])
+    sol = solve(raw)[0]
+    by = {(t["code"], t["type"]): t for t in sol["solutions"]}
+    assert len(sol["solutions"]) == 2
+    assert by[("X", "CM")]["startTime"] == 480
+    assert by[("Y", "CM")]["startTime"] != 480  # évincée du créneau enforced
+
+
+def test_enforced_dependent_ignores_auto_dependency_no_collapse():
+    """
+    Régression : un TP enforced ayant un TD frère (même code/groupes) ne doit PAS traîner le TD
+    dans une chaîne auto qui rendrait le modèle infaisable. Les deux doivent être placés.
+    """
+    raw = _enforced_base([
+        {"week": 1, "code": "M", "type": "TD", "name": "", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": [["R1", "R2"]]},
+        {"week": 1, "code": "M", "type": "TP", "name": "", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 480, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+    ])
+    sol = solve(raw)[0]
+    assert len(sol["solutions"]) == 2, "l'enforced ne doit pas effondrer la semaine"
+    by = {(t["code"], t["type"]): t for t in sol["solutions"]}
+    assert by[("M", "TP")]["startTime"] == 480
+
+
+def test_enforced_prerequisite_still_constrains_normal_dependent():
+    """Un prérequis enforced reste une contrainte amont : le dépendant normal démarre après lui."""
+    raw = _enforced_base([
+        {"week": 1, "code": "M", "type": "CM", "name": "", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 600, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+        {"week": 1, "code": "M", "type": "TD", "name": "", "duration": 90,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": [["R1", "R2"]]},
+    ])
+    sol = solve(raw)[0]
+    by = {(t["code"], t["type"]): t for t in sol["solutions"]}
+    assert by[("M", "CM")]["startTime"] == 600
+    assert by[("M", "TD")]["startTime"] >= 600 + 120
+
+
+def test_conflicting_enforced_raises_clear_error_not_collapse():
+    """Deux enforced en conflit dur → erreur ciblée (réplique validateEnforcedCourses), pas d'INFEASIBLE muet."""
+    raw = _enforced_base([
+        {"week": 1, "code": "X", "type": "CM", "name": "", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 480, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+        {"week": 1, "code": "Z", "type": "CM", "name": "", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 480, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+    ])
+    with pytest.raises(EnforcedConflictError, match="Conflit entre cours enforced"):
+        solve(raw)
 
 
 def test_runner_map_config_rejects_floating_lunch_break():
