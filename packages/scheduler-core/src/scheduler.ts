@@ -69,6 +69,7 @@ export class Scheduler {
         comboBranching: false,
         searchStrategy: 'elimination',
         postRepair: true,
+        engine: 'core',
     };
 
     configure(config: SchedulerConfig): this {

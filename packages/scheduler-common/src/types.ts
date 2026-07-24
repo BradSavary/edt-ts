@@ -316,6 +316,8 @@ export interface SchedulerConfig {
    * supplémentaires placées, coût négligeable — l'option reste débrayable dans l'UI).
    */
   postRepair?: boolean;
+  /** Moteur de planification (défaut 'core'). 'cpsat' = 2e moteur OR-Tools (passerelle Python). */
+  engine?: 'core' | 'cpsat';
 }
 
 /** Valeurs par défaut appliquées par le solver lorsqu'une option n'est pas fournie. */
@@ -331,4 +333,5 @@ export const DEFAULT_SCHEDULER_CONFIG: Required<SchedulerConfig> = {
   comboBranching: false,
   searchStrategy: 'elimination',
   postRepair: true,
+  engine: 'core',
 };
