@@ -10,6 +10,7 @@ packages/
   scheduler-core/     moteur de planification (Node.js), consomme scheduler-common
   scheduler-api/      API REST Express, consomme scheduler-core et scheduler-common
   scheduler-client/   application web de test (Vite), consomme scheduler-common
+  scheduler-cpsat/    moteur CP-SAT (Python, OR-Tools) — 2e moteur, hors workspace npm
 docs/                 documentation fonctionnelle et technique
 ```
 
@@ -84,6 +85,26 @@ Voir le JSDoc de `scheduleHandler` dans `packages/scheduler-api/src/controllers/
 Application web minimaliste (Vite + TypeScript, sans framework) pour tester l'API.
 
 Interface : formulaire de sélection de 3 fichiers JSON (resources, cours, contraintes) + numéro de semaine. Le payload et la réponse sont affichés dans la console du navigateur (F12).
+
+### `scheduler-cpsat` (Python)
+
+Moteur de planification alternatif basé sur [OR-Tools CP-SAT](https://developers.google.com/optimization) —
+2e moteur user-facing, sélectionnable via `SchedulerConfig.engine = 'cpsat'`. **Package Python**, non
+intégré au workspace pnpm/npm ; `scheduler-api` l'invoque en subprocess (`packages/scheduler-api/src/cpsatGateway.ts`).
+
+Provisionnement du venv :
+
+```bash
+cd packages/scheduler-cpsat
+python -m venv .venv
+# Windows : .\.venv\Scripts\Activate.ps1   |   bash/macOS/Linux : source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+`scheduler-api` résout l'interpréteur et le script via les variables d'environnement `CPSAT_PYTHON`
+(chemin de l'exécutable du venv, défaut `python3`) et `CPSAT_RUNNER` (chemin de `cpsat_runner.py`,
+défaut résolu relativement au package). Voir [`packages/scheduler-cpsat/README.md`](packages/scheduler-cpsat/README.md)
+pour le contrat détaillé.
 
 ## Instructions Copilot
 
