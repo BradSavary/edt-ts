@@ -35,7 +35,14 @@ l'optimalité de ce nombre, sur son propre modèle — pas de réplication forc�
 
 **Hors périmètre** (features core-only écartées, décision « chaque moteur pour ce qu'il est ») :
 pause **flottante** ; tâches `Autonomie` (pré-neutralisées en pratique) exclues et rapportées dans
-`neutralizedTasks`. Overlays manuels de `weekSaves` (enforced/blocked) non modélisés.
+`neutralizedTasks`.
+
+**Overlays `weekSaves` — état :** `manualEnforcedMap` (enforced) **est modélisé** (fusionné dans
+`CourseTaskData.enforced`, cf. `cpsatGateway`/client). `manualBlockedZones` (zones bloquées
+manuelles) **n'est PAS encore modélisé** — côté core, elles sont appliquées via
+`applyBlockedZonesToConstraints` avant l'envoi du payload ; côté CP-SAT elles sont ignorées pour
+l'instant. **TODO** (non prioritaire) : soit les rabattre sur les `constraints` en amont (comme le
+client le fait déjà), soit les modéliser comme indisponibilités de ressources.
 
 ## `cpsat_runner.py` — frontière process
 
