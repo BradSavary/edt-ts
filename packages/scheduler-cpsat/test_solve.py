@@ -160,6 +160,34 @@ def test_conflicting_enforced_raises_clear_error_not_collapse():
         solve(raw)
 
 
+def test_enforced_ignores_max_daily_minutes_no_collapse():
+    """
+    Régression : deux enforced sur la même ressource/jour dépassant à eux seuls son
+    maxDailyMinutes ne doivent PAS rendre le modèle INFEASIBLE — réplique bookEnforced()
+    côté core, qui n'appelle jamais _addDailyUsage() (un enforced est sous la
+    responsabilité de l'utilisateur, dépassements compris).
+    """
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1", "maxDailyMinutes": 180}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}, {"id": "R2"}]},
+    ]
+    raw = {"week": 1, "resources": resources, "courses": [
+        {"week": 1, "code": "X", "type": "CM", "name": "", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 480, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+        {"week": 1, "code": "Y", "type": "CM", "name": "", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R2"],
+         "enforced": {"startTime": 600, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R2"]}},
+    ], "constraints": {r: ALL_DAY for r in ("T1", "G1", "R1", "R2")}}
+
+    sol = solve(raw)[0]
+    assert len(sol["solutions"]) == 2, "les enforced ne doivent pas effondrer la semaine malgré le dépassement"
+    by = {t["code"]: t for t in sol["solutions"]}
+    assert by["X"]["startTime"] == 480
+    assert by["Y"]["startTime"] == 600
+
+
 def test_runner_map_config_rejects_floating_lunch_break():
     with pytest.raises(ValueError, match="pause flottante"):
         cpsat_runner._map_config({

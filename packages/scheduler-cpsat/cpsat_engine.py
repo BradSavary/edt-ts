@@ -18,12 +18,13 @@ Fidélité de modélisation (calquée sur scheduler-common / scheduler-core) :
   - disponibilités            → AvailabilityManager.getAvailability (override hebdo + Default)
   - ressources alternatives   → ResourceEntry `string | string[]` : intervalle optionnel + exactly-one
   - non-chevauchement         → AddNoOverlap par ressource
-  - enforced                  → start + ressources fixes imposés, ignore la dispo
+  - enforced                  → start + ressources fixes imposés, ignore la dispo ET maxDailyMinutes
+                                (réplique bookEnforced() — sous la responsabilité de l'utilisateur)
   - dépendances CM→TD→TP      → SchedulerData._determineDependencies (par code + inclusion des groupes)
                                 + intégrité de chaîne (un dépendant placé exige son prérequis placé)
   - taskGroups                → RawScheduleData.groups + CourseTaskData.taskGroupId
                                 (parallel : départs égaux ; sequential : enchaînement sans gap)
-  - maxDailyMinutes           → plafond quotidien par ressource (réification on_day)
+  - maxDailyMinutes           → plafond quotidien par ressource (réification on_day) — hors enforced
   - pause méridienne fixe     → scheduler.ts _applyLunchBreak (retirée des seuls GROUP, lun-ven)
 
 Assumé / hors périmètre (features core-only, écartées pour ce moteur) :
@@ -341,7 +342,11 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
 
         e = c.get("enforced")
         if e:
-            # Enforced : start imposé, ressources fixes, ignore la dispo.
+            # Enforced : start imposé, ressources fixes, ignore la dispo ET le plafond
+            # maxDailyMinutes (réplique bookEnforced() côté core, qui n'appelle jamais
+            # _addDailyUsage() — un enforced est sous la responsabilité de l'utilisateur,
+            # dépassements compris ; ne pas l'ajouter à `capped` sous peine d'INFEASIBLE
+            # global dès qu'un enforced dépasse seul un plafond quotidien).
             model.Add(scheduled[li] == 1)
             model.Add(start[li] == e["startTime"])
             possible_days[li] = [e["startTime"] // 1440]
@@ -350,8 +355,6 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                     used_literals[li].append((rid, rtype_of.get(rid, rtype), scheduled[li]))
                     intervals_by_res[rid].append(
                         model.NewOptionalFixedSizeIntervalVar(start[li], dur, scheduled[li], f"iv{li}_{rid}"))
-                    if rid in max_daily:
-                        capped[li].append((rid, scheduled[li]))
             continue
 
         # Tâche normale : chaque entrée est une ressource fixe (str) ou des alternatives (list).
