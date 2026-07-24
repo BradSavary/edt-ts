@@ -208,3 +208,81 @@ def test_runner_map_config_accepts_fixed_lunch_break_and_ignores_core_only_field
         "ignoreDailyLimits": True,
         "timeoutSeconds": 42,
     }
+
+
+# ── Option groupTeacherHalfDays (préférence douce, objectif lexicographique passe 2) ────────────
+
+def test_group_half_days_prefers_single_half():
+    """
+    2 cours courts et déplaçables pour un même enseignant, disponible toute une journée (un seul
+    jour dans les dispos pour éliminer toute ambiguïté inter-jours), aucune contrainte ne force
+    un éclatement : avec l'option, le moteur les concentre sur une seule demi-journée.
+    """
+    monday_all_day = [{"days": "lundi", "from": "08:00", "to": "18:00"}]
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1"}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+    ]
+    courses = [
+        {"week": 1, "code": "C1", "type": "CM", "name": "C1", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "C2", "type": "CM", "name": "C2", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses,
+           "constraints": {"Default": monday_all_day}}
+
+    sol = solve(raw, {
+        "timeoutSeconds": 10,
+        "groupTeacherHalfDays": True,
+        "lunchBreak": {"type": "fixed", "from": "12:00", "to": "13:30"},
+    })[0]
+
+    assert len(sol["solutions"]) == 2
+    half_cut = 13 * 60 + 30  # fin de pause fixe = 13:30 = 810 min
+    in_am = [(t["startTime"] % 1440) < half_cut for t in sol["solutions"]]
+    assert in_am[0] == in_am[1], "les deux cours doivent être concentrés dans la même demi-journée"
+
+
+def test_group_half_days_never_sacrifices_placement():
+    """
+    maxDailyMinutes de T1 assez bas pour ne tenir qu'un seul cours sur son unique jour dispo :
+    concentrer est donc structurellement impossible (contention dure) — le nombre de cours placés
+    doit rester identique avec et sans l'option (non-régression de la garantie « ne supplante
+    jamais le placement »).
+    """
+    monday_only = [{"days": "lundi", "from": "08:00", "to": "18:00"}]
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1", "maxDailyMinutes": 60}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+    ]
+    courses = [
+        {"week": 1, "code": "C1", "type": "CM", "name": "C1", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "C2", "type": "CM", "name": "C2", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses,
+           "constraints": {"T1": monday_only, "G1": monday_only, "R1": monday_only}}
+
+    without = solve(raw, {"timeoutSeconds": 10})[0]
+    with_opt = solve(raw, {"timeoutSeconds": 10, "groupTeacherHalfDays": True})[0]
+
+    assert len(without["solutions"]) == 1, "prérequis du test : contention dure sur maxDailyMinutes"
+    assert len(with_opt["solutions"]) == len(without["solutions"])
+
+
+def test_group_half_days_off_is_default_unchanged():
+    """Option absente vs explicitement False : résultat strictement identique (placement, provenOptimal)."""
+    raw = _toy_raw()
+    without_field = solve(raw, {"timeoutSeconds": 10})[0]
+    with_false = solve(raw, {"timeoutSeconds": 10, "groupTeacherHalfDays": False})[0]
+    assert len(with_false["solutions"]) == len(without_field["solutions"])
+    assert with_false["provenOptimal"] == without_field["provenOptimal"]
+
+
+def test_runner_map_config_passes_group_flag():
+    mapped = cpsat_runner._map_config({"groupTeacherHalfDays": True})
+    assert mapped.get("groupTeacherHalfDays") is True
