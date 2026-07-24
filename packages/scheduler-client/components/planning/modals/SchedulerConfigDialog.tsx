@@ -55,6 +55,7 @@ interface Draft {
   conflictSetExact: boolean;
   postRepair: boolean;
   searchStrategy: 'elimination' | 'maxPlacement';
+  groupTeacherHalfDays: boolean;
 }
 
 // ── Helpers de conversion ────────────────────────────────────────────────────
@@ -91,6 +92,7 @@ function configToDraft(config: SchedulerConfig): Draft {
     conflictSetExact: config.conflictSetExact ?? DEFAULT_SCHEDULER_CONFIG.conflictSetExact,
     postRepair: config.postRepair ?? DEFAULT_SCHEDULER_CONFIG.postRepair,
     searchStrategy: config.searchStrategy ?? DEFAULT_SCHEDULER_CONFIG.searchStrategy,
+    groupTeacherHalfDays: config.groupTeacherHalfDays ?? DEFAULT_SCHEDULER_CONFIG.groupTeacherHalfDays,
   };
 }
 
@@ -121,6 +123,7 @@ function draftToConfig(draft: Draft): SchedulerConfig {
     conflictSetExact: draft.conflictSetExact,
     postRepair: draft.postRepair,
     searchStrategy: draft.searchStrategy,
+    groupTeacherHalfDays: draft.groupTeacherHalfDays,
   };
 }
 
@@ -242,6 +245,39 @@ export function SchedulerConfigDialog() {
           </section>
 
           <Separator />
+
+          {/* ── CP-SAT — préférences (douces) ──────────────────────────────── */}
+          {isCpsat && (
+          <>
+          <section className="space-y-4">
+            <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+              CP-SAT — préférences (douces)
+            </h3>
+            <div className="flex items-start gap-3 pt-1">
+              <input
+                id="cfg-groupTeacherHalfDays"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+                checked={draft.groupTeacherHalfDays}
+                onChange={(e) => setDraftField('groupTeacherHalfDays', e.target.checked)}
+              />
+              <div className="space-y-0.5">
+                <Label htmlFor="cfg-groupTeacherHalfDays" className="cursor-pointer">
+                  Regrouper les cours d&apos;un enseignant par demi-journée
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Préférence appliquée au mieux : le moteur essaie de concentrer les cours d&apos;un
+                  même enseignant sur une seule demi-journée par jour, sans jamais déplacer moins
+                  de cours ni dépasser ses limites. Peut allonger le temps de calcul et l&apos;optimum
+                  de regroupement n&apos;est pas toujours prouvé sous le timeout (le nombre de cours
+                  placés, lui, reste prouvé optimal).
+                </p>
+              </div>
+            </div>
+          </section>
+          <Separator />
+          </>
+          )}
 
           {/* ── Général ─────────────────────────────────────────────────── */}
           {!isCpsat && (

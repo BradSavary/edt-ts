@@ -83,4 +83,32 @@ describe('SchedulerConfigDialog — sélecteur de moteur', () => {
 
     expect(screen.getByRole('radio', { name: /CP-SAT \(OR-Tools\)/i })).toBeChecked();
   });
+
+  it("checkbox « Regrouper les cours d'un enseignant par demi-journée » : absente en core, visible en CP-SAT", () => {
+    render(<SchedulerConfigDialog />);
+    openDialog();
+
+    expect(
+      screen.queryByLabelText(/Regrouper les cours d.+enseignant par demi-journée/i),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('radio', { name: /CP-SAT \(OR-Tools\)/i }));
+    expect(
+      screen.getByLabelText(/Regrouper les cours d.+enseignant par demi-journée/i),
+    ).toBeInTheDocument();
+  });
+
+  it('cocher le regroupement enseignant en CP-SAT et valider : la valeur survit à une réouverture', () => {
+    render(<SchedulerConfigDialog />);
+    openDialog();
+
+    fireEvent.click(screen.getByRole('radio', { name: /CP-SAT \(OR-Tools\)/i }));
+    fireEvent.click(screen.getByLabelText(/Regrouper les cours d.+enseignant par demi-journée/i));
+    fireEvent.click(screen.getByRole('button', { name: /Valider/i }));
+
+    expect(useAppConfigStore.getState().schedulerConfig.groupTeacherHalfDays).toBe(true);
+
+    openDialog();
+    expect(screen.getByLabelText(/Regrouper les cours d.+enseignant par demi-journée/i)).toBeChecked();
+  });
 });

@@ -65,4 +65,14 @@ describe('useAppConfigStore — migration engine (v2 → v3)', () => {
     await useAppConfigStore.persist.rehydrate();
     expect(useAppConfigStore.getState().schedulerConfig.engine).toBe('core');
   });
+
+  it("config persistée v3 sans groupTeacherHalfDays : injecte groupTeacherHalfDays=false à la réhydratation (migration v4)", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      state: { schedulerConfig: { engine: 'cpsat', timeoutSeconds: 180 } },
+      version: 3,
+    }));
+    const { useAppConfigStore } = await import('@/store/useAppConfigStore');
+    await useAppConfigStore.persist.rehydrate();
+    expect(useAppConfigStore.getState().schedulerConfig.groupTeacherHalfDays).toBe(false);
+  });
 });

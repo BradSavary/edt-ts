@@ -22,13 +22,14 @@ export const useAppConfigStore = create<AppConfigStore>()(
     }),
     {
       name: 'edt-app-config',
-      version: 3,
+      version: 4,
       migrate: (persistedState) => {
         const state = persistedState as { schedulerConfig?: Record<string, unknown> };
         if (!state?.schedulerConfig) return state;
         const schedulerConfig = { ...state.schedulerConfig };
         delete schedulerConfig.maxSolutions;
         if (!('engine' in schedulerConfig)) schedulerConfig.engine = 'core';
+        if (!('groupTeacherHalfDays' in schedulerConfig)) schedulerConfig.groupTeacherHalfDays = false;
         return { ...state, schedulerConfig };
       },
     },
