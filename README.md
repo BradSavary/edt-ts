@@ -92,7 +92,7 @@ Moteur de planification alternatif basé sur [OR-Tools CP-SAT](https://developer
 2e moteur user-facing, sélectionnable via `SchedulerConfig.engine = 'cpsat'`. **Package Python**, non
 intégré au workspace pnpm/npm ; `scheduler-api` l'invoque en subprocess (`packages/scheduler-api/src/cpsatGateway.ts`).
 
-Provisionnement du venv :
+Provisionnement du venv (**requis** pour utiliser le moteur CP-SAT) :
 
 ```bash
 cd packages/scheduler-cpsat
@@ -101,9 +101,11 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-`scheduler-api` résout l'interpréteur et le script via les variables d'environnement `CPSAT_PYTHON`
-(chemin de l'exécutable du venv, défaut `python3`) et `CPSAT_RUNNER` (chemin de `cpsat_runner.py`,
-défaut résolu relativement au package). Voir [`packages/scheduler-cpsat/README.md`](packages/scheduler-cpsat/README.md)
+Une fois ce venv provisionné, **aucune configuration n'est nécessaire** : `scheduler-api` le détecte
+automatiquement (`packages/scheduler-cpsat/.venv`). Les variables d'environnement `CPSAT_PYTHON`
+(interpréteur) et `CPSAT_RUNNER` (chemin de `cpsat_runner.py`) restent disponibles pour surcharger
+cette résolution. À défaut de venv, le repli est `python` sous Windows / `python3` ailleurs — qui
+n'aura `ortools` que si installé globalement. Voir [`packages/scheduler-cpsat/README.md`](packages/scheduler-cpsat/README.md)
 pour le contrat détaillé.
 
 ## Instructions Copilot

@@ -13,13 +13,31 @@ const TIMEOUT_MARGIN_SECONDS = 5;
  * scripts npm (`api:dev`/`api:start`) l'exécutent depuis `packages/scheduler-api`, et les workers
  * héritent du cwd du process parent. Reste explicitement configurable via `CPSAT_RUNNER`.
  */
+const CPSAT_PKG_BASES = [
+  '../scheduler-cpsat',     // cwd = packages/scheduler-api
+  'packages/scheduler-cpsat', // cwd = racine du repo
+  'scheduler-cpsat',        // cwd = packages/
+];
+
 function resolveDefaultRunnerPath(): string | undefined {
-  const candidates = [
-    resolvePath(process.cwd(), '../scheduler-cpsat/cpsat_runner.py'),     // cwd = packages/scheduler-api
-    resolvePath(process.cwd(), 'packages/scheduler-cpsat/cpsat_runner.py'), // cwd = racine du repo
-    resolvePath(process.cwd(), 'scheduler-cpsat/cpsat_runner.py'),        // cwd = packages/
-  ];
-  return candidates.find(existsSync);
+  return CPSAT_PKG_BASES
+    .map((base) => resolvePath(process.cwd(), base, 'cpsat_runner.py'))
+    .find(existsSync);
+}
+
+/**
+ * Interpréteur Python par défaut : le venv provisionné du package `scheduler-cpsat` s'il existe
+ * (le seul garanti d'avoir `ortools`), sinon un repli **dépendant de la plateforme** — `python`
+ * sur Windows (où `python3` tape l'alias Microsoft Store et échoue en code 9009), `python3`
+ * ailleurs. Toujours surchargeable par `CPSAT_PYTHON`.
+ */
+function resolveDefaultPython(): string {
+  const venvRel = process.platform === 'win32' ? '.venv/Scripts/python.exe' : '.venv/bin/python';
+  const venv = CPSAT_PKG_BASES
+    .map((base) => resolvePath(process.cwd(), base, venvRel))
+    .find(existsSync);
+  if (venv) return venv;
+  return process.platform === 'win32' ? 'python' : 'python3';
 }
 
 /**
@@ -27,7 +45,7 @@ function resolveDefaultRunnerPath(): string | undefined {
  * handler sync et le worker de jobs async.
  */
 export function runCpsat(raw: RawScheduleData, config?: SchedulerConfig): Promise<ScheduleSolutionJSON[]> {
-  const pythonPath = process.env.CPSAT_PYTHON ?? 'python3';
+  const pythonPath = process.env.CPSAT_PYTHON ?? resolveDefaultPython();
   const runnerPath = process.env.CPSAT_RUNNER ?? resolveDefaultRunnerPath();
   const timeoutMs = ((config?.timeoutSeconds ?? 30) + TIMEOUT_MARGIN_SECONDS) * 1000;
 
