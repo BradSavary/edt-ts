@@ -43,6 +43,7 @@ interface LunchFloatingDraft {
 type LunchTab = 'none' | 'fixed' | 'floating';
 
 interface Draft {
+  engine: 'core' | 'cpsat';
   timeoutSeconds: string;
   maxIterations: string;
   maxEliminations: string;
@@ -78,6 +79,7 @@ function configToDraft(config: SchedulerConfig): Draft {
   }
 
   return {
+    engine: config.engine ?? DEFAULT_SCHEDULER_CONFIG.engine,
     timeoutSeconds: String(config.timeoutSeconds ?? DEFAULT_SCHEDULER_CONFIG.timeoutSeconds),
     maxIterations: String(config.maxIterations ?? DEFAULT_SCHEDULER_CONFIG.maxIterations),
     maxEliminations: String(config.maxEliminations ?? DEFAULT_SCHEDULER_CONFIG.maxEliminations),
@@ -109,6 +111,7 @@ function draftToConfig(draft: Draft): SchedulerConfig {
   }
 
   return {
+    engine: draft.engine,
     timeoutSeconds: Math.max(1, parseInt(draft.timeoutSeconds, 10) || DEFAULT_SCHEDULER_CONFIG.timeoutSeconds),
     maxIterations: Math.max(1000, parseInt(draft.maxIterations, 10) || DEFAULT_SCHEDULER_CONFIG.maxIterations),
     maxEliminations: Math.max(1, parseInt(draft.maxEliminations, 10) || DEFAULT_SCHEDULER_CONFIG.maxEliminations),
@@ -161,6 +164,17 @@ export function SchedulerConfigDialog() {
     setDraft((d) => ({ ...d, [key]: value }));
   }
 
+  // CP-SAT ne supporte pas la pause flottante : bascule sur "aucune" au changement de moteur.
+  function setEngine(engine: Draft['engine']) {
+    setDraft((d) => ({
+      ...d,
+      engine,
+      lunchTab: engine === 'cpsat' && d.lunchTab === 'floating' ? 'none' : d.lunchTab,
+    }));
+  }
+
+  const isCpsat = draft.engine === 'cpsat';
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
@@ -186,7 +200,51 @@ export function SchedulerConfigDialog() {
 
         <div className="space-y-6 py-2">
 
+          {/* ── Moteur ──────────────────────────────────────────────────── */}
+          <section className="space-y-4">
+            <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+              Moteur
+            </h3>
+            <div className="space-y-2">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="cfg-engine"
+                  className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+                  checked={draft.engine === 'core'}
+                  onChange={() => setEngine('core')}
+                />
+                <span className="space-y-0.5">
+                  <span className="block text-sm">Élimination / Placement (core)</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Moteur historique. Options avancées ci-dessous, pause méridienne flottante
+                    disponible.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="cfg-engine"
+                  className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+                  checked={draft.engine === 'cpsat'}
+                  onChange={() => setEngine('cpsat')}
+                />
+                <span className="space-y-0.5">
+                  <span className="block text-sm">CP-SAT (OR-Tools) — optimum prouvé</span>
+                  <span className="block text-xs text-muted-foreground">
+                    2e moteur : prouve l&apos;optimum du nombre de cours placés. Pause méridienne
+                    flottante non supportée ; options avancées du moteur core sans effet.
+                  </span>
+                </span>
+              </label>
+            </div>
+          </section>
+
+          <Separator />
+
           {/* ── Général ─────────────────────────────────────────────────── */}
+          {!isCpsat && (
           <section className="space-y-4">
             <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
               Général
@@ -250,24 +308,6 @@ export function SchedulerConfigDialog() {
 
             <div className="flex items-start gap-3 pt-1">
               <input
-                id="cfg-ignoreDailyLimits"
-                type="checkbox"
-                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
-                checked={draft.ignoreDailyLimits}
-                onChange={(e) => setDraftField('ignoreDailyLimits', e.target.checked)}
-              />
-              <div className="space-y-0.5">
-                <Label htmlFor="cfg-ignoreDailyLimits" className="cursor-pointer">
-                  Ignorer les limites journalières des ressources
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Si coché, les limites journalières définies dans les contraintes de toutes les ressources sont ignorées.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 pt-1">
-              <input
                 id="cfg-conflictOrderingSearch"
                 type="checkbox"
                 className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
@@ -326,8 +366,9 @@ export function SchedulerConfigDialog() {
               </div>
             </div>
           </section>
+          )}
 
-          <Separator />
+          {!isCpsat && <Separator />}
 
           {/* ── Performance ─────────────────────────────────────────────── */}
           <section className="space-y-4">
@@ -351,6 +392,7 @@ export function SchedulerConfigDialog() {
                 </p>
               </div>
 
+              {!isCpsat && (
               <div className="space-y-1.5">
                 <Label htmlFor="cfg-maxIter">Itérations max</Label>
                 <Input
@@ -362,6 +404,30 @@ export function SchedulerConfigDialog() {
                 />
                 <p className="text-xs text-muted-foreground">
                   Nombre maximal d&apos;itérations de l&apos;algorithme de recherche.
+                </p>
+              </div>
+              )}
+            </div>
+            {isCpsat && (
+              <p className="text-xs text-muted-foreground">
+                CP-SAT prouve l&apos;optimum du nombre de cours placés (dans la limite du timeout).
+              </p>
+            )}
+
+            <div className="flex items-start gap-3 pt-1">
+              <input
+                id="cfg-ignoreDailyLimits"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+                checked={draft.ignoreDailyLimits}
+                onChange={(e) => setDraftField('ignoreDailyLimits', e.target.checked)}
+              />
+              <div className="space-y-0.5">
+                <Label htmlFor="cfg-ignoreDailyLimits" className="cursor-pointer">
+                  Ignorer les limites journalières des ressources
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Si coché, les limites journalières définies dans les contraintes de toutes les ressources sont ignorées.
                 </p>
               </div>
             </div>
@@ -385,8 +451,13 @@ export function SchedulerConfigDialog() {
               <TabsList className="w-full">
                 <TabsTrigger value="none" className="flex-1">Aucune</TabsTrigger>
                 <TabsTrigger value="fixed" className="flex-1">Fixe</TabsTrigger>
-                <TabsTrigger value="floating" className="flex-1">Flottante</TabsTrigger>
+                <TabsTrigger value="floating" className="flex-1" disabled={isCpsat}>Flottante</TabsTrigger>
               </TabsList>
+              {isCpsat && (
+                <p className="text-xs text-muted-foreground pt-2">
+                  Pause flottante non supportée par CP-SAT — sélectionnez « Aucune » ou « Fixe ».
+                </p>
+              )}
 
               {/* ── Aucune ── */}
               <TabsContent value="none" className="pt-3">
