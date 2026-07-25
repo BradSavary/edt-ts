@@ -57,7 +57,10 @@ export function runCpsat(raw: RawScheduleData, config?: SchedulerConfig): Promis
   }
 
   return new Promise((resolve, reject) => {
-    const child = spawn(pythonPath, [runnerPath]);
+    // PYTHONUTF8=1 force l'UTF-8 sur stdin/stdout du subprocess : sans ça, Python utilise
+    // l'encodage de la codepage Windows (cp1252) pour lire le pipe, ce qui corrompt les
+    // caractères accentués (ex: "Valérie" -> "ValÃ©rie") dans les solutions retournées.
+    const child = spawn(pythonPath, [runnerPath], { env: { ...process.env, PYTHONUTF8: '1' } });
 
     let stdout = '';
     let stderr = '';
