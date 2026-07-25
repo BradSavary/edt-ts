@@ -343,6 +343,12 @@ export interface SchedulerConfig {
    * `compactTeacherHalfDays` et `minimizeTeacherDays`. Sans effet sur le moteur core. Défaut : false.
    */
   balanceTeacherDailyLoad?: boolean;
+  /**
+   * CP-SAT uniquement — préférence DOUCE : pénalise le trou de midi d'un enseignant présent matin
+   * et après-midi, au-delà de la pause déjeuner (limite les journées à faible ratio cours/amplitude,
+   * ex. 8h+18h). Ignorée si la pause n'est pas fixe. Défaut : false.
+   */
+  crossNoonGap?: boolean;
 }
 
 /** Valeurs par défaut appliquées par le solver lorsqu'une option n'est pas fournie. */
@@ -362,4 +368,5 @@ export const DEFAULT_SCHEDULER_CONFIG: Required<SchedulerConfig> = {
   compactTeacherHalfDays: false,
   minimizeTeacherDays: false,
   balanceTeacherDailyLoad: false,
+  crossNoonGap: false,
 };
