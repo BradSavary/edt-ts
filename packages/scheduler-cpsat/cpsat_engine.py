@@ -319,6 +319,15 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                            min-max (contrairement au placement souvent quasi-trivial des passes 1-2)
                            — surcoût notable mesuré ~2s→18s sur S48. Utilisable en interactif, mais
                            bien plus lourde que les autres douces.
+      - crossNoonGap     : bool (défaut False) — préférence DOUCE : pénalise le trou de midi d'un
+                           enseignant présent matin ET après-midi, au-delà de la pause déjeuner
+                           (limite les journées à faible ratio cours/amplitude, ex. 8h+18h). Le
+                           terme est en minutes, dans la même échelle que l'idle de
+                           `compactTeacherHalfDays`, et rejoint la même passe 2 (aucune passe
+                           supplémentaire, aucun surcoût façon `balanceTeacherDailyLoad`). Ignorée
+                           si la pause n'est pas fixe (`lunchBreak.type != 'fixed'`) : sans pause
+                           fixe, la découpe matin/après-midi est arbitraire et la positivité du
+                           trou n'est plus garantie.
     """
     config = config or {}
     week = raw["week"]
@@ -329,6 +338,7 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     compact_half_days = bool(config.get("compactTeacherHalfDays", False))
     minimize_days = bool(config.get("minimizeTeacherDays", False))
     balance_load = bool(config.get("balanceTeacherDailyLoad", False))
+    cross_noon = bool(config.get("crossNoonGap", False))
     # L'équilibrage ancre le nombre de jours : il force la présence-jours dans la passe 2.
     include_days = minimize_days or balance_load
 
@@ -536,7 +546,7 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     # option n'écrase l'autre quand les deux sont actives.
     penalty_terms: list[Any] = []
     peak_terms: list[Any] = []            # Σ pic quotidien (passe 3, balance_load uniquement)
-    if compact_half_days or minimize_days or balance_load:
+    if compact_half_days or minimize_days or balance_load or (cross_noon and lunch is not None):
         # Littéraux enseignant par cours : (tid, li, lit d'utilisation) — enforced inclus
         # (lit == scheduled[li]), alternatives incluses (lit == bool de l'alternative choisie).
         teacher_lits = defaultdict(list)                      # tid -> [(li, lit)]
@@ -578,6 +588,66 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                         idle = model.NewIntVar(0, 1440, f"idle{tid}_{d}_{h}")
                         model.Add(idle == last - first - sum(busy))              # ≥0 ⇒ 0 si <2 présents
                         penalty_terms.append(idle)            # en minutes
+
+        # ── Option D : trou de midi (idle qui traverse la pause déjeuner, au-delà de celle-ci). ──
+        # Pour chaque (enseignant, jour) présent matin ET après-midi :
+        #   trou = début_1er_aprem − fin_dernier_matin − durée_pause  (≥ 0 garanti, pause carvée).
+        # Gate : pause fixe uniquement (sinon un cours peut enjamber midi → identité fausse).
+        if cross_noon and lunch is not None:
+            lunch_len = lunch[1] - lunch[0]
+            for tid, lst in teacher_lits.items():
+                days = sorted({d for (li, _) in lst for d in possible_days[li]})
+                for d in days:
+                    base = d * 1440
+                    morn, aft = [], []            # (li, p_m) / (li, p_a)
+                    for (li, lit) in lst:
+                        if d not in possible_days[li]:
+                            continue
+                        p_m = model.NewBoolVar(f"cnm{tid}_{li}_{d}")
+                        oh0 = on_half(li, d, 0)
+                        model.AddBoolAnd([lit, oh0]).OnlyEnforceIf(p_m)
+                        model.AddBoolOr([lit.Not(), oh0.Not()]).OnlyEnforceIf(p_m.Not())
+                        p_a = model.NewBoolVar(f"cna{tid}_{li}_{d}")
+                        oh1 = on_half(li, d, 1)
+                        model.AddBoolAnd([lit, oh1]).OnlyEnforceIf(p_a)
+                        model.AddBoolOr([lit.Not(), oh1.Not()]).OnlyEnforceIf(p_a.Not())
+                        morn.append((li, p_m))
+                        aft.append((li, p_a))
+                    if not morn or not aft:
+                        continue                  # aucun cours possible d'un côté ⇒ jamais de trou
+                    # fin_matin = MAX des fins matin présentes (0 si aucune) ; e_i = fin si présent, sinon 0.
+                    ends = []
+                    for (li, p_m) in morn:
+                        dur = courses[li][1]["duration"]
+                        e_i = model.NewIntVar(0, base + 1440, f"em{tid}_{li}_{d}")
+                        model.Add(e_i == start[li] + dur).OnlyEnforceIf(p_m)
+                        model.Add(e_i == 0).OnlyEnforceIf(p_m.Not())
+                        ends.append(e_i)
+                    last_m = model.NewIntVar(0, base + 1440, f"lm{tid}_{d}")
+                    model.AddMaxEquality(last_m, ends)
+                    # début_aprem = MIN des débuts aprem présents (BIG si aucun) ; s_i = début si présent, sinon BIG.
+                    BIG = base + 1440
+                    starts = []
+                    for (li, p_a) in aft:
+                        s_i = model.NewIntVar(0, BIG, f"sa{tid}_{li}_{d}")
+                        model.Add(s_i == start[li]).OnlyEnforceIf(p_a)
+                        model.Add(s_i == BIG).OnlyEnforceIf(p_a.Not())
+                        starts.append(s_i)
+                    first_a = model.NewIntVar(0, BIG, f"fa{tid}_{d}")
+                    model.AddMinEquality(first_a, starts)
+                    # both = présent matin ET aprem.
+                    pm_any = model.NewBoolVar(f"pmA{tid}_{d}")
+                    model.AddMaxEquality(pm_any, [p for (_, p) in morn])
+                    pa_any = model.NewBoolVar(f"paA{tid}_{d}")
+                    model.AddMaxEquality(pa_any, [p for (_, p) in aft])
+                    both = model.NewBoolVar(f"both{tid}_{d}")
+                    model.AddBoolAnd([pm_any, pa_any]).OnlyEnforceIf(both)
+                    model.AddBoolOr([pm_any.Not(), pa_any.Not()]).OnlyEnforceIf(both.Not())
+                    # trou = first_a − last_m − lunch_len, seulement si both ; sinon 0. ≥0 garanti.
+                    gap = model.NewIntVar(0, 1440, f"cngap{tid}_{d}")
+                    model.Add(gap == first_a - last_m - lunch_len).OnlyEnforceIf(both)
+                    model.Add(gap == 0).OnlyEnforceIf(both.Not())
+                    penalty_terms.append(gap)     # en minutes → passe 2
 
         # ── Présence-jours enseignant (partagée : pénalité "moins de jours" + équilibrage). ──
         # Construite dès qu'une des deux options la requiert (minimize_days OU balance_load).

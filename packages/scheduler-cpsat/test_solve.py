@@ -528,3 +528,189 @@ def test_balance_combined_never_adds_day_vs_minimize_baseline(monkeypatch):
 def test_runner_map_config_passes_balance_flag():
     mapped = cpsat_runner._map_config({"balanceTeacherDailyLoad": True})
     assert mapped.get("balanceTeacherDailyLoad") is True
+
+
+# ── Trou de midi (crossNoonGap) — passe 2 lexicographique, gate pause fixe ────────────────────────
+
+def _midday_gaps(sol: dict, tid: str, half_cut: int = 13 * 60 + 30, lunch_len: int = 90) -> dict[int, int]:
+    """
+    Trou de midi RÉEL (minutes) par jour, recalculé depuis les `startTime`/`duration` retournés par
+    `solve()` — indépendant du modèle CP-SAT, pour vérifier son résultat depuis l'extérieur.
+    """
+    by_day: dict[int, list[dict]] = {}
+    for t in sol["solutions"]:
+        if not any(r["id"] == tid for r in t["resources"]):
+            continue
+        by_day.setdefault(t["startTime"] // 1440, []).append(t)
+    gaps: dict[int, int] = {}
+    for day, tasks in by_day.items():
+        base = day * 1440
+        morning_ends = [t["startTime"] + t["duration"] for t in tasks if t["startTime"] - base < half_cut]
+        afternoon_starts = [t["startTime"] for t in tasks if t["startTime"] - base >= half_cut]
+        if morning_ends and afternoon_starts:
+            gaps[day] = min(afternoon_starts) - max(morning_ends) - lunch_len
+    return gaps
+
+
+def test_cross_noon_penalizes_split_day():
+    """
+    Instance conçue pour forcer une VRAIE contention matin/après-midi (pas d'échappatoire "tout
+    d'un côté") : 3 cours de 150 min, fenêtre matin 08h-12h (240 min → capacité 1 seul cours) +
+    fenêtre après-midi 13h30-19h (330 min → capacité 2 cours) : exactement 1 cours matin + 2
+    après-midi sont nécessaires pour placer les 3.
+
+    `earliest:True` rend le PLACEMENT DE RÉFÉRENCE déterministe ET causal : la passe 1 minimise la
+    somme des débuts → cours du matin collé à 8h00 (finit à 10h30) → trou de midi = 90 min. Sans
+    `crossNoonGap`, aucune passe 2 ne le déplace → 90. Avec `crossNoonGap`, la passe 2 repousse ce
+    cours au plus tard dans sa fenêtre (finit à 12h00 pile) → trou = 0.
+
+    IMPORTANT (preuve de causalité, vérifiée par ablation le 2026-07-26) : `earliest` est
+    indispensable ici. SANS lui, la seule PRÉSENCE des variables auxiliaires du bloc Option D suffit
+    à faire tomber le solveur sur trou=0 par effet de bord sur son ordre d'exploration, MÊME objectif
+    retiré (`penalty_terms.append(gap)` commenté) → le test serait un faux positif. AVEC `earliest`,
+    l'ablation de l'objectif redonne 90 (mesuré) : le passage à 0 est donc bien imputable à
+    l'objectif crossNoonGap, pas à un artefact de tie-breaking.
+    """
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1"}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+    ]
+    win = [{"days": "lundi", "from": "08:00", "to": "12:00"},
+           {"days": "lundi", "from": "13:30", "to": "19:00"}]
+    courses = [
+        {"week": 1, "code": f"C{i}", "type": "CM", "name": f"C{i}", "duration": 150,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}
+        for i in range(3)
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses,
+           "constraints": {"T1": win, "G1": win, "R1": win}}
+    lunch = {"type": "fixed", "from": "12:00", "to": "13:30"}
+
+    without = solve(raw, {"timeoutSeconds": 10, "earliest": True, "lunchBreak": lunch})[0]
+    with_opt = solve(raw, {"timeoutSeconds": 10, "earliest": True, "crossNoonGap": True, "lunchBreak": lunch})[0]
+
+    assert len(without["solutions"]) == len(with_opt["solutions"]) == 3
+    gap_off = _midday_gaps(without, "T1").get(0)
+    gap_on = _midday_gaps(with_opt, "T1").get(0)
+    assert gap_off == 90, "prérequis (earliest) : sans l'option, le placement au plus tôt laisse un trou de 90 min"
+    assert gap_on == 0, "avec l'option, la passe 2 doit fermer entièrement le trou de midi"
+
+
+def test_cross_noon_lunch_not_counted():
+    """
+    Cours matin 11h-12h + après-midi 13h30-14h30 : encadrent EXACTEMENT la pause (12h-13h30) → trou
+    réel = 0. La pause elle-même ne doit pas être comptée comme idle (piège si on oublie `lunch_len`
+    dans `gap == first_a - last_m - lunch_len`).
+    """
+    slots = [{"days": "lundi", "from": "11:00", "to": "12:00"},
+             {"days": "lundi", "from": "13:30", "to": "14:30"}]
+    wide = [{"days": "lundi", "from": "08:00", "to": "18:00"}]
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1"}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+    ]
+    courses = [
+        {"week": 1, "code": "C1", "type": "CM", "name": "C1", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "C2", "type": "CM", "name": "C2", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses,
+           "constraints": {"T1": slots, "G1": wide, "R1": wide}}
+    lunch = {"type": "fixed", "from": "12:00", "to": "13:30"}
+
+    sol = solve(raw, {"timeoutSeconds": 10, "crossNoonGap": True, "lunchBreak": lunch})[0]
+    assert len(sol["solutions"]) == 2
+    assert _midday_gaps(sol, "T1") == {0: 0}, "la pause ne doit pas être comptée comme trou de midi"
+
+
+def test_cross_noon_only_afternoon_no_penalty():
+    """2 cours l'après-midi seulement : jamais présent le matin ⇒ `both`=faux ⇒ aucun trou de midi."""
+    afternoon_only = [{"days": "lundi", "from": "14:00", "to": "18:00"}]
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1"}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+    ]
+    courses = [
+        {"week": 1, "code": "C1", "type": "CM", "name": "C1", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "C2", "type": "CM", "name": "C2", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses,
+           "constraints": {"T1": afternoon_only, "G1": afternoon_only, "R1": afternoon_only}}
+    lunch = {"type": "fixed", "from": "12:00", "to": "13:30"}
+
+    sol = solve(raw, {"timeoutSeconds": 10, "crossNoonGap": True, "lunchBreak": lunch})[0]
+    assert len(sol["solutions"]) == 2
+    assert _midday_gaps(sol, "T1") == {}, "garde-fou OnlyEnforceIf(both) : pas de trou sans présence des 2 côtés"
+
+
+def test_cross_noon_off_is_noop():
+    """Même instance que test_cross_noon_penalizes_split_day, sans le flag : inerte (placement/provenOptimal identiques)."""
+    monday_wide = [{"days": "lundi", "from": "08:00", "to": "19:00"}]
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1"}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+    ]
+    courses = [
+        {"week": 1, "code": "C1", "type": "CM", "name": "C1", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "C2", "type": "CM", "name": "C2", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses,
+           "constraints": {"T1": monday_wide, "G1": monday_wide, "R1": monday_wide}}
+    lunch = {"type": "fixed", "from": "12:00", "to": "13:30"}
+
+    without_field = solve(raw, {"timeoutSeconds": 10, "lunchBreak": lunch})[0]
+    with_false = solve(raw, {"timeoutSeconds": 10, "crossNoonGap": False, "lunchBreak": lunch})[0]
+    assert len(with_false["solutions"]) == len(without_field["solutions"])
+    assert with_false["provenOptimal"] == without_field["provenOptimal"]
+
+
+def test_cross_noon_lunch_none_is_noop():
+    """Flag activé mais lunchBreak:{type:'none'} : le gate `lunch is not None` neutralise l'option."""
+    raw = _toy_raw()
+    without = solve(raw, {"timeoutSeconds": 10, "lunchBreak": {"type": "none"}})[0]
+    with_flag_no_lunch = solve(raw, {"timeoutSeconds": 10, "crossNoonGap": True,
+                                     "lunchBreak": {"type": "none"}})[0]
+    assert len(with_flag_no_lunch["solutions"]) == len(without["solutions"])
+    assert with_flag_no_lunch["provenOptimal"] == without["provenOptimal"]
+
+
+def test_cross_noon_combined_with_compact():
+    """
+    Intégration : `crossNoonGap` + `compactTeacherHalfDays` actifs simultanément (4 cours de 60 min,
+    dispo large 8h-19h) : les deux compacités (intra-bloc ET trou de midi) doivent pouvoir être
+    recherchées sans conflit. Pas de valeur exacte figée : on vérifie juste que le solve reste
+    FEASIBLE et que le placement n'est pas dégradé.
+    """
+    monday_wide = [{"days": "lundi", "from": "08:00", "to": "19:00"}]
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1"}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+    ]
+    courses = [
+        {"week": 1, "code": f"C{i}", "type": "CM", "name": f"C{i}", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}
+        for i in range(4)
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses,
+           "constraints": {"T1": monday_wide, "G1": monday_wide, "R1": monday_wide}}
+    lunch = {"type": "fixed", "from": "12:00", "to": "13:30"}
+
+    without = solve(raw, {"timeoutSeconds": 10, "lunchBreak": lunch})[0]
+    combined = solve(raw, {"timeoutSeconds": 10, "crossNoonGap": True,
+                           "compactTeacherHalfDays": True, "lunchBreak": lunch})[0]
+    assert len(combined["solutions"]) == len(without["solutions"]) == 4
+
+
+def test_runner_map_config_passes_cross_noon_flag():
+    mapped = cpsat_runner._map_config({"crossNoonGap": True})
+    assert mapped.get("crossNoonGap") is True

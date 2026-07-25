@@ -36,6 +36,8 @@ def _map_config(config: dict | None) -> dict:
         mapped["minimizeTeacherDays"] = config["minimizeTeacherDays"]
     if "balanceTeacherDailyLoad" in config:
         mapped["balanceTeacherDailyLoad"] = config["balanceTeacherDailyLoad"]
+    if "crossNoonGap" in config:
+        mapped["crossNoonGap"] = config["crossNoonGap"]
 
     return mapped
 
