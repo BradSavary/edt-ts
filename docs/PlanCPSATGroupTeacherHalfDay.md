@@ -1,5 +1,15 @@
 # Plan — Option CP-SAT « Regrouper les cours d'un enseignant par demi-journée » (contrainte douce)
 
+> ⚠️ **SUPERSÉDÉ (2026-07-25) — conservé comme trace.** La première version (une case unique
+> `groupTeacherHalfDays`, sémantique « une seule demi-journée par jour ») a été implémentée puis
+> **revue** après retour utilisateur : « regrouper » ne veut PAS dire une seule demi-journée par
+> jour — matin + après-midi du même jour est un regroupement valide. Remplacée par **deux options
+> douces indépendantes et combinables** : `compactTeacherHalfDays` (coller les cours dans une même
+> demi-journée, minimiser les trous intra-bloc — jamais pénaliser matin+après-midi) et
+> `minimizeTeacherDays` (concentrer sur le moins de journées distinctes). L'ossature ci-dessous
+> (résolution 2 passes, `provenOptimal` sur la passe 1, plomberie config/UI, garde-fou placement)
+> reste valable ; seule la fonction de pénalité de la passe 2 a changé.
+
 > **Public : session d'implémentation (Sonnet).** Ce plan est autoportant. Il décrit une
 > nouvelle **option opt-in du panneau CP-SAT** : une préférence *douce* qui pousse le solveur
 > à concentrer les cours d'un même enseignant sur une seule demi-journée (matin **ou**
