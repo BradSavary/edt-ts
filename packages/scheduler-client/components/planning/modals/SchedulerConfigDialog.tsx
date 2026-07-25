@@ -58,6 +58,7 @@ interface Draft {
   compactTeacherHalfDays: boolean;
   minimizeTeacherDays: boolean;
   balanceTeacherDailyLoad: boolean;
+  crossNoonGap: boolean;
 }
 
 // ── Helpers de conversion ────────────────────────────────────────────────────
@@ -97,6 +98,7 @@ function configToDraft(config: SchedulerConfig): Draft {
     compactTeacherHalfDays: config.compactTeacherHalfDays ?? DEFAULT_SCHEDULER_CONFIG.compactTeacherHalfDays,
     minimizeTeacherDays: config.minimizeTeacherDays ?? DEFAULT_SCHEDULER_CONFIG.minimizeTeacherDays,
     balanceTeacherDailyLoad: config.balanceTeacherDailyLoad ?? DEFAULT_SCHEDULER_CONFIG.balanceTeacherDailyLoad,
+    crossNoonGap: config.crossNoonGap ?? DEFAULT_SCHEDULER_CONFIG.crossNoonGap,
   };
 }
 
@@ -130,6 +132,7 @@ function draftToConfig(draft: Draft): SchedulerConfig {
     compactTeacherHalfDays: draft.compactTeacherHalfDays,
     minimizeTeacherDays: draft.minimizeTeacherDays,
     balanceTeacherDailyLoad: draft.balanceTeacherDailyLoad,
+    crossNoonGap: draft.crossNoonGap,
   };
 }
 
@@ -320,6 +323,25 @@ export function SchedulerConfigDialog() {
                   est présent (évite un jour surchargé et un autre presque vide). N&apos;ajoute
                   jamais de jour : elle regroupe d&apos;abord sur le moins de jours possible, puis
                   équilibre ces jours.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 pt-1">
+              <input
+                id="cfg-crossNoonGap"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+                checked={draft.crossNoonGap}
+                onChange={(e) => setDraftField('crossNoonGap', e.target.checked)}
+              />
+              <div className="space-y-0.5">
+                <Label htmlFor="cfg-crossNoonGap" className="cursor-pointer">
+                  Limiter le trou de midi enseignant
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Évite qu&apos;un enseignant ait un cours tôt le matin et un autre tard le soir
+                  avec un grand vide au milieu (au-delà de la pause déjeuner). Sans effet si la
+                  pause n&apos;est pas fixe.
                 </p>
               </div>
             </div>

@@ -84,21 +84,23 @@ describe('SchedulerConfigDialog — sélecteur de moteur', () => {
     expect(screen.getByRole('radio', { name: /CP-SAT \(OR-Tools\)/i })).toBeChecked();
   });
 
-  it('préférences douces enseignant (compacité, moins de jours, équilibrage) : absentes en core, visibles en CP-SAT', () => {
+  it('préférences douces enseignant (compacité, moins de jours, équilibrage, trou de midi) : absentes en core, visibles en CP-SAT', () => {
     render(<SchedulerConfigDialog />);
     openDialog();
 
     expect(screen.queryByLabelText(/Compacter les cours d.+enseignant/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Minimiser le nombre de jours/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Équilibrer la charge quotidienne/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Limiter le trou de midi/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('radio', { name: /CP-SAT \(OR-Tools\)/i }));
     expect(screen.getByLabelText(/Compacter les cours d.+enseignant/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Minimiser le nombre de jours/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Équilibrer la charge quotidienne/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Limiter le trou de midi/i)).toBeInTheDocument();
   });
 
-  it('cocher les trois préférences douces en CP-SAT et valider : les valeurs survivent à une réouverture', () => {
+  it('cocher les quatre préférences douces en CP-SAT et valider : les valeurs survivent à une réouverture', () => {
     render(<SchedulerConfigDialog />);
     openDialog();
 
@@ -106,15 +108,18 @@ describe('SchedulerConfigDialog — sélecteur de moteur', () => {
     fireEvent.click(screen.getByLabelText(/Compacter les cours d.+enseignant/i));
     fireEvent.click(screen.getByLabelText(/Minimiser le nombre de jours/i));
     fireEvent.click(screen.getByLabelText(/Équilibrer la charge quotidienne/i));
+    fireEvent.click(screen.getByLabelText(/Limiter le trou de midi/i));
     fireEvent.click(screen.getByRole('button', { name: /Valider/i }));
 
     expect(useAppConfigStore.getState().schedulerConfig.compactTeacherHalfDays).toBe(true);
     expect(useAppConfigStore.getState().schedulerConfig.minimizeTeacherDays).toBe(true);
     expect(useAppConfigStore.getState().schedulerConfig.balanceTeacherDailyLoad).toBe(true);
+    expect(useAppConfigStore.getState().schedulerConfig.crossNoonGap).toBe(true);
 
     openDialog();
     expect(screen.getByLabelText(/Compacter les cours d.+enseignant/i)).toBeChecked();
     expect(screen.getByLabelText(/Minimiser le nombre de jours/i)).toBeChecked();
     expect(screen.getByLabelText(/Équilibrer la charge quotidienne/i)).toBeChecked();
+    expect(screen.getByLabelText(/Limiter le trou de midi/i)).toBeChecked();
   });
 });

@@ -91,4 +91,16 @@ describe('useAppConfigStore — migration engine (v2 → v3)', () => {
     expect(cfg.minimizeTeacherDays).toBe(true);
     expect(cfg.balanceTeacherDailyLoad).toBe(false);
   });
+
+  it("migration v7 : injecte crossNoonGap (false) sur une config v6 qui ne l'a pas", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      state: { schedulerConfig: { engine: 'cpsat', timeoutSeconds: 180, balanceTeacherDailyLoad: true } },
+      version: 6,
+    }));
+    const { useAppConfigStore } = await import('@/store/useAppConfigStore');
+    await useAppConfigStore.persist.rehydrate();
+    const cfg = useAppConfigStore.getState().schedulerConfig as Record<string, unknown>;
+    expect(cfg.balanceTeacherDailyLoad).toBe(true);
+    expect(cfg.crossNoonGap).toBe(false);
+  });
 });
