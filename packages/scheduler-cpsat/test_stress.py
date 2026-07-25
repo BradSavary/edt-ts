@@ -135,7 +135,7 @@ def test_contract_fields_and_group_semantics(project, week):
             assert len(set(starts)) == 1, f"groupe parallèle {gid} : départs différents"
 
 
-# ── Parité groupTeacherHalfDays sur données réelles (S48) ───────────────────────────────────────
+# ── Parité préférences douces enseignant sur données réelles (S48) ───────────────────────────────
 # Hors CI par défaut si les données réelles sont absentes — même patron de skip que ci-dessus,
 # fichier distinct car issu d'un export projet postérieur (2026-07-24_23-19).
 
@@ -144,16 +144,22 @@ DATA_S48 = (Path(__file__).resolve().parents[2] / "packages" / "scheduler-core" 
 
 
 @pytest.mark.skipif(not DATA_S48.exists(), reason=f"données réelles absentes : {DATA_S48}")
-@pytest.mark.parametrize("group_teacher", [False, True])
-def test_parity_group_teacher_half_days_s48(group_teacher):
+@pytest.mark.parametrize("soft", [
+    {},
+    {"compactTeacherHalfDays": True},
+    {"minimizeTeacherDays": True},
+    {"compactTeacherHalfDays": True, "minimizeTeacherDays": True},
+])
+def test_parity_soft_teacher_prefs_s48(soft):
     """
-    Rejoue S48 avec et sans `groupTeacherHalfDays` : le nombre de cours placés doit rester
-    120 (inchangé) et l'optimum de placement rester prouvé, avec ou sans la préférence douce.
+    Rejoue S48 pour chaque combinaison de préférences douces : le nombre de cours placés doit rester
+    120 (inchangé) et l'optimum de PLACEMENT rester prouvé — les douces ne touchent jamais au
+    placement.
     """
     project = json.loads(DATA_S48.read_text(encoding="utf-8"))
     raw = _build_raw(project, 48)
 
-    sols = solve(raw, {"timeoutSeconds": 60, "groupTeacherHalfDays": group_teacher})
+    sols = solve(raw, {"timeoutSeconds": 60, "lunchBreak": {"type": "fixed", "from": "12:00", "to": "13:30"}, **soft})
     sol = sols[0]
 
     assert len(sol["solutions"]) == 120

@@ -26,8 +26,8 @@ Fidélité de modélisation (calquée sur scheduler-common / scheduler-core) :
                                 (parallel : départs égaux ; sequential : enchaînement sans gap)
   - maxDailyMinutes           → plafond quotidien par ressource (réification on_day) — hors enforced
   - pause méridienne fixe     → scheduler.ts _applyLunchBreak (retirée des seuls GROUP, lun-ven)
-  - regroupement enseignant   → préférence douce, objectif lexicographique passe 2
-    par demi-journée            (groupTeacherHalfDays)
+  - préférences douces prof   → passe 2 (à placement fixé) : compacité par demi-journée
+                                (compactTeacherHalfDays) et/ou moins de jours (minimizeTeacherDays)
 
 Assumé / hors périmètre (features core-only, écartées pour ce moteur) :
   - pause FLOTTANTE (modélise mal en CP-SAT figé) — seul 'fixed' est honoré ;
@@ -43,6 +43,12 @@ from typing import Any
 from ortools.sat.python import cp_model
 
 HORIZON = 7 * 1440  # minutes depuis lundi 00:00, une semaine
+
+# Poids (en « minutes-équivalent ») d'une journée de présence d'un enseignant en trop, pour l'option
+# douce minimizeTeacherDays. Sert uniquement à mettre les deux préférences douces sur une échelle
+# commune quand elles sont combinées avec compactTeacherHalfDays (l'idle est en minutes) : une
+# journée de présence supplémentaire « coûte » autant que 240 min de trous. Réglable.
+DAY_PRESENCE_PENALTY = 240
 
 # Types de ressources — mêmes chaînes que ResourceType (resource.ts).
 TEACHER, ROOM, GROUP = "teacher", "room", "group"
@@ -287,13 +293,20 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                            ATTENTION : transforme un optimum de placement souvent trivial (0 branche,
                            ~1 s) en une vraie optimisation combinatoire (bien plus lente). À n'activer
                            que si un placement déterministe « au plus tôt » est requis.
-      - groupTeacherHalfDays : bool (défaut False) — préférence DOUCE : concentrer les cours d'un
-                           même enseignant sur une seule demi-journée par jour. Résolution en deux
-                           passes lexicographiques : passe 1 maximise le nombre de cours placés
-                           (comme sans l'option) ; passe 2, à ce nombre FIXÉ, minimise le nombre de
-                           demi-journées « éclatées » par enseignant. Ne dégrade jamais le placement
-                           ni les contraintes dures. `provenOptimal` reste basé sur la passe 1 (le
-                           regroupement, lui, peut ne pas être prouvé sous le timeout).
+      - compactTeacherHalfDays : bool (défaut False) — préférence DOUCE : dans chaque demi-journée
+                           où un enseignant est présent, coller ses cours (minimiser les trous À
+                           L'INTÉRIEUR d'un bloc matin/après-midi). N'interdit ni ne pénalise d'être
+                           présent matin ET après-midi, ni sur plusieurs jours : seuls les temps
+                           morts intra-bloc comptent.
+      - minimizeTeacherDays : bool (défaut False) — préférence DOUCE : concentrer les cours d'un
+                           enseignant sur le moins de JOURNÉES distinctes possible (remplir
+                           matin+après-midi d'un jour plutôt qu'étaler sur plusieurs).
+                           Les deux options ci-dessus sont indépendantes et combinables.
+                           Résolution en deux passes : passe 1 maximise le nombre de cours placés
+                           (comme sans option) ; passe 2, à ce nombre FIXÉ, minimise la pénalité
+                           douce combinée. Ne dégrade jamais le placement ni les contraintes dures.
+                           `provenOptimal` reste basé sur la passe 1 (l'optimum doux peut ne pas
+                           être prouvé sous le timeout).
     """
     config = config or {}
     week = raw["week"]
@@ -301,7 +314,8 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     exclude_types = set(config.get("excludeTypes", ["Autonomie"]))
     ignore_daily = bool(config.get("ignoreDailyLimits", False))
     earliest = bool(config.get("earliest", False))
-    group_teacher = bool(config.get("groupTeacherHalfDays", False))
+    compact_half_days = bool(config.get("compactTeacherHalfDays", False))
+    minimize_days = bool(config.get("minimizeTeacherDays", False))
 
     # Métadonnées ressources : type + plafond quotidien.
     rtype_of: dict[str, str] = {}
@@ -322,7 +336,7 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     if isinstance(lb, dict) and lb.get("type") == "fixed":
         lunch = (_parse_time(lb["from"]), _parse_time(lb["to"]))
 
-    # Frontière matin/après-midi pour l'option de regroupement enseignant.
+    # Frontière matin/après-midi pour la compacité par demi-journée.
     half_cut = lunch[1] if lunch is not None else 13 * 60   # fin de pause fixe, sinon 13:00
 
     rwin = _make_availability(constraints, week, group_ids, lunch)
@@ -500,10 +514,14 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     for (rid, d), terms in by_res_day.items():
         model.Add(sum(terms) <= max_daily[rid])
 
-    # Regroupement enseignant par demi-journée (préférence douce, gardée derrière le flag).
-    split_terms = []
-    if group_teacher:
-        # Littéraux enseignant par cours : (rid teacher, lit d'utilisation) — enforced inclus
+    # Préférences DOUCES enseignant (chacune derrière son flag ; indépendantes et combinables).
+    # Toutes deux minimisées en passe 2, à placement FIXÉ. `penalty_terms` agrège des termes déjà
+    # ramenés à une échelle commune « minutes » (l'idle est en minutes ; une journée de présence en
+    # trop vaut DAY_PRESENCE_PENALTY minutes), de sorte qu'une simple somme les concilie sans qu'une
+    # option n'écrase l'autre quand les deux sont actives.
+    penalty_terms: list[Any] = []
+    if compact_half_days or minimize_days:
+        # Littéraux enseignant par cours : (tid, li, lit d'utilisation) — enforced inclus
         # (lit == scheduled[li]), alternatives incluses (lit == bool de l'alternative choisie).
         teacher_lits = defaultdict(list)                      # tid -> [(li, lit)]
         for li in range(len(courses)):
@@ -511,35 +529,58 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                 if rtype == TEACHER:
                     teacher_lits[rid].append((li, lit))
 
-        active = {}                                           # (tid, d, h) -> BoolVar « prof actif »
-        for tid, lst in teacher_lits.items():
-            days = sorted({d for (li, _) in lst for d in possible_days[li]})
-            for d in days:
-                for h in (0, 1):
-                    members = []
+        # ── Option A : compacité par demi-journée (minimiser les trous DANS un bloc matin/aprem). ──
+        # Pour chaque (enseignant, jour, moitié) présent : idle = (fin du dernier cours − début du
+        # premier) − somme des durées présentes. Les cours d'un même prof ne se chevauchent pas
+        # (NoOverlap sur la ressource) ⇒ idle = temps mort total entre ses cours de ce bloc. Nul si
+        # 0/1 cours présent. Être présent matin ET après-midi n'est jamais pénalisé (blocs disjoints).
+        if compact_half_days:
+            for tid, lst in teacher_lits.items():
+                days = sorted({d for (li, _) in lst for d in possible_days[li]})
+                for d in days:
+                    for h in (0, 1):
+                        members = []                          # (li, p) candidats de ce bloc
+                        for (li, lit) in lst:
+                            if d not in possible_days[li]:
+                                continue
+                            p = model.NewBoolVar(f"cp{tid}_{li}_{d}_{h}")
+                            oh = on_half(li, d, h)
+                            model.AddBoolAnd([lit, oh]).OnlyEnforceIf(p)
+                            model.AddBoolOr([lit.Not(), oh.Not()]).OnlyEnforceIf(p.Not())
+                            members.append((li, p))
+                        if len(members) < 2:
+                            continue                          # 0/1 cours ⇒ aucun trou possible
+                        base = d * 1440
+                        first = model.NewIntVar(base, base + 1440, f"first{tid}_{d}_{h}")
+                        last = model.NewIntVar(base, base + 1440, f"last{tid}_{d}_{h}")
+                        busy = []
+                        for (li, p) in members:
+                            dur = courses[li][1]["duration"]
+                            model.Add(first <= start[li]).OnlyEnforceIf(p)       # first ≤ min début présent
+                            model.Add(last >= start[li] + dur).OnlyEnforceIf(p)  # last ≥ max fin présente
+                            busy.append(dur * p)
+                        idle = model.NewIntVar(0, 1440, f"idle{tid}_{d}_{h}")
+                        model.Add(idle == last - first - sum(busy))              # ≥0 ⇒ 0 si <2 présents
+                        penalty_terms.append(idle)            # en minutes
+
+        # ── Option B : moins de jours de présence (minimiser le nb de journées distinctes). ──
+        if minimize_days:
+            for tid, lst in teacher_lits.items():
+                for d in sorted({d for (li, _) in lst for d in possible_days[li]}):
+                    present = []
                     for (li, lit) in lst:
                         if d not in possible_days[li]:
                             continue
-                        p = model.NewBoolVar(f"p{tid}_{li}_{d}_{h}")
-                        oh = on_half(li, d, h)
-                        model.AddBoolAnd([lit, oh]).OnlyEnforceIf(p)
-                        model.AddBoolOr([lit.Not(), oh.Not()]).OnlyEnforceIf(p.Not())
-                        members.append(p)
-                    if members:
-                        a = model.NewBoolVar(f"act{tid}_{d}_{h}")
-                        model.AddMaxEquality(a, members)       # a = OR(members) (booléens)
-                        active[(tid, d, h)] = a
-
-        # split[tid,d] = actif le matin ET l'après-midi = journée « éclatée » (à pénaliser).
-        for tid, lst in teacher_lits.items():
-            for d in sorted({d for (li, _) in lst for d in possible_days[li]}):
-                am, pm = active.get((tid, d, 0)), active.get((tid, d, 1))
-                if am is None or pm is None:
-                    continue
-                s = model.NewBoolVar(f"split{tid}_{d}")
-                model.AddBoolAnd([am, pm]).OnlyEnforceIf(s)
-                model.AddBoolOr([am.Not(), pm.Not()]).OnlyEnforceIf(s.Not())
-                split_terms.append(s)
+                        q = model.NewBoolVar(f"pd{tid}_{li}_{d}")
+                        od = on_day(li, d)
+                        model.AddBoolAnd([lit, od]).OnlyEnforceIf(q)
+                        model.AddBoolOr([lit.Not(), od.Not()]).OnlyEnforceIf(q.Not())
+                        present.append(q)
+                    if not present:
+                        continue
+                    day_used = model.NewBoolVar(f"day{tid}_{d}")
+                    model.AddMaxEquality(day_used, present)    # OR : enseignant présent ce jour
+                    penalty_terms.append(DAY_PRESENCE_PENALTY * day_used)
 
     # ── Passe 1 : optimum du NOMBRE de cours placés (départage « au plus tôt » si earliest). ──
     total_timeout = float(config.get("timeoutSeconds", 30.0))
@@ -561,21 +602,21 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     placement_proven = status == cp_model.OPTIMAL
     best_placed = int(round(solver.Value(place_term)))
 
-    # ── Passe 2 : à placement FIXÉ, minimiser le nombre de demi-journées éclatées. ──
-    if group_teacher and split_terms:
+    # ── Passe 2 : à placement FIXÉ, minimiser la pénalité douce enseignant (compacité / jours). ──
+    if penalty_terms:
         model.Add(place_term >= best_placed)          # verrou : jamais moins de cours placés
         # Amorce (warm start) avec la solution de la passe 1 → convergence plus rapide.
         model.ClearHints()
         for li in range(len(courses)):
             model.AddHint(scheduled[li], solver.Value(scheduled[li]))
             model.AddHint(start[li], solver.Value(start[li]))
-        model.Minimize(sum(split_terms))
+        model.Minimize(sum(penalty_terms))
         remaining = max(1.0, total_timeout - solver.WallTime())
         solver2 = cp_model.CpSolver()
         solver2.parameters.max_time_in_seconds = remaining
         status2 = solver2.Solve(model)
         if status2 in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-            solver = solver2                          # extraire la solution regroupée
+            solver = solver2                          # extraire la solution optimisée
         # provenOptimal reste basé sur placement_proven (passe 1) — voir docstring de solve().
 
     # ---- Extraction de la solution ----
