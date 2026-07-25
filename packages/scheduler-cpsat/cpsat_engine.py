@@ -315,6 +315,10 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                            passe 2 (comme minimizeTeacherDays) puis équilibre en passe 3, à
                            placement ET pénalité passe-2 FIGÉS. Ne dégrade jamais placement ni
                            contraintes dures. `provenOptimal` reste basé sur la passe 1.
+                           ATTENTION COÛT : la passe 3 est une vraie optimisation combinatoire
+                           min-max (contrairement au placement souvent quasi-trivial des passes 1-2)
+                           — surcoût notable mesuré ~2s→18s sur S48. Utilisable en interactif, mais
+                           bien plus lourde que les autres douces.
     """
     config = config or {}
     week = raw["week"]
