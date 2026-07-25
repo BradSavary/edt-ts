@@ -8,6 +8,7 @@ Tests unitaires (pytest) du moteur CP-SAT.
 from __future__ import annotations
 
 import pytest
+from ortools.sat.python import cp_model
 
 import cpsat_runner
 from cpsat_engine import EnforcedConflictError, solve
@@ -447,6 +448,81 @@ def test_balance_combined_all_three():
     })[0]
     assert len(combined["solutions"]) == len(without["solutions"])
     assert combined["provenOptimal"] == without["provenOptimal"]
+
+
+def test_balance_combined_never_adds_day_vs_minimize_baseline(monkeypatch):
+    """
+    Repro ciblée de la faille « échange days↔idle » : la passe 3 ne verrouillait que l'AGRÉGAT
+    `sum(penalty_terms) <= best_p2` (idle + 240·jours), pas le nombre de jours lui-même. Quand
+    `compactTeacherHalfDays` est co-actif, deux répartitions peuvent être à égalité sur cet agrégat
+    (ex. 240 min d'idle sur 1 jour == 0 idle mais 1 jour de plus à 240 min/jour) ; la passe 3, qui
+    minimise ensuite le pic, pouvait alors préférer la répartition à PLUS de jours (pic plus bas),
+    ajoutant un jour de présence — violant l'invariant "n'ajoute jamais de jour".
+
+    Instance : T1/R1/G1 dispo lun+mar 00:00-08:00 seulement ; un cours enforced bloque R1 sur
+    02:00-06:00 (240 min) CHAQUE jour, laissant 2 fenêtres de 120 min (2 créneaux) par jour. 4 cours
+    de 60 min pour T1 sur R1 :
+      - packés sur 1 seul jour → doivent occuper les 2 fenêtres → idle=240, jours=1 → pénalité 480
+      - répartis 2+2 sur les 2 jours → chaque paire tient dans UNE fenêtre → idle=0, jours=2 → pénalité 480
+    Égalité exacte (480 dans les deux cas) : la passe 3, sans verrou dur sur les jours, peut légitimement
+    choisir la variante à 2 jours car son pic (2×60=120) bat celui à 1 jour (4×60=240).
+
+    Repro confirmée manuellement (session correctif, 5 runs) : sans le verrou dur ajouté en passe 3,
+    sur CETTE instance, `compactTeacherHalfDays+minimizeTeacherDays` seul (baseline, passe 2
+    uniquement) donne 1 jour ({0}, lundi) tandis que le combo à 3 flags (avec balance, donc passe 3
+    exécutée) donnait 2 jours ({0, 1}) à chaque fois — le jour ajouté disparaît une fois le verrou
+    dur en place (8 runs, {0} à chaque fois).
+
+    L'égalité exacte de l'agrégat rend le CHOIX (1 jour vs 2 jours) sensible au tie-breaking interne
+    du solveur CP-SAT, non-déterministe par défaut (portefeuille multi-thread) : la baseline
+    elle-même peut occasionnellement retourner 2 jours sans que ce soit un défaut du correctif. Le
+    solveur est donc forcé mono-thread + graine fixe ICI (test uniquement, ne touche pas
+    `cpsat_engine.solve`) pour un résultat reproductible.
+    """
+    import cpsat_engine as _eng
+
+    class _DeterministicSolver(cp_model.CpSolver):
+        def __init__(self):
+            super().__init__()
+            self.parameters.num_search_workers = 1
+            self.parameters.random_seed = 0
+
+    monkeypatch.setattr(_eng.cp_model, "CpSolver", _DeterministicSolver)
+
+    narrow = [{"days": "lundi, mardi", "from": "00:00", "to": "08:00"}]
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1"}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+    ]
+    courses = [
+        {"week": 1, "code": f"C{i}", "type": "CM", "name": f"C{i}", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}
+        for i in range(4)
+    ]
+
+    def blk(day_offset: int, start_hour: int) -> dict:
+        return {"week": 1, "code": f"BLK{day_offset}", "type": "CM", "name": f"BLK{day_offset}",
+                "duration": 240, "rooms": ["R1"],
+                "enforced": {"startTime": day_offset * 1440 + start_hour * 60,
+                             "teacher": [], "groups": [], "rooms": ["R1"]}}
+
+    raw = {"week": 1, "resources": resources, "courses": [blk(0, 2), blk(1, 2)] + courses,
+           "constraints": {"T1": narrow, "G1": narrow, "R1": narrow}}
+
+    def teacher_days(sol, tid="T1"):
+        return {t["startTime"] // 1440 for t in sol["solutions"]
+                if any(r["id"] == tid for r in t["resources"])}
+
+    baseline = solve(raw, {"timeoutSeconds": 10,
+                            "compactTeacherHalfDays": True, "minimizeTeacherDays": True})[0]
+    combo = solve(raw, {"timeoutSeconds": 10, "compactTeacherHalfDays": True,
+                         "minimizeTeacherDays": True, "balanceTeacherDailyLoad": True})[0]
+
+    assert len(combo["solutions"]) == len(baseline["solutions"]) == 6
+    assert len(teacher_days(baseline)) == 1, "prérequis du test : la baseline tient sur 1 seul jour"
+    assert len(teacher_days(combo)) <= len(teacher_days(baseline)), \
+        "la passe 3 (balance) ne doit jamais ajouter un jour de présence par rapport à la baseline sans balance"
 
 
 def test_runner_map_config_passes_balance_flag():

@@ -299,6 +299,55 @@ sur données réelles que l'équilibrage ne casse jamais le placement.
     `minimizeTeacherDays`), les 3 cours restent sur 1 seul jour distinct (pas d'étalement sur les 3 jours
     possibles).
 
+### 6.1 Correctif « verrou dur du nombre de jours en passe 3 » (session 2026-07-25)
+> Faille signalée par le relecteur (Opus) : la passe 3 ne verrouillait que l'AGRÉGAT
+> `sum(penalty_terms) <= best_p2` (idle + 240·jours), pas le nombre de jours lui-même — quand
+> `compactTeacherHalfDays` est co-actif, un échange « +1 jour (+240) financé par −240 d'idle » pouvait
+> passer ce verrou.
+
+- Diff appliqué dans `packages/scheduler-cpsat/cpsat_engine.py`, bloc passe 3 (`if balance_load and
+  peak_terms:`), juste après `model.Add(sum(penalty_terms) <= best_p2)` :
+  ```python
+          # Verrou DUR du nombre total de jours de présence : empêche la passe 3 d'ajouter un jour
+          # en le "finançant" par une baisse d'idle (échange days↔idle autorisé par le seul lock agrégé
+          # quand compactTeacherHalfDays est co-actif). Rend l'invariant "n'ajoute jamais de jour" étanche.
+          if day_used_by:
+              best_days = int(round(sum(solver.Value(v) for v in day_used_by.values())))
+              model.Add(sum(day_used_by.values()) <= best_days)
+  ```
+  `day_used_by` est peuplé dans le bloc `if compact_half_days or minimize_days or balance_load:`
+  (dont l'exécution est garantie ici puisque `balance_load` est l'une des trois conditions) — pas de
+  `NameError` observé, aucune init supplémentaire ajoutée.
+
+- Repro manuelle de la faille AVANT correctif (script ad hoc, hors pytest, `git stash` sur le diff
+  ci-dessus) : instance T1/R1/G1 dispo lundi+mardi 00:00-08:00, un cours enforced bloque R1 sur
+  02:00-06:00 (240 min) chaque jour, 4 cours de 60 min pour T1 sur R1. Solveur CP-SAT forcé
+  mono-thread + `random_seed=0` (déterminisme du test, cf. plus bas) :
+  - `compactTeacherHalfDays+minimizeTeacherDays` seul (baseline, sans balance) : jours T1 = `{0}`
+    (lundi), 5 runs sur 5.
+  - Combo des 3 flags (`+balanceTeacherDailyLoad`) SANS le correctif : jours T1 = `{0, 1}` (2 jours),
+    5 runs sur 5.
+  - Combo des 3 flags AVEC le correctif : jours T1 = `{0}` (identique à la baseline), 8 runs sur 8.
+  - Sans forcer le solveur mono-thread (paramètres CP-SAT par défaut, multi-thread), le même run
+    répété 5-10 fois donne un résultat non constant (ex. baseline seule : `{0}` 4/5 fois, `{0,1}` 1/5
+    fois) — non-déterminisme du portefeuille multi-thread de CP-SAT sur les cas d'égalité exacte
+    d'objectif, observé indépendamment du correctif.
+
+- Nouveau test ajouté : `test_balance_combined_never_adds_day_vs_minimize_baseline` dans
+  `packages/scheduler-cpsat/test_solve.py`, reprenant l'instance ci-dessus, avec le solveur CP-SAT
+  monkeypatché mono-thread + seed fixe (fixture `monkeypatch`, ne touche pas `cpsat_engine.solve` en
+  dehors du test). Assertions : nombre de cours placés identique (6) entre baseline et combo, jours
+  T1 de la baseline == 1 (prérequis de l'instance), jours T1 du combo `<=` jours T1 de la baseline.
+
+- `cd packages/scheduler-cpsat && .venv/bin/python -m pytest -q test_solve.py`, sortie (3 exécutions
+  consécutives, identiques) :
+  ```
+  ......................                                                   [100%]
+  22 passed in 0.34s
+  ```
+  (21 tests précédents + 1 nouveau, tous verts. Comparer avec le compte du §6 ci-dessus, qui datait
+  d'avant l'ajout de ce test : 21 passed, 14 skipped.)
+
 ## 7. CHECKPOINT feu-vert impl → tests
 Après §1-§2 (implémentation câblée, avant d'écrire/lancer la batterie §3-§5) : **s'arrêter, rendre
 la main pour feu vert.** Ne lancer §3-§6 qu'ensuite. (Règle Frédéric : checkpoint explicite dans

@@ -662,6 +662,12 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
         if penalty_terms:
             best_p2 = int(round(solver.Value(sum(penalty_terms))))
             model.Add(sum(penalty_terms) <= best_p2)  # fige compacité + jours acquis en passe 2
+        # Verrou DUR du nombre total de jours de présence : empêche la passe 3 d'ajouter un jour
+        # en le "finançant" par une baisse d'idle (échange days↔idle autorisé par le seul lock agrégé
+        # quand compactTeacherHalfDays est co-actif). Rend l'invariant "n'ajoute jamais de jour" étanche.
+        if day_used_by:
+            best_days = int(round(sum(solver.Value(v) for v in day_used_by.values())))
+            model.Add(sum(day_used_by.values()) <= best_days)
         model.ClearHints()
         for li in range(len(courses)):
             model.AddHint(scheduled[li], solver.Value(scheduled[li]))
