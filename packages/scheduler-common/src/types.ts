@@ -319,12 +319,20 @@ export interface SchedulerConfig {
   /** Moteur de planification (défaut 'core'). 'cpsat' = 2e moteur OR-Tools (passerelle Python). */
   engine?: 'core' | 'cpsat';
   /**
-   * CP-SAT uniquement — préférence DOUCE : concentrer les cours d'un même enseignant sur une
-   * seule demi-journée (matin OU après-midi) par jour. N'est optimisée qu'à nombre de cours
-   * placés CONSTANT (objectif lexicographique 2 passes) : ne sacrifie jamais un placement ni
-   * ne viole une contrainte dure. Sans effet sur le moteur core. Défaut : false.
+   * CP-SAT uniquement — préférence DOUCE : dans chaque demi-journée où un enseignant est présent,
+   * coller ses cours (minimiser les trous À L'INTÉRIEUR d'un bloc matin/après-midi). N'interdit ni
+   * ne pénalise d'être présent matin ET après-midi, ni sur plusieurs jours. Optimisée à nombre de
+   * cours placés CONSTANT (résolution 2 passes) : ne sacrifie jamais un placement ni ne viole une
+   * contrainte dure. Combinable avec `minimizeTeacherDays`. Sans effet sur le core. Défaut : false.
    */
-  groupTeacherHalfDays?: boolean;
+  compactTeacherHalfDays?: boolean;
+  /**
+   * CP-SAT uniquement — préférence DOUCE : concentrer les cours d'un enseignant sur le moins de
+   * JOURNÉES distinctes possible (remplir matin+après-midi d'un jour plutôt qu'étaler). Mêmes
+   * garanties que ci-dessus (à placement constant, 2 passes). Combinable avec
+   * `compactTeacherHalfDays`. Sans effet sur le moteur core. Défaut : false.
+   */
+  minimizeTeacherDays?: boolean;
 }
 
 /** Valeurs par défaut appliquées par le solver lorsqu'une option n'est pas fournie. */
@@ -341,5 +349,6 @@ export const DEFAULT_SCHEDULER_CONFIG: Required<SchedulerConfig> = {
   searchStrategy: 'elimination',
   postRepair: true,
   engine: 'core',
-  groupTeacherHalfDays: false,
+  compactTeacherHalfDays: false,
+  minimizeTeacherDays: false,
 };
