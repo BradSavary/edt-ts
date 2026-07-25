@@ -337,3 +337,118 @@ def test_runner_map_config_passes_soft_teacher_flags():
     mapped = cpsat_runner._map_config({"compactTeacherHalfDays": True, "minimizeTeacherDays": True})
     assert mapped.get("compactTeacherHalfDays") is True
     assert mapped.get("minimizeTeacherDays") is True
+
+
+# ── Équilibrage charge quotidienne (balanceTeacherDailyLoad) — passe 3 lexicographique ──────────
+
+def test_balance_reduces_peak():
+    """
+    T1 : 5 cours de 2h (10h au total), maxDailyMinutes=480 (8h), dispo lundi+mardi toute la
+    journée → 10h > 8h impose 2 jours. Le pic minimal possible est 6h (6h/4h). Avec l'option,
+    aucun jour ne doit dépasser 360 min.
+    """
+    mon_tue = [{"days": "lundi, mardi", "from": "08:00", "to": "18:00"}]
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1", "maxDailyMinutes": 480}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+    ]
+    courses = [
+        {"week": 1, "code": f"C{i}", "type": "CM", "name": f"C{i}", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}
+        for i in range(5)
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses,
+           "constraints": {"T1": mon_tue, "G1": mon_tue, "R1": mon_tue}}
+
+    sol = solve(raw, {"timeoutSeconds": 10, "balanceTeacherDailyLoad": True})[0]
+    assert len(sol["solutions"]) == 5
+
+    load_by_day: dict[int, int] = {}
+    for t in sol["solutions"]:
+        day = t["startTime"] // 1440
+        load_by_day[day] = load_by_day.get(day, 0) + t["duration"]
+    assert max(load_by_day.values()) <= 360, "pic quotidien attendu ≤ 360 min (6h/4h)"
+
+
+def test_balance_never_adds_day():
+    """
+    Garde-fou anti-étalement : T1, 3 cours de 2h (6h au total, ≤ 8h de maxDailyMinutes), dispo
+    lundi+mardi+mercredi (3 jours POSSIBLES, 1 seul NÉCESSAIRE). Avec `balanceTeacherDailyLoad`
+    SEUL (sans `minimizeTeacherDays`), l'équilibrage ne doit PAS étaler en 2h/2h/2h sur 3 jours :
+    les 3 cours doivent rester sur un seul jour distinct.
+    """
+    mon_tue_wed = [{"days": "lundi, mardi, mercredi", "from": "08:00", "to": "18:00"}]
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1", "maxDailyMinutes": 480}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+    ]
+    courses = [
+        {"week": 1, "code": f"C{i}", "type": "CM", "name": f"C{i}", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}
+        for i in range(3)
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses,
+           "constraints": {"T1": mon_tue_wed, "G1": mon_tue_wed, "R1": mon_tue_wed}}
+
+    sol = solve(raw, {"timeoutSeconds": 10, "balanceTeacherDailyLoad": True})[0]
+    assert len(sol["solutions"]) == 3
+    days = {t["startTime"] // 1440 for t in sol["solutions"]}
+    assert len(days) == 1, "l'équilibrage seul ne doit jamais ajouter de jour de présence"
+
+
+def test_balance_never_sacrifices_placement():
+    """
+    Instance en tension placement/équilibrage : maxDailyMinutes bas (60) + unique jour dispo →
+    contention dure, un seul des 2 cours peut être placé. `balanceTeacherDailyLoad` ne doit pas
+    faire chuter ce nombre.
+    """
+    monday_only = [{"days": "lundi", "from": "08:00", "to": "18:00"}]
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1", "maxDailyMinutes": 60}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+    ]
+    courses = [
+        {"week": 1, "code": "C1", "type": "CM", "name": "C1", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "C2", "type": "CM", "name": "C2", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses,
+           "constraints": {"T1": monday_only, "G1": monday_only, "R1": monday_only}}
+
+    without = solve(raw, {"timeoutSeconds": 10})[0]
+    with_opt = solve(raw, {"timeoutSeconds": 10, "balanceTeacherDailyLoad": True})[0]
+
+    assert len(without["solutions"]) == 1, "prérequis du test : contention dure sur maxDailyMinutes"
+    assert len(with_opt["solutions"]) == len(without["solutions"])
+
+
+def test_balance_off_default_unchanged():
+    """Sur _toy_raw(), résultat identique (nb placé, provenOptimal) option absente vs False."""
+    raw = _toy_raw()
+    without_field = solve(raw, {"timeoutSeconds": 10})[0]
+    with_false = solve(raw, {"timeoutSeconds": 10, "balanceTeacherDailyLoad": False})[0]
+    assert len(with_false["solutions"]) == len(without_field["solutions"])
+    assert with_false["provenOptimal"] == without_field["provenOptimal"]
+
+
+def test_balance_combined_all_three():
+    """Les 3 préférences douces combinées ne plantent pas et ne dégradent pas le placement."""
+    raw = _toy_raw()
+    without = solve(raw, {"timeoutSeconds": 10})[0]
+    combined = solve(raw, {
+        "timeoutSeconds": 10,
+        "compactTeacherHalfDays": True,
+        "minimizeTeacherDays": True,
+        "balanceTeacherDailyLoad": True,
+    })[0]
+    assert len(combined["solutions"]) == len(without["solutions"])
+    assert combined["provenOptimal"] == without["provenOptimal"]
+
+
+def test_runner_map_config_passes_balance_flag():
+    mapped = cpsat_runner._map_config({"balanceTeacherDailyLoad": True})
+    assert mapped.get("balanceTeacherDailyLoad") is True

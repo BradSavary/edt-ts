@@ -28,6 +28,8 @@ Fidélité de modélisation (calquée sur scheduler-common / scheduler-core) :
   - pause méridienne fixe     → scheduler.ts _applyLunchBreak (retirée des seuls GROUP, lun-ven)
   - préférences douces prof   → passe 2 (à placement fixé) : compacité par demi-journée
                                 (compactTeacherHalfDays) et/ou moins de jours (minimizeTeacherDays)
+                                et/ou équilibrage de la charge quotidienne (balanceTeacherDailyLoad,
+                                passe 3, min-max des pics à placement ET passe-2 figés)
 
 Assumé / hors périmètre (features core-only, écartées pour ce moteur) :
   - pause FLOTTANTE (modélise mal en CP-SAT figé) — seul 'fixed' est honoré ;
@@ -307,6 +309,12 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                            douce combinée. Ne dégrade jamais le placement ni les contraintes dures.
                            `provenOptimal` reste basé sur la passe 1 (l'optimum doux peut ne pas
                            être prouvé sous le timeout).
+      - balanceTeacherDailyLoad : bool (défaut False) — préférence DOUCE : équilibrer la charge
+                           quotidienne d'un enseignant entre ses jours de présence (min-max de la
+                           charge par jour). N'ajoute jamais de jour : force la présence-jours en
+                           passe 2 (comme minimizeTeacherDays) puis équilibre en passe 3, à
+                           placement ET pénalité passe-2 FIGÉS. Ne dégrade jamais placement ni
+                           contraintes dures. `provenOptimal` reste basé sur la passe 1.
     """
     config = config or {}
     week = raw["week"]
@@ -316,6 +324,9 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     earliest = bool(config.get("earliest", False))
     compact_half_days = bool(config.get("compactTeacherHalfDays", False))
     minimize_days = bool(config.get("minimizeTeacherDays", False))
+    balance_load = bool(config.get("balanceTeacherDailyLoad", False))
+    # L'équilibrage ancre le nombre de jours : il force la présence-jours dans la passe 2.
+    include_days = minimize_days or balance_load
 
     # Métadonnées ressources : type + plafond quotidien.
     rtype_of: dict[str, str] = {}
@@ -520,7 +531,8 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     # trop vaut DAY_PRESENCE_PENALTY minutes), de sorte qu'une simple somme les concilie sans qu'une
     # option n'écrase l'autre quand les deux sont actives.
     penalty_terms: list[Any] = []
-    if compact_half_days or minimize_days:
+    peak_terms: list[Any] = []            # Σ pic quotidien (passe 3, balance_load uniquement)
+    if compact_half_days or minimize_days or balance_load:
         # Littéraux enseignant par cours : (tid, li, lit d'utilisation) — enforced inclus
         # (lit == scheduled[li]), alternatives incluses (lit == bool de l'alternative choisie).
         teacher_lits = defaultdict(list)                      # tid -> [(li, lit)]
@@ -563,8 +575,11 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                         model.Add(idle == last - first - sum(busy))              # ≥0 ⇒ 0 si <2 présents
                         penalty_terms.append(idle)            # en minutes
 
-        # ── Option B : moins de jours de présence (minimiser le nb de journées distinctes). ──
-        if minimize_days:
+        # ── Présence-jours enseignant (partagée : pénalité "moins de jours" + équilibrage). ──
+        # Construite dès qu'une des deux options la requiert (minimize_days OU balance_load).
+        present_q = defaultdict(list)                 # (tid, d) -> [(li, q)] avec q = lit ∧ on_day
+        day_used_by = {}                              # (tid, d) -> BoolVar "présent ce jour"
+        if include_days:
             for tid, lst in teacher_lits.items():
                 for d in sorted({d for (li, _) in lst for d in possible_days[li]}):
                     present = []
@@ -575,12 +590,34 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                         od = on_day(li, d)
                         model.AddBoolAnd([lit, od]).OnlyEnforceIf(q)
                         model.AddBoolOr([lit.Not(), od.Not()]).OnlyEnforceIf(q.Not())
-                        present.append(q)
+                        present.append((li, q))
+                        present_q[(tid, d)].append((li, q))
                     if not present:
                         continue
                     day_used = model.NewBoolVar(f"day{tid}_{d}")
-                    model.AddMaxEquality(day_used, present)    # OR : enseignant présent ce jour
-                    penalty_terms.append(DAY_PRESENCE_PENALTY * day_used)
+                    model.AddMaxEquality(day_used, [q for (_, q) in present])
+                    day_used_by[(tid, d)] = day_used
+                    if include_days:                  # jours pénalisés dès que minimize_days OU balance
+                        penalty_terms.append(DAY_PRESENCE_PENALTY * day_used)
+
+        # ── Équilibrage : min-max de la charge quotidienne par enseignant (passe 3). ──
+        # `peak_terms` n'entre PAS dans `penalty_terms` (passe 2) : son propre niveau lexicographique
+        # (passe 3). `1440` = borne physique (une journée ≤ 24 h de minutes), sûre même si
+        # `ignoreDailyLimits`. `balance_load ⇒ include_days`, donc `present_q` est toujours peuplé ici.
+        if balance_load:
+            for tid, lst in teacher_lits.items():
+                days = sorted({d for (li, _) in lst for d in possible_days[li]})
+                loads = []
+                for d in days:
+                    qs = present_q.get((tid, d), [])
+                    if not qs:
+                        continue
+                    loads.append(sum(courses[li][1]["duration"] * q for (li, q) in qs))
+                if len(loads) < 2:
+                    continue                          # ≤1 jour possible ⇒ rien à équilibrer
+                peak = model.NewIntVar(0, 1440, f"peak{tid}")
+                model.AddMaxEquality(peak, loads)     # peak = charge quotidienne max
+                peak_terms.append(peak)
 
     # ── Passe 1 : optimum du NOMBRE de cours placés (départage « au plus tôt » si earliest). ──
     total_timeout = float(config.get("timeoutSeconds", 30.0))
@@ -618,6 +655,25 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
         if status2 in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             solver = solver2                          # extraire la solution optimisée
         # provenOptimal reste basé sur placement_proven (passe 1) — voir docstring de solve().
+
+    # ── Passe 3 : à placement ET pénalité passe-2 FIGÉS, équilibrer (min Σ pic quotidien). ──
+    if balance_load and peak_terms:
+        model.Add(place_term >= best_placed)          # placement toujours verrouillé
+        if penalty_terms:
+            best_p2 = int(round(solver.Value(sum(penalty_terms))))
+            model.Add(sum(penalty_terms) <= best_p2)  # fige compacité + jours acquis en passe 2
+        model.ClearHints()
+        for li in range(len(courses)):
+            model.AddHint(scheduled[li], solver.Value(scheduled[li]))
+            model.AddHint(start[li], solver.Value(start[li]))
+        model.Minimize(sum(peak_terms))
+        remaining = max(1.0, total_timeout - solver.WallTime())
+        solver3 = cp_model.CpSolver()
+        solver3.parameters.max_time_in_seconds = remaining
+        status3 = solver3.Solve(model)
+        if status3 in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            solver = solver3                          # extraire la solution équilibrée
+        # provenOptimal reste basé sur placement_proven (passe 1).
 
     # ---- Extraction de la solution ----
     placed_solutions = []

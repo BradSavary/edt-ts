@@ -149,6 +149,8 @@ DATA_S48 = (Path(__file__).resolve().parents[2] / "packages" / "scheduler-core" 
     {"compactTeacherHalfDays": True},
     {"minimizeTeacherDays": True},
     {"compactTeacherHalfDays": True, "minimizeTeacherDays": True},
+    {"balanceTeacherDailyLoad": True},
+    {"compactTeacherHalfDays": True, "minimizeTeacherDays": True, "balanceTeacherDailyLoad": True},
 ])
 def test_parity_soft_teacher_prefs_s48(soft):
     """
