@@ -22,7 +22,7 @@ export const useAppConfigStore = create<AppConfigStore>()(
     }),
     {
       name: 'edt-app-config',
-      version: 5,
+      version: 6,
       migrate: (persistedState) => {
         const state = persistedState as { schedulerConfig?: Record<string, unknown> };
         if (!state?.schedulerConfig) return state;
@@ -34,6 +34,7 @@ export const useAppConfigStore = create<AppConfigStore>()(
         if (!('engine' in schedulerConfig)) schedulerConfig.engine = 'core';
         if (!('compactTeacherHalfDays' in schedulerConfig)) schedulerConfig.compactTeacherHalfDays = false;
         if (!('minimizeTeacherDays' in schedulerConfig)) schedulerConfig.minimizeTeacherDays = false;
+        if (!('balanceTeacherDailyLoad' in schedulerConfig)) schedulerConfig.balanceTeacherDailyLoad = false;
         return { ...state, schedulerConfig };
       },
     },

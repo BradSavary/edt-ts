@@ -57,6 +57,7 @@ interface Draft {
   searchStrategy: 'elimination' | 'maxPlacement';
   compactTeacherHalfDays: boolean;
   minimizeTeacherDays: boolean;
+  balanceTeacherDailyLoad: boolean;
 }
 
 // ── Helpers de conversion ────────────────────────────────────────────────────
@@ -95,6 +96,7 @@ function configToDraft(config: SchedulerConfig): Draft {
     searchStrategy: config.searchStrategy ?? DEFAULT_SCHEDULER_CONFIG.searchStrategy,
     compactTeacherHalfDays: config.compactTeacherHalfDays ?? DEFAULT_SCHEDULER_CONFIG.compactTeacherHalfDays,
     minimizeTeacherDays: config.minimizeTeacherDays ?? DEFAULT_SCHEDULER_CONFIG.minimizeTeacherDays,
+    balanceTeacherDailyLoad: config.balanceTeacherDailyLoad ?? DEFAULT_SCHEDULER_CONFIG.balanceTeacherDailyLoad,
   };
 }
 
@@ -127,6 +129,7 @@ function draftToConfig(draft: Draft): SchedulerConfig {
     searchStrategy: draft.searchStrategy,
     compactTeacherHalfDays: draft.compactTeacherHalfDays,
     minimizeTeacherDays: draft.minimizeTeacherDays,
+    balanceTeacherDailyLoad: draft.balanceTeacherDailyLoad,
   };
 }
 
@@ -297,6 +300,26 @@ export function SchedulerConfigDialog() {
                   Concentre les cours d&apos;un même enseignant sur le moins de journées possible
                   (quitte à remplir matin et après-midi d&apos;un même jour) pour lui éviter de
                   venir un jour de plus.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 pt-1">
+              <input
+                id="cfg-balanceTeacherDailyLoad"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+                checked={draft.balanceTeacherDailyLoad}
+                onChange={(e) => setDraftField('balanceTeacherDailyLoad', e.target.checked)}
+              />
+              <div className="space-y-0.5">
+                <Label htmlFor="cfg-balanceTeacherDailyLoad" className="cursor-pointer">
+                  Équilibrer la charge quotidienne d&apos;un enseignant
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Répartit plus équitablement la charge d&apos;un enseignant entre les jours où il
+                  est présent (évite un jour surchargé et un autre presque vide). N&apos;ajoute
+                  jamais de jour : elle regroupe d&apos;abord sur le moins de jours possible, puis
+                  équilibre ces jours.
                 </p>
               </div>
             </div>

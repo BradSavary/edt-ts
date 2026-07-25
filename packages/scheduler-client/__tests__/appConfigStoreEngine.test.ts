@@ -79,4 +79,16 @@ describe('useAppConfigStore — migration engine (v2 → v3)', () => {
     expect(cfg.compactTeacherHalfDays).toBe(false);
     expect(cfg.minimizeTeacherDays).toBe(false);
   });
+
+  it("migration v6 : injecte balanceTeacherDailyLoad (false) sur une config v5 qui ne l'a pas", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      state: { schedulerConfig: { engine: 'cpsat', timeoutSeconds: 180, minimizeTeacherDays: true } },
+      version: 5,
+    }));
+    const { useAppConfigStore } = await import('@/store/useAppConfigStore');
+    await useAppConfigStore.persist.rehydrate();
+    const cfg = useAppConfigStore.getState().schedulerConfig as Record<string, unknown>;
+    expect(cfg.minimizeTeacherDays).toBe(true);
+    expect(cfg.balanceTeacherDailyLoad).toBe(false);
+  });
 });
