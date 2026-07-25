@@ -333,6 +333,16 @@ export interface SchedulerConfig {
    * `compactTeacherHalfDays`. Sans effet sur le moteur core. Défaut : false.
    */
   minimizeTeacherDays?: boolean;
+  /**
+   * CP-SAT uniquement — préférence DOUCE : équilibrer la charge quotidienne d'un enseignant entre
+   * les jours où il est présent (minimiser sa charge journalière maximale), pour éviter qu'il soit
+   * surchargé un jour et presque vide un autre. N'AJOUTE jamais de jour de présence : activée, elle
+   * minimise d'abord le nombre de jours (comme `minimizeTeacherDays`) puis équilibre CES jours.
+   * Mêmes garanties que les autres douces (à placement constant, résolution lexicographique) : ne
+   * sacrifie jamais un placement ni ne viole une contrainte dure. Combinable avec
+   * `compactTeacherHalfDays` et `minimizeTeacherDays`. Sans effet sur le moteur core. Défaut : false.
+   */
+  balanceTeacherDailyLoad?: boolean;
 }
 
 /** Valeurs par défaut appliquées par le solver lorsqu'une option n'est pas fournie. */
@@ -351,4 +361,5 @@ export const DEFAULT_SCHEDULER_CONFIG: Required<SchedulerConfig> = {
   engine: 'core',
   compactTeacherHalfDays: false,
   minimizeTeacherDays: false,
+  balanceTeacherDailyLoad: false,
 };
