@@ -22,14 +22,18 @@ export const useAppConfigStore = create<AppConfigStore>()(
     }),
     {
       name: 'edt-app-config',
-      version: 4,
+      version: 5,
       migrate: (persistedState) => {
         const state = persistedState as { schedulerConfig?: Record<string, unknown> };
         if (!state?.schedulerConfig) return state;
         const schedulerConfig = { ...state.schedulerConfig };
         delete schedulerConfig.maxSolutions;
+        // v5 : l'option unique groupTeacherHalfDays (sémantique « une seule demi-journée par jour »,
+        // jamais souhaitée) est remplacée par deux préférences douces indépendantes.
+        delete schedulerConfig.groupTeacherHalfDays;
         if (!('engine' in schedulerConfig)) schedulerConfig.engine = 'core';
-        if (!('groupTeacherHalfDays' in schedulerConfig)) schedulerConfig.groupTeacherHalfDays = false;
+        if (!('compactTeacherHalfDays' in schedulerConfig)) schedulerConfig.compactTeacherHalfDays = false;
+        if (!('minimizeTeacherDays' in schedulerConfig)) schedulerConfig.minimizeTeacherDays = false;
         return { ...state, schedulerConfig };
       },
     },

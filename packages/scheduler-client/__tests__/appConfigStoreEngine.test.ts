@@ -66,13 +66,17 @@ describe('useAppConfigStore — migration engine (v2 → v3)', () => {
     expect(useAppConfigStore.getState().schedulerConfig.engine).toBe('core');
   });
 
-  it("config persistée v3 sans groupTeacherHalfDays : injecte groupTeacherHalfDays=false à la réhydratation (migration v4)", async () => {
+  it("migration v5 : remplace groupTeacherHalfDays par compactTeacherHalfDays + minimizeTeacherDays (false)", async () => {
+    // Config v4 persistée avec l'ancien flag unique : il est supprimé, les deux nouveaux injectés à false.
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      state: { schedulerConfig: { engine: 'cpsat', timeoutSeconds: 180 } },
-      version: 3,
+      state: { schedulerConfig: { engine: 'cpsat', timeoutSeconds: 180, groupTeacherHalfDays: true } },
+      version: 4,
     }));
     const { useAppConfigStore } = await import('@/store/useAppConfigStore');
     await useAppConfigStore.persist.rehydrate();
-    expect(useAppConfigStore.getState().schedulerConfig.groupTeacherHalfDays).toBe(false);
+    const cfg = useAppConfigStore.getState().schedulerConfig as Record<string, unknown>;
+    expect(cfg.groupTeacherHalfDays).toBeUndefined();
+    expect(cfg.compactTeacherHalfDays).toBe(false);
+    expect(cfg.minimizeTeacherDays).toBe(false);
   });
 });

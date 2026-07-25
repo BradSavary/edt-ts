@@ -55,7 +55,8 @@ interface Draft {
   conflictSetExact: boolean;
   postRepair: boolean;
   searchStrategy: 'elimination' | 'maxPlacement';
-  groupTeacherHalfDays: boolean;
+  compactTeacherHalfDays: boolean;
+  minimizeTeacherDays: boolean;
 }
 
 // ── Helpers de conversion ────────────────────────────────────────────────────
@@ -92,7 +93,8 @@ function configToDraft(config: SchedulerConfig): Draft {
     conflictSetExact: config.conflictSetExact ?? DEFAULT_SCHEDULER_CONFIG.conflictSetExact,
     postRepair: config.postRepair ?? DEFAULT_SCHEDULER_CONFIG.postRepair,
     searchStrategy: config.searchStrategy ?? DEFAULT_SCHEDULER_CONFIG.searchStrategy,
-    groupTeacherHalfDays: config.groupTeacherHalfDays ?? DEFAULT_SCHEDULER_CONFIG.groupTeacherHalfDays,
+    compactTeacherHalfDays: config.compactTeacherHalfDays ?? DEFAULT_SCHEDULER_CONFIG.compactTeacherHalfDays,
+    minimizeTeacherDays: config.minimizeTeacherDays ?? DEFAULT_SCHEDULER_CONFIG.minimizeTeacherDays,
   };
 }
 
@@ -123,7 +125,8 @@ function draftToConfig(draft: Draft): SchedulerConfig {
     conflictSetExact: draft.conflictSetExact,
     postRepair: draft.postRepair,
     searchStrategy: draft.searchStrategy,
-    groupTeacherHalfDays: draft.groupTeacherHalfDays,
+    compactTeacherHalfDays: draft.compactTeacherHalfDays,
+    minimizeTeacherDays: draft.minimizeTeacherDays,
   };
 }
 
@@ -253,24 +256,47 @@ export function SchedulerConfigDialog() {
             <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
               CP-SAT — préférences (douces)
             </h3>
+            <p className="text-xs text-muted-foreground">
+              Appliquées au mieux, sans jamais déplacer moins de cours ni dépasser les limites des
+              ressources. Combinables. Peuvent allonger le temps de calcul ; leur optimum n&apos;est
+              pas toujours prouvé sous le timeout (le nombre de cours placés, lui, reste optimal).
+            </p>
             <div className="flex items-start gap-3 pt-1">
               <input
-                id="cfg-groupTeacherHalfDays"
+                id="cfg-compactTeacherHalfDays"
                 type="checkbox"
                 className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
-                checked={draft.groupTeacherHalfDays}
-                onChange={(e) => setDraftField('groupTeacherHalfDays', e.target.checked)}
+                checked={draft.compactTeacherHalfDays}
+                onChange={(e) => setDraftField('compactTeacherHalfDays', e.target.checked)}
               />
               <div className="space-y-0.5">
-                <Label htmlFor="cfg-groupTeacherHalfDays" className="cursor-pointer">
-                  Regrouper les cours d&apos;un enseignant par demi-journée
+                <Label htmlFor="cfg-compactTeacherHalfDays" className="cursor-pointer">
+                  Compacter les cours d&apos;un enseignant par demi-journée
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Préférence appliquée au mieux : le moteur essaie de concentrer les cours d&apos;un
-                  même enseignant sur une seule demi-journée par jour, sans jamais déplacer moins
-                  de cours ni dépasser ses limites. Peut allonger le temps de calcul et l&apos;optimum
-                  de regroupement n&apos;est pas toujours prouvé sous le timeout (le nombre de cours
-                  placés, lui, reste prouvé optimal).
+                  Colle les cours d&apos;un même enseignant à l&apos;intérieur d&apos;une même
+                  demi-journée (réduit les temps morts entre ses cours d&apos;une matinée ou
+                  d&apos;une après-midi). Être présent matin et après-midi, ou sur plusieurs jours,
+                  n&apos;est pas pénalisé.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 pt-1">
+              <input
+                id="cfg-minimizeTeacherDays"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+                checked={draft.minimizeTeacherDays}
+                onChange={(e) => setDraftField('minimizeTeacherDays', e.target.checked)}
+              />
+              <div className="space-y-0.5">
+                <Label htmlFor="cfg-minimizeTeacherDays" className="cursor-pointer">
+                  Minimiser le nombre de jours de présence d&apos;un enseignant
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Concentre les cours d&apos;un même enseignant sur le moins de journées possible
+                  (quitte à remplir matin et après-midi d&apos;un même jour) pour lui éviter de
+                  venir un jour de plus.
                 </p>
               </div>
             </div>
