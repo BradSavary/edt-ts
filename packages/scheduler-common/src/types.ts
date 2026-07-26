@@ -349,6 +349,13 @@ export interface SchedulerConfig {
    * ex. 8h+18h). Ignorée si la pause n'est pas fixe. Défaut : false.
    */
   crossNoonGap?: boolean;
+  /**
+   * CP-SAT uniquement — préférence DOUCE (grand confort) : pour un enseignant, garder la même salle
+   * d'un cours au suivant dans une même demi-journée quand une salle commune existe. Appliquée en
+   * dernier, à placement figé — ne modifie jamais l'emploi du temps ni les autres préférences.
+   * Défaut : false.
+   */
+  minimizeTeacherRoomChanges?: boolean;
 }
 
 /** Valeurs par défaut appliquées par le solver lorsqu'une option n'est pas fournie. */
@@ -369,4 +376,5 @@ export const DEFAULT_SCHEDULER_CONFIG: Required<SchedulerConfig> = {
   minimizeTeacherDays: false,
   balanceTeacherDailyLoad: false,
   crossNoonGap: false,
+  minimizeTeacherRoomChanges: false,
 };
