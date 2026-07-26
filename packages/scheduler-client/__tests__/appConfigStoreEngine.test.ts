@@ -103,4 +103,16 @@ describe('useAppConfigStore — migration engine (v2 → v3)', () => {
     expect(cfg.balanceTeacherDailyLoad).toBe(true);
     expect(cfg.crossNoonGap).toBe(false);
   });
+
+  it("migration v8 : injecte minimizeTeacherRoomChanges (false) sur une config v7 qui ne l'a pas", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      state: { schedulerConfig: { engine: 'cpsat', timeoutSeconds: 180, crossNoonGap: true } },
+      version: 7,
+    }));
+    const { useAppConfigStore } = await import('@/store/useAppConfigStore');
+    await useAppConfigStore.persist.rehydrate();
+    const cfg = useAppConfigStore.getState().schedulerConfig as Record<string, unknown>;
+    expect(cfg.crossNoonGap).toBe(true);
+    expect(cfg.minimizeTeacherRoomChanges).toBe(false);
+  });
 });

@@ -59,6 +59,7 @@ interface Draft {
   minimizeTeacherDays: boolean;
   balanceTeacherDailyLoad: boolean;
   crossNoonGap: boolean;
+  minimizeTeacherRoomChanges: boolean;
 }
 
 // ── Helpers de conversion ────────────────────────────────────────────────────
@@ -99,6 +100,8 @@ function configToDraft(config: SchedulerConfig): Draft {
     minimizeTeacherDays: config.minimizeTeacherDays ?? DEFAULT_SCHEDULER_CONFIG.minimizeTeacherDays,
     balanceTeacherDailyLoad: config.balanceTeacherDailyLoad ?? DEFAULT_SCHEDULER_CONFIG.balanceTeacherDailyLoad,
     crossNoonGap: config.crossNoonGap ?? DEFAULT_SCHEDULER_CONFIG.crossNoonGap,
+    minimizeTeacherRoomChanges:
+      config.minimizeTeacherRoomChanges ?? DEFAULT_SCHEDULER_CONFIG.minimizeTeacherRoomChanges,
   };
 }
 
@@ -133,6 +136,7 @@ function draftToConfig(draft: Draft): SchedulerConfig {
     minimizeTeacherDays: draft.minimizeTeacherDays,
     balanceTeacherDailyLoad: draft.balanceTeacherDailyLoad,
     crossNoonGap: draft.crossNoonGap,
+    minimizeTeacherRoomChanges: draft.minimizeTeacherRoomChanges,
   };
 }
 
@@ -342,6 +346,26 @@ export function SchedulerConfigDialog() {
                   Évite qu&apos;un enseignant ait un cours tôt le matin et un autre tard le soir
                   avec un grand vide au milieu (au-delà de la pause déjeuner). Sans effet si la
                   pause n&apos;est pas fixe.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 pt-1">
+              <input
+                id="cfg-minimizeTeacherRoomChanges"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+                checked={draft.minimizeTeacherRoomChanges}
+                onChange={(e) => setDraftField('minimizeTeacherRoomChanges', e.target.checked)}
+              />
+              <div className="space-y-0.5">
+                <Label htmlFor="cfg-minimizeTeacherRoomChanges" className="cursor-pointer">
+                  Limiter les changements de salle (enseignant)
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Fait en sorte qu&apos;un enseignant garde la même salle d&apos;un cours au
+                  suivant dans une même demi-journée, quand une salle commune existe. Confort
+                  appliqué en dernier, sans jamais modifier l&apos;emploi du temps ni les autres
+                  préférences.
                 </p>
               </div>
             </div>
