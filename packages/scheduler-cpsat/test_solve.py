@@ -7,6 +7,8 @@ Tests unitaires (pytest) du moteur CP-SAT.
 
 from __future__ import annotations
 
+from collections import defaultdict
+
 import pytest
 from ortools.sat.python import cp_model
 
@@ -714,3 +716,216 @@ def test_cross_noon_combined_with_compact():
 def test_runner_map_config_passes_cross_noon_flag():
     mapped = cpsat_runner._map_config({"crossNoonGap": True})
     assert mapped.get("crossNoonGap") is True
+
+
+# ── Minimisation des changements de salle enseignant (minimizeTeacherRoomChanges) — passe 4 ─────
+
+def _count_room_changes(sol: dict, half_cut: int = 13 * 60) -> int:
+    """
+    Compte, depuis l'EXTÉRIEUR du modèle (indépendant de CP-SAT), le nombre de changements de
+    salle sur les paires de cours consécutifs d'un même enseignant dans une même demi-journée.
+    Trie par (prof, jour, demi-journée, startTime) ; une paire "change" si les deux cours ne
+    partagent AUCUNE salle.
+    """
+    by_teacher: dict[str, list[tuple[int, frozenset]]] = defaultdict(list)
+    for t in sol["solutions"]:
+        room_ids = frozenset(r["id"] for r in t["resources"] if r["type"] == "room")
+        for r in t["resources"]:
+            if r["type"] == "teacher":
+                by_teacher[r["id"]].append((t["startTime"], room_ids))
+
+    changes = 0
+    for _, items in by_teacher.items():
+        items.sort(key=lambda x: x[0])
+        for (s1, r1), (s2, r2) in zip(items, items[1:]):
+            d1, d2 = s1 // 1440, s2 // 1440
+            h1 = 0 if (s1 - d1 * 1440) < half_cut else 1
+            h2 = 0 if (s2 - d2 * 1440) < half_cut else 1
+            if d1 == d2 and h1 == h2 and not (r1 & r2):
+                changes += 1
+    return changes
+
+
+def _room_change_resources(n: int) -> list[dict]:
+    ids = ["Rd1", "Rd2", "Rd3", "Rd4", "R2"]
+    return [
+        {"resourceType": "teacher", "resources": [{"id": f"T{i}"} for i in range(n)]},
+        {"resourceType": "group", "resources": [{"id": f"G{i}"} for i in range(n)]},
+        {"resourceType": "room", "resources": [
+            {"id": f"{base}_{i}"} for base in ids for i in range(n)
+        ]},
+    ]
+
+
+def _room_change_raw(n: int = 5) -> dict:
+    """
+    `n` enseignants indépendants, chacun avec 2 cours consécutifs le même matin (fenêtre 120 min
+    pile = somme des 2 durées de 60 min → aucun slack, back-to-back forcé). Cours A alternatives
+    `[Rd1_i, Rd2_i, R2_i]`, cours B `[Rd3_i, Rd4_i, R2_i]` : seule salle commune R2_i, entourée de
+    2 décoys chacun côté.
+
+    Les décoys sont nécessaires pour la preuve « casse-si-retiré » (§5.1 du plan) : avec seulement
+    2 alternatives par cours (`[R1_i,R2_i]` / `[R2_i,R3_i]`), l'ablation de `model.Minimize` de la
+    passe 4 (vérifiée en revue le 2026-07-26) retombe QUAND MÊME sur 0 changement par effet de bord
+    du solveur (même artefact que documenté pour `crossNoonGap`) — faux positif. Avec les décoys,
+    l'ablation retombe sur les décoys (Rd1_i pour A, Rd3_i pour B, JAMAIS R2_i) → 5/5 changements,
+    et seul le vrai objectif de la passe 4 fait converger vers R2_i partagé (mesuré : 0/5).
+    """
+    win = [{"days": "lundi", "from": "08:00", "to": "10:00"}]
+    wide = [{"days": "lundi", "from": "08:00", "to": "18:00"}]
+    courses = []
+    constraints: dict[str, list] = {}
+    for i in range(n):
+        courses.append({"week": 1, "code": f"A{i}", "type": "CM", "name": f"A{i}", "duration": 60,
+                         "teacher": [f"T{i}"], "groups": [f"G{i}"],
+                         "rooms": [[f"Rd1_{i}", f"Rd2_{i}", f"R2_{i}"]]})
+        courses.append({"week": 1, "code": f"B{i}", "type": "CM", "name": f"B{i}", "duration": 60,
+                         "teacher": [f"T{i}"], "groups": [f"G{i}"],
+                         "rooms": [[f"Rd3_{i}", f"Rd4_{i}", f"R2_{i}"]]})
+        constraints[f"T{i}"] = win
+        constraints[f"G{i}"] = win
+        for base in ("Rd1", "Rd2", "Rd3", "Rd4", "R2"):
+            constraints[f"{base}_{i}"] = wide
+    return {"week": 1, "resources": _room_change_resources(n), "courses": courses,
+            "constraints": constraints}
+
+
+def test_room_change_picks_common_room():
+    """
+    5 paires indépendantes, chacune avec une unique salle commune (R2_i). Avec le flag, les 2 cours
+    de CHAQUE prof doivent partager R2_i → 0 changement de salle au total sur les 5 profs.
+    """
+    n = 5
+    raw = _room_change_raw(n)
+    sol = solve(raw, {"timeoutSeconds": 10, "minimizeTeacherRoomChanges": True})[0]
+    assert len(sol["solutions"]) == 2 * n
+    assert _count_room_changes(sol) == 0
+
+
+def test_room_change_keeps_within_half_only():
+    """
+    Segmentation midi : un prof avec matin `m1` (fixe R1) puis `m2` (alt [R1,R2]) consécutifs, et
+    après-midi `a1` (fixe R2) séparé par la pause. Avec le flag, seule la paire intra-matin
+    (m1,m2) est influençable → m2 = R1 (unique optimum matin). Un bug qui apparierait m2 avec a1
+    à travers midi tirerait m2 vers R2 → l'assert le détecte.
+    """
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1"}]},
+        {"resourceType": "group", "resources": [{"id": "Gm1"}, {"id": "Gm2"}, {"id": "Ga1"}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}, {"id": "R2"}]},
+    ]
+    courses = [
+        {"week": 1, "code": "m1", "type": "CM", "name": "m1", "duration": 60,
+         "teacher": ["T1"], "groups": ["Gm1"], "rooms": ["R1"]},
+        {"week": 1, "code": "m2", "type": "CM", "name": "m2", "duration": 60,
+         "teacher": ["T1"], "groups": ["Gm2"], "rooms": [["R1", "R2"]]},
+        {"week": 1, "code": "a1", "type": "CM", "name": "a1", "duration": 60,
+         "teacher": ["T1"], "groups": ["Ga1"], "rooms": ["R2"]},
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses, "constraints": {
+        "T1": [{"days": "lundi", "from": "08:00", "to": "10:00"},
+               {"days": "lundi", "from": "14:00", "to": "15:00"}],
+        "Gm1": [{"days": "lundi", "from": "08:00", "to": "09:00"}],
+        "Gm2": [{"days": "lundi", "from": "09:00", "to": "10:00"}],
+        "Ga1": [{"days": "lundi", "from": "14:00", "to": "15:00"}],
+        "R1": ALL_DAY,
+        "R2": ALL_DAY,
+    }}
+    lunch = {"type": "fixed", "from": "12:00", "to": "13:30"}
+
+    sol = solve(raw, {"timeoutSeconds": 10, "minimizeTeacherRoomChanges": True, "lunchBreak": lunch})[0]
+    assert len(sol["solutions"]) == 3
+    by_code = {t["code"]: t for t in sol["solutions"]}
+    assert by_code["m1"]["startTime"] == 8 * 60
+    assert by_code["m2"]["startTime"] == 9 * 60
+    assert by_code["a1"]["startTime"] == 14 * 60
+    m2_rooms = {r["id"] for r in by_code["m2"]["resources"] if r["type"] == "room"}
+    assert m2_rooms == {"R1"}, "m2 doit s'aligner sur R1 (paire matin) et NON sur R2 (a1, à travers midi)"
+
+
+def test_room_change_no_common_room_incompressible():
+    """Un prof, 2 cours consécutifs à salles FIXES disjointes (R1 puis R2) : changement incompressible."""
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}, {"id": "G2"}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}, {"id": "R2"}]},
+    ]
+    courses = [
+        {"week": 1, "code": "i1", "type": "CM", "name": "i1", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "i2", "type": "CM", "name": "i2", "duration": 60,
+         "teacher": ["T1"], "groups": ["G2"], "rooms": ["R2"]},
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses, "constraints": {
+        "T1": [{"days": "lundi", "from": "08:00", "to": "10:00"}],
+        "G1": [{"days": "lundi", "from": "08:00", "to": "09:00"}],
+        "G2": [{"days": "lundi", "from": "09:00", "to": "10:00"}],
+        "R1": ALL_DAY,
+        "R2": ALL_DAY,
+    }}
+
+    sol = solve(raw, {"timeoutSeconds": 10, "minimizeTeacherRoomChanges": True})[0]
+    assert len(sol["solutions"]) == 2
+    by_code = {t["code"]: t for t in sol["solutions"]}
+    assert {r["id"] for r in by_code["i1"]["resources"] if r["type"] == "room"} == {"R1"}
+    assert {r["id"] for r in by_code["i2"]["resources"] if r["type"] == "room"} == {"R2"}
+
+
+def test_room_change_noop_when_all_fixed():
+    """
+    Instance à salles toutes fixes (`_toy_raw`) : nb placé et provenOptimal identiques avec/sans le
+    flag (même patron que `test_balance_off_default_unchanged`/`test_soft_teacher_prefs_off_is_default_unchanged`
+    : PAS de comparaison exacte des salles/placement entre 2 appels `solve()` séparés — `_toy_raw` a
+    une contention C2/C3 dont le départage peut varier d'un run à l'autre côté CP-SAT multi-thread,
+    même sans aucune option activée ; comparer l'exact aurait rendu le test intermittent, constaté
+    empiriquement lors de la validation vrai projet, cf. STATUT).
+    """
+    raw = _toy_raw()
+    without = solve(raw, {"timeoutSeconds": 10})[0]
+    with_flag = solve(raw, {"timeoutSeconds": 10, "minimizeTeacherRoomChanges": True})[0]
+    assert len(with_flag["solutions"]) == len(without["solutions"])
+    assert with_flag["provenOptimal"] == without["provenOptimal"]
+
+
+def test_room_change_respects_availability():
+    """Un prof, cours `i` à salle alternative [R1,R2] avec R2 indisponible au créneau : reste FEASIBLE, garde R1."""
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}, {"id": "R2"}]},
+    ]
+    courses = [
+        {"week": 1, "code": "i", "type": "CM", "name": "i", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": [["R1", "R2"]]},
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses, "constraints": {
+        "T1": [{"days": "lundi", "from": "08:00", "to": "09:00"}],
+        "G1": [{"days": "lundi", "from": "08:00", "to": "09:00"}],
+        "R1": ALL_DAY,
+        "R2": [{"days": "lundi", "from": "10:00", "to": "18:00"}],  # indisponible 08h-09h
+    }}
+
+    sol = solve(raw, {"timeoutSeconds": 10, "minimizeTeacherRoomChanges": True})[0]
+    assert len(sol["solutions"]) == 1
+    i = sol["solutions"][0]
+    assert {r["id"] for r in i["resources"] if r["type"] == "room"} == {"R1"}
+
+
+def test_room_change_off_is_noop():
+    """
+    Même instance que test_room_change_picks_common_room, sans le flag : baseline inerte (nb placé +
+    provenOptimal, PAS l'exact des salles — voir commentaire de `test_room_change_noop_when_all_fixed` :
+    sans objectif de salle, le choix parmi les décoys n'est pas garanti stable entre 2 appels
+    `solve()` séparés côté CP-SAT multi-thread ; comparer l'exact rendait ce test intermittent
+    (~13% d'échec mesuré empiriquement), cf. STATUT).
+    """
+    raw = _room_change_raw(5)
+    without_field = solve(raw, {"timeoutSeconds": 10})[0]
+    with_false = solve(raw, {"timeoutSeconds": 10, "minimizeTeacherRoomChanges": False})[0]
+    assert len(with_false["solutions"]) == len(without_field["solutions"])
+    assert with_false["provenOptimal"] == without_field["provenOptimal"]
+
+
+def test_runner_map_config_passes_room_change_flag():
+    mapped = cpsat_runner._map_config({"minimizeTeacherRoomChanges": True})
+    assert mapped.get("minimizeTeacherRoomChanges") is True

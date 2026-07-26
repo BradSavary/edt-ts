@@ -328,6 +328,18 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                            si la pause n'est pas fixe (`lunchBreak.type != 'fixed'`) : sans pause
                            fixe, la découpe matin/après-midi est arbitraire et la positivité du
                            trou n'est plus garantie.
+      - minimizeTeacherRoomChanges : bool (défaut False) — préférence DOUCE de grand confort : pour
+                           un enseignant, garder la même salle d'un cours au suivant dans une même
+                           demi-journée quand une salle commune existe. Passe 4, tout en bas de la
+                           hiérarchie, appliquée à PLACEMENT GELÉ (post-traitement quasi pur) :
+                           `scheduled[]`, `start[]` et tous les littéraux non-salle sont figés en dur
+                           à la solution des passes précédentes, seul le choix parmi les salles
+                           ALTERNATIVES reste libre. Les 4 autres douces ne dépendent que de
+                           grandeurs gelées → strictement préservées, aucun verrou dur
+                           supplémentaire nécessaire. Fidèle (pénalise les vraies transitions entre
+                           cours consécutifs d'une même demi-journée, pas une borne), no-op si aucun
+                           cours n'a de salle alternative influençable, coût attendu négligeable.
+                           `provenOptimal` reste basé sur la passe 1.
     """
     config = config or {}
     week = raw["week"]
@@ -339,6 +351,7 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     minimize_days = bool(config.get("minimizeTeacherDays", False))
     balance_load = bool(config.get("balanceTeacherDailyLoad", False))
     cross_noon = bool(config.get("crossNoonGap", False))
+    minimize_rooms = bool(config.get("minimizeTeacherRoomChanges", False))
     # L'équilibrage ancre le nombre de jours : il force la présence-jours dans la passe 2.
     include_days = minimize_days or balance_load
 
@@ -754,6 +767,77 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
         if status3 in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             solver = solver3                          # extraire la solution équilibrée
         # provenOptimal reste basé sur placement_proven (passe 1).
+
+    # ── Passe 4 : à placement ET affectations non-salle FIGÉS, minimiser les changements de salle. ──
+    # Post-traitement pur (préférence de grand confort, tout en bas de la hiérarchie). On GÈLE en dur
+    # scheduled[], start[] et TOUS les littéraux non-salle aux valeurs de la passe précédente ; seul le
+    # choix parmi les salles ALTERNATIVES reste libre. Toutes les douces antérieures ne dépendent que de
+    # grandeurs gelées → strictement préservées (aucun verrou agrégé/dur nécessaire). À placement gelé,
+    # l'ORDRE des cours de chaque prof est connu : on pénalise les VRAIES transitions entre cours
+    # consécutifs d'une même demi-journée (fidèle, pas une borne). No-op si aucun cours n'a de salle
+    # alternative influençable. provenOptimal reste basé sur placement_proven (passe 1).
+    if minimize_rooms:
+        def _room_lits(li):                       # {rid: littéral} des salles candidates du cours li
+            return {rid: lit for (rid, rtype, lit) in used_literals[li] if rtype == ROOM}
+
+        def _has_alt_room(li):                     # au moins une salle candidate ≠ salle fixe (lit ≠ scheduled)
+            return any(lit is not scheduled[li]
+                       for (_, rtype, lit) in used_literals[li] if rtype == ROOM)
+
+        # 1) Séquences consécutives par (prof effectif, jour, demi-journée), lues sur la solution GELÉE.
+        seq = defaultdict(list)                    # (tid, d, h) -> [(start_val, li)]
+        for li in range(len(courses)):
+            if not solver.Value(scheduled[li]):
+                continue
+            sv = solver.Value(start[li])
+            d = sv // 1440
+            h = 0 if (sv - d * 1440) < half_cut else 1
+            for (rid, rtype, lit) in used_literals[li]:
+                if rtype == TEACHER and solver.Value(lit):
+                    seq[(rid, d, h)].append((sv, li))   # un cours multi-profs alimente chaque prof
+
+        # 2) Paires consécutives INFLUENÇABLES → un booléen "au moins une salle commune choisie".
+        same_vars = []
+        for key, items in seq.items():
+            items.sort()                            # ordre temporel = ordre réel (placement figé)
+            for (_, i), (_, j) in zip(items, items[1:]):
+                if not (_has_alt_room(i) or _has_alt_room(j)):
+                    continue                        # deux salles fixes → issue constante, rien à optimiser
+                ri, rj = _room_lits(i), _room_lits(j)
+                shared = set(ri) & set(rj)
+                if not shared:
+                    continue                        # aucune salle commune → changement forcé (constant, omis)
+                prods = []
+                for r in shared:
+                    b = model.NewBoolVar(f"rprod{i}_{j}_{r}")
+                    model.AddBoolAnd([ri[r], rj[r]]).OnlyEnforceIf(b)          # b = (i choisit r) ∧ (j choisit r)
+                    model.AddBoolOr([ri[r].Not(), rj[r].Not()]).OnlyEnforceIf(b.Not())
+                    prods.append(b)
+                same = model.NewBoolVar(f"rsame{i}_{j}")
+                model.AddMaxEquality(same, prods)   # OR : au moins une salle commune choisie des deux côtés
+                same_vars.append(same)
+
+        if same_vars:                               # sinon rien d'influençable → passe entièrement sautée
+            # 3) Gel DUR de tout SAUF les littéraux de salle.
+            for li in range(len(courses)):
+                model.Add(scheduled[li] == solver.Value(scheduled[li]))
+                model.Add(start[li] == solver.Value(start[li]))
+                for (rid, rtype, lit) in used_literals[li]:
+                    if rtype != ROOM:
+                        model.Add(lit == solver.Value(lit))
+            # 4) Amorce (warm start) + minimisation du NB de changements = Σ (1 − même salle).
+            model.ClearHints()
+            for li in range(len(courses)):
+                for (rid, rtype, lit) in used_literals[li]:
+                    if rtype == ROOM:
+                        model.AddHint(lit, solver.Value(lit))
+            model.Minimize(len(same_vars) - sum(same_vars))
+            remaining = max(1.0, total_timeout - solver.WallTime())
+            solver4 = cp_model.CpSolver()
+            solver4.parameters.max_time_in_seconds = remaining
+            status4 = solver4.Solve(model)
+            if status4 in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                solver = solver4                    # extraire la solution ré-affectée en salle
 
     # ---- Extraction de la solution ----
     placed_solutions = []
