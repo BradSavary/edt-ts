@@ -13,7 +13,7 @@ import { createBlockedZonesSlice, type BlockedZonesSlice } from '@/store/slices/
 import { createTaskGroupsSlice, type TaskGroupsSlice } from '@/store/slices/taskGroupsSlice';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
 import { getMondayOfISOWeek, dateToStartTime } from '@/lib/calendar/calendarUtils';
-import { placementsFromSolution, placementsFromEnforcedMap, enforcedMapFromPlacements } from '@/lib/calendar/placements';
+import { placementsFromSolution, placementsFromEnforcedMap, enforcedMapFromPlacements, piecePlacementId } from '@/lib/calendar/placements';
 import { enforcedDataFromPlacement } from '@/lib/calendar/promotion';
 import { computeAutonomyDistribution, type OccupancyEntry } from '@/lib/calendar/autonomyDistribution';
 import { unplacedFromEngine, unplacedFromPreNeutralized } from '@/lib/calendar/unplaced';
@@ -777,7 +777,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     // (placementId ≠ taskId, règle 3, §3 du plan) déjà nécessaire à l'étape 1 pour cette
     // fonctionnalité préexistante. La violation n'est plus stockée, elle est dérivée au rendu.
     const pieces: Placement[] = result.pieces.map((p, i) => ({
-      placementId: `${taskId}-piece-${i}`,
+      placementId: piecePlacementId(taskId, i),
       taskId,
       startTime: p.startTime,
       duration: p.duration,

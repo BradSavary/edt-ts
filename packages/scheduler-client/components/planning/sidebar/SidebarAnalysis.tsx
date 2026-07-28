@@ -243,9 +243,15 @@ export function SidebarAnalysis() {
                       ? 'Neutralisée manuellement avant planification'
                       : 'Retirée manuellement du calendrier';
                 const baseProps = courseToBaseProps(course);
-                // Une tâche déjà partiellement distribuée (Autonomie) reste dans la pioche avec
-                // sa durée résiduelle, mais ne peut pas être redéposée tant qu'elle ne l'est pas
-                // annulée — même état pilote le libellé du bouton (§4.5 du plan).
+                // Une tâche déjà partiellement placée reste dans la pioche avec sa durée
+                // résiduelle — même état pilote le libellé du bouton (§4.5 du plan).
+                //
+                // Ce résidu est redéposable pour la seule Autonomie : c'est le cas d'usage réel
+                // (retoucher une répartition automatique, puis reposer à la main ce qu'on a
+                // libéré), et c'est le seul type dont la fragmentation ait un sens métier. Pour un
+                // cours ordinaire dont on a réduit la durée d'un placement, le résidu reste
+                // affiché mais non déposable : éclater un TD en deux créneaux serait un accident,
+                // pas une intention.
                 const hasPlacements = placements.some((p) => p.taskId === entry.taskId);
                 const isAutonomie = course.type === 'Autonomie';
                 return (
@@ -255,7 +261,7 @@ export function SidebarAnalysis() {
                       duration={remaining}
                       taskId={entry.taskId}
                       tooltipContent={tooltipContent}
-                      dragEnabled={!hasPlacements}
+                      dragEnabled={isAutonomie || !hasPlacements}
                       onDistribute={
                         isAutonomie
                           ? () => (hasPlacements ? cancelAutonomyDistribution(entry.taskId) : distributeAutonomy(entry.taskId))

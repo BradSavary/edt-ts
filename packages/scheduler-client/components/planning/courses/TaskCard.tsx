@@ -54,9 +54,9 @@ export interface TaskCardProps {
   distributeLabel?: string;
   /**
    * Si `false`, désactive le drag (même si `taskId` est fourni) en omettant les
-   * attributs `data-task-id`/`data-*` associés — utilisé pour empêcher de glisser
-   * une carte Autonomie déjà répartie (voir `useNeutralizedDraggable`, qui cible
-   * `[data-task-id]`). Par défaut `true`.
+   * attributs `data-task-id`/`data-*` associés (voir `useNeutralizedDraggable`, qui
+   * cible `[data-task-id]`) — utilisé pour empêcher de fragmenter à la main le
+   * résidu d'un cours ordinaire déjà partiellement placé. Par défaut `true`.
    */
   dragEnabled?: boolean;
 }
