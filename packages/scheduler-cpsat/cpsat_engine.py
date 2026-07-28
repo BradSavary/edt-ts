@@ -114,6 +114,25 @@ def _carve_lunch(windows, lunch):
     return out
 
 
+def _residual_break(busy: list[tuple[int, int]], l0: int, l1: int) -> tuple[int, int]:
+    """Plus grand sous-intervalle contigu de [l0,l1] libre des intervalles `busy`.
+
+    `busy` et le retour sont en minutes DEPUIS MINUIT du jour considéré. Retourne (l0,l0)
+    — longueur nulle — si la fenêtre est entièrement occupée. Sert à définir la pause
+    méridienne RÉELLEMENT disponible d'un (enseignant, jour) quand un cours enforced
+    empiète dessus : la pause est écourtée, pas supprimée.
+    """
+    clipped = sorted((max(s, l0), min(e, l1)) for s, e in busy if s < l1 and e > l0)
+    best, cur = (l0, l0), l0
+    for s, e in clipped:
+        if s - cur > best[1] - best[0]:
+            best = (cur, s)
+        cur = max(cur, e)
+    if l1 - cur > best[1] - best[0]:
+        best = (cur, l1)
+    return best
+
+
 def _start_domain(windows, dur):
     """Débuts valides d'une tâche de durée `dur` : [s, e-dur] par fenêtre (vide si aucune)."""
     ivs = [[s, e - dur] for (s, e) in windows if e - dur >= s]
@@ -299,7 +318,17 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                            où un enseignant est présent, coller ses cours (minimiser les trous À
                            L'INTÉRIEUR d'un bloc matin/après-midi). N'interdit ni ne pénalise d'être
                            présent matin ET après-midi, ni sur plusieurs jours : seuls les temps
-                           morts intra-bloc comptent.
+                           morts intra-bloc comptent. Si la pause est fixe et qu'un cours `enforced`
+                           empiète dessus, le bloc n'est plus « matin/après-midi » au sens scalaire
+                           mais délimité par la pause RÉSIDUELLE de ce (prof, jour) — la portion de
+                           pause encore libre après l'enforced (voir `crossNoonGap` ci-dessous pour
+                           le détail) — pour ne pas facturer la pause écourtée comme du temps mort.
+                           Si l'enforced mange la pause en entier, plus de scission : la journée est
+                           un bloc unique et son temps mort réel est facturé intégralement. Trou
+                           connu : un cours à cheval sur la pause dont `groups` est VIDE (ni carvé
+                           par le groupe ni par un enforced) échappe à cette classification — non
+                           modélisé en v1, neutralisé par le `max(0, …)` structurel de `crossNoonGap`
+                           plutôt que modélisé explicitement.
       - minimizeTeacherDays : bool (défaut False) — préférence DOUCE : concentrer les cours d'un
                            enseignant sur le moins de JOURNÉES distinctes possible (remplir
                            matin+après-midi d'un jour plutôt qu'étaler sur plusieurs).
@@ -328,6 +357,24 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                            si la pause n'est pas fixe (`lunchBreak.type != 'fixed'`) : sans pause
                            fixe, la découpe matin/après-midi est arbitraire et la positivité du
                            trou n'est plus garantie.
+                           Un `enforced` empiétant sur la pause (ex. 13:30 sur 12:00–14:00) est
+                           épinglé sans domaine de disponibilité (fidèle à `bookEnforced()`) : le
+                           trou est calculé contre la pause RÉSIDUELLE de ce (prof, jour) — le plus
+                           grand sous-intervalle de la pause encore libre des enforced de cet
+                           enseignant ce jour-là (`_residual_break`), pas la constante `lunch_len`.
+                           Si la pause est mangée en entier par un ou plusieurs enforced, aucune
+                           scission matin/après-midi : le terme est sauté pour ce (prof, jour), et
+                           `compactTeacherHalfDays` (s'il est actif) facture le temps mort de la
+                           journée entière comme un bloc unique — la notion de « trou de midi » n'a
+                           plus d'objet. Positivité du terme assurée STRUCTURELLEMENT
+                           (`AddMaxEquality(gap, [raw_gap, 0])`), plus seulement par construction du
+                           domaine : un enforced à cheval peut rendre `raw_gap` négatif (le proxy
+                           scalaire d'origine le classait à tort d'un seul côté), et cette préférence
+                           DOUCE ne doit jamais pouvoir rendre le modèle INFEASIBLE. Trou connu (hors
+                           périmètre v1) : un cours à cheval dont `groups` est VIDE n'est carvé ni
+                           par un groupe ni par un enforced et peut se placer en pleine pause avec un
+                           `start` variable — non couvert par la partition ci-dessus, neutralisé par
+                           le `max(0, …)` plutôt que modélisé explicitement.
       - minimizeTeacherRoomChanges : bool (défaut False) — préférence DOUCE de grand confort : pour
                            un enseignant, garder la même salle d'un cours au suivant dans une même
                            demi-journée quand une salle commune existe. Passe 4, tout en bas de la
@@ -460,6 +507,28 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                     capped[li].append((rid, lit))
             model.Add(sum(lits) == scheduled[li])       # exactly-one si placée, zéro sinon
 
+    # Occupation enforced par (enseignant, jour) — sert à calculer la pause méridienne
+    # RÉELLEMENT disponible d'un enseignant quand un enforced empiète dessus (pause écourtée,
+    # pas supprimée). Portée fonction entière : réutilisé par les préférences douces (Option A/D
+    # ci-dessous) ET par la passe 4 (§1.6, cohérence de la frontière demi-journée). Les `start`
+    # des enforced sont des constantes Python → aucun coût solveur.
+    enf_busy: dict[tuple[str, int], list[tuple[int, int]]] = defaultdict(list)
+    if lunch is not None:
+        for li, (_gi, c) in enumerate(courses):
+            e = c.get("enforced")
+            if not e:
+                continue
+            d, off = e["startTime"] // 1440, e["startTime"] % 1440
+            for (rid, rtype, _lit) in used_literals[li]:
+                if rtype == TEACHER:
+                    enf_busy[(rid, d)].append((off, off + c["duration"]))
+
+    def residual(tid: str, d: int) -> tuple[int, int]:
+        """Pause résiduelle (P0,P1) de ce (prof, jour) ; (0,0) si pas de pause fixe."""
+        if lunch is None:
+            return (0, 0)
+        return _residual_break(enf_busy.get((tid, d), []), lunch[0], lunch[1])
+
     # Non-chevauchement par ressource.
     for rid, ivs in intervals_by_res.items():
         if len(ivs) > 1:
@@ -540,6 +609,39 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
             on_half_cache[(li, d, h)] = oh
         return on_half_cache[(li, d, h)]
 
+    on_side_cache = {}
+
+    def on_side(li, d, p0, p1, h):
+        """« Le cours li est ENTIÈREMENT du côté h de la pause résiduelle [p0,p1] du jour d ».
+
+        h=0 (matin)  ⟺ base ≤ start ET start + durée ≤ base + p0   ← teste la FIN, pas le début
+        h=1 (aprem)  ⟺ base + p1 ≤ start < base + 1440
+
+        Différence clé avec on_half (seuil scalaire sur le seul `start`) : un cours à cheval sur
+        la pause n'appartient à AUCUN des deux côtés — littéral constamment faux des deux côtés.
+        C'est exactement le cas d'un enforced qui empiète sur la pause, que le seuil scalaire
+        rangeait de force d'un côté, cassant l'identité du trou de midi.
+        """
+        key = (li, d, p0, p1, h)
+        if key not in on_side_cache:
+            base, dur = d * 1440, courses[li][1]["duration"]
+            lo = base if h == 0 else base + p1
+            hi = base + p0 - dur if h == 0 else base + 1439      # bornes SUR start, inclusives
+            if hi < lo:                                          # ne tient pas de ce côté
+                on_side_cache[key] = model.NewConstant(0)
+            else:
+                ge = model.NewBoolVar(f"sge{li}_{d}_{h}")
+                model.Add(start[li] >= lo).OnlyEnforceIf(ge)
+                model.Add(start[li] <= lo - 1).OnlyEnforceIf(ge.Not())
+                le = model.NewBoolVar(f"sle{li}_{d}_{h}")
+                model.Add(start[li] <= hi).OnlyEnforceIf(le)
+                model.Add(start[li] >= hi + 1).OnlyEnforceIf(le.Not())
+                os_ = model.NewBoolVar(f"os{li}_{d}_{h}")
+                model.AddBoolAnd([ge, le]).OnlyEnforceIf(os_)
+                model.AddBoolOr([ge.Not(), le.Not()]).OnlyEnforceIf(os_.Not())
+                on_side_cache[key] = os_
+        return on_side_cache[key]
+
     by_res_day = defaultdict(list)
     for li in range(len(courses)):
         for rid, lit in capped[li]:
@@ -569,59 +671,80 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                     teacher_lits[rid].append((li, lit))
 
         # ── Option A : compacité par demi-journée (minimiser les trous DANS un bloc matin/aprem). ──
-        # Pour chaque (enseignant, jour, moitié) présent : idle = (fin du dernier cours − début du
+        # Pour chaque (enseignant, jour, bloc) présent : idle = (fin du dernier cours − début du
         # premier) − somme des durées présentes. Les cours d'un même prof ne se chevauchent pas
         # (NoOverlap sur la ressource) ⇒ idle = temps mort total entre ses cours de ce bloc. Nul si
         # 0/1 cours présent. Être présent matin ET après-midi n'est jamais pénalisé (blocs disjoints).
+        # Le bloc n'est PAS toujours "matin/après-midi" au sens du seuil scalaire `on_half` : quand la
+        # pause est fixe, le partage se fait sur la pause RÉSIDUELLE de ce (prof, jour) — voir
+        # `residual()` — pour ne pas facturer en temps mort la portion de pause qu'un enforced a
+        # mangée (§0.5/§0.6 du plan). `lunch is None` garde `on_half` tel quel (chemin inerte).
         if compact_half_days:
             for tid, lst in teacher_lits.items():
                 days = sorted({d for (li, _) in lst for d in possible_days[li]})
                 for d in days:
-                    for h in (0, 1):
+                    if lunch is None:
+                        blocks = [(h, (lambda li, h=h: on_half(li, d, h))) for h in (0, 1)]
+                    else:
+                        p0, p1 = residual(tid, d)
+                        if p1 > p0:
+                            blocks = [(h, (lambda li, h=h: on_side(li, d, p0, p1, h))) for h in (0, 1)]
+                        else:
+                            # Pause entièrement mangée par un enforced : plus de scission — la
+                            # journée est un bloc unique, `compact` facture l'intégralité du trou.
+                            blocks = [(0, (lambda li: on_day(li, d)))]
+                    for bidx, side in blocks:
                         members = []                          # (li, p) candidats de ce bloc
                         for (li, lit) in lst:
                             if d not in possible_days[li]:
                                 continue
-                            p = model.NewBoolVar(f"cp{tid}_{li}_{d}_{h}")
-                            oh = on_half(li, d, h)
+                            p = model.NewBoolVar(f"cp{tid}_{li}_{d}_{bidx}")
+                            oh = side(li)
                             model.AddBoolAnd([lit, oh]).OnlyEnforceIf(p)
                             model.AddBoolOr([lit.Not(), oh.Not()]).OnlyEnforceIf(p.Not())
                             members.append((li, p))
                         if len(members) < 2:
                             continue                          # 0/1 cours ⇒ aucun trou possible
                         base = d * 1440
-                        first = model.NewIntVar(base, base + 1440, f"first{tid}_{d}_{h}")
-                        last = model.NewIntVar(base, base + 1440, f"last{tid}_{d}_{h}")
+                        first = model.NewIntVar(base, base + 1440, f"first{tid}_{d}_{bidx}")
+                        last = model.NewIntVar(base, base + 1440, f"last{tid}_{d}_{bidx}")
                         busy = []
                         for (li, p) in members:
                             dur = courses[li][1]["duration"]
                             model.Add(first <= start[li]).OnlyEnforceIf(p)       # first ≤ min début présent
                             model.Add(last >= start[li] + dur).OnlyEnforceIf(p)  # last ≥ max fin présente
                             busy.append(dur * p)
-                        idle = model.NewIntVar(0, 1440, f"idle{tid}_{d}_{h}")
+                        idle = model.NewIntVar(0, 1440, f"idle{tid}_{d}_{bidx}")
                         model.Add(idle == last - first - sum(busy))              # ≥0 ⇒ 0 si <2 présents
                         penalty_terms.append(idle)            # en minutes
 
         # ── Option D : trou de midi (idle qui traverse la pause déjeuner, au-delà de celle-ci). ──
         # Pour chaque (enseignant, jour) présent matin ET après-midi :
-        #   trou = début_1er_aprem − fin_dernier_matin − durée_pause  (≥ 0 garanti, pause carvée).
+        #   trou = début_1er_aprem − fin_dernier_matin − pause RÉSIDUELLE (p1 − p0, pas la constante
+        #   `lunch_len`) — un enforced empiétant sur la pause l'écourte, il ne la supprime pas (§0.6
+        #   du plan). Positivité assurée STRUCTURELLEMENT par `AddMaxEquality(gap, [raw_gap, 0])`
+        #   ci-dessous, plus par le seul domaine — un enforced à cheval rend l'ancien argument
+        #   « pause carvée ⇒ ≥0 » faux, c'est la cause racine de l'INFEASIBLE corrigé ici.
         # Gate : pause fixe uniquement (sinon un cours peut enjamber midi → identité fausse).
         if cross_noon and lunch is not None:
-            lunch_len = lunch[1] - lunch[0]
             for tid, lst in teacher_lits.items():
                 days = sorted({d for (li, _) in lst for d in possible_days[li]})
                 for d in days:
+                    p0, p1 = residual(tid, d)
+                    if p1 == p0:
+                        continue                  # pause entièrement mangée ⇒ plus de scission matin/aprem,
+                                                   # `compact` prend le relais sur la journée entière (§1.4)
                     base = d * 1440
                     morn, aft = [], []            # (li, p_m) / (li, p_a)
                     for (li, lit) in lst:
                         if d not in possible_days[li]:
                             continue
                         p_m = model.NewBoolVar(f"cnm{tid}_{li}_{d}")
-                        oh0 = on_half(li, d, 0)
+                        oh0 = on_side(li, d, p0, p1, 0)
                         model.AddBoolAnd([lit, oh0]).OnlyEnforceIf(p_m)
                         model.AddBoolOr([lit.Not(), oh0.Not()]).OnlyEnforceIf(p_m.Not())
                         p_a = model.NewBoolVar(f"cna{tid}_{li}_{d}")
-                        oh1 = on_half(li, d, 1)
+                        oh1 = on_side(li, d, p0, p1, 1)
                         model.AddBoolAnd([lit, oh1]).OnlyEnforceIf(p_a)
                         model.AddBoolOr([lit.Not(), oh1.Not()]).OnlyEnforceIf(p_a.Not())
                         morn.append((li, p_m))
@@ -656,10 +779,14 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                     both = model.NewBoolVar(f"both{tid}_{d}")
                     model.AddBoolAnd([pm_any, pa_any]).OnlyEnforceIf(both)
                     model.AddBoolOr([pm_any.Not(), pa_any.Not()]).OnlyEnforceIf(both.Not())
-                    # trou = first_a − last_m − lunch_len, seulement si both ; sinon 0. ≥0 garanti.
+                    # trou = first_a − last_m − pause_résiduelle (p1−p0), seulement si both ; sinon 0.
+                    # Positivité NON garantie par construction pour un enforced à cheval (§0.3 du plan)
+                    # → structurelle via AddMaxEquality, jamais via le domaine seul.
+                    raw_gap = model.NewIntVar(-1440, 1440, f"cnraw{tid}_{d}")
+                    model.Add(raw_gap == first_a - last_m - (p1 - p0)).OnlyEnforceIf(both)
+                    model.Add(raw_gap == 0).OnlyEnforceIf(both.Not())
                     gap = model.NewIntVar(0, 1440, f"cngap{tid}_{d}")
-                    model.Add(gap == first_a - last_m - lunch_len).OnlyEnforceIf(both)
-                    model.Add(gap == 0).OnlyEnforceIf(both.Not())
+                    model.AddMaxEquality(gap, [raw_gap, 0])     # ← plus JAMAIS d'infaisabilité par ce terme
                     penalty_terms.append(gap)     # en minutes → passe 2
 
         # ── Présence-jours enseignant (partagée : pénalité "moins de jours" + équilibrage). ──
@@ -785,15 +912,25 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                        for (_, rtype, lit) in used_literals[li] if rtype == ROOM)
 
         # 1) Séquences consécutives par (prof effectif, jour, demi-journée), lues sur la solution GELÉE.
+        # Même frontière que §1.3/§1.4 : pause résiduelle par (prof, jour) plutôt que `half_cut`
+        # scalaire, pour ne pas ouvrir deux définitions contradictoires de « demi-journée » dans le
+        # même fichier. Un straddler tombe côté après-midi (adjacent aux cours d'après-midi, c'est là
+        # que la continuité de salle a du sens). Calcul en Python pur sur la solution gelée → aucun
+        # coût solveur.
         seq = defaultdict(list)                    # (tid, d, h) -> [(start_val, li)]
         for li in range(len(courses)):
             if not solver.Value(scheduled[li]):
                 continue
             sv = solver.Value(start[li])
             d = sv // 1440
-            h = 0 if (sv - d * 1440) < half_cut else 1
+            offset = sv - d * 1440
             for (rid, rtype, lit) in used_literals[li]:
                 if rtype == TEACHER and solver.Value(lit):
+                    if lunch is None:
+                        h = 0 if offset < half_cut else 1
+                    else:
+                        p0, p1 = residual(rid, d)
+                        h = 0 if (p1 == p0 or offset <= p0) else 1
                     seq[(rid, d, h)].append((sv, li))   # un cours multi-profs alimente chaque prof
 
         # 2) Paires consécutives INFLUENÇABLES → un booléen "au moins une salle commune choisie".

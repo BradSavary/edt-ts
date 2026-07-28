@@ -13,7 +13,7 @@ import pytest
 from ortools.sat.python import cp_model
 
 import cpsat_runner
-from cpsat_engine import EnforcedConflictError, solve
+from cpsat_engine import EnforcedConflictError, _residual_break, solve
 
 ALL_DAY = [{"days": "lundi mardi mercredi jeudi vendredi", "from": "08:00", "to": "18:00"}]
 MONDAY_MORNING = [{"days": "lundi", "from": "08:00", "to": "09:00"}]  # 60 min pile
@@ -929,3 +929,424 @@ def test_room_change_off_is_noop():
 def test_runner_map_config_passes_room_change_flag():
     mapped = cpsat_runner._map_config({"minimizeTeacherRoomChanges": True})
     assert mapped.get("minimizeTeacherRoomChanges") is True
+
+
+# ── §4.1 : `_residual_break` (fonction pure) — plus grand sous-intervalle libre de [l0,l1] ───────
+
+def test_residual_break_empty_window_when_fully_occupied():
+    assert _residual_break([(700, 850)], 720, 840) == (720, 720)
+
+
+def test_residual_break_no_busy_returns_full_window():
+    assert _residual_break([], 720, 840) == (720, 840)
+
+
+def test_residual_break_busy_outside_window_ignored():
+    """Un `busy` hors de [l0,l1] (aucune intersection) ne doit rien retrancher."""
+    assert _residual_break([(0, 700)], 720, 840) == (720, 840)
+
+
+def test_residual_break_partial_left():
+    """Occupé en tête de fenêtre → le résiduel est le reste à droite."""
+    assert _residual_break([(720, 760)], 720, 840) == (760, 840)
+
+
+def test_residual_break_partial_right():
+    """Occupé en fin de fenêtre → le résiduel est le reste à gauche."""
+    assert _residual_break([(800, 840)], 720, 840) == (720, 800)
+
+
+def test_residual_break_partial_middle():
+    assert _residual_break([(760, 800)], 720, 840) == (720, 760)
+
+
+def test_residual_break_fragmentation_picks_largest_gap():
+    """Deux enforced laissant deux trous de tailles différentes → le PLUS GRAND l'emporte."""
+    assert _residual_break([(730, 740), (800, 810)], 720, 840) == (740, 800)  # gap 60 > gaps 10 et 30
+
+
+def test_residual_break_clips_overflow_left_and_right():
+    """Un `busy` débordant hors de [l0,l1] d'un côté ou de l'autre est clippé à la fenêtre."""
+    assert _residual_break([(650, 750)], 720, 840) == (750, 840)   # déborde à gauche
+    assert _residual_break([(830, 900)], 720, 840) == (720, 830)   # déborde à droite
+
+
+# ── Cours `enforced` à cheval sur la pause méridienne (correctif enforced-lunch-straddle) ────────
+# Contexte : `on_half`/`lunch_len` classaient un cours sur le seul scalaire `start`, exact pour tout
+# cours normal (carvage garantit fin ≤ pause si start < fin de pause) mais faux pour un `enforced`
+# empiétant sur la pause (start imposé, aucun carvage). `crossNoonGap` en tirait une assertion DURE
+# (`gap >= 0`) → un enforced à cheval rendait le modèle INFEASIBLE, effondrant toute la semaine.
+# Correctif : classification par pause RÉSIDUELLE (`on_side`/`residual()`, cf. `_residual_break`
+# ci-dessus) + positivité structurelle (`AddMaxEquality`). Voir docs/PlanFixEnforcedLunchStraddle.md.
+#
+# Toutes les instances ci-dessous ont été vérifiées par ablation (STATUT du plan, 2026-07-28) :
+# rejouées contre le moteur d'avant correctif (git show master:.../cpsat_engine.py), les groupes A
+# reproduisent bien INFEASIBLE/éviction, et les groupes B/C bien les valeurs 90/0/0/120 documentées
+# au §0.5/§0.6 du plan (indirectement, via le placement qu'elles forcent — solve() n'expose pas la
+# pénalité brute, cf. §3 du plan, décision (a)).
+
+def _straddle_resources() -> list[dict]:
+    return [
+        {"resourceType": "teacher", "resources": [{"id": "T1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}]},
+    ]
+
+
+def _straddle_base(courses: list[dict], win: list[dict], groups: list[dict] | None = None) -> dict:
+    r = {"week": 1, "resources": _straddle_resources(), "courses": courses,
+         "constraints": {"T1": win, "G1": win, "R1": win}}
+    if groups:
+        r["groups"] = groups
+    return r
+
+
+STRADDLE_LUNCH = {"type": "fixed", "from": "12:00", "to": "14:00"}
+MONDAY_ALL_DAY = [{"days": "lundi", "from": "08:00", "to": "18:00"}]
+
+
+# ── Groupe A — le bug rapporté (échouaient avant le correctif : INFEASIBLE ou éviction) ──────────
+
+def test_cross_noon_enforced_straddling_lunch_no_collapse():
+    """
+    Le bug de Frédéric : 2 enforced (13:30 à cheval sur 12:00-14:00, et 16:00) + 2 cours normaux.
+    Avant le correctif (vérifié par ablation contre master) : score=0, INFEASIBLE. Le score DOIT
+    rester identique avec et sans `crossNoonGap` (aucune éviction, aucun effondrement).
+    """
+    courses = [
+        {"week": 1, "code": "E1", "type": "CM", "name": "", "duration": 90,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 13 * 60 + 30, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+        {"week": 1, "code": "E2", "type": "CM", "name": "", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 16 * 60, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+        {"week": 1, "code": "N1", "type": "CM", "name": "", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "N2", "type": "CM", "name": "", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+    ]
+    raw = _straddle_base(courses, MONDAY_ALL_DAY)
+
+    without = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH})[0]
+    with_opt = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH, "crossNoonGap": True})[0]
+
+    assert without["score"] == 4, "prérequis : sans l'option, les 4 tâches tiennent"
+    assert with_opt["score"] == without["score"], "crossNoonGap ne doit JAMAIS faire chuter le score"
+    assert with_opt["isComplete"] is True, "pas d'INFEASIBLE, pas de neutralisation"
+
+
+def test_cross_noon_enforced_straddling_lunch_symmetric():
+    """
+    Combine les deux directions : un enforced qui finit PILE à l'heure de début de pause (10:00-12:00,
+    non-straddler par lui-même) + le straddler (13:30-15:00) + un 3e enforced après-midi normal, + 1
+    cours droppable. Avant le correctif (vérifié par ablation) : score=0, INFEASIBLE (baseline=4).
+    """
+    courses = [
+        {"week": 1, "code": "EA", "type": "CM", "name": "", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 10 * 60, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+        {"week": 1, "code": "EB", "type": "CM", "name": "", "duration": 90,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 13 * 60 + 30, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+        {"week": 1, "code": "EC", "type": "CM", "name": "", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 16 * 60 + 30, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+        {"week": 1, "code": "N1", "type": "CM", "name": "", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+    ]
+    raw = _straddle_base(courses, MONDAY_ALL_DAY)
+
+    without = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH})[0]
+    with_opt = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH, "crossNoonGap": True})[0]
+
+    assert without["score"] == 4
+    assert with_opt["score"] == without["score"]
+
+
+def test_cross_noon_enforced_straddler_with_task_group():
+    """
+    1 seul enforced straddler (13:30-15:00) + un cours lié par un taskGroup SÉQUENTIEL juste après
+    (tout-ou-rien → `scheduled[TD] == scheduled[CM]` le rend indroppable, comme un 2e enforced).
+    Avant le correctif (vérifié par ablation) : score=0, INFEASIBLE (baseline=2).
+    """
+    courses = [
+        {"week": 1, "code": "E1", "type": "CM", "name": "", "duration": 90, "taskGroupId": "TG1",
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 13 * 60 + 30, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+        {"week": 1, "code": "C", "type": "TD", "name": "", "duration": 60, "taskGroupId": "TG1",
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+    ]
+    raw = _straddle_base(courses, MONDAY_ALL_DAY, groups=[{"id": "TG1", "type": "sequential"}])
+
+    without = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH})[0]
+    with_opt = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH, "crossNoonGap": True})[0]
+
+    assert without["score"] == 2
+    assert with_opt["score"] == without["score"], "le groupe séquentiel ne doit pas effondrer la semaine"
+    by_code = {t["code"]: t for t in with_opt["solutions"]}
+    assert by_code["C"]["startTime"] == by_code["E1"]["startTime"] + 90, "enchaînement sans gap préservé"
+
+
+def test_cross_noon_enforced_straddler_no_eviction():
+    """
+    1 enforced straddler (13:30-15:00) + 5 cours normaux, fenêtre resserrée (08:00-17:00) qui force
+    un vrai partage matin/après-midi (capacité matin 240 min < 300 min nécessaires). Avant le
+    correctif (vérifié par ablation) : score=5 (1 cours normal évincé), baseline=6.
+    """
+    win = [{"days": "lundi", "from": "08:00", "to": "17:00"}]
+    courses = [
+        {"week": 1, "code": "E1", "type": "CM", "name": "", "duration": 90,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 13 * 60 + 30, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+    ] + [
+        {"week": 1, "code": f"N{i}", "type": "CM", "name": "", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}
+        for i in range(1, 6)
+    ]
+    raw = _straddle_base(courses, win)
+
+    without = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH})[0]
+    with_opt = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH, "crossNoonGap": True})[0]
+
+    assert without["score"] == 6, "prérequis : sans l'option, les 6 tâches tiennent"
+    assert with_opt["score"] == without["score"], "crossNoonGap ne doit évincer aucun cours normal"
+
+
+# ── Groupe B — fidélité de la pause résiduelle (pas une désactivation déguisée) ───────────────────
+# `solve()` n'expose pas la pénalité brute (§3 du plan, décision (a)) : ces tests forcent une TENSION
+# entre le tie-break `earliest` (qui veut la position/le jour le plus tôt) et la minimisation du trou
+# de midi (passe 2), et lisent le PLACEMENT résultant. Vérifié par ablation contre master : le
+# placement observé diffère effectivement entre avant/après correctif dans chaque cas (sinon le test
+# serait un faux positif, cf. avertissement méthodologique du plan §3).
+
+def test_cross_noon_shortened_break_not_charged():
+    """
+    Cours du matin M (durée 120) confiné à 08:00-12:00 (2 positions possibles : 08:00-10:00 ou
+    10:00-12:00) + enforced 13:30-15:00 (pause résiduelle 90 min). `earliest` veut M au plus tôt
+    (08:00) ; si la pause résiduelle donne un trou nul en le collant à 12:00 (10:00-12:00), la passe 2
+    doit préférer CETTE position (trou 0) à la position la plus tôt (trou réel 120, cf. test suivant).
+    Avant le correctif (vérifié par ablation) : M reste à 08:00 (aucune pression, car `aft` restait
+    vide sous l'ancienne classification scalaire — le trou n'était jamais même évalué).
+    """
+    win = [{"days": "lundi", "from": "08:00", "to": "12:00"}]
+    courses = [
+        {"week": 1, "code": "M", "type": "CM", "name": "", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "E1", "type": "CM", "name": "", "duration": 90,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 13 * 60 + 30, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+    ]
+    raw = _straddle_base(courses, win)
+    sol = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH,
+                      "crossNoonGap": True, "earliest": True})[0]
+    assert sol["score"] == 2
+    m = next(t for t in sol["solutions"] if t["code"] == "M")
+    assert m["startTime"] == 10 * 60, "la pause résiduelle (90 min) doit être reconnue suffisante → M collé à 12:00"
+
+
+def test_cross_noon_real_gap_still_charged():
+    """
+    Test CENTRAL (distingue un vrai correctif d'une désactivation déguisée) : M dispo lundi OU mardi
+    08:00-10:00 (aucune marge intra-jour). Sur lundi (avec l'enforced 13:30-15:00), le trou réel est
+    120 min (> pause résiduelle 90 min) et doit être facturé ; sur mardi (pas d'enforced), le trou est
+    nul. `earliest` préfère lundi (plus tôt dans la semaine) ; si le vrai trou de 120 min est
+    correctement facturé, la passe 2 doit préférer le déplacer sur mardi (trou 0) malgré `earliest`.
+    Avant le correctif (vérifié par ablation) : M reste sur lundi (aucune pression, le trou n'étant
+    jamais évalué sous l'ancienne classification scalaire — c'est la sous-facturation du §0.5/§0.6).
+    """
+    win = [{"days": "lundi mardi", "from": "08:00", "to": "10:00"}]
+    courses = [
+        {"week": 1, "code": "M", "type": "CM", "name": "", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "E1", "type": "CM", "name": "", "duration": 90,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 13 * 60 + 30, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+    ]
+    raw = _straddle_base(courses, win)
+    sol = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH,
+                      "crossNoonGap": True, "earliest": True})[0]
+    assert sol["score"] == 2
+    m = next(t for t in sol["solutions"] if t["code"] == "M")
+    assert m["startTime"] // 1440 == 1, "le vrai trou de 120 min doit peser assez pour repousser M à mardi"
+
+
+def test_cross_noon_uses_residual_length_not_lunch_length():
+    """
+    Épingle la MAGNITUDE soustraite : `p1 - p0` (pause résiduelle) et non `lunch[1] - lunch[0]`.
+
+    Ajouté en revue (Opus, 2026-07-28). Le STATUT du plan signalait honnêtement que substituer
+    `lunch_len` à `p1 - p0` ne cassait AUCUN test : les autres instances ne discriminent pas, parce
+    que `lunch_len > p1 - p0` fait seulement SOUS-facturer (`gap` plus petit, jamais négatif grâce au
+    `max(0, …)`) — la pression qualitative « bouger » y survivait. Il faut donc caler l'écart pour que
+    le correct facture un gap > 0 pendant que le naïf tombe pile à 0 par clamp.
+
+    Instance (pause 12:00-14:00, enforced 13:30-15:00 → pause résiduelle 12:00-13:30 = 90 min).
+    M (120 min) est confiné à 09:50-12:00 : deux départs possibles seulement, 09:50 ou 10:00.
+        M à 09:50-11:50 → first_a − last_m = 810 − 710 = 100 → correct 100−90 = 10 | naïf max(0, 100−120) = 0
+        M à 10:00-12:00 → first_a − last_m = 810 − 720 =  90 → correct         0 | naïf max(0,  90−120) = 0
+    Le correctif a donc une préférence STRICTE pour 10:00 ; avec `lunch_len` la passe 2 est
+    indifférente et reste sur l'amorce `earliest` = 09:50.
+
+    Ablation vérifiée en revue, 5 exécutions de chaque côté, résultat stable 5/5 : correct → 10:00,
+    naïf → 09:50. Le test passe donc au ROUGE si l'on rétablit `lunch[1] - lunch[0]`.
+    """
+    win = [{"days": "lundi", "from": "09:50", "to": "12:00"}]
+    courses = [
+        {"week": 1, "code": "M", "type": "CM", "name": "", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "E1", "type": "CM", "name": "", "duration": 90,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 13 * 60 + 30, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+    ]
+    raw = _straddle_base(courses, win)
+    sol = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH,
+                      "crossNoonGap": True, "earliest": True})[0]
+    assert sol["score"] == 2
+    m = next(t for t in sol["solutions"] if t["code"] == "M")
+    assert m["startTime"] == 10 * 60, (
+        "la pause soustraite doit être la RÉSIDUELLE (90) et non lunch_len (120) : avec 120 le trou "
+        "est clampé à 0 des deux côtés et `earliest` laisse M à 09:50")
+
+
+def test_cross_noon_enforced_covers_whole_lunch():
+    """
+    Enforced 11:00-15:00 : couvre la pause 12:00-14:00 en entier → pause résiduelle vide (P1==P0).
+    Ni `crossNoonGap` (aucun terme, `continue`) ni le partage matin/après-midi de `compact` (bloc
+    journée unique) ne doivent s'appliquer. Assert principal : pas d'effondrement.
+    """
+    courses = [
+        {"week": 1, "code": "E1", "type": "CM", "name": "", "duration": 240,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 11 * 60, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+        {"week": 1, "code": "N1", "type": "CM", "name": "", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "N2", "type": "CM", "name": "", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+    ]
+    raw = _straddle_base(courses, MONDAY_ALL_DAY)
+    without = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH})[0]
+    with_opt = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH,
+                           "crossNoonGap": True, "compactTeacherHalfDays": True})[0]
+    assert without["score"] == 3
+    assert with_opt["score"] == without["score"]
+    assert with_opt["isComplete"] is True
+
+
+# ── Groupe C — `compactTeacherHalfDays` (sur-/sous-facturation du §0.5) ───────────────────────────
+
+def test_compact_straddler_no_phantom_penalty():
+    """
+    M1+M2 (90 min chacun = 180 min < 240 min dispo) confinés à 08:00-12:00, laissant 60 min de marge
+    intra-bloc + enforced 13:30-15:00. Avant le correctif (vérifié par ablation), le straddler était
+    compté « matin » avec les 2 M → trou fantôme (90 min) que `compact` tentait de réduire en
+    repoussant M1/M2 en fin de créneau (mesuré : 09:00/10:30 au lieu de 08:00/09:30). Avec le
+    correctif, le straddler est exclu du bloc matin (résiduel) → M1/M2 n'ont aucune raison de bouger,
+    `earliest` les laisse au plus tôt, collés (idle intra-bloc déjà nul).
+    """
+    win = [{"days": "lundi", "from": "08:00", "to": "12:00"}]
+    courses = [
+        {"week": 1, "code": "M1", "type": "CM", "name": "", "duration": 90,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "M2", "type": "CM", "name": "", "duration": 90,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "E1", "type": "CM", "name": "", "duration": 90,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 13 * 60 + 30, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+    ]
+    raw = _straddle_base(courses, win)
+    sol = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH,
+                      "compactTeacherHalfDays": True, "earliest": True})[0]
+    assert sol["score"] == 3
+    starts = sorted(t["startTime"] for t in sol["solutions"] if t["code"] in ("M1", "M2"))
+    assert starts == [8 * 60, 9 * 60 + 30], "aucune pression de compaction fantôme : M1/M2 restent au plus tôt, collés"
+
+
+def test_compact_straddler_afternoon_gap_charged():
+    """
+    N (60 min) dispo UNIQUEMENT lundi 17:00-18:00 ou mardi 08:00-09:00 + enforced 13:30-15:00 (lundi).
+    Sur lundi, le trou réel après-midi (E1 fin 15:00 → N débute 17:00 = 120 min) doit être facturé par
+    `compact` (bloc après-midi {E1,N}) ; sur mardi, aucun trou (E1 absent ce jour). `earliest` préfère
+    lundi ; si le trou de 120 min est bien facturé, la passe 2 doit repousser N sur mardi. Avant le
+    correctif (vérifié par ablation) : N reste sur lundi (sous-facturation du §0.5 — le straddler
+    exclu du bloc après-midi laissait `len(members) < 2` → terme sauté, trou facturé 0).
+    """
+    win = [{"days": "lundi", "from": "17:00", "to": "18:00"},
+           {"days": "mardi", "from": "08:00", "to": "09:00"}]
+    courses = [
+        {"week": 1, "code": "N", "type": "CM", "name": "", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "E1", "type": "CM", "name": "", "duration": 90,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"],
+         "enforced": {"startTime": 13 * 60 + 30, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}},
+    ]
+    raw = _straddle_base(courses, win)
+    sol = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH,
+                      "compactTeacherHalfDays": True, "earliest": True})[0]
+    assert sol["score"] == 2
+    n = next(t for t in sol["solutions"] if t["code"] == "N")
+    assert n["startTime"] // 1440 == 1, "le vrai trou de 120 min doit peser assez pour repousser N à mardi"
+
+
+# ── Groupe D — no-op / garde-fous ──────────────────────────────────────────────────────────────
+
+def test_lunch_none_unchanged():
+    """`lunchBreak:{type:'none'}` : le chemin `on_half` inchangé doit rester bit-identique à master."""
+    win = [{"days": "lundi", "from": "08:00", "to": "11:00"}]
+    courses = [
+        {"week": 1, "code": "C1", "type": "CM", "name": "C1", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "C2", "type": "CM", "name": "C2", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+    ]
+    raw = _straddle_base(courses, win)
+    sol = solve(raw, {"timeoutSeconds": 10, "compactTeacherHalfDays": True,
+                      "lunchBreak": {"type": "none"}})[0]
+    assert sol["score"] == 2
+    starts = sorted(t["startTime"] for t in sol["solutions"])
+    assert starts[1] - starts[0] == 60, "inchangé : les 2 cours collés (même résultat qu'avant le correctif)"
+
+
+def test_no_enforced_unchanged():
+    """
+    Instance SANS enforced, `crossNoonGap` + `compactTeacherHalfDays` : le résiduel dégénère en la
+    pause fixe entière (aucun `enf_busy`) → strictement équivalent à l'ancien `on_half`/`lunch_len`.
+    Le vrai filet est la suite existante (36 tests, tous verts sans modification) ; ce test ajoute une
+    comparaison directe explicite.
+    """
+    courses = [
+        {"week": 1, "code": f"C{i}", "type": "CM", "name": f"C{i}", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}
+        for i in range(4)
+    ]
+    raw = _straddle_base(courses, MONDAY_ALL_DAY)
+    sol = solve(raw, {"timeoutSeconds": 10, "crossNoonGap": True,
+                      "compactTeacherHalfDays": True, "lunchBreak": STRADDLE_LUNCH})[0]
+    assert sol["score"] == 4
+    assert sol["isComplete"] is True
+
+
+def test_groupless_course_cannot_collapse():
+    """
+    Cours `groups: []` (ni carvé par un groupe, ni par un enforced) forcé à se placer EN PLEINE pause
+    (fenêtre 12:00-13:00 pile) + un enforced l'après-midi. Chemin non modélisé (§0.7 du plan) :
+    couvert uniquement par le `max(0, …)` structurel. Assert : jamais INFEASIBLE.
+    """
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1"}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}]},
+    ]
+    noon_only = [{"days": "lundi", "from": "12:00", "to": "13:00"}]
+    courses = [
+        {"week": 1, "code": "G0", "type": "CM", "name": "", "duration": 60,
+         "teacher": ["T1"], "groups": [], "rooms": ["R1"]},
+        {"week": 1, "code": "E1", "type": "CM", "name": "", "duration": 90,
+         "teacher": ["T1"], "groups": [], "rooms": ["R1"],
+         "enforced": {"startTime": 15 * 60, "teacher": ["T1"], "groups": [], "rooms": ["R1"]}},
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses,
+           "constraints": {"T1": noon_only, "R1": MONDAY_ALL_DAY}}
+    sol = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH,
+                      "crossNoonGap": True, "compactTeacherHalfDays": True})[0]
+    assert sol["score"] == 2, "jamais INFEASIBLE malgré le cours sans groupe en pleine pause"
+    g0 = next(t for t in sol["solutions"] if t["code"] == "G0")
+    assert g0["startTime"] == 12 * 60, "forcé en pleine pause par sa seule fenêtre disponible"
