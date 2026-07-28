@@ -63,6 +63,11 @@ Composé de `BlockedZonesSlice`, `TaskGroupsSlice` et d'un slice inline.
   re-dérive de `placements`) ; `unplaceTask` en retire l'entrée pour la même raison.
 - Conversions pures dans `lib/calendar/placements.ts` (`placementsFromSolution`,
   `placementsFromEnforcedMap`, `enforcedMapFromPlacements`, `toTaskSolutionJSON`).
+- `nextPlacementId(taskId, placements)` (même module) — identité d'un placement déposé à la main :
+  `taskId` si la tâche n'est posée nulle part, sinon le premier fragment `${taskId}-piece-${i}`
+  libre (`piecePlacementId`, format partagé avec `distributeAutonomy`). Indispensable au dépôt
+  manuel d'un résidu d'Autonomie : `addPlacement` déduplique sur `placementId`, un id réutilisé
+  effacerait le morceau précédent.
 
 **Contraintes de session :**
 - `enforcedMap: Record<string, EnforcedData>` — map augmentée (manuelle + propagation de groupe).

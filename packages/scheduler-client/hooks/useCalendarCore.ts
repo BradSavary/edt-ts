@@ -16,6 +16,7 @@ import { computeConstraintUnavailableZones, subtractDateZones } from '@/lib/cale
 import { resolveCalendarYear } from '@/lib/schoolHolidays';
 import { levelFromCode, getEventColors } from '@/lib/calendar/yearColors';
 import type { YearColorConfig } from '@/lib/calendar/yearColors';
+import { nextPlacementId } from '@/lib/calendar/placements';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import type { PendingDrop, PendingNeutralizedDrop, CalendarEventExtProps, CalendarEventData, DraggingState, PendingEditData } from '@/lib/calendar/types';
@@ -256,7 +257,7 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
     }
 
     addPlacement({
-      placementId: taskId,
+      placementId: nextPlacementId(taskId, placements),
       taskId,
       startTime,
       duration: durationMin,
@@ -313,7 +314,7 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
   function handleNeutralizedPlaceConfirm(sel: EnforceSelection) {
     if (!pendingNeutralizedDrop) return;
     addPlacement({
-      placementId: pendingNeutralizedDrop.taskId,
+      placementId: nextPlacementId(pendingNeutralizedDrop.taskId, placements),
       taskId: pendingNeutralizedDrop.taskId,
       startTime: sel.startTime,
       duration: pendingNeutralizedDrop.durationMin,

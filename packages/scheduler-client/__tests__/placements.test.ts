@@ -7,6 +7,8 @@ import {
   placementsFromEnforcedMap,
   enforcedMapFromPlacements,
   toTaskSolutionJSON,
+  piecePlacementId,
+  nextPlacementId,
 } from '../lib/calendar/placements';
 
 describe('placementsFromSolution', () => {
@@ -108,6 +110,53 @@ describe('enforcedMapFromPlacements', () => {
   it('excludeDerived:true : exclut les pre-enforced propagés (manualEnforcedMap persisté)', () => {
     const result = enforcedMapFromPlacements(base, { excludeDerived: true });
     expect(Object.keys(result)).toEqual(['c1']);
+  });
+});
+
+describe('nextPlacementId', () => {
+  const piece = (taskId: string, index: number): Placement => ({
+    placementId: piecePlacementId(taskId, index),
+    taskId,
+    startTime: 480 + index * 60,
+    duration: 60,
+    resources: { teachers: [], groups: ['G1'], rooms: [] },
+    origin: 'post-enforced',
+  });
+
+  it('tâche posée nulle part → taskId (pas de hachures sur un placement unique)', () => {
+    expect(nextPlacementId('a1', [])).toBe('a1');
+    expect(nextPlacementId('a1', [piece('autre', 0)])).toBe('a1');
+  });
+
+  it('tâche déjà répartie → premier fragment libre', () => {
+    const placements = [piece('a1', 0), piece('a1', 1)];
+    expect(nextPlacementId('a1', placements)).toBe('a1-piece-2');
+  });
+
+  it('comble un trou laissé par un morceau retiré du calendrier', () => {
+    const placements = [piece('a1', 0), piece('a1', 2)];
+    expect(nextPlacementId('a1', placements)).toBe('a1-piece-1');
+  });
+
+  it('ne réutilise jamais un placementId pris — dépôts successifs tous distincts', () => {
+    // Le cas que la déduplication de `addPlacement` transformerait sinon en perte muette du
+    // morceau précédent : trois dépôts d'affilée sur la même tâche.
+    const placements: Placement[] = [];
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const id = nextPlacementId('a1', placements);
+      ids.push(id);
+      placements.push({ ...piece('a1', 0), placementId: id });
+    }
+    expect(ids).toEqual(['a1', 'a1-piece-0', 'a1-piece-1']);
+    expect(new Set(ids).size).toBe(3);
+  });
+
+  it('tâche placée une seule fois sous son propre id → bascule en fragment', () => {
+    const placements: Placement[] = [
+      { placementId: 'a1', taskId: 'a1', startTime: 480, duration: 60, resources: { teachers: [], groups: [], rooms: [] }, origin: 'auto' },
+    ];
+    expect(nextPlacementId('a1', placements)).toBe('a1-piece-0');
   });
 });
 

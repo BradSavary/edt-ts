@@ -3,6 +3,37 @@ import type { CourseTaskDataWithId } from '@/lib/courseId';
 import type { Placement } from '@/store/types';
 
 /**
+ * Identité d'un fragment de `taskId`. Format unique, partagé par la répartition automatique de
+ * l'Autonomie (`distributeAutonomy`) et par les dépôts manuels (`nextPlacementId`) — les deux
+ * produisent des morceaux de la même tâche, ils ne doivent pas diverger sur la convention d'id.
+ */
+export function piecePlacementId(taskId: string, index: number): string {
+  return `${taskId}-piece-${index}`;
+}
+
+/**
+ * Identité à donner à un placement que l'utilisateur vient de déposer. `taskId` lui-même tant que
+ * la tâche n'est posée nulle part (cas courant : un placement par tâche) ; sinon le premier
+ * fragment libre — un morceau de plus, exactement comme ceux d'une Autonomie répartie.
+ *
+ * Deux invariants imposent de passer par ici plutôt que par `taskId` en dur (ou par un id
+ * aléatoire) :
+ * - `addPlacement` déduplique sur `placementId` : réutiliser `taskId` pour un second dépôt
+ *   effacerait silencieusement le premier morceau ;
+ * - `buildPlacementEvent` hachure les fragments en testant `placementId !== taskId` : un placement
+ *   unique doit donc bien garder `placementId === taskId`, sinon toutes les tâches déposées à la
+ *   main passeraient pour des fragments.
+ */
+export function nextPlacementId(taskId: string, placements: Placement[]): string {
+  if (!placements.some((p) => p.taskId === taskId)) return taskId;
+  const taken = new Set(placements.map((p) => p.placementId));
+  for (let i = 0; ; i++) {
+    const candidate = piecePlacementId(taskId, i);
+    if (!taken.has(candidate)) return candidate;
+  }
+}
+
+/**
  * Convertit les tâches placées par le moteur en placements `auto`. `placementId === taskId` :
  * l'étape 1 ne produit qu'un placement par tâche (pas de fragment).
  */
