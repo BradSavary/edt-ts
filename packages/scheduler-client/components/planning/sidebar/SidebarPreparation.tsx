@@ -37,6 +37,7 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
   const groupDrawerOpen = usePlanningStore((s) => s.groupDrawerOpen);
   const toggleGroupDrawer = usePlanningStore((s) => s.toggleGroupDrawer);
   const pruneCourseIds = usePlanningStore((s) => s.pruneCourseIds);
+  const syncEnforcedAfterCourseEdit = usePlanningStore((s) => s.syncEnforcedAfterCourseEdit);
 
   const allCourses = useProjectStore((s) => s.allCourses);
   const setCourses = useProjectStore((s) => s.setCourses);
@@ -85,6 +86,7 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
     } else {
       setCourses(allCourses.map((c) => (c === courseRef ? { ...c, ...patch } : c)));
     }
+    syncEnforcedAfterCourseEdit(courseRef.id);
     setEditingCourse(null);
   }
 

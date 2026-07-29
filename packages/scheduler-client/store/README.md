@@ -74,6 +74,12 @@ Composé de `BlockedZonesSlice`, `TaskGroupsSlice` et d'un slice inline.
   N'est plus lue pour le rendu calendrier (voir `placements`, origin `pre-enforced`) ; sert encore
   au payload moteur (`runSchedule`) et au badge "imposé" de `SidebarPreparation` en préparation.
 - `manualEnforcedMap` (via `taskGroupsSlice`) — enforcements manuels bruts (sans propagation)
+- `syncEnforcedAfterCourseEdit(courseId)` — réaligne l'imposition d'un cours sur son modèle après
+  édition de celui-ci depuis la sidebar de préparation (`SidebarPreparation`). Manuelle : réappelle
+  `handleEnforceChange` avec le combo ré-résolu (`resolveEntriesAgainstPrevious`, préserve le choix
+  déjà imposé s'il reste admissible). Dérivée d'un groupe : réappelle `handleEnforceChange` à map
+  manuelle inchangée — `augmentEnforcedMap` la recalcule depuis le modèle qui vient d'être patché.
+  Non imposé : no-op (pas de `set()`, l'auto-save compare les références).
 
 **Non-placés (modèle unifié) :**
 - `unplaced: Unplaced[]` — tâches de la semaine qui ne sont pas (ou pas entièrement) posées,

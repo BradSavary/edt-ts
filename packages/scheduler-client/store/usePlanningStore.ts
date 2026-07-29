@@ -17,6 +17,7 @@ import { placementsFromSolution, placementsFromEnforcedMap, enforcedMapFromPlace
 import { enforcedDataFromPlacement } from '@/lib/calendar/promotion';
 import { computeAutonomyDistribution, type OccupancyEntry } from '@/lib/calendar/autonomyDistribution';
 import { unplacedFromEngine, unplacedFromPreNeutralized } from '@/lib/calendar/unplaced';
+import { resolveEntriesAgainstPrevious } from '@/lib/enforcedResources';
 
 export type { TaskGroupConfig };
 export type { Placement, PlacementOrigin, Unplaced, UnplacedOrigin } from './types';
@@ -182,6 +183,12 @@ export interface PlanningStore extends BlockedZonesSlice, TaskGroupsSlice {
 
   // Cours forcés (reçoit la map MANUELLE — la propagation de groupes est calculée automatiquement)
   handleEnforceChange: (map: Record<string, EnforcedData>) => void;
+
+  /**
+   * Réaligne l'imposition d'un cours sur son modèle après édition de celui-ci (préparation).
+   * No-op si le cours n'est pas imposé.
+   */
+  syncEnforcedAfterCourseEdit: (courseId: string) => void;
 
   /** Calcule et applique la répartition automatique d'un cours Autonomie neutralisé (taskId). */
   distributeAutonomy: (taskId: string) => void;
@@ -727,6 +734,35 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       // `user-pre` survivent (même règle que `returnToPreparation`).
       unplaced: get().unplaced.filter((u) => u.origin === 'user-pre'),
     });
+  },
+
+  syncEnforcedAfterCourseEdit: (courseId) => {
+    const { manualEnforcedMap, enforcedMap, selectedWeek } = get();
+    const { allCourses, weekSaves } = useProjectStore.getState();
+    const courses = selectedWeek !== null ? getCoursesForWeek(allCourses, weekSaves, selectedWeek) : [];
+
+    const existing = manualEnforcedMap[courseId];
+    if (existing) {
+      const course = courses.find((c) => c.id === courseId);
+      if (!course) return;
+      const updated: EnforcedData = {
+        startTime: existing.startTime,
+        teacher: resolveEntriesAgainstPrevious(course.teacher, existing.teacher),
+        groups: resolveEntriesAgainstPrevious(course.groups, existing.groups),
+        rooms: resolveEntriesAgainstPrevious(course.rooms, existing.rooms),
+      };
+      get().handleEnforceChange({ ...manualEnforcedMap, [courseId]: updated });
+      return;
+    }
+
+    if (courseId in enforcedMap) {
+      // Imposition dérivée d'un groupe : la map manuelle ne change pas, mais `handleEnforceChange`
+      // recalcule `augmentEnforcedMap` — qui re-résout cette entrée depuis le modèle qu'on vient de
+      // patcher (§0 du plan). Sans cet appel, l'entrée dérivée resterait figée sur l'ancien modèle.
+      get().handleEnforceChange({ ...manualEnforcedMap });
+      return;
+    }
+    // Cours non imposé : ne pas créer de référence neuve (l'auto-save compare les références).
   },
 
   // Ne touche plus ni `placements`, ni `unplaced`, ni `scheduleResult` : « signaler, jamais
