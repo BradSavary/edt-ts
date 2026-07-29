@@ -9,6 +9,7 @@ import {
   buildEnforcedCopyItems,
   buildGroupCopyItems,
   buildNewEnforcedMap,
+  buildNeutralizedCopyItems,
 } from '@/lib/copyWeekPrep';
 
 function course(id: string, overrides: Partial<CourseTaskData> = {}): CourseTaskDataWithId {
@@ -58,6 +59,15 @@ describe('relevantSourceCourseIds', () => {
       taskGroups: [{ id: 'g1', type: 'parallel', courseKeys: ['b', 'c'] }],
     });
     expect(relevantSourceCourseIds(snap)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('ajoute les neutralisés en queue, après enforced et groupes, sans doublon', () => {
+    const snap = snapshot({
+      manualEnforcedMap: { a: enforced(), b: enforced() },
+      taskGroups: [{ id: 'g1', type: 'parallel', courseKeys: ['b', 'c'] }],
+      preNeutralizedKeys: ['c', 'd', 'a'],
+    });
+    expect(relevantSourceCourseIds(snap)).toEqual(['a', 'b', 'c', 'd']);
   });
 });
 
@@ -185,6 +195,63 @@ describe('buildGroupCopyItems', () => {
     const items = buildGroupCopyItems(snap, matches, existingDestGroups);
     expect(items[0].alreadyGroupedInDest).toBe(true);
     expect(items[0].copiable).toBe(false);
+  });
+});
+
+describe('buildNeutralizedCopyItems', () => {
+  it('marque copiable une tâche neutralisée avec un similaire libre en destination', () => {
+    const src = [course('s1', { week: 37 })];
+    const dst = [course('d1', { week: 38 })];
+    const snap = snapshot({ preNeutralizedKeys: ['s1'] });
+    const matches = matchCoursesForCopy(['s1'], src, dst);
+    const items = buildNeutralizedCopyItems(snap, matches, new Set(), src);
+    expect(items).toHaveLength(1);
+    expect(items[0].copiable).toBe(true);
+    expect(items[0].destCourseId).toBe('d1');
+  });
+
+  it("marque non copiable, destCourseId null, quand aucun similaire n'existe en destination", () => {
+    const src = [course('s1', { week: 37, code: 'R101' })];
+    const dst = [course('d1', { week: 38, code: 'R999' })];
+    const snap = snapshot({ preNeutralizedKeys: ['s1'] });
+    const matches = matchCoursesForCopy(['s1'], src, dst);
+    const items = buildNeutralizedCopyItems(snap, matches, new Set(), src);
+    expect(items[0].destCourseId).toBeNull();
+    expect(items[0].copiable).toBe(false);
+  });
+
+  it('marque non copiable, alreadyNeutralizedInDest true, quand le cours destination est déjà neutralisé en D', () => {
+    const src = [course('s1', { week: 37 })];
+    const dst = [course('d1', { week: 38 })];
+    const snap = snapshot({ preNeutralizedKeys: ['s1'] });
+    const matches = matchCoursesForCopy(['s1'], src, dst);
+    const items = buildNeutralizedCopyItems(snap, matches, new Set(['d1']), src);
+    expect(items[0].alreadyNeutralizedInDest).toBe(true);
+    expect(items[0].copiable).toBe(false);
+  });
+
+  // Le set reçu ne porte QUE les `user-pre` de D : un `engine`/`user-post` est volatil
+  // (`handleEnforceChange` l'efface), le compter comme « déjà non placé » perdrait la
+  // neutralisation. Voir le test de promotion dans unplacedPersistence.test.ts.
+  it('reste copiable quand le cours destination est non placé pour une autre raison (hors user-pre)', () => {
+    const src = [course('s1', { week: 37 })];
+    const dst = [course('d1', { week: 38 })];
+    const snap = snapshot({ preNeutralizedKeys: ['s1'] });
+    const matches = matchCoursesForCopy(['s1'], src, dst);
+    const items = buildNeutralizedCopyItems(snap, matches, new Set(), src); // d1 engine-non-placé : absent du set
+    expect(items[0].alreadyNeutralizedInDest).toBe(false);
+    expect(items[0].copiable).toBe(true);
+  });
+
+  it('ignore silencieusement une référence neutralisée orpheline (cours source supprimé depuis)', () => {
+    const snap = snapshot({ preNeutralizedKeys: ['ghost'] });
+    const matches = matchCoursesForCopy(['ghost'], [], []);
+    const items = buildNeutralizedCopyItems(snap, matches, new Set(), []);
+    expect(items).toHaveLength(0);
+  });
+
+  it('retourne un tableau vide sans snapshot source', () => {
+    expect(buildNeutralizedCopyItems(undefined, new Map(), new Set(), [])).toEqual([]);
   });
 });
 

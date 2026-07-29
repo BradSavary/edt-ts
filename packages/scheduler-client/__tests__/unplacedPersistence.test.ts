@@ -102,4 +102,61 @@ describe('unplaced : persistance des user-pre uniquement', () => {
 
     expect(useProjectStore.getState().weekSaves['1'].savedAt).toBe(afterFirstSave + 10_000);
   });
+
+  it('addPreNeutralized ajoute en une passe, promeut une entrée non-user-pre existante, et persiste', () => {
+    usePlanningStore.getState().setSelectedWeek(1);
+    usePlanningStore.setState({
+      unplaced: [
+        { taskId: 'deja-engine', origin: 'engine', diagnostics: { reason: 'test', failureCount: 1, eliminationRound: 0 } },
+        { taskId: 'intact', origin: 'user-post' },
+      ],
+    });
+
+    usePlanningStore.getState().addPreNeutralized(['nouveau-a', 'deja-engine', 'nouveau-b']);
+
+    // `deja-engine` est promu sur place (pas de doublon, position conservée) ; `intact` n'est pas
+    // dans la demande et garde son origine.
+    expect(usePlanningStore.getState().unplaced).toEqual([
+      { taskId: 'deja-engine', origin: 'user-pre' },
+      { taskId: 'intact', origin: 'user-post' },
+      { taskId: 'nouveau-a', origin: 'user-pre' },
+      { taskId: 'nouveau-b', origin: 'user-pre' },
+    ]);
+
+    const snapshot = useProjectStore.getState().weekSaves['1'];
+    expect(snapshot.preNeutralizedKeys).toEqual(['deja-engine', 'nouveau-a', 'nouveau-b']);
+  });
+
+  it("addPreNeutralized ne touche pas à l'état quand tout est déjà user-pre", () => {
+    usePlanningStore.getState().setSelectedWeek(1);
+    usePlanningStore.setState({ unplaced: [{ taskId: 'deja', origin: 'user-pre' }] });
+    const before = usePlanningStore.getState().unplaced;
+
+    usePlanningStore.getState().addPreNeutralized(['deja']);
+
+    // Référence identique : sans ça, l'auto-save se déclencherait pour rien.
+    expect(usePlanningStore.getState().unplaced).toBe(before);
+  });
+
+  /**
+   * Garde sur `handleEnforceChange`, pas sur `addPreNeutralized` : c'est parce qu'elle efface les
+   * `engine`/`user-post` (et ne garde que les `user-pre`) que la copie de préparation ne peut pas
+   * s'appuyer sur une entrée non-`user-pre` préexistante — d'où la promotion testée ci-dessus et
+   * le filtre `user-pre` de `destPreNeutralizedIds` côté modale. Ce test rougit si cette
+   * préservation des `user-pre` disparaît, scénario qui reperdrait la neutralisation copiée.
+   */
+  it('la neutralisation issue de la copie survit à l\'imposition appliquée dans la même passe', () => {
+    usePlanningStore.getState().setSelectedWeek(1);
+    usePlanningStore.setState({
+      unplaced: [
+        { taskId: 'X', origin: 'engine', diagnostics: { reason: 'test', failureCount: 1, eliminationRound: 0 } },
+      ],
+    });
+
+    usePlanningStore.getState().handleEnforceChange({ Y: { startTime: 480, teacher: [], groups: [], rooms: [] } });
+    usePlanningStore.getState().addPreNeutralized(['X']);
+
+    expect(usePlanningStore.getState().unplaced).toEqual([{ taskId: 'X', origin: 'user-pre' }]);
+    expect(useProjectStore.getState().weekSaves['1'].preNeutralizedKeys).toEqual(['X']);
+  });
 });

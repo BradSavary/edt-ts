@@ -11,7 +11,11 @@ import type { TaskGroupConfig } from '@/lib/taskGroupUtils';
  */
 
 /** Union, dans un ordre déterministe, des ids de cours source concernés par une copie
- *  (clés enforced + membres de groupes) — c'est sur cet ensemble qu'on calcule l'appariement. */
+ *  (clés enforced + membres de groupes + neutralisés) — c'est sur cet ensemble qu'on calcule
+ *  l'appariement. Les neutralisés sont ajoutés **en dernier** : `matchCoursesForCopy` consomme
+ *  les candidats destination un par un dans l'ordre de cette liste, donc les mettre en queue
+ *  garantit que l'appariement des enforced et des membres de groupes reste identique à
+ *  l'existant — la nouvelle étape ne peut pas voler un cours destination aux deux premières. */
 export function relevantSourceCourseIds(snapshot: PreparedWeekSnapshot | undefined): string[] {
   if (!snapshot) return [];
   const ids: string[] = [];
@@ -23,6 +27,9 @@ export function relevantSourceCourseIds(snapshot: PreparedWeekSnapshot | undefin
     for (const id of group.courseKeys) {
       if (!seen.has(id)) { seen.add(id); ids.push(id); }
     }
+  }
+  for (const id of snapshot.preNeutralizedKeys) {
+    if (!seen.has(id)) { seen.add(id); ids.push(id); }
   }
   return ids;
 }
@@ -150,6 +157,50 @@ export function buildGroupCopyItems(
       copiable: allFound && !alreadyGroupedInDest,
     };
   });
+}
+
+export interface NeutralizedCopyItem {
+  sourceCourseId: string;
+  sourceCourse: CourseTaskDataWithId;
+  destCourseId: string | null;
+  /** Le cours destination porte déjà une exclusion amont `user-pre` en D. */
+  alreadyNeutralizedInDest: boolean;
+  copiable: boolean;
+}
+
+/** Construit la liste des cours neutralisés copiables/non copiables de S, dans l'ordre de
+ *  `preNeutralizedKeys`. Pas d'équivalent de `roomMismatch` : une neutralisation ne transporte
+ *  aucune donnée au-delà de l'identité du cours.
+ *  `destPreNeutralizedIds` ne contient QUE les `user-pre` de D, jamais les `engine`/`user-post` :
+ *  ces deux-là sont volatils — `handleEnforceChange` les efface (elle ne conserve que les
+ *  `user-pre`). Les traiter comme « déjà non placé, rien à copier » ferait silencieusement
+ *  disparaître la neutralisation dès qu'un cours imposé est copié dans la même passe. C'est
+ *  `addPreNeutralized` qui absorbe le recouvrement, en promouvant l'entrée existante en
+ *  `user-pre` plutôt qu'en ajoutant un doublon. */
+export function buildNeutralizedCopyItems(
+  sourceSnapshot: PreparedWeekSnapshot | undefined,
+  matches: Map<string, string | null>,
+  destPreNeutralizedIds: Set<string>,
+  sourceCourses: CourseTaskDataWithId[],
+): NeutralizedCopyItem[] {
+  if (!sourceSnapshot) return [];
+  const sourceById = new Map(sourceCourses.map((c) => [c.id, c]));
+
+  const items: NeutralizedCopyItem[] = [];
+  for (const sourceCourseId of sourceSnapshot.preNeutralizedKeys) {
+    const sourceCourse = sourceById.get(sourceCourseId);
+    if (!sourceCourse) continue; // référence orpheline (cours source supprimé depuis) — ignorée
+    const destCourseId = matches.get(sourceCourseId) ?? null;
+    const alreadyNeutralizedInDest = destCourseId !== null && destPreNeutralizedIds.has(destCourseId);
+    items.push({
+      sourceCourseId,
+      sourceCourse,
+      destCourseId,
+      alreadyNeutralizedInDest,
+      copiable: destCourseId !== null && !alreadyNeutralizedInDest,
+    });
+  }
+  return items;
 }
 
 /** Fusionne les enforced sélectionnés dans la carte destination courante (ne mute pas l'entrée). */
