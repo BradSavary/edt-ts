@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { act } from '@testing-library/react';
 import type { CourseTaskDataWithId } from '../lib/courseId';
 
 /**
@@ -159,5 +160,118 @@ describe('édition d’un cours et préparation de semaine', () => {
     expect(state.taskGroups).toEqual([]);
     expect(state.enforcedMap).toEqual({});
     expect(state.placements).toEqual([]);
+  });
+});
+
+/**
+ * docs/PlanSyncSidebarEnforced.md — un cours imposé a deux enregistrements (cours-modèle lu par
+ * la carte sidebar, imposition concrète lue par la tuile calendrier). Ce bloc couvre les deux
+ * sens de réconciliation entre eux.
+ */
+describe('synchronisation carte sidebar / tuile calendrier d’un cours imposé', () => {
+  const coursesFor = () => useProjectStore.getState().allCourses.filter((c) => c.week === 1);
+
+  /** Pose `pendingEdit` puis confirme, comme le ferait un utilisateur retouchant une tuile. */
+  function editViaTile(update: { teachers: string[]; groups: string[]; rooms: string[]; duration?: number }) {
+    const { result } = renderHook(() =>
+      useCalendarCore(usePlanningStore.getState().placements, coursesFor()),
+    );
+    act(() => {
+      result.current.setPendingEdit({
+        placementId: 'c1',
+        taskId: 'c1',
+        title: 'c1',
+        teachers: ['T1'],
+        groups: ['G1'],
+        rooms: ['R1'],
+        startTime: 60,
+        durationMin: 60,
+        origin: 'pre-enforced',
+        teacherOptions: [],
+        groupOptions: [],
+        roomOptions: [],
+      });
+    });
+    act(() => {
+      result.current.handleEditConfirm(update);
+    });
+  }
+
+  it('sens calendrier → modèle : retoucher la salle depuis la tuile met à jour le cours ET manualEnforcedMap', () => {
+    usePlanningStore.getState().handleEnforceChange({ c1: enforced(60) });
+
+    editViaTile({ teachers: ['T1'], groups: ['G1'], rooms: ['R9'] });
+
+    const c1 = useProjectStore.getState().allCourses.find((c) => c.id === 'c1')!;
+    expect(c1.rooms).toEqual(['R9']);
+    expect(usePlanningStore.getState().manualEnforcedMap.c1.rooms).toEqual(['R9']);
+  });
+
+  it('les alternatives du modèle survivent à une retouche qui ne les concerne pas', () => {
+    const { allCourses, setCourses } = useProjectStore.getState();
+    setCourses(allCourses.map((c) => (c.id === 'c1' ? { ...c, teacher: [['T1', 'T2']] } : c)));
+    usePlanningStore.getState().handleEnforceChange({ c1: enforced(60) });
+
+    editViaTile({ teachers: ['T1'], groups: ['G1'], rooms: ['R9'] });
+
+    const c1 = useProjectStore.getState().allCourses.find((c) => c.id === 'c1')!;
+    expect(c1.teacher).toEqual([['T1', 'T2']]);
+  });
+
+  it('la durée reste synchrone (non-régression) : la retouche écrit le cours et laisse l’imposition en place', () => {
+    usePlanningStore.getState().handleEnforceChange({ c1: enforced(60) });
+
+    editViaTile({ teachers: ['T1'], groups: ['G1'], rooms: ['R1'], duration: 90 });
+
+    const c1 = useProjectStore.getState().allCourses.find((c) => c.id === 'c1')!;
+    expect(c1.duration).toBe(90);
+    expect(usePlanningStore.getState().manualEnforcedMap.c1).toBeDefined();
+  });
+
+  it('sens modèle → imposition : éditer la salle depuis la sidebar réaligne enforcedMap, startTime inchangé', () => {
+    usePlanningStore.getState().handleEnforceChange({ c1: enforced(60) });
+
+    const { allCourses, setCourses } = useProjectStore.getState();
+    setCourses(allCourses.map((c) => (c.id === 'c1' ? { ...c, rooms: ['R9'] } : c)));
+    usePlanningStore.getState().syncEnforcedAfterCourseEdit('c1');
+
+    const state = usePlanningStore.getState();
+    expect(state.enforcedMap.c1.rooms).toEqual(['R9']);
+    expect(state.enforcedMap.c1.startTime).toBe(60);
+  });
+
+  it('le choix déjà imposé est préservé quand le modèle réordonne ses alternatives', () => {
+    const { allCourses, setCourses } = useProjectStore.getState();
+    setCourses(allCourses.map((c) => (c.id === 'c1' ? { ...c, teacher: [['T1', 'T2']] } : c)));
+    usePlanningStore.getState().handleEnforceChange({ c1: enforced(60) });
+
+    setCourses(useProjectStore.getState().allCourses.map((c) => (c.id === 'c1' ? { ...c, teacher: [['T2', 'T1']] } : c)));
+    usePlanningStore.getState().syncEnforcedAfterCourseEdit('c1');
+
+    expect(usePlanningStore.getState().enforcedMap.c1.teacher).toEqual(['T1']);
+  });
+
+  it('imposition dérivée d’un groupe : la salle propagée suit le cours patché, sans entrer dans manualEnforcedMap', () => {
+    usePlanningStore.setState({ taskGroups: [{ id: 'g1', type: 'parallel', courseKeys: ['c1', 'c2'] }] });
+    usePlanningStore.getState().handleEnforceChange({ c1: enforced(60) });
+    expect(Object.keys(usePlanningStore.getState().enforcedMap).sort()).toEqual(['c1', 'c2']);
+
+    const { allCourses, setCourses } = useProjectStore.getState();
+    setCourses(allCourses.map((c) => (c.id === 'c2' ? { ...c, rooms: ['R9'] } : c)));
+    usePlanningStore.getState().syncEnforcedAfterCourseEdit('c2');
+
+    const state = usePlanningStore.getState();
+    expect(state.enforcedMap.c2.rooms).toEqual(['R9']);
+    expect(state.manualEnforcedMap.c2).toBeUndefined();
+  });
+
+  it('no-op sur un cours non imposé : ni manualEnforcedMap ni placements ne changent de référence', () => {
+    const before = usePlanningStore.getState();
+
+    usePlanningStore.getState().syncEnforcedAfterCourseEdit('c3');
+
+    const after = usePlanningStore.getState();
+    expect(after.manualEnforcedMap).toBe(before.manualEnforcedMap);
+    expect(after.placements).toBe(before.placements);
   });
 });

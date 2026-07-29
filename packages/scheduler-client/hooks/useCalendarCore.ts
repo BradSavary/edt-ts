@@ -17,6 +17,7 @@ import { resolveCalendarYear } from '@/lib/schoolHolidays';
 import { levelFromCode, getEventColors } from '@/lib/calendar/yearColors';
 import type { YearColorConfig } from '@/lib/calendar/yearColors';
 import { nextPlacementId } from '@/lib/calendar/placements';
+import { mergeConcreteIntoEntries } from '@/lib/enforcedResources';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import type { PendingDrop, PendingNeutralizedDrop, CalendarEventExtProps, CalendarEventData, DraggingState, PendingEditData } from '@/lib/calendar/types';
@@ -335,27 +336,37 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
     // groupe), après planification c'est une retouche du placement.
     if (pendingEdit.origin === 'pre-enforced' && lastRun === null) {
       const courseKey = pendingEdit.taskId;
+      const teachers = update.teachers.flat();
+      const groups = update.groups.flat();
+      const rooms = update.rooms.flat();
+
+      // 1. Cours-modèle — c'est lui que rend la carte sidebar (CourseCard). Sans cette écriture, la
+      //    retouche reste invisible côté sidebar : c'est exactement le bug que corrige ce chantier.
+      //    `mergeConcreteIntoEntries` préserve les alternatives du modèle encore compatibles avec le
+      //    choix imposé (cf. lib/enforcedResources.ts).
+      const course = courseById.get(courseKey);
+      if (course) {
+        const patch = {
+          teacher: mergeConcreteIntoEntries(course.teacher, teachers),
+          groups: mergeConcreteIntoEntries(course.groups, groups),
+          rooms: mergeConcreteIntoEntries(course.rooms ?? [], rooms),
+          ...(update.duration !== undefined ? { duration: update.duration } : {}),
+        };
+        if (course.source === 'manual') {
+          if (selectedWeek !== null) useProjectStore.getState().updateManualCourse(selectedWeek, course.id, patch);
+        } else {
+          const { allCourses, setCourses } = useProjectStore.getState();
+          setCourses(allCourses.map((c) => (c.id === course.id ? { ...c, ...patch } : c)));
+        }
+      }
+
+      // 2. Imposition — APRÈS le patch : `handleEnforceChange` relit les cours de la semaine pour la
+      //    propagation de groupe, elle doit voir la durée et les ressources neuves.
       const state = usePlanningStore.getState();
       const existing = state.manualEnforcedMap[courseKey] ?? state.enforcedMap[courseKey];
       if (existing) {
-        const updated: EnforcedData = { ...existing, teacher: update.teachers.flat(), groups: update.groups.flat(), rooms: update.rooms.flat() };
-        const newMap = { ...state.manualEnforcedMap, [courseKey]: updated };
-        handleEnforceChange({ ...newMap });
-      }
-
-      // Durée : EnforcedData ne porte pas de champ duration, la seule persistance possible
-      // pour une imposition est le cours lui-même (acquis du modèle précédent).
-      if (update.duration !== undefined) {
-        const course = courseById.get(courseKey);
-        if (course) {
-          const patch = { duration: update.duration };
-          if (course.source === 'manual') {
-            if (selectedWeek !== null) useProjectStore.getState().updateManualCourse(selectedWeek, course.id, patch);
-          } else {
-            const { allCourses, setCourses } = useProjectStore.getState();
-            setCourses(allCourses.map((c) => (c === course ? { ...c, ...patch } : c)));
-          }
-        }
+        const updated: EnforcedData = { ...existing, teacher: teachers, groups, rooms };
+        handleEnforceChange({ ...state.manualEnforcedMap, [courseKey]: updated });
       }
     } else {
       // auto / post-enforced : retouche d'un placement concret (sans alternatives) — teacher/
