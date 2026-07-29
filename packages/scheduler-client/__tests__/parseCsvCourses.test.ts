@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseCsvCourses } from '../lib/parseCsvCourses';
+import { parseCsvCourses, parseCsvFull, extractResourceWeeks } from '../lib/parseCsvCourses';
+import { courseIdentityKey } from '../lib/courseId';
 
 const BASE_HEADER = 'Semestre,Parcours,Code,Enseignement,Intervenant,Nature,Groupes,Salles,S1,S2,S3,S47,S48';
 
@@ -128,5 +129,74 @@ describe('parseCsvCourses', () => {
       expect(result).toHaveLength(1);
       expect(result[0].duration).toBe(180);
     });
+  });
+
+  describe('doublons de ressources dans une cellule', () => {
+    it('déduplique les groupes répétés', () => {
+      const csv = makeCsv(['S1,INFO,R101,Algo,DUPONT Jean,CM,"G1, G2, G1",A101,2,0,0,0,0']);
+      const [course] = parseCsvCourses(csv, 1);
+      expect(course.groups).toEqual(['G1', 'G2']);
+    });
+
+    it('déduplique les salles répétées', () => {
+      const csv = makeCsv(['S1,INFO,R101,Algo,DUPONT Jean,CM,G1,"A101, B201, A101",2,0,0,0,0']);
+      const [course] = parseCsvCourses(csv, 1);
+      expect(course.rooms).toEqual([['A101', 'B201']]);
+    });
+
+    it('une salle répétée seule reste une salle fixe, pas une fausse alternative', () => {
+      // Avant correction : roomList = ['A101','A101'], length > 1 → [['A101','A101']],
+      // soit un slot « A101 OU A101 » qui déclenchait l'UI de choix dans EnforceModal.
+      const csv = makeCsv(['S1,INFO,R101,Algo,DUPONT Jean,CM,G1,"A101, A101",2,0,0,0,0']);
+      const [course] = parseCsvCourses(csv, 1);
+      expect(course.rooms).toEqual(['A101']);
+    });
+
+    it('conserve l\'ordre de première apparition', () => {
+      const csv = makeCsv(['S1,INFO,R101,Algo,DUPONT Jean,CM,"G2, G1, G2, G3",A101,2,0,0,0,0']);
+      const [course] = parseCsvCourses(csv, 1);
+      expect(course.groups).toEqual(['G2', 'G1', 'G3']);
+    });
+  });
+});
+
+describe('parseCsvFull', () => {
+  it('déduplique groupes et salles portés par le cours', () => {
+    const csv = makeCsv(['S1,INFO,R101,Algo,DUPONT Jean,CM,"G1, G1","A101, A101",2,0,0,0,0']);
+    const { courses } = parseCsvFull(csv);
+    expect(courses).toHaveLength(1);
+    expect(courses[0].groups).toEqual(['G1']);
+    expect(courses[0].rooms).toEqual(['A101']);
+  });
+
+  it('produit la même clef d\'identité qu\'un CSV sans doublon (merge non destructif)', () => {
+    // Sans déduplication, courseIdentityKey joignait "G1,G1" ≠ "G1" : réimporter le CSV corrigé
+    // faisait passer le cours pour supprimé puis recréé, perdant groupes de tâches et impositions.
+    const withDup = parseCsvFull(
+      makeCsv(['S1,INFO,R101,Algo,DUPONT Jean,CM,"G1, G1",A101,2,0,0,0,0'])
+    ).courses[0];
+    const withoutDup = parseCsvFull(
+      makeCsv(['S1,INFO,R101,Algo,DUPONT Jean,CM,G1,A101,2,0,0,0,0'])
+    ).courses[0];
+    expect(courseIdentityKey(withDup)).toBe(courseIdentityKey(withoutDup));
+    expect(withDup.id).toBe(withoutDup.id);
+  });
+
+  it('la liste globale des ressources reste sans doublon', () => {
+    const csv = makeCsv([
+      'S1,INFO,R101,Algo,DUPONT Jean,CM,"G1, G1",A101,2,0,0,0,0',
+      'S1,INFO,R102,Maths,DUPONT Jean,TD,G1,A101,1,0,0,0,0',
+    ]);
+    const { resources } = parseCsvFull(csv);
+    const groups = resources.find((g) => g.resourceType === 'group')!.resources;
+    expect(groups.map((r) => r.id)).toEqual(['G1']);
+  });
+});
+
+describe('extractResourceWeeks', () => {
+  it('gère les cellules à doublons sans les compter deux fois', () => {
+    const csv = makeCsv(['S1,INFO,R101,Algo,DUPONT Jean,CM,"G1, G1",A101,2,0,0,3,0']);
+    const weeks = extractResourceWeeks(csv);
+    expect(weeks['G1']).toEqual([1, 47]);
   });
 });
