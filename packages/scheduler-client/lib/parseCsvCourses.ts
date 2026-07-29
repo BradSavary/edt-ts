@@ -15,6 +15,24 @@ function levelFromSemester(semester: number): number {
 }
 
 /**
+ * Découpe une cellule de ressources (« G1, G2 ») en liste normalisée : espaces retirés,
+ * entrées vides ignorées, **doublons supprimés** (première occurrence conservée).
+ *
+ * La déduplication n'est pas cosmétique. Une ressource répétée dans une cellule se propageait
+ * jusque dans le cours et cassait trois choses :
+ * - pour les salles, `["A101","A101"]` a une longueur > 1 et était donc requalifiée en
+ *   *alternative* « A101 OU A101 » (voir plus bas), transformant une salle fixe en faux choix ;
+ * - `EnforceModal` rend ces alternatives avec la valeur comme clef React → clefs dupliquées,
+ *   et deux boutons radio de même `name` **et** même `value` (sélection ambiguë) ;
+ * - `courseIdentityKey` (lib/courseId.ts) joint les groupes triés : `"G1,G1" !== "G1"`, donc
+ *   réimporter un CSV dont le doublon a été corrigé faisait passer le cours pour supprimé puis
+ *   recréé, perdant ses groupes de tâches et ses impositions manuelles.
+ */
+function parseResourceCell(raw: string | undefined): string[] {
+  return [...new Set((raw ?? '').split(',').map((v) => v.trim()).filter(Boolean))];
+}
+
+/**
  * Parse un fichier CSV de ventilation horaire et extrait les tâches planifiables
  * pour la semaine ISO donnée.
  *
@@ -72,17 +90,8 @@ export function parseCsvCourses(csvText: string, week: number): CourseTaskData[]
     const teacher = cols[4]?.trim() ?? '';
     const type = cols[5]?.trim() ?? '';
 
-    const rawGroups = cols[6]?.trim() ?? '';
-    const groups = rawGroups
-      .split(',')
-      .map((g) => g.trim())
-      .filter(Boolean);
-
-    const rawRooms = cols[7]?.trim() ?? '';
-    const roomList = rawRooms
-      .split(',')
-      .map((r) => r.trim())
-      .filter(Boolean);
+    const groups = parseResourceCell(cols[6]);
+    const roomList = parseResourceCell(cols[7]);
 
     // Une seule entrée avec toutes les salles alternatives
     const rooms: (string | string[])[] = roomList.length > 1 ? [roomList] : roomList;
@@ -155,14 +164,10 @@ export function extractResourceWeeks(csvText: string): Record<string, number[]> 
     if (teacher) activeWeeks.forEach((w) => addWeek(teacher, w));
 
     // Groupes (col 6, séparés par virgule)
-    const rawGroups = cols[6]?.trim() ?? '';
-    rawGroups.split(',').map((g) => g.trim()).filter(Boolean)
-      .forEach((g) => activeWeeks.forEach((w) => addWeek(g, w)));
+    parseResourceCell(cols[6]).forEach((g) => activeWeeks.forEach((w) => addWeek(g, w)));
 
     // Salles (col 7, séparées par virgule)
-    const rawRooms = cols[7]?.trim() ?? '';
-    rawRooms.split(',').map((r) => r.trim()).filter(Boolean)
-      .forEach((r) => activeWeeks.forEach((w) => addWeek(r, w)));
+    parseResourceCell(cols[7]).forEach((r) => activeWeeks.forEach((w) => addWeek(r, w)));
   }
 
   // Convertir Set → tableau trié
@@ -216,11 +221,9 @@ export function parseCsvFull(csvText: string): ParseCsvFullResult {
     const name = cols[3]?.trim() ?? '';
     const teacher = cols[4]?.trim() ?? '';
     const type = cols[5]?.trim() ?? '';
-    const rawGroups = cols[6]?.trim() ?? '';
-    const rawRooms = cols[7]?.trim() ?? '';
 
-    const groupList = rawGroups.split(',').map((g) => g.trim()).filter(Boolean);
-    const roomList = rawRooms.split(',').map((r) => r.trim()).filter(Boolean);
+    const groupList = parseResourceCell(cols[6]);
+    const roomList = parseResourceCell(cols[7]);
     const rooms_entry: (string | string[])[] = roomList.length > 1 ? [roomList] : roomList;
 
     // Collecte des ressources une fois par ligne (indépendamment des semaines)

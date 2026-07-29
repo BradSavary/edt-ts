@@ -33,7 +33,13 @@ function splitEntries(entries: ResourceEntry[]): { fixed: string[]; alternatives
   const fixed: string[] = [];
   const alternatives: string[][] = [];
   for (const e of entries) {
-    if (Array.isArray(e)) alternatives.push(e);
+    // Dédupliquer chaque alternative : les valeurs servent de clef React ci-dessous, et deux
+    // boutons radio de même `name` ET même `value` rendraient la sélection ambiguë. L'import CSV
+    // déduplique déjà à la source (lib/parseCsvCourses.ts) ; ce filet couvre les cours créés ou
+    // édités à la main, où `ResourceSlots` n'empêche pas de choisir deux fois la même ressource.
+    // Le nombre d'alternatives est inchangé : les index de `selectedRooms`/`selectedTeachers`
+    // restent alignés.
+    if (Array.isArray(e)) alternatives.push([...new Set(e)]);
     else fixed.push(e);
   }
   return { fixed, alternatives };
