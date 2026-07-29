@@ -125,6 +125,9 @@ export interface PlanningStore extends BlockedZonesSlice, TaskGroupsSlice {
   unplaced: Unplaced[];
   /** Bascule l'exclusion amont d'un cours (mode préparation). */
   togglePreNeutralized: (taskId: string) => void;
+  /** Ajoute en une passe des exclusions amont (copie de préparation). Une tâche déjà non placée
+   *  pour une autre raison (`engine`/`user-post`) est promue en `user-pre`, jamais dupliquée. */
+  addPreNeutralized: (taskIds: string[]) => void;
 
   /**
    * Retire de l'état vivant de la semaine courante toute référence aux cours donnés (suppression
@@ -324,6 +327,27 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
         unplaced: exists
           ? state.unplaced.filter((u) => !(u.taskId === taskId && u.origin === 'user-pre'))
           : [...state.unplaced, { taskId, origin: 'user-pre' as const }],
+      };
+    });
+  },
+  addPreNeutralized: (taskIds) => {
+    set((state) => {
+      const wanted = new Set(taskIds);
+      if (wanted.size === 0) return {};
+      // Une tâche déjà non placée pour une autre raison (`engine`, `user-post`) est **promue**,
+      // pas ignorée : ces deux origines sont volatiles — `handleEnforceChange` ne conserve que
+      // les `user-pre` — donc s'appuyer sur l'entrée existante ferait disparaître la
+      // neutralisation dès la prochaine imposition. La promotion évite aussi le doublon dans la
+      // pioche qu'un simple ajout créerait (`selectPiocheEntries` n'y déduplique pas).
+      const promoted = state.unplaced.map((u) =>
+        wanted.has(u.taskId) && u.origin !== 'user-pre' ? { taskId: u.taskId, origin: 'user-pre' as const } : u,
+      );
+      const present = new Set(state.unplaced.map((u) => u.taskId));
+      const toAdd = [...wanted].filter((id) => !present.has(id));
+      const changed = toAdd.length > 0 || promoted.some((u, i) => u !== state.unplaced[i]);
+      if (!changed) return {}; // rien à faire — ne pas créer une référence neuve (auto-save à vide)
+      return {
+        unplaced: [...promoted, ...toAdd.map((taskId) => ({ taskId, origin: 'user-pre' as const }))],
       };
     });
   },

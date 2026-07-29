@@ -82,6 +82,11 @@ Composé de `BlockedZonesSlice`, `TaskGroupsSlice` et d'un slice inline.
   version persistée reste dans `weekSaves`)/`syntheticNeutralizedTasks`/`activeNeutralizedTasks`/
   `manuallyNeutralizedTasks`/`autonomyDistributions`.
 - `togglePreNeutralized(taskId)` — bascule l'exclusion `user-pre` d'un cours (mode préparation).
+- `addPreNeutralized(taskIds)` — ajoute en une passe des exclusions `user-pre` (copie de
+  préparation `CopyWeekPrepModal`) ; un seul `set()`, **promeut** en `user-pre` une tâche déjà non
+  placée pour une autre raison (`engine`/`user-post` sont effacés par `handleEnforceChange`, s'y
+  fier perdrait la neutralisation) sans jamais dupliquer, `return {}` si rien ne change pour ne pas
+  déclencher d'auto-save à vide.
 - `unplaceTask(placementId, origin)` — retire un placement et signale la tâche non placée ; dédup
   sur `taskId` (n'ajoute pas de seconde entrée si une existe déjà pour cette tâche).
 - Dérivations pures dans `lib/calendar/unplaced.ts` (`unplacedFromEngine`,
