@@ -67,6 +67,10 @@ map manuelle inchangée suffit** à la réaligner sur un modèle qui vient d'êt
 
 ## 1. Couche pure — `lib/enforcedResources.ts` (nouveau fichier)
 
+> **Amendé le 2026-07-30 — voir §8.** L'appariement positionnel décrit ci-dessous transformait un OU
+> du modèle en ET. `mergeConcreteIntoEntries` apparie désormais **par valeur** ; le code de cette
+> section n'est plus celui du dépôt.
+
 Deux réconciliations, chacune dans un sens, toutes deux **positionnelles** (un « slot » de
 `ResourceSlots` ↔ une entrée de la liste ; c'est déjà l'appariement implicite entre modèle et combo
 concret, produit par `pickDefaultResources`/`flatMap` qui rendent une valeur par entrée).
@@ -334,3 +338,59 @@ Semaine vierge, mode préparation :
 **Non fait :** §6 (vérification manuelle dans le navigateur) — non exécutée dans cette session
 (pas de serveur dev lancé). À faire par Frédéric avant de considérer le chantier clos, en suivant
 les 5 scénarios du §6.
+
+## 8. Amendement du 2026-07-30 — appariement par valeur, le OU n'est plus dégradé
+
+### 8.1 Ce qui n'allait pas
+
+`mergeConcreteIntoEntries` appariait `concrete[i]` à `entries[i]`. Trois conséquences, toutes
+déclenchées depuis une tuile du calendrier (`allowAlternatives={false}` : la modale ne rend que des
+chaînes et ne propose que « + ET ») :
+
+1. choisir une salle **hors** des alternatives remplaçait le slot par la valeur concrète — le cours
+   perdait définitivement son OU, y compris après « Retirer l'imposition » ;
+2. l'index n'est pas fiable : `EnforceModal` construisait le combo `[...fixed, ...alternatives]`,
+   donc une salle fixe pouvait s'apparier à une alternative d'enseignant… et la détruire ;
+3. une valeur non reconnue écrasait le slot au lieu d'être lue comme un ajout.
+
+Transformer un OU en ET change ce que le **moteur** reçoit (une salle à choisir devient plusieurs
+salles requises) : ce n'était pas un défaut d'affichage. Le §4.2 avait bien identifié l'enjeu, mais
+la protection ne couvrait que le cas « le choix concret figure encore dans l'alternative ».
+
+### 8.2 Règle retenue (arbitrage Frédéric)
+
+Le calendrier continue d'écrire le cours-modèle (la carte sidebar doit suivre), mais :
+
+- **appariement par valeur, en trois passes** — entrée fixe exactement égale ; puis alternative
+  contenant la valeur (laissée **intacte**) ; puis entrées libres restantes dans l'ordre ;
+- une valeur qui atterrit sur une alternative sans y figurer **élargit** le OU (`[...alts, value]`)
+  au lieu de le remplacer : aucun OU du modèle ne se perd jamais par le calendrier. Une entrée
+  **fixe** n'a pas de OU à perdre : elle prend la nouvelle valeur (comportement inchangé) ;
+- le résultat garde l'**ordre du modèle** ; les valeurs sans entrée d'accueil sont ajoutées en fin
+  (le « + ET » reste un créneau requis du modèle, arbitrage explicite), les entrées qu'aucune valeur
+  ne réclame sont supprimées (slot retiré dans la modale).
+
+Contrepartie assumée : le modèle s'élargit au fil des retouches calendrier (le moteur devient libre
+de choisir la salle ajoutée aux exécutions suivantes). Pour rétrécir un OU, passer par la sidebar,
+qui édite la structure directement.
+
+### 8.3 Effet de bord traité — `EnforceModal`
+
+`splitEntries` (fixes / alternatives) est remplacé par `altSlots`, qui **retient l'index d'entrée**
+de chaque slot à choix, et par `resolveCombo`, qui rend une valeur par entrée **dans l'ordre du
+modèle**. Le combo concret est donc redevenu positionnellement apparié au modèle partout
+(`pickDefaultResources`, `resolveEntriesAgainstPrevious`, `EnforceModal`) ; l'appariement par valeur
+du §8.2 est la ceinture, pas la seule bretelle.
+
+### 8.4 Tests ajoutés
+
+- `__tests__/enforcedResources.test.ts` — 16 tests (11 nouveaux) : élargissement au lieu du
+  remplacement, entrée fixe remplacée, combo désordonné laissant le modèle intact, ordre du modèle
+  conservé avec ajouts en fin, priorité de l'entrée fixe sur l'alternative qui la recouvre, combo à
+  doublons, suppression d'une entrée non réclamée, valeurs vides ignorées.
+- `__tests__/EnforceModal.test.tsx` — le combo rendu suit l'ordre des entrées du cours.
+- `__tests__/courseEditPreservesPrep.test.ts` — bout en bout : une salle hors alternatives élargit le
+  OU du modèle et n'impose qu'elle-même ; un combo désordonné ne réordonne pas le modèle.
+
+`npm run test --workspace=packages/scheduler-client` → 39 fichiers, 501 tests verts ;
+`typecheck` → 0 erreur ; `eslint` sur les trois fichiers touchés → 0 problème.

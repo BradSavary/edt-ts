@@ -6,8 +6,8 @@ describe('mergeConcreteIntoEntries', () => {
     expect(mergeConcreteIntoEntries([['A', 'B']], ['A'])).toEqual([['A', 'B']]);
   });
 
-  it('remplace une alternative quand le choix concret n\'y figure plus', () => {
-    expect(mergeConcreteIntoEntries([['A', 'B']], ['C'])).toEqual(['C']);
+  it('élargit une alternative quand le choix concret n\'y figure pas, sans la dégrader', () => {
+    expect(mergeConcreteIntoEntries([['A', 'B']], ['C'])).toEqual([['A', 'B', 'C']]);
   });
 
   it('suit un slot ajouté dans la modale', () => {
@@ -20,6 +20,42 @@ describe('mergeConcreteIntoEntries', () => {
 
   it('laisse une entrée simple inchangée', () => {
     expect(mergeConcreteIntoEntries(['A'], ['A'])).toEqual(['A']);
+  });
+
+  it('remplace une entrée fixe par la nouvelle valeur (aucun OU à perdre)', () => {
+    expect(mergeConcreteIntoEntries(['A'], ['B'])).toEqual(['B']);
+  });
+
+  it('apparie par valeur, pas par index : un combo désordonné laisse le modèle intact', () => {
+    // Ordre produit par EnforceModal : les entrées fixes d'abord, puis les alternatives résolues.
+    expect(mergeConcreteIntoEntries([['A', 'B'], 'C'], ['C', 'A'])).toEqual([['A', 'B'], 'C']);
+  });
+
+  it('rend les entrées dans l\'ordre du modèle, les ajouts en fin', () => {
+    expect(mergeConcreteIntoEntries([['A', 'B'], 'C'], ['X', 'C', 'B'])).toEqual([
+      ['A', 'B'],
+      'C',
+      'X',
+    ]);
+  });
+
+  it('préfère l\'entrée fixe exactement égale à une alternative qui la recouvre', () => {
+    expect(mergeConcreteIntoEntries([['A', 'B'], 'B'], ['B', 'A'])).toEqual([['A', 'B'], 'B']);
+  });
+
+  it('n\'apparie pas deux fois la même entrée sur un combo à doublons', () => {
+    expect(mergeConcreteIntoEntries([['A', 'B'], ['A', 'C']], ['A', 'A'])).toEqual([
+      ['A', 'B'],
+      ['A', 'C'],
+    ]);
+  });
+
+  it('retire l\'entrée qu\'aucune valeur ne réclame, quelle que soit sa position', () => {
+    expect(mergeConcreteIntoEntries([['A', 'B'], 'C'], ['C'])).toEqual(['C']);
+  });
+
+  it('ignore les valeurs vides', () => {
+    expect(mergeConcreteIntoEntries([['A', 'B']], ['A', ''])).toEqual([['A', 'B']]);
   });
 });
 

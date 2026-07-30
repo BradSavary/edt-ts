@@ -342,8 +342,9 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
 
       // 1. Cours-modèle — c'est lui que rend la carte sidebar (CourseCard). Sans cette écriture, la
       //    retouche reste invisible côté sidebar : c'est exactement le bug que corrige ce chantier.
-      //    `mergeConcreteIntoEntries` préserve les alternatives du modèle encore compatibles avec le
-      //    choix imposé (cf. lib/enforcedResources.ts).
+      //    `mergeConcreteIntoEntries` apparie le combo concret aux entrées **par valeur** et ne
+      //    dégrade jamais un OU du modèle en valeur concrète : une salle choisie hors des
+      //    alternatives élargit le slot au lieu de le remplacer (cf. lib/enforcedResources.ts).
       const course = courseById.get(courseKey);
       if (course) {
         const patch = {
