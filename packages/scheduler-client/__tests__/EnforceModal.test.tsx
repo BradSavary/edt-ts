@@ -225,6 +225,30 @@ describe('EnforceModal', () => {
       );
     });
 
+    it('rend le combo dans l\'ordre des entrées du cours, alternatives comprises', () => {
+      const onConfirm = vi.fn();
+      const courseWithMixedRooms: CourseTaskData = {
+        ...baseCourse,
+        rooms: [['A101', 'B201'], 'C303'],
+      };
+      render(
+        <EnforceModal
+          courseKey="0"
+          course={courseWithMixedRooms}
+          startTime={480}
+          onConfirm={onConfirm}
+          onCancel={vi.fn()}
+        />
+      );
+      fireEvent.click(screen.getByRole('radio', { name: 'B201' }));
+      fireEvent.click(screen.getByRole('button', { name: /Confirmer/i }));
+      // Et non ['C303', 'B201'] : le combo doit rester apparié positionnellement au modèle pour
+      // ses consommateurs (cf. lib/enforcedResources.ts).
+      expect(onConfirm).toHaveBeenCalledWith(
+        expect.objectContaining({ rooms: ['B201', 'C303'] })
+      );
+    });
+
     it('appelle onCancel en cliquant sur l\'overlay', () => {
       const onCancel = vi.fn();
       render(

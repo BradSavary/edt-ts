@@ -218,6 +218,32 @@ describe('synchronisation carte sidebar / tuile calendrier d’un cours imposé'
     expect(c1.teacher).toEqual([['T1', 'T2']]);
   });
 
+  it('une salle choisie hors des alternatives élargit le OU du modèle au lieu de le détruire', () => {
+    const { allCourses, setCourses } = useProjectStore.getState();
+    setCourses(allCourses.map((c) => (c.id === 'c1' ? { ...c, rooms: [['R1', 'R2']] } : c)));
+    usePlanningStore.getState().handleEnforceChange({ c1: enforced(60) });
+
+    editViaTile({ teachers: ['T1'], groups: ['G1'], rooms: ['B12'] });
+
+    const c1 = useProjectStore.getState().allCourses.find((c) => c.id === 'c1')!;
+    // La modale du calendrier tourne sans « + OU » : le combo concret ne peut pas exprimer le OU du
+    // modèle, il ne doit donc pas pouvoir le supprimer. L'imposition, elle, porte bien B12 seul.
+    expect(c1.rooms).toEqual([['R1', 'R2', 'B12']]);
+    expect(usePlanningStore.getState().manualEnforcedMap.c1.rooms).toEqual(['B12']);
+  });
+
+  it('un combo dont l’ordre diffère du modèle ne le réordonne ni ne l’altère', () => {
+    const { allCourses, setCourses } = useProjectStore.getState();
+    setCourses(allCourses.map((c) => (c.id === 'c1' ? { ...c, rooms: [['R1', 'R2'], 'R3'] } : c)));
+    usePlanningStore.getState().handleEnforceChange({ c1: enforced(60) });
+
+    // Ordre historique d'EnforceModal : les entrées fixes d'abord, puis les alternatives résolues.
+    editViaTile({ teachers: ['T1'], groups: ['G1'], rooms: ['R3', 'R2'] });
+
+    const c1 = useProjectStore.getState().allCourses.find((c) => c.id === 'c1')!;
+    expect(c1.rooms).toEqual([['R1', 'R2'], 'R3']);
+  });
+
   it('la durée reste synchrone (non-régression) : la retouche écrit le cours et laisse l’imposition en place', () => {
     usePlanningStore.getState().handleEnforceChange({ c1: enforced(60) });
 

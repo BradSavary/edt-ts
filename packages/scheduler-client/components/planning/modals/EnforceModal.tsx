@@ -29,44 +29,49 @@ interface Props {
   onCancel: () => void;
 }
 
-function splitEntries(entries: ResourceEntry[]): { fixed: string[]; alternatives: string[][] } {
-  const fixed: string[] = [];
-  const alternatives: string[][] = [];
-  for (const e of entries) {
+/** Un slot à choix du cours, indexé par sa position **dans les entrées du modèle**. */
+interface AltSlot {
+  entryIndex: number;
+  alts: string[];
+}
+
+/**
+ * Les slots à choix, porteurs de leur index d'entrée : c'est cet index qui clef la sélection et
+ * ordonne le combo rendu par `resolveCombo`. Une numérotation propre aux alternatives (0, 1, 2… en
+ * ignorant les entrées fixes) produirait un combo dans l'ordre `[...fixes, ...alternatives]`, que
+ * les consommateurs devraient réapparier au modèle.
+ */
+function altSlots(entries: ResourceEntry[]): AltSlot[] {
+  return entries.flatMap((e, entryIndex) =>
     // Dédupliquer chaque alternative : les valeurs servent de clef React ci-dessous, et deux
     // boutons radio de même `name` ET même `value` rendraient la sélection ambiguë. L'import CSV
     // déduplique déjà à la source (lib/parseCsvCourses.ts) ; ce filet couvre les cours créés ou
     // édités à la main, où `ResourceSlots` n'empêche pas de choisir deux fois la même ressource.
-    // Le nombre d'alternatives est inchangé : les index de `selectedRooms`/`selectedTeachers`
-    // restent alignés.
-    if (Array.isArray(e)) alternatives.push([...new Set(e)]);
-    else fixed.push(e);
-  }
-  return { fixed, alternatives };
+    Array.isArray(e) ? [{ entryIndex, alts: [...new Set(e)] }] : [],
+  );
+}
+
+/** Combo concret dans l'ordre du modèle : une valeur par entrée, le choix pour les alternatives. */
+function resolveCombo(entries: ResourceEntry[], selected: Record<number, string>): string[] {
+  return entries
+    .map((e, i) => (Array.isArray(e) ? selected[i] ?? e[0] : e))
+    .filter(Boolean);
 }
 
 export default function EnforceModal({ courseKey, course, startTime, title, onConfirm, onCancel }: Props) {
-  const rooms = splitEntries(course.rooms);
-  const teachers = splitEntries(course.teacher);
+  const roomSlots = altSlots(course.rooms);
+  const teacherSlots = altSlots(course.teacher);
 
   const [selectedRooms, setSelectedRooms] = useState<Record<number, string>>(() =>
-    Object.fromEntries(rooms.alternatives.map((alt, i) => [i, alt[0]]))
+    Object.fromEntries(roomSlots.map((s) => [s.entryIndex, s.alts[0]]))
   );
   const [selectedTeachers, setSelectedTeachers] = useState<Record<number, string>>(() =>
-    Object.fromEntries(teachers.alternatives.map((alt, i) => [i, alt[0]]))
+    Object.fromEntries(teacherSlots.map((s) => [s.entryIndex, s.alts[0]]))
   );
 
   function handleConfirm() {
-    const resolvedTeachers = [
-      ...teachers.fixed,
-      ...teachers.alternatives.map((_, i) => selectedTeachers[i] ?? ''),
-    ].filter(Boolean);
-
-    const resolvedRooms = [
-      ...rooms.fixed,
-      ...rooms.alternatives.map((_, i) => selectedRooms[i] ?? ''),
-    ].filter(Boolean);
-
+    const resolvedTeachers = resolveCombo(course.teacher, selectedTeachers);
+    const resolvedRooms = resolveCombo(course.rooms, selectedRooms);
     const resolvedGroups = course.groups.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e]));
 
     onConfirm({
@@ -78,7 +83,7 @@ export default function EnforceModal({ courseKey, course, startTime, title, onCo
     });
   }
 
-  const hasAnyAlternative = rooms.alternatives.length > 0 || teachers.alternatives.length > 0;
+  const hasAnyAlternative = roomSlots.length > 0 || teacherSlots.length > 0;
 
   return (
     <Dialog open={true} onOpenChange={(open) => !open && onCancel()}>
@@ -97,13 +102,13 @@ export default function EnforceModal({ courseKey, course, startTime, title, onCo
 
         {hasAnyAlternative ? (
           <div className="space-y-4">
-            {teachers.alternatives.map((alt, i) => (
+            {teacherSlots.map(({ entryIndex: i, alts }) => (
               <div key={`teacher-alt-${i}`}>
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Enseignant (choix)
                 </Label>
                 <div className="space-y-1 mt-1.5">
-                  {alt.map((t) => (
+                  {alts.map((t) => (
                     <Label key={t} className="flex items-center gap-2 cursor-pointer font-normal">
                       <input
                         type="radio"
@@ -120,13 +125,13 @@ export default function EnforceModal({ courseKey, course, startTime, title, onCo
               </div>
             ))}
 
-            {rooms.alternatives.map((alt, i) => (
+            {roomSlots.map(({ entryIndex: i, alts }) => (
               <div key={`room-alt-${i}`}>
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Salle (choix)
                 </Label>
                 <div className="space-y-1 mt-1.5">
-                  {alt.map((r) => (
+                  {alts.map((r) => (
                     <Label key={r} className="flex items-center gap-2 cursor-pointer font-normal">
                       <input
                         type="radio"
