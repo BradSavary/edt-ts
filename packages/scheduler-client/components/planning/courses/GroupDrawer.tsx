@@ -7,6 +7,7 @@ import { useSidebarCourseDrag } from '@/hooks/useSidebarCourseDrag';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { validateParallelGroup, type ParallelGroupIssue } from '@/lib/taskGroupUtils';
+import { normalizeResourceEntries } from '@/lib/taskCardUtils';
 
 interface GroupDrawerProps {
   parsedCourses: CourseTaskDataWithId[];
@@ -215,16 +216,20 @@ function GroupCard({ group, parsedCourses, validationIssue }: GroupCardProps) {
                   <span className="text-muted-foreground">{course?.type ?? ''}</span>
                   {course?.name && <span className="text-muted-foreground/70 ml-1">{course.name}</span>}
                 </div>
+                {/* Même formatage que les cartes de cours (TaskCard) : alternatives d'un créneau
+                    jointes par « | », créneaux requis séparés par « , ». Un `join` direct sur les
+                    `ResourceEntry[]` laissait JS stringifier les tableaux imbriqués, d'où un
+                    « R01,R02,102 » là où la carte sidebar du même cours affiche « R01 | R02 | 102 ». */}
                 {course?.teacher && course.teacher.length > 0 && (
-                  <div className="truncate text-muted-foreground/70">{course.teacher.join(', ')}</div>
+                  <div className="truncate text-muted-foreground/70">{normalizeResourceEntries(course.teacher).join(', ')}</div>
                 )}
                 {course?.rooms && course.rooms.length > 0 ? (
-                  <div className="truncate text-muted-foreground/60 italic">{course.rooms.join(', ')}</div>
+                  <div className="truncate text-muted-foreground/60 italic">{normalizeResourceEntries(course.rooms).join(', ')}</div>
                 ) : (
                   <div className="truncate text-red-400/70 dark:text-red-500/70 italic text-[10px]">Pas de salle par défaut</div>
                 )}
                 {course?.groups && course.groups.length > 0 && (
-                  <div className="truncate text-muted-foreground/60">({course.groups.join(', ')})</div>
+                  <div className="truncate text-muted-foreground/60">({normalizeResourceEntries(course.groups).join(', ')})</div>
                 )}
               </div>
               <button
