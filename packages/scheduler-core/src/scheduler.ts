@@ -1,4 +1,4 @@
-import { Resource, ResourceType } from '@edt-ts/scheduler-common';
+import { Resource, ResourceType, DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
 import type { SchedulerConfig } from '@edt-ts/scheduler-common';
 import { Task } from '@edt-ts/scheduler-common';
 import { Loader } from './loader.js';
@@ -57,20 +57,10 @@ export class Scheduler {
     private _conflictStamps = new Map<string, number>();                                              // id → horodatage du dernier échec (Conflict Ordering Search)
     private _stampCounter = 0;                                                                         // compteur croissant pour _conflictStamps
 
-    protected _config: Required<SchedulerConfig> = {
-        maxSolutions: 6,
-        timeoutSeconds: 180,
-        maxIterations: 1_000_000,
-        maxEliminations: 3,
-        lunchBreak: { type: 'none' },
-        ignoreDailyLimits: false,
-        conflictOrderingSearch: false,
-        conflictSetExact: false,
-        comboBranching: false,
-        searchStrategy: 'elimination',
-        postRepair: true,
-        engine: 'core',
-    };
+    // Copie de la référence unique de `scheduler-common` (jamais un littéral dupliqué : la copie
+    // locale précédente avait divergé et omettait les 5 flags CP-SAT, cassant `npm run typecheck`).
+    // Copie par instance car `configure()` fait un `Object.assign` sur cet objet.
+    protected _config: Required<SchedulerConfig> = { ...DEFAULT_SCHEDULER_CONFIG };
 
     configure(config: SchedulerConfig): this {
         Object.assign(this._config, config);
