@@ -15,6 +15,7 @@
     "client:dev": "npm run dev --workspace=packages/scheduler-client",
     "client:build": "npm run build --workspace=packages/scheduler-client",
     "client:start": "npm run start --workspace=packages/scheduler-client",
+    "build": "npm run api:build && npm run client:build",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "devDependencies": {

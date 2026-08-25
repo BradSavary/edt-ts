@@ -1,6 +1,7 @@
 import { Worker } from 'node:worker_threads';
 import { fileURLToPath } from 'node:url';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createRequire } from 'node:module';
 import { getJob, updateJob } from './JobStore.js';
 import type { ScheduleSolutionJSON } from '@edt-ts/scheduler-common';
@@ -10,10 +11,19 @@ let _workerCode: string | null = null;
 function _getWorkerCode(): string {
   if (_workerCode !== null) return _workerCode;
 
-  // Production : worker pré-compilé, chemin fourni via SCHEDULER_WORKER_PATH
-  if (process.env.SCHEDULER_WORKER_PATH) {
-    _workerCode = readFileSync(process.env.SCHEDULER_WORKER_PATH, 'utf-8');
-    console.log('[JobQueue] Worker chargé depuis', process.env.SCHEDULER_WORKER_PATH);
+  // Production : worker pré-compilé. Chemin explicite via SCHEDULER_WORKER_PATH, sinon le
+  // `scheduler.worker.cjs` déposé par `npm run api:build` À CÔTÉ du bundle serveur — les deux
+  // sortent dans le même `dist/`. `__dirname` n'existe QUE dans le bundle CJS de production ;
+  // sous tsx (ESM) il est indéfini, donc ce repli ne s'active jamais en dev et le chemin
+  // esbuild ci-dessous reste seul en vigueur.
+  const bundledWorker = typeof __dirname !== 'undefined'
+    ? join(__dirname, 'scheduler.worker.cjs')
+    : undefined;
+  const prebuilt = process.env.SCHEDULER_WORKER_PATH
+    ?? (bundledWorker && existsSync(bundledWorker) ? bundledWorker : undefined);
+  if (prebuilt) {
+    _workerCode = readFileSync(prebuilt, 'utf-8');
+    console.log('[JobQueue] Worker chargé depuis', prebuilt);
     return _workerCode;
   }
 

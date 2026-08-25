@@ -32,9 +32,10 @@ scheduler-api     ──►  scheduler-core  ──►  scheduler-common
 | `npm run test-ar` | Test du moteur AR (algorithme de résolution) |
 | `npm run test-standard` | Test du moteur standard |
 | `npm run api:dev` | Démarre l'API en mode watch (port 3000) |
-| `npm run api:start` | Démarre l'API en mode production |
+| `npm run api:start` | Démarre l'API depuis les sources (tsx) |
 | `npm run client:dev` | Démarre le client web Vite (port 5173) |
 | `npm run client:build` | Build de production du client |
+| `npm run build` | **Build de production complet** (API + client) — voir [`docs/Deploiement.md`](docs/Deploiement.md) |
 
 ### Démarrage en développement
 

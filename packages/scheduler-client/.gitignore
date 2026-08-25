@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# Exception : aucun secret, seulement le préfixe d'URL public du build de prod
+# (NEXT_PUBLIC_API_BASE=/edtts, couplé au basePath). Doit être versionné, sinon un build
+# depuis un clone frais produirait un client appelant /api/* au lieu de /edtts/api/*.
+!.env.production
 
 # vercel
 .vercel
