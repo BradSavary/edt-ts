@@ -49,6 +49,7 @@ PORT=3000 CORS_ORIGIN=https://<domaine> node dist/server.cjs
 | Variable | Défaut | Rôle |
 |---|---|---|
 | `PORT` | `3000` | port d'écoute |
+| `HOST` | `127.0.0.1` | interface d'écoute — la boucle locale par défaut, l'API n'étant censée être jointe qu'à travers le reverse-proxy. `0.0.0.0` pour exposer au réseau (choix explicite) |
 | `CORS_ORIGIN` | `*` | à restreindre au domaine de production |
 | `SCHEDULER_WORKER_PATH` | `<dist>/scheduler.worker.cjs` | override du worker pré-compilé |
 | `CPSAT_PYTHON` | venv auto-détecté, sinon `python3` | interpréteur Python du moteur CP-SAT |

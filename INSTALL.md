@@ -169,6 +169,7 @@ RestartSec=5
 
 Environment=NODE_ENV=production
 Environment=PORT=3000
+# HOST vaut 127.0.0.1 par défaut (accès uniquement via Apache). Ne pas l'ouvrir ici.
 Environment=CORS_ORIGIN=https://exemple.fr
 
 # Chemins ABSOLUS du moteur CP-SAT. Sans eux, la passerelle cherche `cpsat_runner.py`
@@ -196,14 +197,15 @@ sudo systemctl status edtts-api
 curl -s http://127.0.0.1:3000/api/schedule/health   # {"status":"ok",...}
 ```
 
-> 🔒 **Le serveur Node écoute sur toutes les interfaces**, pas seulement sur la boucle locale. Le
-> port 3000 doit donc être fermé de l'extérieur — sinon l'API est joignable en direct, en
-> contournant Apache :
+> 🔒 **L'API n'écoute que sur la boucle locale** (`127.0.0.1`) : elle n'est joignable qu'à travers
+> Apache, le port 3000 n'est pas exposé au réseau. C'est le comportement par défaut, rien à faire.
+> `HOST=0.0.0.0` permettrait d'écouter sur toutes les interfaces — à ne pas utiliser ici.
+>
+> Un pare-feu reste une bonne pratique pour le reste de la machine :
 >
 > ```bash
 > sudo apt install -y ufw
 > sudo ufw allow OpenSSH && sudo ufw allow 80/tcp && sudo ufw allow 443/tcp
-> sudo ufw deny 3000/tcp
 > sudo ufw enable
 > ```
 
