@@ -1,21 +1,27 @@
 # Installation en production — Debian 13 (trixie) + Apache
 
-Procédure de déploiement de `edt-ts` sur un serveur Debian 13 avec Apache 2.4 en frontal.
+Procédure de déploiement de `edt-ts`, telle qu'elle a été réellement exécutée sur
+`mmi-dev.unilim.fr` (Debian 13.6, Apache 2.4, Python 3.13, Node.js 20.19, glibc 2.41).
 
 Pour le détail des artefacts, des variables d'environnement et des contraintes du moteur CP-SAT,
 voir [`docs/Deploiement.md`](docs/Deploiement.md). Ce document-ci est la marche à suivre.
 
-## Architecture cible
+Les commandes sont écrites **pour un shell root**. Si tu passes par `sudo`, préfixe-les.
+
+## Architecture retenue
+
+Les sources sont clonées sur la machine cible et **buildées sur place** : une seule source de
+vérité, mise à jour par `git pull`, et le commit déployé reste identifiable par un `git log`.
 
 ```
-                 ┌───────────────────── Apache 2.4 (:80/:443) ─────────────────────┐
- navigateur ───► │  /edtts/…      → fichiers statiques  /var/www/edtts/            │
-                 │  /edtts/api/…  → mandataire          http://127.0.0.1:3000/api/ │
-                 └────────────────────────────┬────────────────────────────────────┘
+                 ┌───────────────────── Apache 2.4 (:443) ─────────────────────┐
+ navigateur ───► │  /edtts/…      → statique  /srv/edt-ts/…/scheduler-client/out │
+                 │  /edtts/api/…  → mandataire http://127.0.0.1:3000/api/        │
+                 └────────────────────────────┬────────────────────────────────┘
                                               │
                            ┌──────────────────▼──────────────────┐
                            │ systemd : edtts-api.service         │
-                           │ node /opt/edtts/api/server.cjs      │
+                           │ node /srv/edt-ts/…/dist/server.cjs  │
                            └──────────────────┬──────────────────┘
                                               │ subprocess (JSON sur stdin/stdout)
                            ┌──────────────────▼──────────────────┐
@@ -24,136 +30,174 @@ voir [`docs/Deploiement.md`](docs/Deploiement.md). Ce document-ci est la marche 
                            └─────────────────────────────────────┘
 ```
 
-Deux points qui simplifient beaucoup l'installation, **vérifiés** sur le bundle de production :
+| Emplacement | Contenu | Propriétaire |
+|---|---|---|
+| `/srv/edt-ts` | clone du dépôt, sources et artefacts buildés | ton compte utilisateur |
+| `/opt/edtts/cpsat/.venv` | environnement Python + OR-Tools | `edtts` |
 
-- **L'API n'a besoin d'aucun `node_modules`.** `server.cjs` et `scheduler.worker.cjs` sont des
-  bundles esbuild autoportants : Express, Zod et `scheduler-core` y sont déjà inclus. Le serveur
-  n'a besoin que du binaire `node`. Aucun `npm install` sur la machine de production.
-- **Le client est un site 100 % statique.** Apache le sert directement, aucun processus Node.
+Le venv est délibérément **hors du clone** : il ne doit pas être emporté par un `git clean`, et il
+est le seul élément non reproductible par un build.
 
-Le seul composant à provisionner sur le serveur est le moteur CP-SAT (Python + bibliothèque
-native C++), à l'étape 4 — et il est **facultatif** : sans lui, l'application fonctionne
-normalement avec le moteur `core`.
+> **Ne clone pas dans `/home`.** L'unité systemd contient `ProtectHome=true` : le service verrait
+> `/home` vide et ne pourrait pas lire `cpsat_runner.py`. Le symptôme est déroutant — le fichier
+> existe, tu le lis parfaitement en ligne de commande, et le service jure ne pas le trouver.
 
 ---
 
-## 1. Prérequis serveur
+## 0. Note préalable sur le `PATH`
+
+Si tu obtiens root par `su` **sans tiret**, l'environnement de l'utilisateur d'origine est conservé
+et `/usr/sbin` manque au `PATH`. `useradd`, `runuser`, `a2enmod` et `a2enconf` deviennent alors
+« commande introuvable ». À refaire dans chaque nouveau shell :
 
 ```bash
-sudo apt update
-sudo apt install -y nodejs apache2 python3 python3-venv rsync
-node --version     # Debian 13 fournit Node.js 20 — suffisant (les bundles ciblent node20)
-python3 --version  # Debian 13 fournit Python 3.13
+export PATH=/usr/sbin:/sbin:$PATH
 ```
 
-Activer les modules Apache nécessaires au mandataire :
+`su -` ou `sudo -i` évitent le problème d'emblée.
+
+## 1. Prérequis
 
 ```bash
-sudo a2enmod proxy proxy_http headers
-sudo systemctl restart apache2
+apt update
+apt install -y nodejs npm apache2 python3 python3-venv git
+node --version     # ≥ 20.9 exigé par Next 16 — Debian 13 fournit 20.19 ✓
+python3 --version  # 3.13 ✓
+dpkg --print-architecture   # amd64 ou arm64 : indispensable, voir §3
 ```
 
-Créer l'utilisateur de service et l'arborescence :
+`npm` est packagé séparément de `nodejs` sur Debian : `node` peut répondre sans que `npm` existe.
+
+Utilisateur de service — un compte sans shell, dédié à l'exécution du démon, pour qu'une faille
+éventuelle de l'API n'accorde pas les droits de root :
 
 ```bash
-sudo useradd --system --home /opt/edtts --shell /usr/sbin/nologin edtts
-sudo mkdir -p /opt/edtts/api /opt/edtts/cpsat /var/www/edtts
-sudo chown -R edtts:edtts /opt/edtts
+id edtts >/dev/null 2>&1 || useradd --system --home /opt/edtts --shell /usr/sbin/nologin edtts
 ```
 
-## 2. Build (sur le poste de développement)
+## 2. Clone des sources
 
-Les artefacts sont indépendants de la plateforme (JavaScript et fichiers statiques) : builder sous
-Windows ou macOS pour un serveur Linux ne pose aucun problème.
+Le dépôt est privé : il faut une **clé de déploiement** (lecture seule, limitée à ce dépôt —
+préférable à un jeton personnel qui ouvrirait tout le compte). Sous **ton compte utilisateur** :
 
 ```bash
-npm install
-npm run typecheck        # doit être vert
-npm run build            # = api:build && client:build
+ssh-keygen -t ed25519 -C "edt-ts deploy $(hostname)" -f ~/.ssh/id_edtts -N ""
+cat ~/.ssh/id_edtts.pub
 ```
 
-Produit :
+Colle la ligne complète (`ssh-ed25519 AAAA… commentaire`) dans **Settings → Deploy keys → Add
+deploy key** du dépôt, sans cocher « Allow write access ». C'est bien le contenu du fichier `.pub`
+qu'il faut, pas l'empreinte `SHA256:…` affichée par `ssh-keygen`.
 
-| Artefact | Chemin |
-|---|---|
-| API | `packages/scheduler-api/dist/{server.cjs,scheduler.worker.cjs}` |
-| Client statique | `packages/scheduler-client/out/` |
-
-> ⚠️ Le client est figé au build sur `NEXT_PUBLIC_API_BASE=/edtts` (fichier
-> `packages/scheduler-client/.env.production`, versionné). Cette valeur ne se change pas après coup
-> côté serveur : si l'application doit être servie sous un autre préfixe, modifier **à la fois** ce
-> fichier et `basePath` dans `next.config.ts`, puis rebuilder.
-
-Contrôle rapide du build client :
+En root, préparer le répertoire (`/srv` appartient à root, ton compte ne peut pas y écrire) :
 
 ```bash
-grep -ro '"/edtts"' packages/scheduler-client/out/_next/static/chunks | head -1
+mkdir -p /srv/edt-ts
+chown <ton-user> /srv/edt-ts     # sans `:groupe` — un compte annuaire n'a pas forcément
+                                 # de groupe éponyme
 ```
 
-## 3. Transfert des artefacts
-
-Depuis le poste de développement (adapter `serveur` et les chemins) :
+Puis, sous ton compte :
 
 ```bash
-# API — les deux .cjs doivent rester dans le MÊME dossier
-rsync -av --delete packages/scheduler-api/dist/ serveur:/tmp/edtts-api/
+GIT_SSH_COMMAND="ssh -i ~/.ssh/id_edtts -o IdentitiesOnly=yes" \
+  git clone git@github.com:edt-ts-maintainer/edt-ts.git /srv/edt-ts
 
-# Client statique
-rsync -av --delete packages/scheduler-client/out/ serveur:/tmp/edtts-www/
-
-# Moteur CP-SAT — les sources Python seulement, JAMAIS le .venv (voir étape 4)
-rsync -av --delete --include='*.py' --include='requirements.txt' --exclude='*' \
-  packages/scheduler-cpsat/ serveur:/tmp/edtts-cpsat/
+cd /srv/edt-ts
+git config core.sshCommand "ssh -i ~/.ssh/id_edtts -o IdentitiesOnly=yes"
 ```
 
-Puis, sur le serveur :
+La ligne `git config` rend les `git pull` suivants indolores : sans elle, le dépôt connaît son URL
+mais pas la clé à présenter.
+
+## 3. Moteur CP-SAT (facultatif)
+
+> **À installer sur le serveur, jamais par copie.** `ortools` embarque une bibliothèque **native
+> C++** (`.so` sous Linux, `.pyd` sous Windows) compilée par plateforme et par version de Python :
+> copier un `.venv` depuis un poste de développement ne fonctionnera pas.
 
 ```bash
-sudo rsync -a --delete /tmp/edtts-api/   /opt/edtts/api/
-sudo rsync -a --delete /tmp/edtts-cpsat/ /opt/edtts/cpsat/
-sudo rsync -a --delete /tmp/edtts-www/   /var/www/edtts/
-sudo chown -R edtts:edtts /opt/edtts
-sudo chown -R www-data:www-data /var/www/edtts
+mkdir -p /opt/edtts/cpsat
+python3 -m venv /opt/edtts/cpsat/.venv
+/opt/edtts/cpsat/.venv/bin/pip install --upgrade pip
+/opt/edtts/cpsat/.venv/bin/pip install ortools==9.15.6755
+chown -R edtts:edtts /opt/edtts
 ```
 
-## 4. Moteur CP-SAT (facultatif)
+Version épinglée à dessein : `requirements.txt` ne déclare que `ortools`, ce qui laisserait le
+serveur installer une version différente de celle validée en développement.
 
-> **À faire sur le serveur, jamais par copie.** `ortools` embarque une bibliothèque **native C++**
-> (`.so` sous Linux, `.pyd` sous Windows) compilée par plateforme et par version de Python : copier
-> le `.venv` du poste de développement ne fonctionnera pas.
+Compatibilité Debian 13 : `ortools` 9.15 publie des wheels `manylinux_2_27` / `manylinux_2_28` pour
+**x86_64 et aarch64**, en Python 3.9 à 3.14. Debian 13 fournit Python 3.13 et glibc 2.41 — la roue
+précompilée s'installe directement, sans compilation. En revanche **aucune roue n'existe pour une
+architecture 32 bits** (`armhf`, `i386`) : d'où le `dpkg --print-architecture` du §1.
 
-```bash
-sudo -u edtts python3 -m venv /opt/edtts/cpsat/.venv
-sudo -u edtts /opt/edtts/cpsat/.venv/bin/pip install --upgrade pip
-sudo -u edtts /opt/edtts/cpsat/.venv/bin/pip install -r /opt/edtts/cpsat/requirements.txt
-```
-
-Compatibilité Debian 13 (vérifiée) : `ortools` 9.15 publie des wheels `manylinux_2_27` /
-`manylinux_2_28` pour x86_64 et aarch64, en Python 3.9 à 3.14. Debian 13 fournit Python 3.13 et
-glibc 2.41 — largement au-dessus du seuil. La roue précompilée s'installe donc directement,
-**sans compilation**. Il faut en revanche que `pip` puisse joindre PyPI depuis le serveur.
-
-Le venv est volumineux (~240 Mo, dont ~82 Mo pour `ortools` seul) : prévoir la place disque.
+Le venv pèse ~240 Mo, dont ~82 Mo pour `ortools` seul.
 
 Le passage par un venv n'est pas une préférence de style : Debian 13 marque son Python système
-« externally managed » (PEP 668) et refuse un `pip install` global.
+« externally managed » (PEP 668) et refuse tout `pip install` global.
 
-Vérification :
+Vérification — la seconde commande teste sous l'identité réelle du service, ce que root ne
+permettrait pas de valider (root traverse la plupart des restrictions de permissions) :
 
 ```bash
-sudo -u edtts /opt/edtts/cpsat/.venv/bin/python -c "import ortools; print('ortools ok')"
+/opt/edtts/cpsat/.venv/bin/python -c "import ortools; print('ortools', ortools.__version__)"
 
 echo '{"raw":{"week":1,"resources":[],"courses":[]},"config":{}}' \
-  | sudo -u edtts /opt/edtts/cpsat/.venv/bin/python /opt/edtts/cpsat/cpsat_runner.py
+  | runuser -u edtts -- /opt/edtts/cpsat/.venv/bin/python \
+      /srv/edt-ts/packages/scheduler-cpsat/cpsat_runner.py
 ```
 
-La seconde commande doit répondre par un tableau JSON sur la sortie standard.
+Attendu : `[{"solutions": [], "isComplete": true, "score": 0, "provenOptimal": true}]`.
+
+## 4. Build
+
+**Sous ton compte utilisateur**, jamais root — le dépôt t'appartient.
+
+```bash
+cd /srv/edt-ts
+npm ci
+npm run build
+```
+
+> ⚠️ **`npm ci`, jamais `npm install`.** `npm install` s'autorise à faire évoluer l'arbre et à
+> réécrire `package.json` et le lockfile ; observé sur ce déploiement, il a transformé
+> `"next": "16.2.0"` en `"next": "^16.3.3"` et construit avec une version non validée. `npm ci`
+> installe strictement le lockfile, n'écrit jamais dans `package.json`, et échoue si les deux
+> divergent.
+
+Contrôles :
+
+```bash
+git status --short   # DOIT être vide : un arbre modifié signale un npm install intempestif
+node -e "console.log('next', require('next/package.json').version)"   # 16.2.0
+ls -l packages/scheduler-api/dist/ packages/scheduler-client/out/index.html
+```
+
+Le build client lit `packages/scheduler-client/.env.production` (versionné), qui fixe
+`NEXT_PUBLIC_API_BASE=/edtts`. La ligne `- Environments: .env.production` dans la sortie l'atteste.
+Cette valeur est **inscrite en dur dans le bundle** et ne se change pas après coup : pour servir
+l'application sous un autre préfixe, modifier ce fichier **et** `basePath` dans `next.config.ts`,
+puis rebuilder.
+
+Les avertissements `import.meta is not available with the "cjs" output format`, `rewrites/redirects
+will not work with output: export` et `multiple lockfiles` sont attendus : ils décrivent des
+chemins de code inactifs en production.
+
+Accès du compte de service aux artefacts — à vérifier, un `umask` restrictif produirait un clone
+en `700` :
+
+```bash
+runuser -u edtts    -- test -r /srv/edt-ts/packages/scheduler-api/dist/server.cjs && echo "edtts OK"
+runuser -u www-data -- test -r /srv/edt-ts/packages/scheduler-client/out/index.html && echo "www-data OK"
+```
+
+En cas d'échec : `chmod o+x /srv /srv/edt-ts && chmod -R o+rX /srv/edt-ts`.
 
 ## 5. Service systemd
 
-`/etc/systemd/system/edtts-api.service` :
-
-```ini
+```bash
+cat > /etc/systemd/system/edtts-api.service <<'EOF'
 [Unit]
 Description=edt-ts — API de planification
 After=network.target
@@ -162,141 +206,184 @@ After=network.target
 Type=simple
 User=edtts
 Group=edtts
-WorkingDirectory=/opt/edtts/api
-ExecStart=/usr/bin/node /opt/edtts/api/server.cjs
+WorkingDirectory=/srv/edt-ts/packages/scheduler-api
+ExecStart=/usr/bin/node /srv/edt-ts/packages/scheduler-api/dist/server.cjs
 Restart=on-failure
 RestartSec=5
 
 Environment=NODE_ENV=production
 Environment=PORT=3000
-# HOST vaut 127.0.0.1 par défaut (accès uniquement via Apache). Ne pas l'ouvrir ici.
-Environment=CORS_ORIGIN=https://exemple.fr
+# HOST vaut 127.0.0.1 par défaut : l'API n'est joignable qu'à travers Apache. Ne pas l'ouvrir.
+Environment=CORS_ORIGIN=https://mmi.unilim.fr
 
 # Chemins ABSOLUS du moteur CP-SAT. Sans eux, la passerelle cherche `cpsat_runner.py`
-# relativement au répertoire courant et ne le trouve pas dans cette arborescence : le moteur
-# core continuerait de fonctionner, mais `engine: 'cpsat'` échouerait.
-# À retirer si CP-SAT n'est pas provisionné (étape 4).
+# relativement au répertoire courant. À retirer si CP-SAT n'est pas provisionné (§3).
 Environment=CPSAT_PYTHON=/opt/edtts/cpsat/.venv/bin/python
-Environment=CPSAT_RUNNER=/opt/edtts/cpsat/cpsat_runner.py
+Environment=CPSAT_RUNNER=/srv/edt-ts/packages/scheduler-cpsat/cpsat_runner.py
 
-# Durcissement
+# Durcissement. Pas de ReadWritePaths : l'API n'écrit rien sur disque (jobs en mémoire).
+# Effet de bord bénin : Python ne peut pas déposer ses __pycache__, il s'en passe silencieusement.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/edtts
 
 [Install]
 WantedBy=multi-user.target
+EOF
+
+systemd-analyze verify /etc/systemd/system/edtts-api.service && echo "syntaxe OK"
+systemctl daemon-reload
+systemctl enable --now edtts-api
+systemctl status edtts-api --no-pager
 ```
+
+`CORS_ORIGIN` doit correspondre au `ServerName` d'Apache, pas au nom d'hôte de la machine — les
+deux diffèrent ici (`mmi.unilim.fr` contre `mmi-dev.unilim.fr`).
+
+Deux lignes à retrouver dans le journal, qui valident chacune un point de production :
+
+```
+[JobQueue] Worker chargé depuis /srv/edt-ts/…/dist/scheduler.worker.cjs
+🚀 scheduler-api démarré sur http://127.0.0.1:3000
+```
+
+La première prouve que le serveur localise seul son worker pré-compilé (sans quoi tous les jobs
+échoueraient) ; la seconde, que le port 3000 n'est pas exposé au réseau.
+
+Vérification, dont le second appel exerce toute la chaîne jusqu'au sous-processus Python :
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now edtts-api
-sudo systemctl status edtts-api
-curl -s http://127.0.0.1:3000/api/schedule/health   # {"status":"ok",...}
+curl -s http://127.0.0.1:3000/api/schedule/health
+
+curl -s -X POST http://127.0.0.1:3000/api/schedule/v2 \
+  -H 'Content-Type: application/json' -H 'X-Client-Id: test' \
+  -d '{"week":1,"resources":[],"courses":[],"options":{"engine":"cpsat"}}'
 ```
 
-> 🔒 **L'API n'écoute que sur la boucle locale** (`127.0.0.1`) : elle n'est joignable qu'à travers
-> Apache, le port 3000 n'est pas exposé au réseau. C'est le comportement par défaut, rien à faire.
-> `HOST=0.0.0.0` permettrait d'écouter sur toutes les interfaces — à ne pas utiliser ici.
->
-> Un pare-feu reste une bonne pratique pour le reste de la machine :
->
-> ```bash
-> sudo apt install -y ufw
-> sudo ufw allow OpenSSH && sudo ufw allow 80/tcp && sudo ufw allow 443/tcp
-> sudo ufw enable
-> ```
+## 6. Apache
 
-## 6. Configuration Apache
+Plutôt que de modifier le fichier de site — qui porte la configuration TLS — on ajoute une
+configuration séparée, réversible d'une commande. Avec un VirtualHost unique, le résultat est
+identique.
 
-Dans le `VirtualHost` du site (`/etc/apache2/sites-available/…`) :
-
-```apache
-# ── API ───────────────────────────────────────────────────────────────────────
-# AVANT l'Alias : sinon /edtts/api serait cherché dans le système de fichiers.
+```bash
+cat > /etc/apache2/conf-available/edtts.conf <<'EOF'
+# edt-ts — application de planification
+# API mandatée AVANT l'Alias : sinon /edtts/api serait cherché sur le disque.
 ProxyPreserveHost On
 ProxyPass        /edtts/api/ http://127.0.0.1:3000/api/
 ProxyPassReverse /edtts/api/ http://127.0.0.1:3000/api/
 
-# ── Client statique ───────────────────────────────────────────────────────────
-# Le contenu de `out/` correspond directement au préfixe /edtts (basePath du build).
-Alias /edtts /var/www/edtts
+# Client statique (export Next.js, basePath /edtts)
+Alias /edtts /srv/edt-ts/packages/scheduler-client/out
 
-<Directory /var/www/edtts>
+<Directory /srv/edt-ts/packages/scheduler-client/out>
     Require all granted
     Options -Indexes +FollowSymLinks
-    # Chaque route exportée est un dossier contenant index.html (`trailingSlash: true`)
     DirectoryIndex index.html
     ErrorDocument 404 /edtts/404.html
 </Directory>
+EOF
 
-# Confort : la racine du domaine renvoie vers l'application
-RedirectMatch ^/$ /edtts/
+a2enmod proxy proxy_http
+a2enconf edtts
+apache2ctl configtest && systemctl reload apache2
 ```
+
+Annulation sans séquelle : `a2disconf edtts && systemctl reload apache2`.
+
+Note : les résolutions longues passent par l'API **asynchrone** (soumission d'un job, puis
+interrogation périodique). Aucune requête n'est maintenue ouverte pendant le calcul, donc le
+`ProxyTimeout` par défaut n'a pas besoin d'être augmenté, même avec un `timeoutSeconds` élevé.
+
+Si `apache2ctl` échoue sans message clair, c'est qu'il lui manque les variables de Debian :
 
 ```bash
-sudo apache2ctl configtest
-sudo systemctl reload apache2
+source /etc/apache2/envvars
 ```
 
-Note sur les délais : les résolutions longues passent par l'API **asynchrone** (soumission du job,
-puis interrogation périodique). Aucune requête HTTP n'est maintenue ouverte pendant le calcul, donc
-le `ProxyTimeout` par défaut d'Apache n'a pas besoin d'être augmenté, même avec un `timeoutSeconds`
-élevé.
-
-## 7. Vérification de bout en bout
+## 7. Vérification finale
 
 ```bash
-# Statique
-curl -sI https://exemple.fr/edtts/ | head -1            # 200
-curl -sI https://exemple.fr/edtts/planning/ | head -1   # 200
-
-# API à travers Apache
-curl -s https://exemple.fr/edtts/api/schedule/health    # {"status":"ok",...}
+curl -sI https://mmi.unilim.fr/edtts/ | head -1            # 200
+curl -sI https://mmi.unilim.fr/edtts/planning/ | head -1   # 200
+curl -s  https://mmi.unilim.fr/edtts/api/schedule/health   # {"status":"ok",...}
 ```
 
-Puis dans le navigateur : ouvrir `https://exemple.fr/edtts/`, charger un projet et lancer une
-planification avec chacun des deux moteurs (`core`, puis `cpsat` si l'étape 4 a été faite).
+Puis dans un navigateur : ouvrir `https://mmi.unilim.fr/edtts/`, charger un projet et lancer une
+planification réelle avec chacun des deux moteurs (`core`, puis `cpsat`). Les `curl` ci-dessus
+n'exercent que des jeux de données vides — ils ne prouvent pas que le calcul aboutit.
+
+Enfin, valider le redémarrage de la machine, seul moyen de s'assurer que le service revient seul :
+
+```bash
+reboot
+# au retour
+systemctl status edtts-api --no-pager
+```
 
 Journaux :
 
 ```bash
-sudo journalctl -u edtts-api -f
-sudo tail -f /var/log/apache2/error.log
+journalctl -u edtts-api -f
+tail -f /var/log/apache2/error.log
 ```
 
 ## 8. Mise à jour
 
 ```bash
-# Poste de développement
-npm run typecheck && npm run build
-rsync -av --delete packages/scheduler-api/dist/   serveur:/tmp/edtts-api/
-rsync -av --delete packages/scheduler-client/out/ serveur:/tmp/edtts-www/
+# Sous ton compte
+cd /srv/edt-ts
+git status --short   # doit être vide, sinon `git pull` refusera
+git pull
+npm ci
+npm run build
 
-# Serveur
-sudo rsync -a --delete /tmp/edtts-api/ /opt/edtts/api/
-sudo rsync -a --delete /tmp/edtts-www/ /var/www/edtts/
-sudo chown -R edtts:edtts /opt/edtts && sudo chown -R www-data:www-data /var/www/edtts
-sudo systemctl restart edtts-api
+# En root
+systemctl restart edtts-api
 ```
 
-Le client statique n'exige aucun redémarrage. Les assets de `_next/static/` ont des noms hachés,
-donc leur rechargement est automatique ; seul `index.html` peut être servi depuis le cache du
-navigateur.
+Apache n'a pas besoin d'être rechargé : il sert les fichiers de `out/` directement. Les assets de
+`_next/static/` portent des noms hachés, leur rechargement est donc automatique ; seul `index.html`
+peut rester en cache navigateur.
 
 **Les jobs en cours sont perdus au redémarrage de l'API** (stockage en mémoire) : redéployer de
 préférence hors période d'utilisation.
 
-## 9. Dépannage
+## 9. À propos de `npm audit`
 
-| Symptôme | Cause probable | Correction |
+`npm ci` signale une douzaine de vulnérabilités sur cette machine. C'est le prix, assumé, du choix
+de builder sur place : l'arbre de développement complet y est présent.
+
+Ce qui compte est le graphe de **production** :
+
+```bash
+npm audit --omit=dev
+```
+
+Au moment de la rédaction, il ne reste que `sharp` (CVE libvips), **non exploitable ici** :
+`next/image` n'est utilisé nulle part, les seuls assets sont des SVG, l'export statique ne produit
+que des fichiers, et `sharp` n'apparaît pas dans le bundle API. Le corriger imposerait
+`next@16.3.3`, hors version épinglée.
+
+> **Ne lance jamais `npm audit fix --force`.** Il monte des versions majeures, réécrit
+> `package.json` et casse la reproductibilité — c'est très probablement lui qui a introduit
+> `next@^16.3.3` lors de la première installation.
+
+## 10. Dépannage
+
+| Symptôme | Cause | Correction |
 |---|---|---|
-| Le client s'affiche mais toute action échoue en 404 sur `/api/…` | Build fait sans `NEXT_PUBLIC_API_BASE` | Rebuilder avec `.env.production` présent (étape 2) |
-| `Moteur CP-SAT indisponible (Python/ortools non provisionné)` | `CPSAT_PYTHON` absent, ou venv non créé | Étape 4, puis vérifier l'unité systemd |
-| `impossible de localiser cpsat_runner.py` | `CPSAT_RUNNER` non défini | Ajouter la variable dans l'unité systemd (étape 5) |
-| Tous les jobs échouent immédiatement | `scheduler.worker.cjs` absent du dossier de `server.cjs` | Recopier **les deux** fichiers de `dist/` |
-| `externally-managed-environment` au `pip install` | Installation tentée hors venv | Utiliser le `pip` du venv (étape 4) |
-| 503 sur `/edtts/api/…` | Service arrêté, ou `mod_proxy` non activé | `systemctl status edtts-api`, `a2enmod proxy proxy_http` |
-| L'API devient molle pendant une résolution CP-SAT | Le solveur sature les cœurs pendant tout son `timeoutSeconds` | Voir `docs/Deploiement.md` §3d — plafonner `num_workers` plutôt qu'agrandir la machine |
+| `useradd` / `runuser` / `a2enmod` : commande introuvable | `su` sans tiret, `/usr/sbin` hors du `PATH` | `export PATH=/usr/sbin:/sbin:$PATH` (§0) |
+| `git status` non vide après un build | `npm install` a réécrit `package.json` / le lockfile | `git checkout -- <fichiers>` puis `npm ci` |
+| Le client s'affiche mais tout échoue en 404 sur `/api/…` | build sans `NEXT_PUBLIC_API_BASE` | vérifier `.env.production`, rebuilder |
+| `Moteur CP-SAT indisponible (Python/ortools non provisionné)` | `CPSAT_PYTHON` absent ou venv non créé | §3, puis contrôler l'unité systemd |
+| `impossible de localiser cpsat_runner.py` | `CPSAT_RUNNER` non défini | ajouter la variable (§5) |
+| Le service ne lit pas les sources alors que root les lit | clone dans `/home` + `ProtectHome=true`, ou `umask` restrictif | cloner dans `/srv` ; `chmod -R o+rX` |
+| Tous les jobs échouent immédiatement | `scheduler.worker.cjs` absent d'à côté de `server.cjs` | rebuilder (`npm run build`) |
+| `externally-managed-environment` au `pip install` | installation hors venv | utiliser le `pip` du venv (§3) |
+| `No matching distribution found for ortools` | architecture 32 bits, ou Python hors 3.9–3.14 | vérifier `dpkg --print-architecture` |
+| 503 sur `/edtts/api/…` | service arrêté, ou modules proxy inactifs | `systemctl status edtts-api` ; `a2enmod proxy proxy_http` |
+| `apache2ctl` muet ou en erreur | variables Debian absentes de l'environnement | `source /etc/apache2/envvars` |
+| L'API devient molle pendant une résolution CP-SAT | le solveur sature les cœurs pendant tout son `timeoutSeconds` | voir `docs/Deploiement.md` §3d — plafonner `num_workers` |
