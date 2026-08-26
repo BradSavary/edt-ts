@@ -37,6 +37,8 @@ scheduler-api     ──►  scheduler-core  ──►  scheduler-common
 | `npm run client:build` | Build de production du client |
 | `npm run build` | **Build de production complet** (API + client) — voir [`docs/Deploiement.md`](docs/Deploiement.md) |
 
+> Déploiement sur un serveur Debian 13 + Apache : voir [`INSTALL.md`](INSTALL.md).
+
 ### Démarrage en développement
 
 Lancer en parallèle dans deux terminaux :
