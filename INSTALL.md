@@ -263,35 +263,80 @@ curl -s -X POST http://127.0.0.1:3000/api/schedule/v2 \
 
 ## 6. Apache
 
-Plutôt que de modifier le fichier de site — qui porte la configuration TLS — on ajoute une
-configuration séparée, réversible d'une commande. Avec un VirtualHost unique, le résultat est
-identique.
+> **Vérifie d'abord qu'aucune configuration `/edtts` n'existe déjà**, sans quoi tu ajouteras une
+> directive qui ne servira jamais :
+>
+> ```bash
+> grep -rn "edtts" /etc/apache2/
+> ```
+>
+> Les directives placées **dans un `<VirtualHost>` l'emportent sur celles de portée serveur**
+> chargées depuis `conf-enabled/`. Un `Alias /edtts` préexistant dans le fichier de site rendrait
+> donc inopérant tout `Alias` ajouté par ailleurs — silencieusement : l'ancienne application
+> continuerait d'être servie, et un simple test de code HTTP n'y verrait que du feu.
+
+**Si une configuration `/edtts` existe déjà dans le fichier de site**, c'est là qu'il faut la
+modifier plutôt qu'ajouter un fichier concurrent. Sauvegarde d'abord — ce fichier porte aussi ta
+configuration TLS :
+
+```bash
+cp /etc/apache2/sites-available/default-ssl.conf \
+   /etc/apache2/sites-available/default-ssl.conf.bak-$(date +%F)
+```
+
+Puis remplace l'`Alias` et son `<Directory>` par :
+
+```apache
+        # edt-ts — application de planification (build dans /srv/edt-ts)
+        ProxyPreserveHost On
+        ProxyPass        /edtts/api/ http://127.0.0.1:3000/api/
+        ProxyPassReverse /edtts/api/ http://127.0.0.1:3000/api/
+
+        Alias /edtts /srv/edt-ts/packages/scheduler-client/out
+
+        <Directory /srv/edt-ts/packages/scheduler-client/out>
+            # ⚠️ REPRENDRE ICI, À L'IDENTIQUE, les restrictions d'accès du bloc remplacé.
+            # Exemple réel de cette installation :
+            <RequireAny>
+                Require ip 164.81.0.0/16
+                Require ip 10.0.0.0/8
+            </RequireAny>
+            AllowOverride None
+            Options -Indexes +FollowSymLinks
+            DirectoryIndex index.html
+            ErrorDocument 404 /edtts/404.html
+        </Directory>
+```
+
+> ⚠️ **Ne jamais écrire `Require all granted` par réflexe.** Si le bloc remplacé portait une
+> restriction d'accès, la perdre publie l'application plus largement qu'avant — sans que rien ne
+> cesse de fonctionner, donc sans que personne ne le remarque. Relis le bloc d'origine avant de
+> l'écraser.
+
+`AllowOverride None` remplace un éventuel `AllowOverride ALL` : le mandataire étant désormais
+déclaré par `ProxyPass`, aucun `.htaccess` n'est nécessaire.
+
+**Si aucune configuration `/edtts` n'existe**, le même bloc peut aller dans un fichier séparé,
+plus facile à annuler :
 
 ```bash
 cat > /etc/apache2/conf-available/edtts.conf <<'EOF'
-# edt-ts — application de planification
-# API mandatée AVANT l'Alias : sinon /edtts/api serait cherché sur le disque.
-ProxyPreserveHost On
-ProxyPass        /edtts/api/ http://127.0.0.1:3000/api/
-ProxyPassReverse /edtts/api/ http://127.0.0.1:3000/api/
-
-# Client statique (export Next.js, basePath /edtts)
-Alias /edtts /srv/edt-ts/packages/scheduler-client/out
-
-<Directory /srv/edt-ts/packages/scheduler-client/out>
-    Require all granted
-    Options -Indexes +FollowSymLinks
-    DirectoryIndex index.html
-    ErrorDocument 404 /edtts/404.html
-</Directory>
+… (le même contenu, sans l'indentation du VirtualHost) …
 EOF
-
-a2enmod proxy proxy_http
 a2enconf edtts
+```
+
+Dans tous les cas :
+
+```bash
+a2enmod proxy proxy_http
+diff /etc/apache2/sites-available/default-ssl.conf.bak-$(date +%F) \
+     /etc/apache2/sites-available/default-ssl.conf
 apache2ctl configtest && systemctl reload apache2
 ```
 
-Annulation sans séquelle : `a2disconf edtts && systemctl reload apache2`.
+Relis le `diff` avant de recharger : c'est le seul moment où une erreur se corrige sans
+conséquence. Rien n'y doit toucher à la configuration TLS.
 
 Note : les résolutions longues passent par l'API **asynchrone** (soumission d'un job, puis
 interrogation périodique). Aucune requête n'est maintenue ouverte pendant le calcul, donc le
@@ -305,14 +350,29 @@ source /etc/apache2/envvars
 
 ## 7. Vérification finale
 
+> Un code `200` sur `/edtts/` et un `health` sur `/edtts/api/` **ne prouvent rien sur la version
+> servie** : ils passent tout aussi bien avec un déploiement antérieur laissé en place. Le seul
+> contrôle qui tranche compare le fichier servi à celui sur disque.
+
 ```bash
-curl -sI https://mmi.unilim.fr/edtts/ | head -1            # 200
-curl -sI https://mmi.unilim.fr/edtts/planning/ | head -1   # 200
-curl -s  https://mmi.unilim.fr/edtts/api/schedule/health   # {"status":"ok",...}
+curl -s https://mmi.unilim.fr/edtts/ | md5sum
+md5sum /srv/edt-ts/packages/scheduler-client/out/index.html
 ```
 
+Les deux empreintes doivent être **identiques**. Si une ancienne installation subsiste, sa propre
+empreinte lève l'ambiguïté sur ce qui est réellement servi :
+
+```bash
+md5sum /var/www/edtts/index.html 2>/dev/null
+```
+
+> Ne compare pas des noms de fichiers hachés obtenus par `ls | head` d'un côté et par extraction
+> depuis le HTML de l'autre : le premier liste le répertoire par ordre alphabétique, le second les
+> chunks référencés par la page. Ces deux ensembles diffèrent **même quand le déploiement est
+> correct**, et la comparaison ne peut produire qu'une fausse alerte.
+
 Puis dans un navigateur : ouvrir `https://mmi.unilim.fr/edtts/`, charger un projet et lancer une
-planification réelle avec chacun des deux moteurs (`core`, puis `cpsat`). Les `curl` ci-dessus
+planification réelle avec chacun des deux moteurs (`core`, puis `cpsat`). Les appels `curl`
 n'exercent que des jeux de données vides — ils ne prouvent pas que le calcul aboutit.
 
 Enfin, valider le redémarrage de la machine, seul moyen de s'assurer que le service revient seul :
