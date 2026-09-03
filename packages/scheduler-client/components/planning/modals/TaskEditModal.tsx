@@ -76,14 +76,14 @@ export default function TaskEditModal({
 
   return (
     <Dialog open={true} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="max-w-sm" onKeyDown={(e) => { if (e.key === 'Enter' && !(e.target instanceof HTMLTextAreaElement)) { e.preventDefault(); handleConfirm(); } }}>
+      <DialogContent className="max-w-sm max-h-[90vh] flex flex-col" onKeyDown={(e) => { if (e.key === 'Enter' && !(e.target instanceof HTMLTextAreaElement)) { e.preventDefault(); handleConfirm(); } }}>
         <DialogHeader>
           <DialogTitle>Modifier les ressources</DialogTitle>
         </DialogHeader>
 
         <p className="text-sm text-muted-foreground truncate">{title}</p>
 
-        <div className="space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-4 px-1 -mx-1">
           {showDuration && (
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1.5">
