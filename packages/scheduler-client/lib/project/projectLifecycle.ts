@@ -2,6 +2,7 @@ import { useProjectStore } from '@/store/useProjectStore';
 import { usePlanningStore, DEFAULT_WEEK } from '@/store/usePlanningStore';
 import type { SchoolYearConfig } from '@/lib/schoolHolidays';
 import { parseProjectFile, clearAllWeekKeys } from './projectFile';
+import { sanitizeConstraints } from '@/lib/constraintsUtils';
 
 /**
  * Point d'entrée unique pour créer/charger/refermer un Projet.
@@ -39,7 +40,7 @@ export async function loadProjectFromFile(file: File): Promise<void> {
     coursesFileName: parsed.coursesFileName,
     allCourses: parsed.allCourses,
     resources: parsed.resources,
-    constraints: parsed.constraints,
+    constraints: sanitizeConstraints(parsed.constraints),
     weekSaves: parsed.weekSaves,
     yearColorConfig: parsed.yearColorConfig,
     tightThreshold: parsed.tightThreshold,

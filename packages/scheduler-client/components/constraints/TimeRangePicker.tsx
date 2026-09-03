@@ -159,6 +159,20 @@ export function TimeRangePicker({ slot, onChange, onRemove, className }: TimeRan
     setTextMode(field);
   }
 
+  /**
+   * Applique une nouvelle borne uniquement si le créneau garde une durée
+   * strictement positive. Une borne qui croiserait l'autre est refusée
+   * (l'affichage revient à la valeur courante) : un créneau vide ou inversé
+   * ne décrit aucune disponibilité et casse l'AvailabilityManager.
+   */
+  function commitField(field: 'from' | 'to', value: string) {
+    const next = { ...slot, [field]: value };
+    const from = toMinutes(next.from);
+    const to = toMinutes(next.to);
+    if (from !== null && to !== null && from >= to) return;
+    onChange(next);
+  }
+
   function makeFieldKeyDown(field: 'from' | 'to') {
     return (e: React.KeyboardEvent<HTMLButtonElement>) => {
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
@@ -168,7 +182,7 @@ export function TimeRangePicker({ slot, onChange, onRemove, className }: TimeRan
         if (total === null) return;
         const step = e.shiftKey ? 60 : 30;
         const delta = e.key === 'ArrowUp' ? step : -step;
-        onChange({ ...slot, [field]: fromMinutes(Math.max(0, Math.min(23 * 60 + 59, total + delta))) });
+        commitField(field, fromMinutes(Math.max(0, Math.min(23 * 60 + 59, total + delta))));
       }
       if (e.key === 'Escape') setOpen(false);
     };
@@ -188,7 +202,7 @@ export function TimeRangePicker({ slot, onChange, onRemove, className }: TimeRan
   function commitText() {
     if (!textMode) return;
     const parsed = parseTimeInput(textVal);
-    if (parsed) onChange({ ...slot, [textMode]: parsed });
+    if (parsed) commitField(textMode, parsed);
     setTextMode(null);
   }
 
@@ -336,14 +350,14 @@ export function TimeRangePicker({ slot, onChange, onRemove, className }: TimeRan
           <TimeScroller
             label="De"
             value={slot.from || '08:00'}
-            onChange={(v) => onChange({ ...slot, from: v })}
+            onChange={(v) => commitField('from', v)}
             open={open}
           />
           <div className="w-px bg-border self-stretch mx-1" />
           <TimeScroller
             label="À"
             value={slot.to || '12:00'}
-            onChange={(v) => onChange({ ...slot, to: v })}
+            onChange={(v) => commitField('to', v)}
             open={open}
           />
         </div>

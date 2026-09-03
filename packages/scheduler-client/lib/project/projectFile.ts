@@ -4,6 +4,7 @@ import type { SchoolYearConfig } from '@/lib/schoolHolidays';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
 import type { YearColorConfig } from '@/lib/calendar/yearColors';
 import type { ConstraintsRecord } from '@/store/slices/constraintsSlice';
+import { sanitizeConstraints } from '@/lib/constraintsUtils';
 import type { WeekSavesMap, PreparedWeekSnapshot } from '@/store/slices/weekSavesSlice';
 
 export const PROJECT_FILE_VERSION = 1 as const;
@@ -236,7 +237,14 @@ export function createProjectStorage<S extends PersistedProjectFields>(): Persis
         }
       }
 
-      const entryFields = extractProjectEntryFields(entry);
+      // Répare à la volée les projets déjà enregistrés avec des créneaux de durée nulle
+      // ou inversée : sans ça, l'AvailabilityManager lèverait dès le premier rendu d'une
+      // semaine peuplée. Même référence retournée si les contraintes sont déjà saines,
+      // donc pas de fausse réécriture du cache ci-dessous.
+      const entryFields = {
+        ...extractProjectEntryFields(entry),
+        constraints: sanitizeConstraints(entry.constraints),
+      };
       const state = { ...entryFields, weekSaves } as S;
 
       // Prime le cache module-level sur l'état qui vient d'être hydraté : sans ça, la toute

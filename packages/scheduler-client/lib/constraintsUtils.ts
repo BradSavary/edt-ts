@@ -85,17 +85,91 @@ export function slotsToDayMap(slots: TimeSlot[]): DayMap {
   return result;
 }
 
+/** Minutes since midnight for a "HH:MM" string, or null if unparsable */
+function slotMinutes(time: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(time.trim());
+  if (!m) return null;
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}
+
+/** A slot is usable only if it covers a strictly positive duration */
+export function isValidSlot(slot: DaySlot): boolean {
+  if (!slot.from || !slot.to) return false;
+  const from = slotMinutes(slot.from);
+  const to = slotMinutes(slot.to);
+  if (from === null || to === null) return true; // format libre : laissé tel quel
+  return from < to;
+}
+
 /** Compress per-day DayMap back to TimeSlot[] (one entry per day/slot) */
 export function dayMapToSlots(dayMap: DayMap): TimeSlot[] {
   const result: TimeSlot[] = [];
   for (const day of DAYS) {
     for (const slot of dayMap[day]) {
-      if (slot.from && slot.to) {
+      // Les créneaux de durée nulle ou inversée ne sont pas sérialisés : ils ne
+      // décrivent aucune disponibilité et faisaient planter l'AvailabilityManager.
+      if (isValidSlot(slot)) {
         result.push({ days: day, from: slot.from, to: slot.to });
       }
     }
   }
   return result;
+}
+
+/**
+ * Retire d'un tableau de créneaux ceux de durée nulle ou inversée (`from >= to`).
+ * Retourne le tableau d'origine (même référence) si rien n'est à retirer, pour que les
+ * comparaisons par référence du stockage ne voient pas de faux changement.
+ */
+export function sanitizeSlots(slots: TimeSlot[]): TimeSlot[] {
+  const kept = slots.filter((s) => isValidSlot(s));
+  return kept.length === slots.length ? slots : kept;
+}
+
+/**
+ * Nettoie un enregistrement de contraintes complet (toutes ressources, `Default` inclus,
+ * base `default` et surcharges hebdomadaires `S<n>`) de ses créneaux de durée nulle ou
+ * inversée. Un tel créneau ne décrit aucune disponibilité et fait lever `TimeInterval`,
+ * ce qui casse tout rendu ou tout solve utilisant les contraintes concernées.
+ *
+ * Appelé sur tous les chemins d'entrée des contraintes (édition, import JSON, ouverture
+ * d'un fichier projet, réhydratation localStorage) pour réparer aussi les projets déjà
+ * enregistrés avec de tels créneaux. Retourne l'objet d'origine si rien n'a changé.
+ */
+export function sanitizeConstraints<T extends Record<string, unknown>>(constraints: T): T {
+  let changed = false;
+  const result: Record<string, unknown> = {};
+
+  for (const [resourceId, value] of Object.entries(constraints)) {
+    if (Array.isArray(value)) {
+      const kept = sanitizeSlots(value as TimeSlot[]);
+      if (kept !== value) changed = true;
+      result[resourceId] = kept;
+      continue;
+    }
+
+    if (value !== null && typeof value === 'object') {
+      const rc = value as Record<string, unknown>;
+      let rcChanged = false;
+      const nextRC: Record<string, unknown> = {};
+      for (const [key, slots] of Object.entries(rc)) {
+        if (Array.isArray(slots)) {
+          const kept = sanitizeSlots(slots as TimeSlot[]);
+          if (kept !== slots) rcChanged = true;
+          nextRC[key] = kept;
+        } else {
+          nextRC[key] = slots;
+        }
+      }
+      if (rcChanged) changed = true;
+      result[resourceId] = rcChanged ? nextRC : value;
+      continue;
+    }
+
+    result[resourceId] = value;
+  }
+
+  return changed ? (result as T) : constraints;
 }
 
 export function exportAsJSON(data: ConstraintsData): string {

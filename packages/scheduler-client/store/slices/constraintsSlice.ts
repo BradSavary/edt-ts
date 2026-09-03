@@ -3,6 +3,7 @@ import type { StateCreator } from 'zustand';
 import {
   exportAsJSON, // utilisé uniquement pour l'export/import JSON (pas de localStorage)
   DEFAULT_SLOTS,
+  sanitizeConstraints,
 } from '@/lib/constraintsUtils';
 import type { ResourceGroupDataWithStatus } from '@/lib/csvMerge';
 import { pruneOrphanWeeklyMaxDaily } from '@/lib/maxDailyResolution';
@@ -43,7 +44,11 @@ export const createConstraintsSlice: StateCreator<ConstraintsSlice> = (set, get)
    * `constraints` passe par ici : c'est ce qui rend l'invariant vrai par construction plutôt
    * que dépendant du chemin emprunté.
    */
-  function setConstraints(constraints: ConstraintsRecord) {
+  function setConstraints(rawConstraints: ConstraintsRecord) {
+    // Filtre les créneaux de durée nulle ou inversée sur TOUTE écriture : c'est le point
+    // de passage unique, donc l'invariant « pas de créneau dégénéré dans le store » tient
+    // par construction, quel que soit le chemin (édition, import JSON, réinitialisation).
+    const constraints = sanitizeConstraints(rawConstraints);
     const resources = (get() as unknown as WithResources).resources;
     set({
       constraints,
