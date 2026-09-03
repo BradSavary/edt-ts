@@ -75,7 +75,12 @@ export class AvailabilityManager {
         
         const startTimestamp = dayIndex * 24 * 60 + startTime;
         const endTimestamp = dayIndex * 24 * 60 + endTime;
-        
+
+        // Un créneau de durée nulle ou inversée n'apporte aucune disponibilité :
+        // on l'ignore au lieu de laisser TimeInterval lever (un tel créneau dans
+        // Default faisait planter tout rendu utilisant une ressource sans contraintes).
+        if (endTimestamp <= startTimestamp) continue;
+
         availability.addAvailability(startTimestamp, endTimestamp);
       }
     }
