@@ -10,6 +10,7 @@ import { CsvMergeChoiceDialog } from './CsvMergeChoiceDialog';
 import { diffCsvCourses, diffCsvResources, summarizeCsvDiff } from '@/lib/csvMerge';
 import type { ParseCsvFullResult } from '@/lib/parseCsvCourses';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
+import { getAllManualCourses } from '@/lib/weekCourses';
 import type { ResourceGroupData } from '@edt-ts/scheduler-common';
 import {
   Dialog,
@@ -62,12 +63,17 @@ export function CoursesImportBlock() {
 
   const resourceCount = resources.reduce((acc, g) => acc + g.resources.length, 0);
 
+  // Aperçu du diff : recalcule exactement ce que fera `mergeCsvData` (mêmes entrées, même
+  // ordre), sinon l'aperçu et l'application peuvent diverger.
   const mergeSummary = useMemo(() => {
     if (!pendingCsvImport) return null;
     const courseDiff = diffCsvCourses(allCourses, pendingCsvImport.result.courses);
-    const resourceDiff = diffCsvResources(resources, pendingCsvImport.result.resources);
+    const resourceDiff = diffCsvResources(resources, pendingCsvImport.result.resources, [
+      ...courseDiff.merged,
+      ...getAllManualCourses(weekSaves),
+    ]);
     return summarizeCsvDiff(courseDiff, resources, resourceDiff);
-  }, [pendingCsvImport, allCourses, resources]);
+  }, [pendingCsvImport, allCourses, resources, weekSaves]);
 
   /** Passerelle pour l'import JSON de cours : demande confirmation avant de remplacer des cours déjà chargés. */
   function confirmReplace(file: File): Promise<boolean> {

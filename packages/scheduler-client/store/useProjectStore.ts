@@ -12,7 +12,7 @@ import type { SchoolYearConfig } from '../lib/schoolHolidays';
 import { migrateLegacyProjectStorage, migrateProjectStorageToSplitKeys } from '../lib/project/legacyMigration';
 import { createProjectStorage, PROJECT_STORAGE_KEY } from '../lib/project/projectFile';
 import { DEFAULT_SLOTS } from '../lib/constraintsUtils';
-import { getManualCoursesForWeek, pruneWeekSavesOfCourseIds } from '../lib/weekCourses';
+import { getAllManualCourses, getManualCoursesForWeek, pruneWeekSavesOfCourseIds } from '../lib/weekCourses';
 import type { WeekSavesMap } from './slices/weekSavesSlice';
 import { diffCsvCourses, diffCsvResources, type ResourceGroupDataWithStatus } from '../lib/csvMerge';
 
@@ -84,6 +84,10 @@ interface ProjectDataSlice {
    * remapping), seules les références aux cours réellement supprimés sont élaguées. Les ressources
    * disparues sont conservées et marquées `unused` plutôt que supprimées — `constraints` n'a donc
    * jamais besoin d'être élaguée ici (contrairement à `importCsvData`).
+   *
+   * Seules les semaines apportées par le CSV sont touchées : une semaine absente du fichier garde
+   * ses cours ET sa préparation intacts, ce qui rend sûr l'import d'un fichier partiel dans un
+   * projet déjà planifié.
    */
   mergeCsvData: (courses: CourseTaskDataWithId[], resources: ResourceGroupData[], fileName: string) => void;
 }
@@ -187,7 +191,12 @@ export const useProjectStore = create<ProjectStore>()(
       mergeCsvData: (courses, resources, fileName) => {
         set((state) => {
           const courseDiff = diffCsvCourses(state.allCourses, courses);
-          const finalResources = diffCsvResources(state.resources, resources);
+          // `unused` se juge sur les cours du projet APRÈS fusion — cours manuels compris —
+          // et non sur le contenu du CSV importé, qui peut ne couvrir que quelques semaines.
+          const finalResources = diffCsvResources(state.resources, resources, [
+            ...courseDiff.merged,
+            ...getAllManualCourses(state.weekSaves),
+          ]);
 
           const removedIdsByWeek = new Map<number, Set<string>>();
           for (const c of courseDiff.removed) {

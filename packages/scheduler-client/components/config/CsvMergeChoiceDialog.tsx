@@ -26,6 +26,18 @@ interface CsvMergeChoiceDialogProps {
   onCancel: () => void;
 }
 
+/** « 35, 36, 37, 41 » → « S35-37, S41 ». Entrée supposée triée croissante et sans doublon. */
+function formatWeekList(weeks: number[]): string {
+  const ranges: string[] = [];
+  for (let i = 0; i < weeks.length; ) {
+    let j = i;
+    while (j + 1 < weeks.length && weeks[j + 1] === weeks[j] + 1) j++;
+    ranges.push(i === j ? `S${weeks[i]}` : `S${weeks[i]}-${weeks[j]}`);
+    i = j + 1;
+  }
+  return ranges.join(', ');
+}
+
 /**
  * Choix entre "Tout remplacer" (comportement historique) et "Fusionner" (diff intelligent,
  * voir lib/csvMerge.ts), avec un aperçu du diff avant confirmation de la fusion.
@@ -84,6 +96,10 @@ export function CsvMergeChoiceDialog({
                   retire ceux disparus — {summary.totalKept} conservé{summary.totalKept !== 1 ? 's' : ''},{' '}
                   {summary.totalAdded} ajouté{summary.totalAdded !== 1 ? 's' : ''},{' '}
                   {summary.totalRemoved} supprimé{summary.totalRemoved !== 1 ? 's' : ''}.
+                  {summary.untouchedWeeks.length > 0 && (
+                    <> N&apos;affecte que les {summary.scopeWeeks.length} semaine{summary.scopeWeeks.length !== 1 ? 's' : ''} de ce fichier ;
+                    les {summary.untouchedWeeks.length} autre{summary.untouchedWeeks.length !== 1 ? 's' : ''} restent intactes.</>
+                  )}
                 </div>
               </button>
 
@@ -99,6 +115,9 @@ export function CsvMergeChoiceDialog({
                     <> — réinitialise les {weekSaveCount} semaine{weekSaveCount !== 1 ? 's' : ''} préparée{weekSaveCount !== 1 ? 's' : ''} (groupes, impositions, zones)</>
                   )}
                   {constraintCount > 0 && <>, retire les contraintes des ressources absentes</>}.
+                  {summary.untouchedWeeks.length > 0 && (
+                    <> Y compris les {summary.untouchedWeeks.length} semaine{summary.untouchedWeeks.length !== 1 ? 's' : ''} absente{summary.untouchedWeeks.length !== 1 ? 's' : ''} de ce fichier, dont les cours seront perdus.</>
+                  )}
                 </div>
               </button>
             </div>
@@ -130,6 +149,14 @@ export function CsvMergeChoiceDialog({
                     </li>
                   ))}
                 </ul>
+              )}
+
+              {summary.untouchedWeeks.length > 0 && (
+                <p className="text-xs text-muted-foreground border-t border-border pt-2">
+                  <span className="font-medium text-foreground">{summary.untouchedWeeks.length} semaine{summary.untouchedWeeks.length !== 1 ? 's' : ''}</span>
+                  {' '}absente{summary.untouchedWeeks.length !== 1 ? 's' : ''} de ce fichier ({formatWeekList(summary.untouchedWeeks)}) —
+                  cours et préparation conservés tels quels.
+                </p>
               )}
 
               {hasResourceChanges && (

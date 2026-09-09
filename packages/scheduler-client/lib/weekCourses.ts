@@ -17,6 +17,15 @@ export function getManualCoursesForWeek(weekSaves: WeekSavesMap, week: number): 
 }
 
 /**
+ * Tous les cours manuels du projet, toutes semaines confondues (ordre des semaines non garanti).
+ * Utile pour raisonner sur l'ensemble des cours du projet — ex. décider qu'une ressource n'est
+ * plus utilisée nulle part (voir `diffCsvResources`).
+ */
+export function getAllManualCourses(weekSaves: WeekSavesMap): CourseTaskDataWithId[] {
+  return Object.keys(weekSaves).flatMap((week) => getManualCoursesForWeek(weekSaves, Number(week)));
+}
+
+/**
  * Union des cours CSV et manuels d'une semaine.
  * CSV toujours en premier (ordre d'origine), manuel toujours en dernier (ordre de création) —
  * cet ordre doit rester stable partout, c'est celui que le moteur de planification reçoit

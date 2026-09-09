@@ -71,12 +71,14 @@ describe('diffCsvCourses', () => {
     expect(diff.added[0].id).not.toMatch(/_\d+$/);
   });
 
-  it('clé disparue : supprimée, absente de merged', () => {
+  it('clé disparue d\'une semaine du périmètre : supprimée, absente de merged', () => {
     const old = [makeOldCourse({ code: 'R101' })];
-    const next: CourseTaskData[] = [];
+    // La semaine reste dans le périmètre (le CSV y apporte un autre cours), donc R101 est
+    // bien vu comme disparu. Un CSV vide, lui, ne supprimerait rien — cf. « périmètre de l'import ».
+    const next: CourseTaskData[] = [makeCourse({ code: 'R999' })];
     const diff = diffCsvCourses(old, next);
-    expect(diff.removed).toHaveLength(1);
-    expect(diff.merged).toHaveLength(0);
+    expect(diff.removed.map((c) => c.code)).toEqual(['R101']);
+    expect(diff.merged.map((c) => c.code)).toEqual(['R999']);
   });
 
   it('doublons 3 -> 2 : les 2 premiers conservés (dans l\'ordre), le 3e supprimé', () => {
@@ -148,6 +150,72 @@ describe('diffCsvCourses', () => {
   });
 });
 
+describe('diffCsvCourses — périmètre de l\'import', () => {
+  it('cours d\'une semaine absente du CSV : ni kept ni removed, repris tel quel dans merged', () => {
+    const horsPerimetre = makeOldCourse({ week: 40, code: 'HORS' });
+    const old = [horsPerimetre, makeOldCourse({ week: 44, code: 'DANS' })];
+    const next = [makeCourse({ week: 44, code: 'DANS', rooms: ['B202'] })];
+
+    const diff = diffCsvCourses(old, next);
+
+    expect(diff.untouched).toEqual([horsPerimetre]);
+    expect(diff.removed).toEqual([]);
+    expect(diff.kept.map((c) => c.code)).toEqual(['DANS']);
+    // Référence d'objet strictement préservée : rien n'a été recopié ni recalculé.
+    expect(diff.merged).toContain(horsPerimetre);
+    expect(diff.merged.map((c) => c.code).sort()).toEqual(['DANS', 'HORS']);
+  });
+
+  it('CSV n\'apportant qu\'une semaine : les autres survivent même sans aucune correspondance', () => {
+    const old = [
+      makeOldCourse({ week: 40, code: 'A' }),
+      makeOldCourse({ week: 41, code: 'B' }),
+      makeOldCourse({ week: 44, code: 'C' }),
+    ];
+    const next = [makeCourse({ week: 44, code: 'Z' })]; // C disparaît, A et B sont hors périmètre
+
+    const diff = diffCsvCourses(old, next);
+
+    expect(diff.removed.map((c) => c.code)).toEqual(['C']);
+    expect(diff.untouched.map((c) => c.code).sort()).toEqual(['A', 'B']);
+    expect(diff.merged.map((c) => c.code).sort()).toEqual(['A', 'B', 'Z']);
+  });
+
+  it('CSV sans aucun cours : périmètre vide, projet strictement inchangé', () => {
+    const old = [makeOldCourse({ week: 40 }), makeOldCourse({ week: 44 })];
+
+    const diff = diffCsvCourses(old, []);
+
+    expect(diff.removed).toEqual([]);
+    expect(diff.kept).toEqual([]);
+    expect(diff.added).toEqual([]);
+    expect(diff.merged).toEqual(old);
+  });
+
+  it('une semaine vidée dans le fichier source n\'est plus vidée dans le projet (contrepartie assumée)', () => {
+    const old = [makeOldCourse({ week: 40, code: 'A' }), makeOldCourse({ week: 44, code: 'C' })];
+    const next = [makeCourse({ week: 44, code: 'C' })]; // S40 n'a plus d'heures dans le fichier
+
+    const diff = diffCsvCourses(old, next);
+
+    expect(diff.merged.map((c) => c.code).sort()).toEqual(['A', 'C']);
+  });
+
+  it('ordre intra-semaine préservé des deux côtés du périmètre', () => {
+    const old = [
+      makeOldCourse({ week: 40, code: 'H1' }),
+      makeOldCourse({ week: 40, code: 'H2' }),
+      makeOldCourse({ week: 44, code: 'D1' }),
+    ];
+    const next = [makeCourse({ week: 44, code: 'D2' }), makeCourse({ week: 44, code: 'D1' })];
+
+    const diff = diffCsvCourses(old, next);
+
+    expect(diff.merged.filter((c) => c.week === 40).map((c) => c.code)).toEqual(['H1', 'H2']);
+    expect(diff.merged.filter((c) => c.week === 44).map((c) => c.code)).toEqual(['D2', 'D1']);
+  });
+});
+
 describe('diffCsvResources', () => {
   function makeResources(teacherIds: string[]): ResourceGroupData[] {
     return [
@@ -157,11 +225,16 @@ describe('diffCsvResources', () => {
     ];
   }
 
+  /** Cours du projet APRÈS fusion : c'est eux, et non le CSV, qui décident du flag `unused`. */
+  function coursesWithTeachers(teacherIds: string[]): CourseTaskData[] {
+    return teacherIds.map((id, i) => makeCourse({ teacher: [id], code: `R${i}`, groups: [], rooms: [] }));
+  }
+
   it('ressource conservée inchangée (présente des deux côtés)', () => {
     const old = makeResources(['DUPONT']);
     old[0].resources[0].maxDailyMinutes = 240;
     const next = makeResources(['DUPONT']);
-    const result = diffCsvResources(old, next);
+    const result = diffCsvResources(old, next, coursesWithTeachers(['DUPONT']));
     const teacher = result.find((g) => g.resourceType === 'teacher')!;
     expect(teacher.resources).toEqual([{ id: 'DUPONT', maxDailyMinutes: 240, unused: undefined }]);
   });
@@ -171,7 +244,7 @@ describe('diffCsvResources', () => {
     old[0].resources[0].maxDailyMinutes = 240;
     (old[0].resources[0] as ResourceDataWithStatus).weeklyMaxDailyMinutes = { S40: 120 };
     const next = makeResources(['DUPONT']);
-    const result = diffCsvResources(old, next);
+    const result = diffCsvResources(old, next, coursesWithTeachers(['DUPONT']));
     const teacher = result.find((g) => g.resourceType === 'teacher')!;
     expect(teacher.resources).toEqual([
       { id: 'DUPONT', maxDailyMinutes: 240, weeklyMaxDailyMinutes: { S40: 120 }, unused: undefined },
@@ -182,7 +255,7 @@ describe('diffCsvResources', () => {
     const old = makeResources(['DUPONT']);
     (old[0].resources[0] as ResourceDataWithStatus).weeklyMaxDailyMinutes = { S40: 120 };
     const next = makeResources([]);
-    const result = diffCsvResources(old, next);
+    const result = diffCsvResources(old, next, coursesWithTeachers([]));
     const teacher = result.find((g) => g.resourceType === 'teacher')!;
     expect(teacher.resources).toEqual([
       { id: 'DUPONT', weeklyMaxDailyMinutes: { S40: 120 }, unused: true },
@@ -192,7 +265,7 @@ describe('diffCsvResources', () => {
   it('nouvelle ressource ajoutée sans flag unused', () => {
     const old = makeResources([]);
     const next = makeResources(['MARTIN']);
-    const result = diffCsvResources(old, next);
+    const result = diffCsvResources(old, next, coursesWithTeachers(['MARTIN']));
     const teacher = result.find((g) => g.resourceType === 'teacher')!;
     expect(teacher.resources).toEqual([{ id: 'MARTIN' }]);
   });
@@ -202,7 +275,7 @@ describe('diffCsvResources', () => {
     old[0].resources[0].maxDailyMinutes = 180;
     old[0].resources[0].info = 'vacataire';
     const next = makeResources([]);
-    const result = diffCsvResources(old, next);
+    const result = diffCsvResources(old, next, coursesWithTeachers([]));
     const teacher = result.find((g) => g.resourceType === 'teacher')!;
     expect(teacher.resources).toEqual([{ id: 'DUPONT', maxDailyMinutes: 180, info: 'vacataire', unused: true }]);
   });
@@ -210,7 +283,7 @@ describe('diffCsvResources', () => {
   it('sensibilité à la casse : Dupont et DUPONT sont deux ressources distinctes', () => {
     const old = makeResources(['DUPONT']);
     const next = makeResources(['Dupont']);
-    const result = diffCsvResources(old, next);
+    const result = diffCsvResources(old, next, coursesWithTeachers(['Dupont']));
     const teacher = result.find((g) => g.resourceType === 'teacher')!;
     expect(teacher.resources.map((r) => r.id).sort()).toEqual(['DUPONT', 'Dupont']);
     expect(teacher.resources.find((r) => r.id === 'DUPONT')?.unused).toBe(true);
@@ -224,9 +297,61 @@ describe('diffCsvResources', () => {
       { resourceType: 'room', resources: [] },
     ];
     const next = makeResources(['DUPONT']);
-    const result = diffCsvResources(old, next);
+    const result = diffCsvResources(old, next, coursesWithTeachers(['DUPONT']));
     const teacher = result.find((g) => g.resourceType === 'teacher')!;
     expect(teacher.resources[0].unused).toBeUndefined();
+  });
+});
+
+describe('diffCsvResources — import partiel', () => {
+  it('ressource utilisée seulement hors périmètre : jamais marquée unused', () => {
+    const old: ResourceGroupDataWithStatus[] = [
+      { resourceType: 'teacher', resources: [{ id: 'DUPONT' }, { id: 'MARTIN' }] },
+      { resourceType: 'group', resources: [] },
+      { resourceType: 'room', resources: [] },
+    ];
+    // Le CSV ne couvre que S44 et n'y cite que MARTIN ; DUPONT enseigne encore en S40.
+    const csvResources: ResourceGroupData[] = [
+      { resourceType: 'teacher', resources: [{ id: 'MARTIN' }] },
+      { resourceType: 'group', resources: [] },
+      { resourceType: 'room', resources: [] },
+    ];
+    const finalCourses = [
+      makeCourse({ week: 40, teacher: ['DUPONT'] }),
+      makeCourse({ week: 44, teacher: ['MARTIN'] }),
+    ];
+
+    const result = diffCsvResources(old, csvResources, finalCourses);
+
+    const teacher = result.find((g) => g.resourceType === 'teacher')!;
+    expect(teacher.resources.find((r) => r.id === 'DUPONT')?.unused).toBeUndefined();
+    expect(teacher.resources.find((r) => r.id === 'MARTIN')?.unused).toBeUndefined();
+  });
+
+  it('salle citée en alternative compte comme utilisée', () => {
+    const old: ResourceGroupDataWithStatus[] = [
+      { resourceType: 'teacher', resources: [] },
+      { resourceType: 'group', resources: [] },
+      { resourceType: 'room', resources: [{ id: 'A101' }, { id: 'B202' }] },
+    ];
+    const finalCourses = [makeCourse({ rooms: [['A101', 'B202']] })];
+
+    const result = diffCsvResources(old, [], finalCourses);
+
+    const rooms = result.find((g) => g.resourceType === 'room')!;
+    expect(rooms.resources.every((r) => r.unused === undefined)).toBe(true);
+  });
+
+  it('unused hérité d\'un import antérieur effacé si la ressource sert encore', () => {
+    const old: ResourceGroupDataWithStatus[] = [
+      { resourceType: 'teacher', resources: [{ id: 'DUPONT', unused: true }] },
+      { resourceType: 'group', resources: [] },
+      { resourceType: 'room', resources: [] },
+    ];
+
+    const result = diffCsvResources(old, [], [makeCourse({ teacher: ['DUPONT'] })]);
+
+    expect(result.find((g) => g.resourceType === 'teacher')!.resources[0].unused).toBeUndefined();
   });
 });
 
@@ -240,17 +365,34 @@ describe('summarizeCsvDiff', () => {
     const next = [
       makeCourse({ week: 10, code: 'R1', rooms: ['B1'] }), // kept (salle changée)
       makeCourse({ week: 10, code: 'R9' }), // added
+      makeCourse({ week: 12, code: 'R8' }), // added — garde la S12 dans le périmètre
       // R2 (week 10) et R3 (week 12) disparaissent -> removed
     ];
     const courseDiff = diffCsvCourses(old, next);
-    const summary = summarizeCsvDiff(courseDiff, [], diffCsvResources([], []));
+    const summary = summarizeCsvDiff(courseDiff, [], diffCsvResources([], [], []));
     expect(summary.totalKept).toBe(1);
-    expect(summary.totalAdded).toBe(1);
+    expect(summary.totalAdded).toBe(2);
     expect(summary.totalRemoved).toBe(2);
     const week10 = summary.perWeek.find((w) => w.week === 10)!;
     expect(week10).toEqual({ week: 10, kept: 1, added: 1, removed: 1 });
     const week12 = summary.perWeek.find((w) => w.week === 12)!;
-    expect(week12).toEqual({ week: 12, kept: 0, added: 0, removed: 1 });
+    expect(week12).toEqual({ week: 12, kept: 0, added: 1, removed: 1 });
+  });
+
+  it('expose le périmètre : semaines apportées vs semaines laissées intactes', () => {
+    const old = [
+      makeOldCourse({ week: 36, code: 'A' }),
+      makeOldCourse({ week: 37, code: 'B' }),
+      makeOldCourse({ week: 44, code: 'C' }),
+    ];
+    const next = [makeCourse({ week: 44, code: 'C' }), makeCourse({ week: 45, code: 'D' })];
+
+    const summary = summarizeCsvDiff(diffCsvCourses(old, next), [], diffCsvResources([], [], []));
+
+    expect(summary.scopeWeeks).toEqual([44, 45]);
+    expect(summary.untouchedWeeks).toEqual([36, 37]);
+    expect(summary.perWeek.map((w) => w.week)).toEqual([44, 45]);
+    expect(summary.totalRemoved).toBe(0);
   });
 
   it('resourcesNewlyUnused ne compte que la transition de cet import', () => {
@@ -264,8 +406,12 @@ describe('summarizeCsvDiff', () => {
       { resourceType: 'group', resources: [] },
       { resourceType: 'room', resources: [] },
     ];
-    const resourceDiff = diffCsvResources(oldResources, newResources);
-    const summary = summarizeCsvDiff({ merged: [], kept: [], added: [], removed: [] }, oldResources, resourceDiff);
+    const resourceDiff = diffCsvResources(oldResources, newResources, []);
+    const summary = summarizeCsvDiff(
+      { merged: [], kept: [], added: [], removed: [], untouched: [] },
+      oldResources,
+      resourceDiff,
+    );
     expect(summary.resourcesNewlyUnused.map((r) => r.id)).toEqual(['DUPONT']);
   });
 });
