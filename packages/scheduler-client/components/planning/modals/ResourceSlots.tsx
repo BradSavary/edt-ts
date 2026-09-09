@@ -1,9 +1,6 @@
 'use client';
 
-import { useState } from 'react';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -23,7 +20,6 @@ export interface ResourceSlotsProps {
 }
 
 export function ResourceSlots({ label, values, options, onChange, allowAlternatives = true }: ResourceSlotsProps) {
-  const [customInput, setCustomInput] = useState('');
   const used = new Set(values.flat());
   const nextDefault = options.find((o) => !used.has(o));
 
@@ -65,11 +61,6 @@ export function ResourceSlots({ label, values, options, onChange, allowAlternati
     onChange(values.map((s, i) => (i === slotIndex ? fromAlts(next) : s)));
   }
 
-  function handleCustomAdd() {
-    const v = customInput.trim();
-    if (v) { addSlot(v); setCustomInput(''); }
-  }
-
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
@@ -94,6 +85,9 @@ export function ResourceSlots({ label, values, options, onChange, allowAlternati
             className="border rounded-md bg-muted/40 p-2 mb-2 space-y-1"
           >
             {alts.map((val, altIndex) => {
+              // `val` reste fusionné aux options du catalogue : un cours peut porter un id
+              // qui n'y figure pas (projet ancien, ressource retirée du catalogue depuis).
+              // Sans ça le Select s'afficherait vide et la validation écraserait la valeur.
               const allOptions = [...new Set([...options, val])];
               return (
                 <div key={altIndex} className="flex gap-1 mb-1 items-center">
@@ -130,25 +124,6 @@ export function ResourceSlots({ label, values, options, onChange, allowAlternati
           </div>
         );
       })}
-      <div className="flex gap-1 mt-1">
-        <Input
-          value={customInput}
-          onChange={(e) => setCustomInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCustomAdd(); } }}
-          placeholder="Ressource personnalisée…"
-          className="h-7 text-xs flex-1"
-        />
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          onClick={handleCustomAdd}
-          disabled={!customInput.trim()}
-          className="h-7 px-2 text-xs"
-        >
-          +
-        </Button>
-      </div>
     </div>
   );
 }
