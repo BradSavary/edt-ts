@@ -49,12 +49,20 @@ export default function ResourceLoadPopover({ mode, rows, taskDurationMin, class
           <BarChart3 className="size-3.5" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-96" onClick={(e) => e.stopPropagation()}>
-        <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Analyse de charge {mode === 'preparation' ? '— demande vs capacité' : '— placement'}
-          </p>
+      {/* Hauteur plafonnée à la place libre calculée par Radix (variable CSS available-height, qui
+          tient compte du collisionPadding) : avec beaucoup de salles au choix, la liste des
+          ressources défile au lieu de sortir de la fenêtre. Titre et avertissement restent hors de
+          la zone défilante — même idiome que TaskEditModal. */}
+      <PopoverContent
+        className="flex w-96 max-h-[var(--radix-popover-content-available-height)] flex-col"
+        collisionPadding={8}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="shrink-0 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          Analyse de charge {mode === 'preparation' ? '— demande vs capacité' : '— placement'}
+        </p>
 
+        <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto px-1 -mx-1">
           {rows.map((row) => (
             <div key={`${row.resourceKind}-${row.resourceId}`} className="space-y-1">
               <div className="flex items-center justify-between text-xs">
@@ -103,15 +111,15 @@ export default function ResourceLoadPopover({ mode, rows, taskDurationMin, class
               </table>
             </div>
           ))}
-
-          {noCommonDay && (
-            <p className="text-xs text-red-600 dark:text-red-400 border-t pt-2">
-              Aucun jour n&apos;a assez de mou pour TOUTES les ressources à la fois pour cette tâche
-              {taskDurationMin ? ` (${formatH(taskDurationMin)})` : ''} — chaque ressource peut avoir
-              son propre jour de marge, mais jamais le même : relâchement nécessaire.
-            </p>
-          )}
         </div>
+
+        {noCommonDay && (
+          <p className="shrink-0 mt-3 text-xs text-red-600 dark:text-red-400 border-t pt-2">
+            Aucun jour n&apos;a assez de mou pour TOUTES les ressources à la fois pour cette tâche
+            {taskDurationMin ? ` (${formatH(taskDurationMin)})` : ''} — chaque ressource peut avoir
+            son propre jour de marge, mais jamais le même : relâchement nécessaire.
+          </p>
+        )}
       </PopoverContent>
     </Popover>
   );
