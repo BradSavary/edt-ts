@@ -13,7 +13,7 @@ dist-ssr
 *.local
 
 # Données réelles/sensibles utilisées pour du diagnostic local (jamais commitées)
-packages/scheduler-core/data/
+/data/
 
 # Editor directories and files
 .vscode/*

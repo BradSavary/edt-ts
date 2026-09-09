@@ -19,7 +19,7 @@ from cpsat_engine import solve
 # gitignoré : absent en CI et sur les postes qui ont mis à jour leurs données → les tests qui en
 # dépendent se skippent INDIVIDUELLEMENT (décorateur ci-dessous), et non plus au niveau module —
 # sinon un skip global masquerait aussi les tests basés sur un autre export (ex. S48 plus bas).
-DATA = (Path(__file__).resolve().parents[2] / "packages" / "scheduler-core" / "data"
+DATA = (Path(__file__).resolve().parents[2] / "data"
         / "BUT MMI 2026-2027_2026-07-23_18-29.json")
 
 _skip_if_no_data = pytest.mark.skipif(not DATA.exists(), reason=f"données réelles absentes : {DATA}")
@@ -139,7 +139,7 @@ def test_contract_fields_and_group_semantics(project, week):
 # Hors CI par défaut si les données réelles sont absentes — même patron de skip que ci-dessus,
 # fichier distinct car issu d'un export projet postérieur (2026-07-24_23-19).
 
-DATA_S48 = (Path(__file__).resolve().parents[2] / "packages" / "scheduler-core" / "data"
+DATA_S48 = (Path(__file__).resolve().parents[2] / "data"
             / "BUT MMI 2026-2027_2026-07-24_23-19.json")
 
 
