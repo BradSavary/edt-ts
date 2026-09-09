@@ -82,16 +82,10 @@ Elle parcourt toutes les ressources et appelle `am.getAvailability(resource.id, 
 
 ## Intégration dans le flux de planification
 
-L'intégration est gérée par `Loader` (`packages/scheduler-core/src/loader.ts`) via `SchedulerData` :
-
-```typescript
-// Dans Loader.loadFromRawData()
-this._data.initGroups(data.groups ?? []);
-// Les contraintes sont passées directement dans RawScheduleData
-// et utilisées pour construire l'AvailabilityManager lors du chargement des ressources
-```
-
-Le payload envoyé à l'API (`RawScheduleData`) peut inclure directement l'objet `constraints` ; aucun fichier JSON externe n'est lu par l'API.
+Le payload envoyé à l'API (`RawScheduleData`) peut inclure directement l'objet `constraints` ; aucun
+fichier JSON externe n'est lu par l'API. Côté moteur, `_make_availability`
+(`packages/scheduler-cpsat/cpsat_engine.py`) construit les fenêtres de disponibilité de chaque
+ressource directement depuis ce même objet `constraints`.
 
 ## Parsing des créneaux
 

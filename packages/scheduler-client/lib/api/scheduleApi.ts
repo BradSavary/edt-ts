@@ -1,4 +1,4 @@
-import type { RawScheduleData, TaskSolutionJSON, NeutralizedTaskInfoJSON, EnforcedData, ConstraintsData, SchedulerConfig, TaskGroupDeclaration, JobSubmitResponse, JobStatusResponse, RootLowerBoundJSON } from '@edt-ts/scheduler-common';
+import type { RawScheduleData, TaskSolutionJSON, NeutralizedTaskInfoJSON, EnforcedData, ConstraintsData, SchedulerConfig, TaskGroupDeclaration, JobSubmitResponse, JobStatusResponse } from '@edt-ts/scheduler-common';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
 import type { ResourceGroupDataWithStatus } from '@/lib/csvMerge';
 import { resolveMaxDailyMinutes } from '@/lib/maxDailyResolution';
@@ -13,16 +13,8 @@ export interface NormalizedSolution {
   score?: number;
   tasks: TaskSolutionJSON[];
   neutralizedTasks?: NeutralizedTaskInfoJSON[];
-  /**
-   * Présent uniquement pour searchStrategy: 'maxPlacement' — optimum du résultat prouvé,
-   * RELATIVEMENT au modèle de placement du moteur (voir ScheduleSolutionJSON.provenOptimal).
-   */
+  /** `true` si CP-SAT a prouvé l'optimum du nombre de cours placés (voir ScheduleSolutionJSON.provenOptimal). */
   provenOptimal?: boolean;
-  /**
-   * Présent uniquement pour searchStrategy: 'maxPlacement' — borne inférieure racine calculée
-   * avant la recherche (voir ScheduleSolutionJSON.rootBound).
-   */
-  rootBound?: RootLowerBoundJSON;
 }
 
 export interface ScheduleResult {
@@ -80,10 +72,7 @@ function _buildPayload(
 
   const effectiveConstraints = applyBlockedZonesToConstraints(resolvedResources, resolvedConstraintsData, blockedZones, weekNum);
   const hasConstraints = !!constraintsData || blockedZones.length > 0;
-  // Le client ne gère plus qu'une solution (docs/PlanSingleSolution.md). Forcé ici plutôt que
-  // dans le store : `edt-app-config` déjà persisté chez les utilisateurs contient un
-  // `maxSolutions` hérité (6 par défaut) qui repartirait sinon dans la requête.
-  const options: Record<string, unknown> = { ...schedulerConfig, maxSolutions: 1 };
+  const options: Record<string, unknown> = { ...schedulerConfig };
 
   return {
     week: weekNum,
@@ -116,9 +105,7 @@ export function buildScheduleStatus(result: ScheduleResult): ScheduleStatus {
   const neutralizedMsg = best.neutralizedTasks?.length
     ? ` — ${best.neutralizedTasks.length} cours non placé(s)` : '';
   const provenMsg = !best.isComplete && best.provenOptimal
-    ? (best.rootBound && best.rootBound.lb > 0
-        ? ` — optimum prouvé : ${best.rootBound.lb} saut(s) structurellement inévitable(s) (relâchement nécessaire)`
-        : ' — optimum prouvé : le moteur ne placera pas plus sans relâchement de contraintes')
+    ? ' — optimum prouvé : le moteur ne placera pas plus sans relâchement de contraintes'
     : '';
   return {
     message: `${best.isComplete ? '✅ Planification complète' : '⚠️ Incomplète'}${neutralizedMsg}${provenMsg}`,

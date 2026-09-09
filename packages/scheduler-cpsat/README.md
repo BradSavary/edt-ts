@@ -1,6 +1,6 @@
-# `scheduler-cpsat` — moteur CP-SAT (2e moteur user-facing)
+# `scheduler-cpsat` — moteur CP-SAT
 
-Moteur de planification alternatif basé sur [OR-Tools CP-SAT](https://developers.google.com/optimization),
+Moteur de planification du projet, basé sur [OR-Tools CP-SAT](https://developers.google.com/optimization),
 consolidé depuis le spike de faisabilité (`spikes/cpsat/`, voir historique git). Parle le contrat
 partagé `@edt-ts/scheduler-common` :
 
@@ -13,14 +13,14 @@ solutions = solve(raw, config)   # raw: RawScheduleData ; config: sous-ensemble 
 - **Sortie** `list[ScheduleSolutionJSON]` — un seul élément (la meilleure solution) :
   `{ solutions, isComplete, score, provenOptimal, neutralizedTasks? }`.
 - **`config`** (tout optionnel) : `lunchBreak` (`{type:'fixed',from,to}` ou `{type:'none'}` ;
-  `floating` **non supporté** — feature core-only), `ignoreDailyLimits`, `timeoutSeconds`,
+  `floating` **non supporté**), `ignoreDailyLimits`, `timeoutSeconds`,
   `excludeTypes` (défaut `['Autonomie']`), `earliest` (défaut `False`).
 
-Décision produit (cf. mémoire `cpsat-second-engine`) : **2e moteur offert à l'utilisateur**, PAS un
-oracle de complétude pour `scheduler-core`. Il maximise le nombre de tâches placées et **prouve**
-l'optimalité de ce nombre, sur son propre modèle — pas de réplication forcée de la sémantique core.
+**Unique moteur du projet** depuis le retrait de `scheduler-core` (voir `docs/archive/`). Il
+maximise le nombre de tâches placées et **prouve** l'optimalité de ce nombre, sur son propre
+modèle.
 
-## Fidélité de modélisation (calquée sur scheduler-common / scheduler-core)
+## Fidélité de modélisation (calquée sur scheduler-common)
 
 | Aspect | Source TS répliquée | Pattern CP-SAT |
 |---|---|---|

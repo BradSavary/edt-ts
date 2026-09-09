@@ -43,8 +43,8 @@ PORT=3000 CORS_ORIGIN=https://<domaine> node dist/server.cjs
 
 > ⚠️ **Lancer depuis `packages/scheduler-api`.** La passerelle CP-SAT localise `cpsat_runner.py`
 > relativement à `process.cwd()` (`../scheduler-cpsat`, `packages/scheduler-cpsat`, `scheduler-cpsat`).
-> Depuis un autre répertoire, le moteur core continue de marcher mais CP-SAT échoue avec
-> « impossible de localiser cpsat_runner.py ». Alternative : fixer `CPSAT_RUNNER` en absolu.
+> Depuis un autre répertoire, CP-SAT échoue avec « impossible de localiser cpsat_runner.py ».
+> Alternative : fixer `CPSAT_RUNNER` en absolu.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
@@ -80,10 +80,10 @@ Empreinte disque mesurée : ~82 Mo pour `ortools` seul, ~242 Mo pour le venv com
 `ortools` sont publiées pour Linux x86_64 et aarch64 (glibc récente) — pas de compilation nécessaire
 sur une distribution courante, mais `pip install` doit pouvoir sortir sur le réseau.
 
-**c. Si CP-SAT n'est pas provisionné, l'application reste fonctionnelle.** Le moteur `core` est le
-défaut ; seules les requêtes `engine: 'cpsat'` échouent, avec un message explicite
-(« Moteur CP-SAT indisponible (Python/ortools non provisionné) »). Un déploiement peut donc partir
-sans CP-SAT et l'ajouter ensuite.
+**c. CP-SAT est un prérequis dur.** C'est le seul moteur du projet : sans venv provisionné, toute
+requête de planification échoue avec un message explicite
+(« Moteur CP-SAT indisponible (Python/ortools non provisionné) »). Un déploiement sans §3 n'est
+pas fonctionnel.
 
 **d. Dimensionnement CPU — le point le plus important.**
 CP-SAT lance par défaut autant de threads de recherche que de cœurs (`num_workers = 0` = auto).
@@ -124,15 +124,15 @@ et force `PYTHONUTF8=1` (sans quoi les accents des noms d'enseignants sont corro
 ## 5. Contrôles avant mise en ligne
 
 ```bash
-npm run typecheck                                   # 4 workspaces
-npm test --workspace=packages/scheduler-core        # 149 tests
-npm test --workspace=packages/scheduler-api         # 7 tests (dont la passerelle CP-SAT)
+npm run typecheck                                   # workspaces npm
+npm test --workspace=packages/scheduler-api         # dont la passerelle CP-SAT
+npm test --workspace=packages/scheduler-client
 cd packages/scheduler-cpsat && .venv/bin/pytest     # moteur Python
 ```
 
-Puis, API lancée, un aller-retour réel sur les deux moteurs :
+Puis, API lancée, un aller-retour réel sur le moteur :
 
 ```bash
 curl -s localhost:3000/api/schedule/health
-# POST /api/schedule/v2/async avec options.engine = 'core' puis 'cpsat'
+# POST /api/schedule/v2/async
 ```

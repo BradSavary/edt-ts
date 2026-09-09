@@ -10,7 +10,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@edt-ts/scheduler-common': resolve(__dirname, '../scheduler-common/src/index.ts'),
-      '@edt-ts/scheduler-core': resolve(__dirname, '../scheduler-core/src/index.ts'),
     },
   },
 });

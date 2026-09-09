@@ -12,8 +12,7 @@ export type GroupType = 'parallel' | 'sequential';
  *
  * Modèle de domaine pur : décrit le problème (ressources applicables, dépendances,
  * appartenance à un groupe) sans porter de logique de décision de planification —
- * celle-ci vit exclusivement dans scheduler-core (voir `taskScheduling.ts`,
- * `TaskUnit`, `TaskGroupUnit`).
+ * celle-ci vit exclusivement dans le moteur CP-SAT (`scheduler-cpsat`).
  */
 class Task implements ISchedulable {
 

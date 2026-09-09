@@ -102,32 +102,6 @@ task.hasDependentUnits(): boolean
 
 Le champ `taskGroupId` relie la tâche à une `TaskGroupDeclaration` (voir `docs/LunchBreak.md` et le type `TaskGroupDeclaration` dans `types.ts`). Le moteur `Scheduler` utilise ce champ dans `initSolver()` pour construire les `TaskGroupUnit`.
 
-## Usage dans le moteur (`scheduler-core`)
-
-Le moteur n'appelle jamais `addResource`/`removeResource` (ces méthodes n'existent pas). Le workflow est :
-
-```typescript
-// 1. Obtenir les combinaisons
-const combos = task.getApplicableResources();
-
-// 2. Pour chaque combo, vérifier la disponibilité
-for (const combo of combos) {
-  if (combo.every(r => r.availability.isAvailable(start, end))) {
-    // 3. Appliquer
-    task.appliedResources = combo;
-    // 4. Consommer la disponibilité des ressources
-    combo.forEach(r => r.availability.removeAvailability(start, end));
-    break;
-  }
-}
-
-// Backtrack
-task.appliedResources = null;
-combo.forEach(r => r.availability.addAvailability(start, end));
-```
-
-En pratique, ce workflow est encapsulé dans `TaskUnit` et `TaskGroupUnit`.
-
 ## Cas d'usage courants
 
 ### Ressource unique par type
@@ -159,8 +133,6 @@ TEACHER: [[profA, profB]], ROOM: [[r01]], GROUP: [[g1]]
 - `packages/scheduler-common/src/task.ts` : implémentation
 - `packages/scheduler-common/src/resource.ts` : `Resource`, `ResourceType`
 - `packages/scheduler-common/src/types.ts` : `CourseTaskData`, `EnforcedData`, `TaskGroupDeclaration`
-- `packages/scheduler-core/src/taskUnit.ts` : usage dans le moteur (tâche isolée)
-- `packages/scheduler-core/src/taskGroupUnit.ts` : usage dans le moteur (groupe de tâches)
 
 ## Vue d'ensemble
 

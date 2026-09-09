@@ -18,13 +18,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 
 // ── Types internes ──────────────────────────────────────────────────────────
@@ -43,18 +36,11 @@ interface LunchFloatingDraft {
 type LunchTab = 'none' | 'fixed' | 'floating';
 
 interface Draft {
-  engine: 'core' | 'cpsat';
   timeoutSeconds: string;
-  maxIterations: string;
-  maxEliminations: string;
   lunchTab: LunchTab;
   lunchFixed: LunchFixedDraft;
   lunchFloating: LunchFloatingDraft;
   ignoreDailyLimits: boolean;
-  conflictOrderingSearch: boolean;
-  conflictSetExact: boolean;
-  postRepair: boolean;
-  searchStrategy: 'elimination' | 'maxPlacement';
   compactTeacherHalfDays: boolean;
   minimizeTeacherDays: boolean;
   balanceTeacherDailyLoad: boolean;
@@ -84,18 +70,11 @@ function configToDraft(config: SchedulerConfig): Draft {
   }
 
   return {
-    engine: config.engine ?? DEFAULT_SCHEDULER_CONFIG.engine,
     timeoutSeconds: String(config.timeoutSeconds ?? DEFAULT_SCHEDULER_CONFIG.timeoutSeconds),
-    maxIterations: String(config.maxIterations ?? DEFAULT_SCHEDULER_CONFIG.maxIterations),
-    maxEliminations: String(config.maxEliminations ?? DEFAULT_SCHEDULER_CONFIG.maxEliminations),
     lunchTab,
     lunchFixed,
     lunchFloating,
     ignoreDailyLimits: config.ignoreDailyLimits ?? DEFAULT_SCHEDULER_CONFIG.ignoreDailyLimits,
-    conflictOrderingSearch: config.conflictOrderingSearch ?? DEFAULT_SCHEDULER_CONFIG.conflictOrderingSearch,
-    conflictSetExact: config.conflictSetExact ?? DEFAULT_SCHEDULER_CONFIG.conflictSetExact,
-    postRepair: config.postRepair ?? DEFAULT_SCHEDULER_CONFIG.postRepair,
-    searchStrategy: config.searchStrategy ?? DEFAULT_SCHEDULER_CONFIG.searchStrategy,
     compactTeacherHalfDays: config.compactTeacherHalfDays ?? DEFAULT_SCHEDULER_CONFIG.compactTeacherHalfDays,
     minimizeTeacherDays: config.minimizeTeacherDays ?? DEFAULT_SCHEDULER_CONFIG.minimizeTeacherDays,
     balanceTeacherDailyLoad: config.balanceTeacherDailyLoad ?? DEFAULT_SCHEDULER_CONFIG.balanceTeacherDailyLoad,
@@ -122,16 +101,9 @@ function draftToConfig(draft: Draft): SchedulerConfig {
   }
 
   return {
-    engine: draft.engine,
     timeoutSeconds: Math.max(1, parseInt(draft.timeoutSeconds, 10) || DEFAULT_SCHEDULER_CONFIG.timeoutSeconds),
-    maxIterations: Math.max(1000, parseInt(draft.maxIterations, 10) || DEFAULT_SCHEDULER_CONFIG.maxIterations),
-    maxEliminations: Math.max(1, parseInt(draft.maxEliminations, 10) || DEFAULT_SCHEDULER_CONFIG.maxEliminations),
     lunchBreak,
     ignoreDailyLimits: draft.ignoreDailyLimits,
-    conflictOrderingSearch: draft.conflictOrderingSearch,
-    conflictSetExact: draft.conflictSetExact,
-    postRepair: draft.postRepair,
-    searchStrategy: draft.searchStrategy,
     compactTeacherHalfDays: draft.compactTeacherHalfDays,
     minimizeTeacherDays: draft.minimizeTeacherDays,
     balanceTeacherDailyLoad: draft.balanceTeacherDailyLoad,
@@ -180,17 +152,6 @@ export function SchedulerConfigDialog() {
     setDraft((d) => ({ ...d, [key]: value }));
   }
 
-  // CP-SAT ne supporte pas la pause flottante : bascule sur "aucune" au changement de moteur.
-  function setEngine(engine: Draft['engine']) {
-    setDraft((d) => ({
-      ...d,
-      engine,
-      lunchTab: engine === 'cpsat' && d.lunchTab === 'floating' ? 'none' : d.lunchTab,
-    }));
-  }
-
-  const isCpsat = draft.engine === 'cpsat';
-
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
@@ -216,55 +177,10 @@ export function SchedulerConfigDialog() {
 
         <div className="space-y-6 py-2">
 
-          {/* ── Moteur ──────────────────────────────────────────────────── */}
+          {/* ── Préférences (douces) ──────────────────────────────── */}
           <section className="space-y-4">
             <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-              Moteur
-            </h3>
-            <div className="space-y-2">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="cfg-engine"
-                  className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
-                  checked={draft.engine === 'core'}
-                  onChange={() => setEngine('core')}
-                />
-                <span className="space-y-0.5">
-                  <span className="block text-sm">Élimination / Placement (core)</span>
-                  <span className="block text-xs text-muted-foreground">
-                    Moteur historique. Options avancées ci-dessous, pause méridienne flottante
-                    disponible.
-                  </span>
-                </span>
-              </label>
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="cfg-engine"
-                  className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
-                  checked={draft.engine === 'cpsat'}
-                  onChange={() => setEngine('cpsat')}
-                />
-                <span className="space-y-0.5">
-                  <span className="block text-sm">CP-SAT (OR-Tools) — optimum prouvé</span>
-                  <span className="block text-xs text-muted-foreground">
-                    2e moteur : prouve l&apos;optimum du nombre de cours placés. Pause méridienne
-                    flottante non supportée ; options avancées du moteur core sans effet.
-                  </span>
-                </span>
-              </label>
-            </div>
-          </section>
-
-          <Separator />
-
-          {/* ── CP-SAT — préférences (douces) ──────────────────────────────── */}
-          {isCpsat && (
-          <>
-          <section className="space-y-4">
-            <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-              CP-SAT — préférences (douces)
+              Préférences (douces)
             </h3>
             <p className="text-xs text-muted-foreground">
               Appliquées au mieux, sans jamais déplacer moins de cours ni dépasser les limites des
@@ -370,180 +286,32 @@ export function SchedulerConfigDialog() {
               </div>
             </div>
           </section>
+
           <Separator />
-          </>
-          )}
 
-          {/* ── Général ─────────────────────────────────────────────────── */}
-          {!isCpsat && (
-          <section className="space-y-4">
-            <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-              Général
-            </h3>
-
-            <div className="space-y-2">
-              <Label>Stratégie de recherche</Label>
-              <div className="space-y-2">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="cfg-searchStrategy"
-                    className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
-                    checked={draft.searchStrategy === 'elimination'}
-                    onChange={() => setDraftField('searchStrategy', 'elimination')}
-                  />
-                  <span className="space-y-0.5">
-                    <span className="block text-sm">Élimination itérative (par défaut)</span>
-                    <span className="block text-xs text-muted-foreground">
-                      Moteur historique : élimine une à une les tâches les plus bloquantes,
-                      propose jusqu&apos;à N solutions.
-                    </span>
-                  </span>
-                </label>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="cfg-searchStrategy"
-                    className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
-                    checked={draft.searchStrategy === 'maxPlacement'}
-                    onChange={() => setDraftField('searchStrategy', 'maxPlacement')}
-                  />
-                  <span className="space-y-0.5">
-                    <span className="block text-sm">Placement maximal (branch-and-bound)</span>
-                    <span className="block text-xs text-muted-foreground">
-                      Maximise le nombre de cours placés, jamais pire que l&apos;élimination. Peut
-                      prouver qu&apos;aucun résultat meilleur n&apos;est atteignable par le moteur —
-                      dans ce cas, seul un relâchement de contraintes peut débloquer les cours
-                      restants.
-                    </span>
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="cfg-maxEliminations">Éliminations max</Label>
-              <Input
-                id="cfg-maxEliminations"
-                type="number"
-                min="1"
-                max="20"
-                value={draft.maxEliminations}
-                onChange={(e) => setDraftField('maxEliminations', e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Nombre de tâches que le moteur peut neutraliser pour
-                trouver une solution. A augmenter si la planification échoue.
-              </p>
-            </div>
-
-            <div className="flex items-start gap-3 pt-1">
-              <input
-                id="cfg-conflictOrderingSearch"
-                type="checkbox"
-                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
-                checked={draft.conflictOrderingSearch}
-                onChange={(e) => setDraftField('conflictOrderingSearch', e.target.checked)}
-              />
-              <div className="space-y-0.5">
-                <Label htmlFor="cfg-conflictOrderingSearch" className="cursor-pointer">
-                  Priorité aux tâches en échec (Conflict Ordering Search)
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Le moteur retente en priorité les tâches récemment en échec. Peut améliorer
-                  le choix des tâches à neutraliser sur les semaines difficiles — comparez
-                  avec/sans sur votre projet.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 pt-1">
-              <input
-                id="cfg-conflictSetExact"
-                type="checkbox"
-                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
-                checked={draft.conflictSetExact}
-                onChange={(e) => setDraftField('conflictSetExact', e.target.checked)}
-              />
-              <div className="space-y-0.5">
-                <Label htmlFor="cfg-conflictSetExact" className="cursor-pointer">
-                  Analyse exacte des conflits (expérimental)
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  À chaque échec, identifie précisément les tâches responsables au lieu d&apos;une
-                  estimation. À ne pas combiner avec la priorité aux tâches en échec ci-dessus :
-                  la combinaison des deux donne de moins bons résultats sur les semaines difficiles.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 pt-1">
-              <input
-                id="cfg-postRepair"
-                type="checkbox"
-                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
-                checked={draft.postRepair}
-                onChange={(e) => setDraftField('postRepair', e.target.checked)}
-              />
-              <div className="space-y-0.5">
-                <Label htmlFor="cfg-postRepair" className="cursor-pointer">
-                  Réparation post-résolution des neutralisées
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Après résolution, tente de replacer les cours neutralisés en changeant la
-                  salle (ou autre ressource alternative) d&apos;un cours déjà placé. Sans effet
-                  en stratégie « Placement maximal ».
-                </p>
-              </div>
-            </div>
-          </section>
-          )}
-
-          {!isCpsat && <Separator />}
-
-          {/* ── Performance ─────────────────────────────────────────────── */}
+          {/* ── Limites de calcul ─────────────────────────────────────────── */}
           <section className="space-y-4">
             <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
               Limites de calcul
             </h3>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="cfg-timeout">Timeout (secondes)</Label>
-                <Input
-                  id="cfg-timeout"
-                  type="number"
-                  min="1"
-                  max="600"
-                  value={draft.timeoutSeconds}
-                  onChange={(e) => setDraftField('timeoutSeconds', e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Durée maximale du calcul.
-                </p>
-              </div>
-
-              {!isCpsat && (
-              <div className="space-y-1.5">
-                <Label htmlFor="cfg-maxIter">Itérations max</Label>
-                <Input
-                  id="cfg-maxIter"
-                  type="number"
-                  min="10000"
-                  value={draft.maxIterations}
-                  onChange={(e) => setDraftField('maxIterations', e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Nombre maximal d&apos;itérations de l&apos;algorithme de recherche.
-                </p>
-              </div>
-              )}
-            </div>
-            {isCpsat && (
+            <div className="space-y-1.5">
+              <Label htmlFor="cfg-timeout">Timeout (secondes)</Label>
+              <Input
+                id="cfg-timeout"
+                type="number"
+                min="1"
+                max="600"
+                value={draft.timeoutSeconds}
+                onChange={(e) => setDraftField('timeoutSeconds', e.target.value)}
+              />
               <p className="text-xs text-muted-foreground">
-                CP-SAT prouve l&apos;optimum du nombre de cours placés (dans la limite du timeout).
+                Durée maximale du calcul.
               </p>
-            )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              CP-SAT prouve l&apos;optimum du nombre de cours placés (dans la limite du timeout).
+            </p>
 
             <div className="flex items-start gap-3 pt-1">
               <input
@@ -582,13 +350,11 @@ export function SchedulerConfigDialog() {
               <TabsList className="w-full">
                 <TabsTrigger value="none" className="flex-1">Aucune</TabsTrigger>
                 <TabsTrigger value="fixed" className="flex-1">Fixe</TabsTrigger>
-                <TabsTrigger value="floating" className="flex-1" disabled={isCpsat}>Flottante</TabsTrigger>
+                <TabsTrigger value="floating" className="flex-1" disabled>Flottante</TabsTrigger>
               </TabsList>
-              {isCpsat && (
-                <p className="text-xs text-muted-foreground pt-2">
-                  Pause flottante non supportée par CP-SAT — sélectionnez « Aucune » ou « Fixe ».
-                </p>
-              )}
+              <p className="text-xs text-muted-foreground pt-2">
+                Pause flottante non supportée par le moteur — sélectionnez « Aucune » ou « Fixe ».
+              </p>
 
               {/* ── Aucune ── */}
               <TabsContent value="none" className="pt-3">

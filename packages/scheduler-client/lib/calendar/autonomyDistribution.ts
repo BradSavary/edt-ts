@@ -69,7 +69,7 @@ export function distributeChronologically(
  *
  * Ignore volontairement les limites quotidiennes (maxDailyMinutes) — Availability/
  * AvailabilityManager n'en ont de toute façon aucune notion (concept propre au moteur
- * scheduler-core), donc rien de spécial à faire pour respecter cette consigne.
+ * de planification), donc rien de spécial à faire pour respecter cette consigne.
  */
 export function computeAutonomyDistribution(params: {
   groupIds: string[];

@@ -12,11 +12,11 @@ Construite avec **Next.js 16 (App Router)**, TypeScript strict, Tailwind CSS v4 
 ## Rôle dans le monorepo
 
 ```
-scheduler-client  ──(HTTP POST /api/schedule)──►  scheduler-api  ──►  scheduler-core
+scheduler-client  ──(HTTP POST /api/schedule)──►  scheduler-api  ──►  scheduler-cpsat
 scheduler-client  ──(types partagés)           ──►  scheduler-common
 ```
 
-Le client **ne connaît ni `scheduler-core` ni `scheduler-api`** directement.  
+Le client **ne connaît ni `scheduler-cpsat` ni `scheduler-api`** directement.  
 Toute communication avec le moteur passe par des appels HTTP, proxifiés par Next.js vers l'API Express sur le port 3000.
 
 ---
@@ -163,8 +163,10 @@ La sidebar gauche présente deux modes selon l'état :
 
 Accessible via le bouton engrenage dans la sidebar. Permet de configurer :
 - `timeoutSeconds` — limite de temps en secondes
-- `maxIterations` / `maxEliminations` — paramètres d'élimination
-- **Pause déjeuner** : désactivée / fixe (`from`/`to`) / flottante (`duration`, `earliest`, `latest`)
+- Les cinq préférences douces CP-SAT (`compactTeacherHalfDays`, `minimizeTeacherDays`,
+  `balanceTeacherDailyLoad`, `crossNoonGap`, `minimizeTeacherRoomChanges`)
+- **Pause déjeuner** : désactivée / fixe (`from`/`to`) / flottante (onglet présent mais désactivé,
+  non supportée par le moteur)
 
 La config est persistée dans `useSchedulerStore.schedulerConfig`.
 

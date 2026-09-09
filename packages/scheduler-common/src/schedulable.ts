@@ -7,8 +7,8 @@ import type { EnforcedData } from './types.ts';
  * soit un groupe de tâches simultanées (`TaskGroup`, implémenté ultérieurement).
  *
  * Modèle de domaine pur — la logique de décision de planification (combinaisons de
- * ressources, disponibilité calculée, état de recherche) vit exclusivement dans
- * scheduler-core (`ISchedulingUnit`, `TaskUnit`, `TaskGroupUnit`), pas ici.
+ * ressources, disponibilité calculée, état de recherche) vit exclusivement dans le
+ * moteur CP-SAT (`scheduler-cpsat`), pas ici.
  */
 export interface ISchedulable {
   /** Identifiant unique de l'unité */

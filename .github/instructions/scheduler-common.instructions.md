@@ -10,7 +10,7 @@ Le package `scheduler-common` contient les modèles de données et la logique m�
 
 - Définir les modèles de domaine réutilisables : `Resource`, `Task`, `ConstraintsManager`, `AvailabilityManager`, etc.
 - Exposer les types TypeScript partagés (`TimeSlot`, `ConstraintsData`, `CourseTaskData`, …)
-- Être utilisable dans un contexte browser (Next.js, client) **et** Node.js (scheduler-core, scheduler-api)
+- Être utilisable dans un contexte browser (Next.js, client) **et** Node.js (scheduler-api)
 
 ## Architecture & composants clés
 
@@ -24,7 +24,7 @@ Le package `scheduler-common` contient les modèles de données et la logique m�
 
 ## Règles d'implémentation
 
-- **Aucune dépendance** vers `scheduler-core` ou `scheduler-api` (graphe acyclique)
+- **Aucune dépendance** vers `scheduler-api` (graphe acyclique)
 - **Aucun import** de modules Node.js (`fs`, `path`, `url`, etc.)
 - Utiliser des imports ESM avec extension `.ts` sur les imports internes (cohérence monorepo)
 - Tout nouveau modèle ou type partagé doit être ajouté ici, pas dans les packages consommateurs

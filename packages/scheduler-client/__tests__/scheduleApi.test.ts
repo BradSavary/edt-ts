@@ -56,17 +56,7 @@ describe('buildScheduleStatus', () => {
     expect(status.message).toBe('❌ Aucune solution trouvée — 1 cours neutralisé(s)');
   });
 
-  it('provenOptimal avec rootBound.lb > 0 : mentionne le nombre de sauts inévitables', () => {
-    const status = buildScheduleStatus(makeResult({
-      isComplete: false,
-      tasks: [{ taskId: 't1', code: 'R101', name: 'Cours', type: 'CM', week: 44, duration: 60, startTime: 0, resources: [] }],
-      provenOptimal: true,
-      rootBound: { lb: 3, certificates: [] },
-    }));
-    expect(status.message).toContain('optimum prouvé : 3 saut(s) structurellement inévitable(s)');
-  });
-
-  it('provenOptimal sans rootBound (ou lb: 0) : message générique sans relâchement de contraintes', () => {
+  it('provenOptimal : message générique sans relâchement de contraintes', () => {
     const status = buildScheduleStatus(makeResult({
       isComplete: false,
       tasks: [{ taskId: 't1', code: 'R101', name: 'Cours', type: 'CM', week: 44, duration: 60, startTime: 0, resources: [] }],

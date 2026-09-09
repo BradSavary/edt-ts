@@ -18,20 +18,22 @@ router.get('/config', defaultConfigHandler);
 
 /**
  * POST /api/schedule/v2
- * Nouveau moteur (Scheduler) avec élimination intégrée.
+ * Planifie via CP-SAT (seul moteur).
  *
  * Corps JSON : { week, resources, courses, constraints?, groups?, options? }
  *
  * Options disponibles (toutes optionnelles) :
- *   - maxSolutions       : number   — nb max de solutions complètes (défaut : 6)
- *   - timeoutSeconds     : number   — timeout du backtracking en secondes (défaut : 180)
- *   - maxIterations      : number   — limite de sécurité sur les itérations (défaut : 1 000 000)
- *   - maxEliminations    : number   — nb max de rounds d'élimination ; 0 = aucun (défaut : 3)
- *   - lunchBreak         : LunchBreakConfig — gestion de la pause méridienne (défaut : { type: 'none' })
+ *   - timeoutSeconds              : number  — timeout du solveur en secondes (défaut : 180)
+ *   - lunchBreak                  : LunchBreakConfig — gestion de la pause méridienne (défaut : { type: 'none' })
  *       { type: 'none' }
  *       { type: 'fixed', from: 'HH:MM', to: 'HH:MM' }
- *       { type: 'floating', duration: number, earliest: 'HH:MM', latest: 'HH:MM' }
- *   - ignoreDailyLimits  : boolean  — ignore les maxDailyMinutes de toutes les ressources (défaut : false)
+ *       { type: 'floating', ... } — non supporté par CP-SAT, provoque une erreur explicite
+ *   - ignoreDailyLimits           : boolean — ignore les maxDailyMinutes de toutes les ressources (défaut : false)
+ *   - compactTeacherHalfDays      : boolean — préférence douce (défaut : false)
+ *   - minimizeTeacherDays         : boolean — préférence douce (défaut : false)
+ *   - balanceTeacherDailyLoad     : boolean — préférence douce (défaut : false)
+ *   - crossNoonGap                : boolean — préférence douce (défaut : false)
+ *   - minimizeTeacherRoomChanges  : boolean — préférence douce (défaut : false)
  *
  * Retourne un tableau de ScheduleSolutionJSON.
  */

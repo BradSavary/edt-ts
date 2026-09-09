@@ -22,7 +22,7 @@ export const useAppConfigStore = create<AppConfigStore>()(
     }),
     {
       name: 'edt-app-config',
-      version: 8,
+      version: 9,
       migrate: (persistedState) => {
         const state = persistedState as { schedulerConfig?: Record<string, unknown> };
         if (!state?.schedulerConfig) return state;
@@ -37,6 +37,16 @@ export const useAppConfigStore = create<AppConfigStore>()(
         if (!('balanceTeacherDailyLoad' in schedulerConfig)) schedulerConfig.balanceTeacherDailyLoad = false;
         if (!('crossNoonGap' in schedulerConfig)) schedulerConfig.crossNoonGap = false;
         if (!('minimizeTeacherRoomChanges' in schedulerConfig)) schedulerConfig.minimizeTeacherRoomChanges = false;
+        // v9 : moteur unique CP-SAT — les options du moteur maison n'ont plus de destinataire.
+        for (const k of ['engine', 'maxSolutions', 'maxIterations', 'maxEliminations',
+                         'conflictOrderingSearch', 'conflictSetExact', 'comboBranching',
+                         'searchStrategy', 'postRepair']) {
+          delete schedulerConfig[k];
+        }
+        // Aucun moteur ne gère la pause flottante : rabattre sur « aucune ».
+        if ((schedulerConfig.lunchBreak as { type?: string } | undefined)?.type === 'floating') {
+          schedulerConfig.lunchBreak = { type: 'none' };
+        }
         return { ...state, schedulerConfig };
       },
     },

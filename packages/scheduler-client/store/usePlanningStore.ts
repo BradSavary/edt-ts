@@ -961,7 +961,6 @@ function _normalizeJobResult(jobStatus: JobStatusResponse): { week: number; resu
           tasks: first.solutions,
           neutralizedTasks: first.neutralizedTasks,
           provenOptimal: first.provenOptimal,
-          rootBound: first.rootBound,
         }
       : { isComplete: false, tasks: [], neutralizedTasks: [] },
     week: jobStatus.week,

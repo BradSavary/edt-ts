@@ -36,31 +36,14 @@ beforeEach(() => {
   runCpsatMock.mockReset();
 });
 
-describe('runEngine — engine core (défaut)', () => {
-  it("engine absent : route vers le moteur core, n'appelle jamais runCpsat", async () => {
-    const result = await runEngine(payload);
-
-    expect(runCpsatMock).not.toHaveBeenCalled();
-    expect(result.length).toBeGreaterThan(0);
-    expect(result[0].solutions[0]?.code).toBe('X1');
-  });
-
-  it("engine: 'core' explicite : même comportement", async () => {
-    const result = await runEngine({ ...payload, options: { engine: 'core' } });
-
-    expect(runCpsatMock).not.toHaveBeenCalled();
-    expect(result[0].solutions[0]?.code).toBe('X1');
-  });
-});
-
-describe('runEngine — engine cpsat', () => {
-  it('route vers runCpsat avec (raw, options) et retourne son résultat tel quel', async () => {
+describe('runEngine', () => {
+  it('délègue à runCpsat avec raw et options correctement séparés', async () => {
     const fakeResult: ScheduleSolutionJSON[] = [
       { solutions: [], isComplete: true, score: 0, provenOptimal: true },
     ];
     runCpsatMock.mockResolvedValue(fakeResult);
 
-    const options: SchedulerConfig = { engine: 'cpsat', timeoutSeconds: 12 };
+    const options: SchedulerConfig = { timeoutSeconds: 12 };
     const result = await runEngine({ ...payload, options });
 
     expect(runCpsatMock).toHaveBeenCalledTimes(1);

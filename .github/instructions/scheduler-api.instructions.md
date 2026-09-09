@@ -10,7 +10,7 @@ Le package `scheduler-api` expose le moteur via HTTP (Express) sans dupliquer la
 
 - Accepter des payloads JSON de planification
 - Convertir/valider les entrées
-- Déléguer la résolution à `@edt-ts/scheduler-core`
+- Déléguer la résolution à `scheduler-cpsat` (Python, OR-Tools, invoqué en sous-processus via `cpsatGateway.ts`)
 - Retourner des résultats JSON sérialisés
 
 ## Architecture attendue
@@ -18,17 +18,13 @@ Le package `scheduler-api` expose le moteur via HTTP (Express) sans dupliquer la
 - `src/index.ts` : bootstrap serveur + middlewares
 - `src/routes/` : routage HTTP
 - `src/controllers/` : orchestration request/response
+- `src/runEngine.ts` : point d'entrée unique vers `runCpsat` (`cpsatGateway.ts`)
 
 ## Règles d'intégration
 
-- Toute logique de planification reste dans `@edt-ts/scheduler-core`
-- Les modèles partagés (`Resource`, `Task`, `ConstraintsManager`, etc.) viennent de `@edt-ts/scheduler-common`
-- Ne pas réimporter depuis `@edt-ts/scheduler-core` ce qui est déjà exposé par `@edt-ts/scheduler-common`
-- Utiliser `Loader.loadFromRawData()` pour charger les données requête
-- Réinitialiser l’état statique avant résolution :
-  - `ConstraintsManager.reset()`
-  - `Loader.reload()`
-- Utiliser `ScheduleAR` comme scheduler par défaut tant qu’aucune autre stratégie n’est demandée
+- Toute logique de planification vit dans `scheduler-cpsat` (Python) ; ce package n'en réimplémente rien
+- Les modèles partagés (`RawScheduleData`, `SchedulerConfig`, `ScheduleSolutionJSON`, etc.) viennent de `@edt-ts/scheduler-common`
+- `cpsatGateway.ts` est la seule frontière avec le sous-processus Python — pas d'appel direct ailleurs
 
 ## Contrat API (principe)
 

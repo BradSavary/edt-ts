@@ -7,10 +7,9 @@ Monorepo TypeScript pour la planification d'emploi du temps.
 ```
 packages/
   scheduler-common/   modèles et logique partagés (framework-agnostic, browser/Node)
-  scheduler-core/     moteur de planification (Node.js), consomme scheduler-common
-  scheduler-api/      API REST Express, consomme scheduler-core et scheduler-common
+  scheduler-api/      API REST Express, consomme scheduler-common (délègue à scheduler-cpsat)
   scheduler-client/   application web de test (Vite), consomme scheduler-common
-  scheduler-cpsat/    moteur CP-SAT (Python, OR-Tools) — 2e moteur, hors workspace npm
+  scheduler-cpsat/    moteur de planification (Python, OR-Tools) — hors workspace npm
 docs/                 documentation fonctionnelle et technique
 ```
 
@@ -18,7 +17,7 @@ docs/                 documentation fonctionnelle et technique
 
 ```
 scheduler-client  ──►  scheduler-common
-scheduler-api     ──►  scheduler-core  ──►  scheduler-common
+scheduler-api     ──►  scheduler-common
 ```
 
 > `scheduler-common` n'a aucune dépendance interne (acyclique par conception).
@@ -29,8 +28,6 @@ scheduler-api     ──►  scheduler-core  ──►  scheduler-common
 |---|---|
 | `npm install` | Installation des dépendances (tous les workspaces) |
 | `npm run typecheck` | Vérification TypeScript globale |
-| `npm run test-ar` | Test du moteur AR (algorithme de résolution) |
-| `npm run test-standard` | Test du moteur standard |
 | `npm run api:dev` | Démarre l'API en mode watch (port 3000) |
 | `npm run api:start` | Démarre l'API depuis les sources (tsx) |
 | `npm run client:dev` | Démarre le client web Vite (port 5173) |
@@ -60,17 +57,6 @@ Contient : `Resource`, `Task`, `ResourcesManager`, `TasksManager`, `Availability
 
 Voir [`packages/scheduler-common/README.md`](packages/scheduler-common/README.md) pour la documentation complète.
 
-### `@edt-ts/scheduler-core`
-
-Moteur de planification basé sur un algorithme de retour arrière (Arc-Revising / backtracking).
-
-Contient : `Loader` (chargement des données JSON ou en mémoire), `ScheduleAR` (résolveur), `Schedule`, `ScheduleAnalysis`.
-
-Données d'exemple dans `packages/scheduler-core/src/json/` :
-- `resources.json` — `ResourceGroupData[]`
-- `cours.json` — objet `{ weeks, courses: CourseTaskData[] }`
-- `contraintes.json` — `ConstraintsData`
-
 ### `@edt-ts/scheduler-api`
 
 API REST Express exposant le moteur via HTTP.
@@ -91,11 +77,11 @@ Interface : formulaire de sélection de 3 fichiers JSON (resources, cours, contr
 
 ### `scheduler-cpsat` (Python)
 
-Moteur de planification alternatif basé sur [OR-Tools CP-SAT](https://developers.google.com/optimization) —
-2e moteur user-facing, sélectionnable via `SchedulerConfig.engine = 'cpsat'`. **Package Python**, non
-intégré au workspace pnpm/npm ; `scheduler-api` l'invoque en subprocess (`packages/scheduler-api/src/cpsatGateway.ts`).
+Moteur de planification (unique) basé sur [OR-Tools CP-SAT](https://developers.google.com/optimization).
+**Package Python**, non intégré au workspace pnpm/npm ; `scheduler-api` l'invoque en subprocess
+(`packages/scheduler-api/src/cpsatGateway.ts`).
 
-Provisionnement du venv (**requis** pour utiliser le moteur CP-SAT) :
+Provisionnement du venv (**requis**, prérequis dur du projet) :
 
 ```bash
 cd packages/scheduler-cpsat
@@ -117,7 +103,6 @@ Le projet utilise un fichier global + des instructions ciblées par package :
 
 - Global : `.github/copilot-instructions.md`
 - Common : `.github/instructions/scheduler-common.instructions.md` (`applyTo: packages/scheduler-common/**`)
-- Core : `.github/instructions/scheduler-core.instructions.md` (`applyTo: packages/scheduler-core/**`)
 - API : `.github/instructions/scheduler-api.instructions.md` (`applyTo: packages/scheduler-api/**`)
 
 Principe : les règles communes (monorepo, qualité, séparation des responsabilités) sont dans le fichier global ; les règles métier/techniques spécifiques sont dans les fichiers package-scoped. En cas de conflit, la règle la plus spécifique au contexte de fichier prévaut.

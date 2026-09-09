@@ -1,6 +1,6 @@
 # `@edt-ts/scheduler-common`
 
-Bibliothèque de logique métier partagée entre `scheduler-core` (Node.js) et `scheduler-api` (Express).  
+Bibliothèque de logique métier partagée entre `scheduler-api` (Express) et `scheduler-client` (Next.js).  
 100 % framework-agnostic — utilisable aussi bien côté serveur que dans un navigateur.
 
 ---
@@ -30,7 +30,7 @@ Bibliothèque de logique métier partagée entre `scheduler-core` (Node.js) et `
 ## Rôle du package
 
 `scheduler-common` contient les **modèles, algorithmes et interfaces** nécessaires à la planification.  
-Il ne dépend d'aucun module Node.js (`fs`, `path`, etc.) : l'accès disque est délégué à `scheduler-core`.
+Il ne dépend d'aucun module Node.js (`fs`, `path`, etc.) : aucun accès disque, les données transitent par le payload HTTP.
 
 Ce package expose :
 - Le **conteneur de session** (`SchedulerData`) qui orchestre les trois étapes d'initialisation

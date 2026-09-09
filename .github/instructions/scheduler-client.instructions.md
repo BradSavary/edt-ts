@@ -26,7 +26,7 @@ Le package `scheduler-client` est l'application web de planification. C'est un p
 ## Objectif du package
 
 - Fournir une interface utilisateur pour soumettre des données de planification (resources, cours, contraintes) et visualiser les résultats
-- Consommer uniquement `@edt-ts/scheduler-common` pour les types partagés (jamais `scheduler-core` ni `scheduler-api` directement)
+- Consommer uniquement `@edt-ts/scheduler-common` pour les types partagés (jamais `scheduler-api` directement)
 - Servir d'application de démonstration et de test de l'API
 
 ## Architecture & structure
@@ -264,8 +264,9 @@ Utilisé par `useSidebarCourseDrag` et `useNeutralizedDraggable`.
 ## `components/planning/modals/SchedulerConfigDialog.tsx`
 
 Dialog de configuration avancée du planificateur (dans `modals/`, pas à la racine `planning/`). Paramètres :
-- `maxSolutions`, `timeoutSeconds`, `maxIterations`, `maxEliminations`
-- **Pause déjeuner** : désactivée / fixe (`LunchBreakFixed`) / flottante (`LunchBreakFloating`)
+- `timeoutSeconds`, `ignoreDailyLimits`
+- Cinq préférences douces CP-SAT (`compactTeacherHalfDays`, `minimizeTeacherDays`, `balanceTeacherDailyLoad`, `crossNoonGap`, `minimizeTeacherRoomChanges`)
+- **Pause déjeuner** : désactivée / fixe (`LunchBreakFixed`) / flottante (`LunchBreakFloating`, onglet présent mais désactivé — non supportée par le moteur)
 
 La configuration est persistée dans `useSchedulerStore.schedulerConfig`.
 
@@ -400,7 +401,7 @@ Gestion des couleurs d'événements par année BUT :
 ## Règles d'import
 
 - Importer uniquement depuis `@edt-ts/scheduler-common` pour les types partagés
-- Ne jamais importer depuis `@edt-ts/scheduler-core` ou `@edt-ts/scheduler-api`
+- Ne jamais importer depuis `@edt-ts/scheduler-api`
 - Utiliser le proxy Next.js route handlers (`app/api/`) pour toutes les requêtes vers l'API Express
 - Utiliser l'alias `@/` pour tous les imports internes (résout vers la racine du package)
   - `@/components/planning/calendar/...` pour le calendrier FullCalendar
@@ -470,7 +471,7 @@ Gestion des couleurs d'événements par année BUT :
 
 ## Fonctionnalité : Vacances scolaires & jours fériés
 
-Implémentée dans `scheduler-client` uniquement. Ne concerne pas `scheduler-common` ni `scheduler-core`.
+Implémentée dans `scheduler-client` uniquement. Ne concerne pas `scheduler-common`.
 
 ### Architecture
 

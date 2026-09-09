@@ -110,7 +110,7 @@ git config core.sshCommand "ssh -i ~/.ssh/id_edtts -o IdentitiesOnly=yes"
 La ligne `git config` rend les `git pull` suivants indolores : sans elle, le dépôt connaît son URL
 mais pas la clé à présenter.
 
-## 3. Moteur CP-SAT (facultatif)
+## 3. Moteur CP-SAT (requis — seul moteur du projet)
 
 > **À installer sur le serveur, jamais par copie.** `ortools` embarque une bibliothèque **native
 > C++** (`.so` sous Linux, `.pyd` sous Windows) compilée par plateforme et par version de Python :
@@ -216,8 +216,8 @@ Environment=PORT=3000
 # HOST vaut 127.0.0.1 par défaut : l'API n'est joignable qu'à travers Apache. Ne pas l'ouvrir.
 Environment=CORS_ORIGIN=https://mmi.unilim.fr
 
-# Chemins ABSOLUS du moteur CP-SAT. Sans eux, la passerelle cherche `cpsat_runner.py`
-# relativement au répertoire courant. À retirer si CP-SAT n'est pas provisionné (§3).
+# Chemins ABSOLUS du moteur CP-SAT (§3, requis). Sans eux, la passerelle cherche
+# `cpsat_runner.py` relativement au répertoire courant.
 Environment=CPSAT_PYTHON=/opt/edtts/cpsat/.venv/bin/python
 Environment=CPSAT_RUNNER=/srv/edt-ts/packages/scheduler-cpsat/cpsat_runner.py
 
@@ -258,7 +258,7 @@ curl -s http://127.0.0.1:3000/api/schedule/health
 
 curl -s -X POST http://127.0.0.1:3000/api/schedule/v2 \
   -H 'Content-Type: application/json' -H 'X-Client-Id: test' \
-  -d '{"week":1,"resources":[],"courses":[],"options":{"engine":"cpsat"}}'
+  -d '{"week":1,"resources":[],"courses":[]}'
 ```
 
 ## 6. Apache
@@ -372,8 +372,8 @@ md5sum /var/www/edtts/index.html 2>/dev/null
 > correct**, et la comparaison ne peut produire qu'une fausse alerte.
 
 Puis dans un navigateur : ouvrir `https://mmi.unilim.fr/edtts/`, charger un projet et lancer une
-planification réelle avec chacun des deux moteurs (`core`, puis `cpsat`). Les appels `curl`
-n'exercent que des jeux de données vides — ils ne prouvent pas que le calcul aboutit.
+planification réelle. Les appels `curl` n'exercent que des jeux de données vides — ils ne
+prouvent pas que le calcul aboutit.
 
 Enfin, valider le redémarrage de la machine, seul moyen de s'assurer que le service revient seul :
 

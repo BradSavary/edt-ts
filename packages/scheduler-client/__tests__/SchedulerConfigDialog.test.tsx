@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { SchedulerConfigDialog } from '@/components/planning/modals/SchedulerConfigDialog';
 import { useAppConfigStore } from '@/store/useAppConfigStore';
 import { DEFAULT_SCHEDULER_CONFIG } from '@edt-ts/scheduler-common';
@@ -13,88 +12,42 @@ beforeEach(() => {
   useAppConfigStore.setState({ schedulerConfig: DEFAULT_SCHEDULER_CONFIG });
 });
 
-describe('SchedulerConfigDialog — sélecteur de moteur', () => {
-  it("engine='core' par défaut : les champs core-only sont visibles, l'onglet Flottante activé", () => {
+describe('SchedulerConfigDialog', () => {
+  it('aucune option core-only rendue (moteur, stratégie de recherche, itérations/éliminations)', () => {
     render(<SchedulerConfigDialog />);
     openDialog();
 
-    expect(screen.getByRole('radio', { name: /Élimination \/ Placement \(core\)/i })).toBeChecked();
-    expect(screen.getByText(/Stratégie de recherche/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Itérations max/i)).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Flottante/i })).not.toBeDisabled();
-  });
-
-  it("passer sur CP-SAT masque les champs core-only et désactive l'onglet Flottante", () => {
-    render(<SchedulerConfigDialog />);
-    openDialog();
-
-    fireEvent.click(screen.getByRole('radio', { name: /CP-SAT \(OR-Tools\)/i }));
-
+    expect(screen.queryByText(/^Moteur$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Stratégie de recherche/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Itérations max/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Éliminations max/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Priorité aux tâches en échec/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Analyse exacte des conflits/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Réparation post-résolution/i)).not.toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Flottante/i })).toBeDisabled();
-    // Le timeout et la limite journalière restent des réglages valides pour CP-SAT.
+  });
+
+  it('le timeout et la limite journalière restent des réglages présents', () => {
+    render(<SchedulerConfigDialog />);
+    openDialog();
+
     expect(screen.getByLabelText(/Timeout \(secondes\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Ignorer les limites journalières/i)).toBeInTheDocument();
   });
 
-  it('rebasculer sur core restaure les champs core-only', () => {
+  it("l'onglet Flottante est présent mais désactivé", () => {
     render(<SchedulerConfigDialog />);
     openDialog();
 
-    fireEvent.click(screen.getByRole('radio', { name: /CP-SAT \(OR-Tools\)/i }));
-    expect(screen.queryByText(/Stratégie de recherche/i)).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('radio', { name: /Élimination \/ Placement \(core\)/i }));
-    expect(screen.getByText(/Stratégie de recherche/i)).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Flottante/i })).not.toBeDisabled();
+    const floatingTab = screen.getByRole('tab', { name: /Flottante/i });
+    expect(floatingTab).toBeInTheDocument();
+    expect(floatingTab).toBeDisabled();
+    expect(screen.getByText(/Pause flottante non supportée par le moteur/i)).toBeInTheDocument();
   });
 
-  it("choisir la pause flottante puis passer sur CP-SAT bascule automatiquement sur 'Aucune'", async () => {
-    const user = userEvent.setup();
+  it('les préférences douces enseignant sont toujours visibles (aucun garde par moteur)', () => {
     render(<SchedulerConfigDialog />);
     openDialog();
 
-    await user.click(screen.getByRole('tab', { name: /Flottante/i }));
-    expect(screen.getByRole('tab', { name: /Flottante/i })).toHaveAttribute('data-state', 'active');
-
-    fireEvent.click(screen.getByRole('radio', { name: /CP-SAT \(OR-Tools\)/i }));
-    expect(screen.getByRole('tab', { name: /Aucune/i })).toHaveAttribute('data-state', 'active');
-  });
-
-  it("Valider avec CP-SAT sélectionné sauvegarde engine='cpsat' dans le store", () => {
-    render(<SchedulerConfigDialog />);
-    openDialog();
-
-    fireEvent.click(screen.getByRole('radio', { name: /CP-SAT \(OR-Tools\)/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Valider/i }));
-
-    expect(useAppConfigStore.getState().schedulerConfig.engine).toBe('cpsat');
-  });
-
-  it("rouvrir le dialog recharge le draft depuis le store (engine='core' par défaut)", () => {
-    useAppConfigStore.setState({ schedulerConfig: { ...DEFAULT_SCHEDULER_CONFIG, engine: 'cpsat' } });
-    render(<SchedulerConfigDialog />);
-    openDialog();
-
-    expect(screen.getByRole('radio', { name: /CP-SAT \(OR-Tools\)/i })).toBeChecked();
-  });
-
-  it('préférences douces enseignant (compacité, moins de jours, équilibrage, trou de midi, changements de salle) : absentes en core, visibles en CP-SAT', () => {
-    render(<SchedulerConfigDialog />);
-    openDialog();
-
-    expect(screen.queryByLabelText(/Compacter les cours d.+enseignant/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Minimiser le nombre de jours/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Équilibrer la charge quotidienne/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Limiter le trou de midi/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Limiter les changements de salle/i)).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('radio', { name: /CP-SAT \(OR-Tools\)/i }));
     expect(screen.getByLabelText(/Compacter les cours d.+enseignant/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Minimiser le nombre de jours/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Équilibrer la charge quotidienne/i)).toBeInTheDocument();
@@ -102,11 +55,10 @@ describe('SchedulerConfigDialog — sélecteur de moteur', () => {
     expect(screen.getByLabelText(/Limiter les changements de salle/i)).toBeInTheDocument();
   });
 
-  it('cocher les cinq préférences douces en CP-SAT et valider : les valeurs survivent à une réouverture', () => {
+  it('cocher les cinq préférences douces et valider : les valeurs survivent à une réouverture', () => {
     render(<SchedulerConfigDialog />);
     openDialog();
 
-    fireEvent.click(screen.getByRole('radio', { name: /CP-SAT \(OR-Tools\)/i }));
     fireEvent.click(screen.getByLabelText(/Compacter les cours d.+enseignant/i));
     fireEvent.click(screen.getByLabelText(/Minimiser le nombre de jours/i));
     fireEvent.click(screen.getByLabelText(/Équilibrer la charge quotidienne/i));
@@ -126,5 +78,15 @@ describe('SchedulerConfigDialog — sélecteur de moteur', () => {
     expect(screen.getByLabelText(/Équilibrer la charge quotidienne/i)).toBeChecked();
     expect(screen.getByLabelText(/Limiter le trou de midi/i)).toBeChecked();
     expect(screen.getByLabelText(/Limiter les changements de salle/i)).toBeChecked();
+  });
+
+  it('rouvrir le dialog recharge le draft depuis le store', () => {
+    useAppConfigStore.setState({
+      schedulerConfig: { ...DEFAULT_SCHEDULER_CONFIG, minimizeTeacherDays: true },
+    });
+    render(<SchedulerConfigDialog />);
+    openDialog();
+
+    expect(screen.getByLabelText(/Minimiser le nombre de jours/i)).toBeChecked();
   });
 });

@@ -8,10 +8,7 @@ import { runEngine } from '../runEngine.js';
 // --------------------------------------------------------------------------
 
 /**
- * Nouveau moteur (Scheduler) avec élimination intégrée.
- * Corps identique à POST /api/schedule/elimination.
- * Si options.maxEliminations = 0, aucune élimination n'est tentée.
- * Retourne un tableau de ScheduleSolutionJSON.
+ * Planifie via CP-SAT (seul moteur). Retourne un tableau de ScheduleSolutionJSON.
  */
 export async function schedulerV2Handler(req: Request, res: Response): Promise<void> {
   try {
