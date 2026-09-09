@@ -43,8 +43,8 @@ function candidateIds(entries: ResourceEntry[]): string[] {
 
 /**
  * Adaptateur vers la forme attendue par `buildAnalysisLoadRows`. Seuls `task.duration` et
- * `task.resources` sont lus par l'analyse de charge : les champs de diagnostic tombent à leur
- * valeur neutre pour les entrées d'origine `user-pre`/`user-post`, qui n'en ont jamais.
+ * `task.resources` sont lus par l'analyse de charge : `reason` tombe à la chaîne vide pour les
+ * entrées d'origine `user-pre`/`user-post`, qui n'en ont jamais.
  * `remaining` (et non `course.duration`) : la question posée est « où reste-t-il assez de mou pour
  * ce qu'il reste à placer ? » — identique pour une tâche jamais placée (reste = durée entière) et
  * pour une Autonomie déjà partiellement répartie.
@@ -69,8 +69,6 @@ function toNeutralizedInfo(
         ...candidateIds(course.rooms ?? []).map((id) => ({ id, type: 'room' })),
       ],
     },
-    eliminationRound: entry.diagnostics?.eliminationRound ?? 0,
-    failureCount: entry.diagnostics?.failureCount ?? 0,
     reason: entry.diagnostics?.reason ?? '',
   };
 }
@@ -238,7 +236,7 @@ export function SidebarAnalysis() {
               {filteredPiocheEntries.map(({ entry, course, remaining }) => {
                 const tooltipContent =
                   entry.origin === 'engine'
-                    ? [entry.diagnostics?.reason, `Échecs : ${entry.diagnostics?.failureCount ?? 0}`].filter(Boolean).join('\n')
+                    ? (entry.diagnostics?.reason ?? '')
                     : entry.origin === 'user-pre'
                       ? 'Neutralisée manuellement avant planification'
                       : 'Retirée manuellement du calendrier';

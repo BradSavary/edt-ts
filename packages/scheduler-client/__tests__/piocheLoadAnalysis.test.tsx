@@ -140,7 +140,7 @@ describe('analyse de charge d\'un cours remis dans la pioche après planificatio
   });
 
   it('une tâche non placée par le moteur garde son analyse (pas de régression)', () => {
-    usePlanningStore.setState({ unplaced: [{ taskId: 'c1', origin: 'engine', diagnostics: { reason: 'x', failureCount: 1, eliminationRound: 0 } }] } as never);
+    usePlanningStore.setState({ unplaced: [{ taskId: 'c1', origin: 'engine', diagnostics: { reason: 'x' } }] } as never);
     usePlanningStore.setState({ placements: usePlanningStore.getState().placements.filter((p) => p.taskId !== 'c1') });
     render(<SidebarAnalysis />);
 

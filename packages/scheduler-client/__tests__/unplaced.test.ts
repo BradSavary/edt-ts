@@ -15,8 +15,6 @@ function neutralized(taskId: string, overrides: Partial<NeutralizedTaskInfoJSON>
       taskId, code: 'R1.01', name: 'Cours', type: 'TP', week: 40,
       duration: 90, startTime: -1, resources: [],
     },
-    eliminationRound: 0,
-    failureCount: 0,
     reason: 'Aucun créneau disponible',
     ...overrides,
   };
@@ -41,21 +39,22 @@ function placement(taskId: string, overrides: Partial<Placement> = {}): Placemen
 }
 
 describe('unplacedFromEngine', () => {
-  it('origin: engine, diagnostics repris depuis reason/failureCount/eliminationRound', () => {
+  it('origin: engine, diagnostics repris depuis reason', () => {
     const result = unplacedFromEngine([
-      neutralized('abc123', { reason: 'Ressource saturée', failureCount: 3, eliminationRound: 2 }),
+      neutralized('abc123', { reason: 'Ressource saturée' }),
     ]);
     expect(result).toEqual([
-      { taskId: 'abc123', origin: 'engine', diagnostics: { reason: 'Ressource saturée', failureCount: 3, eliminationRound: 2 } },
+      { taskId: 'abc123', origin: 'engine', diagnostics: { reason: 'Ressource saturée' } },
     ]);
   });
 
-  it("n'invente aucun champ mort (requiredMinutes/schedulableMinutes/resourceSnapshots)", () => {
-    const withDeadFields = neutralized('abc123', {
-      requiredMinutes: 90, schedulableMinutes: 0, resourceSnapshots: [{ resourceId: 'G1', resourceType: 'group', availableMinutes: 0 }],
-    });
-    const [result] = unplacedFromEngine([withDeadFields]);
-    expect(Object.keys(result.diagnostics!)).toEqual(['reason', 'failureCount', 'eliminationRound']);
+  it("ne recopie que `reason`, même si l'entrée porte des clés surnuméraires (diagnostics de l'ancien moteur, encore présents dans des données persistées)", () => {
+    const withLegacyFields = {
+      ...neutralized('abc123'),
+      requiredMinutes: 90,
+    } as NeutralizedTaskInfoJSON;
+    const [result] = unplacedFromEngine([withLegacyFields]);
+    expect(Object.keys(result.diagnostics!)).toEqual(['reason']);
   });
 });
 

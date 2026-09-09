@@ -47,7 +47,7 @@ describe('unplaced : persistance des user-pre uniquement', () => {
     usePlanningStore.setState({
       unplaced: [
         { taskId: 'exclu-avant', origin: 'user-pre' },
-        { taskId: 'neutralise-moteur', origin: 'engine', diagnostics: { reason: 'test', failureCount: 1, eliminationRound: 0 } },
+        { taskId: 'neutralise-moteur', origin: 'engine', diagnostics: { reason: 'test' } },
         { taskId: 'retire-apres-coup', origin: 'user-post' },
       ],
     });
@@ -62,7 +62,7 @@ describe('unplaced : persistance des user-pre uniquement', () => {
     usePlanningStore.setState({
       unplaced: [
         { taskId: 'exclu-avant', origin: 'user-pre' },
-        { taskId: 'neutralise-moteur', origin: 'engine', diagnostics: { reason: 'test', failureCount: 1, eliminationRound: 0 } },
+        { taskId: 'neutralise-moteur', origin: 'engine', diagnostics: { reason: 'test' } },
         { taskId: 'retire-apres-coup', origin: 'user-post' },
       ],
     });
@@ -75,7 +75,7 @@ describe('unplaced : persistance des user-pre uniquement', () => {
 
     expect(usePlanningStore.getState().unplaced).toEqual([
       { taskId: 'exclu-avant', origin: 'user-pre' },
-      { taskId: 'neutralise-moteur', origin: 'engine', diagnostics: { reason: 'test', failureCount: 1, eliminationRound: 0 } },
+      { taskId: 'neutralise-moteur', origin: 'engine', diagnostics: { reason: 'test' } },
       { taskId: 'retire-apres-coup', origin: 'user-post' },
     ]);
   });
@@ -95,7 +95,7 @@ describe('unplaced : persistance des user-pre uniquement', () => {
     usePlanningStore.setState({
       unplaced: [
         { taskId: 'exclu-avant', origin: 'user-pre' },
-        { taskId: 'neutralise-moteur', origin: 'engine', diagnostics: { reason: 'test', failureCount: 1, eliminationRound: 0 } },
+        { taskId: 'neutralise-moteur', origin: 'engine', diagnostics: { reason: 'test' } },
       ],
     });
     vi.useRealTimers();
@@ -107,7 +107,7 @@ describe('unplaced : persistance des user-pre uniquement', () => {
     usePlanningStore.getState().setSelectedWeek(1);
     usePlanningStore.setState({
       unplaced: [
-        { taskId: 'deja-engine', origin: 'engine', diagnostics: { reason: 'test', failureCount: 1, eliminationRound: 0 } },
+        { taskId: 'deja-engine', origin: 'engine', diagnostics: { reason: 'test' } },
         { taskId: 'intact', origin: 'user-post' },
       ],
     });
@@ -149,7 +149,7 @@ describe('unplaced : persistance des user-pre uniquement', () => {
     usePlanningStore.getState().setSelectedWeek(1);
     usePlanningStore.setState({
       unplaced: [
-        { taskId: 'X', origin: 'engine', diagnostics: { reason: 'test', failureCount: 1, eliminationRound: 0 } },
+        { taskId: 'X', origin: 'engine', diagnostics: { reason: 'test' } },
       ],
     });
 

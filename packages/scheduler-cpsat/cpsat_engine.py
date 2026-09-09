@@ -1011,8 +1011,6 @@ def _neutralized(course, counter, week, rtype_of, reason_slug, reason):
     return {
         "task": _task_json(course, _task_id(course, counter), week, -1,
                            _candidate_resources(course, rtype_of)),
-        "eliminationRound": 0,     # CP-SAT n'a pas d'élimination itérative ; champ conservé pour le contrat
-        "failureCount": 0,
         "reason": reason,
     }
 

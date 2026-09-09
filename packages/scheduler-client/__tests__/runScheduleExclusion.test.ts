@@ -89,7 +89,7 @@ describe('exclusion des user-post du payload runSchedule (§3.3 de PlanWeekNavig
 
   it('2. une tâche engine est envoyée au moteur', async () => {
     usePlanningStore.setState({
-      unplaced: [{ taskId: 'c1', origin: 'engine', diagnostics: { reason: 'x', failureCount: 1, eliminationRound: 0 } }],
+      unplaced: [{ taskId: 'c1', origin: 'engine', diagnostics: { reason: 'x' } }],
     });
 
     await usePlanningStore.getState().runSchedule();

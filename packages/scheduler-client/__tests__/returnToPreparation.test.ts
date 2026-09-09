@@ -106,7 +106,7 @@ describe('returnToPreparation (câblage store)', () => {
       ],
       unplaced: [
         { taskId: 'exclu-avant', origin: 'user-pre' },
-        { taskId: 'neutralise-moteur', origin: 'engine', diagnostics: { reason: 'test', failureCount: 1, eliminationRound: 0 } },
+        { taskId: 'neutralise-moteur', origin: 'engine', diagnostics: { reason: 'test' } },
       ],
       scheduleResult: { solution: { isComplete: true, tasks: [], neutralizedTasks: [] }, week: 1 },
       currentJobId: 'job-1',

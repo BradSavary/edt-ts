@@ -77,7 +77,7 @@ describe('changement de semaine sans passer par "Annuler la planification automa
               { taskId: 'c2', code: 'C2', name: 'c2', type: 'TD', week: 1, duration: 60, startTime: 120, resources: [] },
             ],
             neutralizedTasks: [
-              { task: { taskId: 'c3', code: 'C3', name: 'c3', type: 'TD', week: 1, duration: 60, startTime: -1, resources: [] }, eliminationRound: 0, failureCount: 1, reason: 'échec test' },
+              { task: { taskId: 'c3', code: 'C3', name: 'c3', type: 'TD', week: 1, duration: 60, startTime: -1, resources: [] }, reason: 'échec test' },
             ],
           },
         },

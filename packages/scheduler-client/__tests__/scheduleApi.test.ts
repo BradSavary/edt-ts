@@ -30,7 +30,7 @@ describe('buildScheduleStatus', () => {
       isComplete: false,
       tasks: [{ taskId: 't1', code: 'R101', name: 'Cours', type: 'CM', week: 44, duration: 60, startTime: 0, resources: [] }],
       neutralizedTasks: [
-        { task: { taskId: 't2', code: 'R102', name: 'Cours 2', type: 'TD', week: 44, duration: 60, startTime: 0, resources: [] }, eliminationRound: 1, failureCount: 1, reason: 'conflit' },
+        { task: { taskId: 't2', code: 'R102', name: 'Cours 2', type: 'TD', week: 44, duration: 60, startTime: 0, resources: [] }, reason: 'conflit' },
       ],
     }));
     expect(status.kind).toBe('err');
@@ -50,7 +50,7 @@ describe('buildScheduleStatus', () => {
       isComplete: false,
       tasks: [],
       neutralizedTasks: [
-        { task: { taskId: 't2', code: 'R102', name: 'Cours 2', type: 'TD', week: 44, duration: 60, startTime: 0, resources: [] }, eliminationRound: 1, failureCount: 1, reason: 'conflit' },
+        { task: { taskId: 't2', code: 'R102', name: 'Cours 2', type: 'TD', week: 44, duration: 60, startTime: 0, resources: [] }, reason: 'conflit' },
       ],
     }));
     expect(status.message).toBe('❌ Aucune solution trouvée — 1 cours neutralisé(s)');

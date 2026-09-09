@@ -136,8 +136,6 @@ describe('buildAnalysisLoadRows', () => {
   function neutralizedTask(duration: number, resources: { id: string; type: string }[]): NeutralizedTaskInfoJSON {
     return {
       task: { taskId: 'X', code: 'X', name: 'X', type: 'TD', week: 30, duration, startTime: -1, resources },
-      eliminationRound: 0,
-      failureCount: 0,
       reason: 'test',
     };
   }
@@ -242,7 +240,7 @@ describe('hasCommonFeasibleDay', () => {
         taskId: 'R3.04', code: 'R3.04', name: 'R3.04', type: 'TD', week: 30, duration: 90, startTime: -1,
         resources: [{ id: 'LAVEFVE', type: 'teacher' }, { id: 'BUT2-G1', type: 'group' }, { id: 'BUT2-G2', type: 'group' }],
       },
-      eliminationRound: 0, failureCount: 0, reason: 'test',
+      reason: 'test',
     };
 
     const rows = buildAnalysisLoadRows(skipped, [], am, 30, []);
@@ -265,7 +263,7 @@ describe('hasCommonFeasibleDay', () => {
         taskId: 'R3.04', code: 'R3.04', name: 'R3.04', type: 'TD', week: 30, duration: 90, startTime: -1,
         resources: [{ id: 'LAVEFVE', type: 'teacher' }, { id: 'BUT2-G1', type: 'group' }],
       },
-      eliminationRound: 0, failureCount: 0, reason: 'test',
+      reason: 'test',
     };
 
     const rows = buildAnalysisLoadRows(skipped, [], am, 30, []);

@@ -10,11 +10,7 @@ export function unplacedFromEngine(neutralized: NeutralizedTaskInfoJSON[]): Unpl
   return neutralized.map((n) => ({
     taskId: n.task.taskId,
     origin: 'engine',
-    diagnostics: {
-      reason: n.reason,
-      failureCount: n.failureCount,
-      eliminationRound: n.eliminationRound,
-    },
+    diagnostics: { reason: n.reason },
   }));
 }
 

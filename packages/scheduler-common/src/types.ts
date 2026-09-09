@@ -124,19 +124,12 @@ export interface TaskSolutionJSON {
 }
 
 
-export interface ResourceAvailabilitySnapshotJSON {
-  resourceId: string;
-  resourceType: string;
-  availableMinutes: number;
-}
-
+/**
+ * Tâche que le moteur n'a pas pu placer. `reason` est le seul diagnostic produit : les compteurs
+ * d'élimination et d'échec du moteur maison ont disparu avec lui (voir `docs/archive/`).
+ */
 export interface NeutralizedTaskInfoJSON {
   task: TaskSolutionJSON;
-  eliminationRound: number;
-  failureCount: number;
-  requiredMinutes?: number;
-  schedulableMinutes?: number;
-  resourceSnapshots?: ResourceAvailabilitySnapshotJSON[];
   reason: string;
   taskGroupId?: string;
 }

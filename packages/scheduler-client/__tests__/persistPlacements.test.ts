@@ -68,7 +68,7 @@ describe('persistance des placements/non-placés (§6.2 de PlanPersistPlacements
     ];
     const originalUnplaced = [
       { taskId: 'c4', origin: 'user-pre' as const },
-      { taskId: 'c5', origin: 'engine' as const, diagnostics: { reason: 'échec test', failureCount: 1, eliminationRound: 0 } },
+      { taskId: 'c5', origin: 'engine' as const, diagnostics: { reason: 'échec test' } },
       { taskId: 'c6', origin: 'user-post' as const },
     ];
 
@@ -100,7 +100,7 @@ describe('persistance des placements/non-placés (§6.2 de PlanPersistPlacements
       ],
       unplaced: [
         { taskId: 'c3', origin: 'user-pre' },
-        { taskId: 'c4', origin: 'engine', diagnostics: { reason: 'x', failureCount: 1, eliminationRound: 0 } },
+        { taskId: 'c4', origin: 'engine', diagnostics: { reason: 'x' } },
       ],
     });
 
@@ -186,7 +186,7 @@ describe('persistance des placements/non-placés (§6.2 de PlanPersistPlacements
     useProjectStore.setState({ allCourses: [makeCourse('c2', 1)] });
     const lastRun = {
       placements: [{ placementId: 'c2', taskId: 'c2', startTime: 100, resources: { teachers: [], groups: [], rooms: [] }, origin: 'auto' as const }],
-      unplaced: [{ taskId: 'c5', origin: 'engine' as const, diagnostics: { reason: 'x', failureCount: 1, eliminationRound: 0 } }],
+      unplaced: [{ taskId: 'c5', origin: 'engine' as const, diagnostics: { reason: 'x' } }],
     };
     useProjectStore.getState().saveWeek({
       weekNumber: 1,

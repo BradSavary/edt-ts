@@ -41,9 +41,9 @@ export interface Unplaced {
   origin: UnplacedOrigin;
   /**
    * Diagnostics du moteur. Présents si et seulement si `origin === 'engine'`.
-   * Limités à ce que l'API produit réellement (cf. §1.1 du plan).
+   * Limités à ce que l'API produit réellement : CP-SAT n'émet que `reason`.
    */
-  diagnostics?: { reason: string; failureCount: number; eliminationRound: number };
+  diagnostics?: { reason: string };
 }
 
 // ── Persistance de semaine (localStorage) ──────────────────────────────────
