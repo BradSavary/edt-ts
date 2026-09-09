@@ -101,7 +101,7 @@ describe('useProjectStore.importCsvData', () => {
     expect(snapshot.manualBlockedZones).toEqual([]);
   });
 
-  it('supprime l\'entrée weekSaves d\'une semaine sans cours manuel', () => {
+  it('supprime l\'entrée weekSaves d\'une semaine sans cours manuel ni note', () => {
     useProjectStore.setState({
       weekSaves: {
         '44': makeSnapshot({ manualCourses: [] }),
@@ -114,6 +114,47 @@ describe('useProjectStore.importCsvData', () => {
     const weekSaves = useProjectStore.getState().weekSaves;
     expect(weekSaves['44']).toBeUndefined();
     expect(weekSaves['10']).toBeDefined();
+  });
+
+  it('préserve la note d\'une semaine, même sans aucun cours manuel', () => {
+    useProjectStore.setState({
+      weekSaves: {
+        '44': makeSnapshot({ manualCourses: [], note: 'Jury de S44 le jeudi après-midi' }),
+      },
+    });
+
+    useProjectStore.getState().importCsvData([makeCourse()], makeResources(), 'x.csv');
+
+    const snapshot = useProjectStore.getState().weekSaves['44'];
+    expect(snapshot).toBeDefined();
+    expect(snapshot.note).toBe('Jury de S44 le jeudi après-midi');
+    // Le reste de la préparation est bien réinitialisé.
+    expect(snapshot.taskGroups).toEqual([]);
+    expect(snapshot.manualEnforcedMap).toEqual({});
+    expect(snapshot.manualCourses).toEqual([]);
+  });
+
+  it('préserve note et cours manuels ensemble', () => {
+    const manual = makeCourse({ id: 'm1', source: 'manual', code: 'MANUEL' });
+    useProjectStore.setState({
+      weekSaves: { '44': makeSnapshot({ manualCourses: [manual], note: 'Réunion pédagogique' }) },
+    });
+
+    useProjectStore.getState().importCsvData([makeCourse()], makeResources(), 'x.csv');
+
+    const snapshot = useProjectStore.getState().weekSaves['44'];
+    expect(snapshot.note).toBe('Réunion pédagogique');
+    expect(snapshot.manualCourses).toEqual([manual]);
+  });
+
+  it('une note vide ne ressuscite pas un snapshot par ailleurs vide', () => {
+    useProjectStore.setState({
+      weekSaves: { '44': makeSnapshot({ manualCourses: [], note: '   ' }) },
+    });
+
+    useProjectStore.getState().importCsvData([makeCourse()], makeResources(), 'x.csv');
+
+    expect(useProjectStore.getState().weekSaves['44']).toBeUndefined();
   });
 
   it("force source: 'csv' sur les cours entrants même si le tableau reçu contient une entrée 'manual'", () => {

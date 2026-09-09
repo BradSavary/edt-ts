@@ -73,9 +73,9 @@ interface ProjectDataSlice {
   setResourceWeeklyMaxDailyMinutes: (id: string, weekKey: string, minutes: number | undefined) => void;
   /**
    * "Tout remplacer" : remplace cours (CSV uniquement, `source` forcé) et ressources,
-   * élague les contraintes obsolètes. Préserve les cours manuels de chaque semaine (`weekSaves`)
-   * mais réinitialise le reste de leur préparation (taskGroups/zones/impositions manuelles),
-   * puisque ces champs référencent des ids de cours CSV invalidés par le réimport.
+   * élague les contraintes obsolètes. Préserve les cours manuels et la note de chaque semaine
+   * (`weekSaves`) mais réinitialise le reste de leur préparation (taskGroups/zones/impositions
+   * manuelles), puisque ces champs référencent des ids de cours CSV invalidés par le réimport.
    */
   importCsvData: (courses: CourseTaskDataWithId[], resources: ResourceGroupData[], fileName: string) => void;
   /**
@@ -161,12 +161,17 @@ export const useProjectStore = create<ProjectStore>()(
           // contamination si un fichier JSON de cours ré-importé contient des entrées 'manual').
           const normalizedCourses = courses.map((c) => ({ ...c, source: 'csv' as const }));
 
-          // Préserve les cours manuels de chaque semaine ; réinitialise le reste (taskGroups/
-          // zones/impositions manuelles référencent des ids de cours CSV invalidés par le réimport).
+          // Préserve les cours manuels ET la note de chaque semaine ; réinitialise le reste
+          // (taskGroups/zones/impositions manuelles référencent des ids de cours CSV invalidés
+          // par le réimport). La note, elle, ne référence rien : c'est du texte libre saisi par
+          // l'utilisateur, qu'un changement de fichier de cours ne périme pas.
+          // Une note vide ne compte pas comme une note (même critère que WeekNoteDialog), sinon
+          // un `note: ''` résiduel suffirait à ressusciter un snapshot par ailleurs vide.
           const nextWeekSaves: WeekSavesMap = {};
           for (const [week, snapshot] of Object.entries(state.weekSaves)) {
             const manualCourses = getManualCoursesForWeek(state.weekSaves, Number(week));
-            if (manualCourses.length === 0) continue;
+            const hasNote = (snapshot.note ?? '').trim().length > 0;
+            if (manualCourses.length === 0 && !hasNote) continue;
             nextWeekSaves[week] = {
               weekNumber: snapshot.weekNumber,
               schoolYear: snapshot.schoolYear,
@@ -176,6 +181,8 @@ export const useProjectStore = create<ProjectStore>()(
               preNeutralizedKeys: [],
               manualEnforcedMap: {},
               manualCourses,
+              // Valeur d'origine, non trimée : ne pas altérer le texte de l'utilisateur.
+              ...(hasNote ? { note: snapshot.note } : {}),
             };
           }
 
