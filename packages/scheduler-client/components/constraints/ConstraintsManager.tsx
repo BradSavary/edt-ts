@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import {
   detectResourceType,
   normalizeToRC,
+  type ResourceCatalogType,
   type ResourceTypeUI,
   RESOURCE_TYPE_LABELS,
 } from '@/lib/constraintsUtils';
@@ -111,10 +112,12 @@ export function ConstraintsManager() {
     if (selectedId === id) setSelectedId(null);
   }
 
-  function handleAddResource(id: string) {
-    addResource(id);
+  function handleAddResource(id: string, type: ResourceCatalogType) {
+    // Le type vient de l'utilisateur, pas de l'heuristique sur le nom : `addResource` crée la
+    // ResourceData dans ce groupe, donc `getResourceType` le retrouvera tel quel par la suite.
+    addResource(id, type);
     setSelectedId(id);
-    setActiveTab(getResourceType(id));
+    setActiveTab(type);
   }
 
   function handleDefaultChange(newValue: ResourceConstraints | null) {
@@ -390,7 +393,7 @@ export function ConstraintsManager() {
               <ResourceConstraintEditor
                 key={selectedId}
                 id={selectedId}
-                resourceType={detectResourceType(selectedId)}
+                resourceType={getResourceType(selectedId)}
                 value={selectedValue}
                 alwaysExpanded
                 csvWeeks={resourceWeeks[selectedId] ?? []}
@@ -417,7 +420,7 @@ export function ConstraintsManager() {
         open={showAddModal}
         onClose={() => setShowAddModal(false)}
         onAdd={handleAddResource}
-        existingIds={Object.keys(constraints)}
+        existingIds={allIds}
       />
     </div>
   );

@@ -2,6 +2,15 @@ import type { ConstraintsData, ResourceConstraints, TimeSlot } from '@edt-ts/sch
 
 export type ResourceTypeUI = 'teacher' | 'room' | 'group' | 'other';
 
+/**
+ * Types de ressources qui existent réellement dans le catalogue (`resources`) et côté moteur.
+ * `other` en est exclu : c'est une case de rangement de l'UI pour les clés de contraintes
+ * orphelines (JSON importé, ancien projet), pas une catégorie de ressource planifiable.
+ */
+export type ResourceCatalogType = Exclude<ResourceTypeUI, 'other'>;
+
+export const RESOURCE_CATALOG_TYPES: ResourceCatalogType[] = ['teacher', 'room', 'group'];
+
 export const DAYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'] as const;
 export type DayName = (typeof DAYS)[number];
 
