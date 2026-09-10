@@ -39,6 +39,8 @@ Assumé / hors périmètre (features core-only, écartées pour ce moteur) :
 from __future__ import annotations
 
 import re
+import sys
+import time
 from collections import defaultdict
 from typing import Any
 
@@ -54,6 +56,32 @@ DAY_PRESENCE_PENALTY = 240
 
 # Types de ressources — mêmes chaînes que ResourceType (resource.ts).
 TEACHER, ROOM, GROUP = "teacher", "room", "group"
+
+# En dessous de ce budget, une passe ne peut rien produire d'utile : elle est SAUTÉE (et tracée
+# sur stderr) plutôt que lancée sur un reliquat. L'ancien `max(1.0, ...)` la lançait quand même,
+# avec 1 s au compteur : elle rendait UNKNOWN et l'option demandée restait sans effet, en silence.
+MIN_PASS_SECONDS = 0.5
+
+
+def _remaining(deadline: float) -> float:
+    """Secondes restantes avant l'échéance globale de `solve()`."""
+    return deadline - time.monotonic()
+
+
+def _pass_budget(deadline: float, label: str) -> float:
+    """
+    Budget allouable à une passe, ou 0.0 (+ diagnostic stderr) s'il ne reste plus rien.
+
+    Se calcule contre l'échéance ABSOLUE de `solve()`, jamais contre le `WallTime()` du solveur
+    précédent : ce dernier ne connaît que la durée de SA passe, si bien que retrancher sa valeur
+    re-crédite le temps consommé par toutes les passes d'avant (jusqu'à ~2x `timeoutSeconds` au
+    total, alors que la passerelle Node tue le process à `timeoutSeconds + 5`).
+    """
+    budget = _remaining(deadline)
+    if budget < MIN_PASS_SECONDS:
+        print(f"[cpsat] {label} : sautée, budget épuisé ({budget:.1f}s restantes).", file=sys.stderr)
+        return 0.0
+    return budget
 
 
 # ---------------------------------------------------------------------------
@@ -835,6 +863,7 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
 
     # ── Passe 1 : optimum du NOMBRE de cours placés (départage « au plus tôt » si earliest). ──
     total_timeout = float(config.get("timeoutSeconds", 30.0))
+    deadline = time.monotonic() + total_timeout
     place_term = sum(scheduled.values())
     if earliest and courses:
         weight = HORIZON * len(courses) + 1        # une tâche de plus bat tout gain d'avance
@@ -842,6 +871,13 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     else:
         model.Maximize(place_term)
 
+    # Non-déterminisme connu : num_search_workers/random_seed non fixés ⇒ recherche portfolio
+    # multi-thread par défaut d'OR-Tools. Le nombre de cours placés (place_term, optimum prouvé)
+    # est stable, mais LESQUELS peut varier d'un run à l'autre dès qu'il existe plusieurs optima
+    # à égalité (créneaux/ressources substituables) — le thread qui remonte l'incumbent gagnant
+    # dépend du timing CPU. Fix possible : num_search_workers=1 + random_seed fixe sur chaque
+    # CpSolver() (ici et aux passes 2/3/4), au prix d'un temps de résolution potentiellement
+    # plus long avant timeout. Non appliqué pour l'instant (décision Frédéric, 2026-09-10).
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = total_timeout
     status = solver.Solve(model)
@@ -854,7 +890,8 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     best_placed = int(round(solver.Value(place_term)))
 
     # ── Passe 2 : à placement FIXÉ, minimiser la pénalité douce enseignant (compacité / jours). ──
-    if penalty_terms:
+    budget = _pass_budget(deadline, "passe 2 (préférences douces)") if penalty_terms else 0.0
+    if budget >= MIN_PASS_SECONDS:
         model.Add(place_term >= best_placed)          # verrou : jamais moins de cours placés
         # Amorce (warm start) avec la solution de la passe 1 → convergence plus rapide.
         model.ClearHints()
@@ -862,16 +899,17 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
             model.AddHint(scheduled[li], solver.Value(scheduled[li]))
             model.AddHint(start[li], solver.Value(start[li]))
         model.Minimize(sum(penalty_terms))
-        remaining = max(1.0, total_timeout - solver.WallTime())
         solver2 = cp_model.CpSolver()
-        solver2.parameters.max_time_in_seconds = remaining
+        solver2.parameters.max_time_in_seconds = max(MIN_PASS_SECONDS, _remaining(deadline))
         status2 = solver2.Solve(model)
         if status2 in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             solver = solver2                          # extraire la solution optimisée
         # provenOptimal reste basé sur placement_proven (passe 1) — voir docstring de solve().
 
     # ── Passe 3 : à placement ET pénalité passe-2 FIGÉS, équilibrer (min Σ pic quotidien). ──
-    if balance_load and peak_terms:
+    budget = (_pass_budget(deadline, "passe 3 (équilibrage de charge)")
+              if (balance_load and peak_terms) else 0.0)
+    if budget >= MIN_PASS_SECONDS:
         model.Add(place_term >= best_placed)          # placement toujours verrouillé
         if penalty_terms:
             best_p2 = int(round(solver.Value(sum(penalty_terms))))
@@ -887,9 +925,8 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
             model.AddHint(scheduled[li], solver.Value(scheduled[li]))
             model.AddHint(start[li], solver.Value(start[li]))
         model.Minimize(sum(peak_terms))
-        remaining = max(1.0, total_timeout - solver.WallTime())
         solver3 = cp_model.CpSolver()
-        solver3.parameters.max_time_in_seconds = remaining
+        solver3.parameters.max_time_in_seconds = max(MIN_PASS_SECONDS, _remaining(deadline))
         status3 = solver3.Solve(model)
         if status3 in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             solver = solver3                          # extraire la solution équilibrée
@@ -903,7 +940,8 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     # l'ORDRE des cours de chaque prof est connu : on pénalise les VRAIES transitions entre cours
     # consécutifs d'une même demi-journée (fidèle, pas une borne). No-op si aucun cours n'a de salle
     # alternative influençable. provenOptimal reste basé sur placement_proven (passe 1).
-    if minimize_rooms:
+    budget = _pass_budget(deadline, "passe 4 (changements de salle)") if minimize_rooms else 0.0
+    if budget >= MIN_PASS_SECONDS:
         def _room_lits(li):                       # {rid: littéral} des salles candidates du cours li
             return {rid: lit for (rid, rtype, lit) in used_literals[li] if rtype == ROOM}
 
@@ -969,9 +1007,8 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                     if rtype == ROOM:
                         model.AddHint(lit, solver.Value(lit))
             model.Minimize(len(same_vars) - sum(same_vars))
-            remaining = max(1.0, total_timeout - solver.WallTime())
             solver4 = cp_model.CpSolver()
-            solver4.parameters.max_time_in_seconds = remaining
+            solver4.parameters.max_time_in_seconds = max(MIN_PASS_SECONDS, _remaining(deadline))
             status4 = solver4.Solve(model)
             if status4 in (cp_model.OPTIMAL, cp_model.FEASIBLE):
                 solver = solver4                    # extraire la solution ré-affectée en salle
