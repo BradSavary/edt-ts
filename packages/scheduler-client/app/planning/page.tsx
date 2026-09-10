@@ -39,6 +39,7 @@ export default function PlanningPage() {
   const placements = usePlanningStore((s) => s.placements);
   const unplaced = usePlanningStore((s) => s.unplaced);
   const searchQuery = usePlanningStore((s) => s.searchQuery);
+  const setSearchQuery = usePlanningStore((s) => s.setSearchQuery);
   const status = usePlanningStore((s) => s.status);
   const pendingJobResult = usePlanningStore((s) => s.pendingJobResult);
   const applyPendingResult = usePlanningStore((s) => s.applyPendingResult);
@@ -134,6 +135,20 @@ export default function PlanningPage() {
                 value={weekInput}
                 onChange={(e) => handleSetWeek(e.target.value)}
                 className="w-20 h-7 text-xs"
+              />
+            </div>
+            {/* Filtre déplacé depuis la sidebar d'analyse (§ demande Frédéric) : accessible dès
+                l'étape de préparation, où des cours (impositions) peuvent déjà figurer sur la
+                grille avant toute planification automatique. */}
+            <div className="flex items-center gap-1.5">
+              <Label htmlFor="planning-filter-input" className="text-xs whitespace-nowrap">Filtrer</Label>
+              <Input
+                id="planning-filter-input"
+                type="search"
+                placeholder="Enseignant, salle, groupe, code, type, cours… (AND / OR)"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-72 h-7 text-xs"
               />
             </div>
             {lastRun !== null && (

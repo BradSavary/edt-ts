@@ -14,8 +14,6 @@ import { getCoursesForWeek } from '@/lib/weekCourses';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
 import type { Unplaced } from '@/store/types';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -189,21 +187,6 @@ export function SidebarAnalysis() {
         >
           Annuler la planification automatique
         </Button>
-
-        {/* Recherche */}
-        <div className="space-y-1.5">
-          <Label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Rechercher
-          </Label>
-          <Input
-            type="search"
-            placeholder="Enseignant, salle, groupe, code, type, cours… (AND / OR)"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-
-        <Separator />
 
         {/* Actions */}
         <div className="flex flex-col gap-2">
