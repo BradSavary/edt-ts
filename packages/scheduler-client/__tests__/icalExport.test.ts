@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { generateIcalContent, downloadIcalSolution } from '../lib/icalExport';
+import JSZip from 'jszip';
+import { generateIcalContent, downloadIcalSolution, downloadIcalArchive } from '../lib/icalExport';
 import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
 
 function makeTask(overrides: Partial<TaskSolutionJSON> = {}): TaskSolutionJSON {
@@ -225,5 +226,98 @@ describe('downloadIcalSolution', () => {
   it('sans schoolYearConfig, reconstruit un libellé d\'année universitaire cohérent avec la date affichée', () => {
     const fileName = captureDownloadedFileName([makeTask()], 47, null);
     expect(fileName).toMatch(/^S47 \d{4}-\d{4}\.ics$/);
+  });
+});
+
+describe('downloadIcalArchive', () => {
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => 'blob:mock');
+    URL.revokeObjectURL = vi.fn();
+  });
+
+  afterEach(() => {
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+  });
+
+  async function captureDownloadedArchive(
+    ...args: Parameters<typeof downloadIcalArchive>
+  ): Promise<{ fileName: string; entries: Record<string, string> }> {
+    let fileName = '';
+    let capturedBlob: Blob | null = null;
+    const originalCreateElement = document.createElement.bind(document);
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      const el = originalCreateElement(tag);
+      if (tag === 'a') {
+        vi.spyOn(el as HTMLAnchorElement, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+          fileName = this.download;
+        });
+      }
+      return el;
+    });
+    const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((obj: Blob | MediaSource) => {
+      capturedBlob = obj as Blob;
+      return 'blob:mock';
+    });
+
+    await downloadIcalArchive(...args);
+
+    createElementSpy.mockRestore();
+    createObjectURLSpy.mockRestore();
+
+    const zip = await JSZip.loadAsync(capturedBlob as unknown as Blob);
+    const entries: Record<string, string> = {};
+    for (const [path, file] of Object.entries(zip.files)) {
+      entries[path] = await file.async('string');
+    }
+    return { fileName, entries };
+  }
+
+  it('nomme l\'archive "{{Label}} S{{week}} {{year}}.zip"', async () => {
+    const { fileName } = await captureDownloadedArchive(
+      [makeTask()],
+      44,
+      { year: '2026-2027', zone: 'A', periods: [] },
+      'teacher',
+    );
+    expect(fileName).toBe('Enseignants S44 2026-2027.zip');
+  });
+
+  it('crée un .ics par ressource du type demandé', async () => {
+    const tasks = [
+      makeTask({ taskId: 't1', resources: [{ id: 'DUPONT', type: 'teacher' }, { id: 'A101', type: 'room' }] }),
+      makeTask({ taskId: 't2', resources: [{ id: 'MARTIN', type: 'teacher' }, { id: 'A101', type: 'room' }] }),
+    ];
+    const { entries } = await captureDownloadedArchive(tasks, 44, { year: '2026-2027', zone: 'A', periods: [] }, 'room');
+    expect(Object.keys(entries)).toEqual(['A101.ics']);
+    expect(entries['A101.ics']).toContain('BEGIN:VCALENDAR');
+    const veventCount = (entries['A101.ics'].match(/BEGIN:VEVENT/g) ?? []).length;
+    expect(veventCount).toBe(2);
+  });
+
+  it('une tâche multi-ressources apparaît dans l\'ICS de chacune de ses ressources du type demandé', async () => {
+    const tasks = [
+      makeTask({
+        taskId: 't1',
+        resources: [
+          { id: 'DUPONT', type: 'teacher' },
+          { id: 'BUT1-G1', type: 'group' },
+          { id: 'BUT1-G2', type: 'group' },
+        ],
+      }),
+    ];
+    const { entries } = await captureDownloadedArchive(tasks, 44, { year: '2026-2027', zone: 'A', periods: [] }, 'group');
+    expect(Object.keys(entries).sort()).toEqual(['BUT1-G1.ics', 'BUT1-G2.ics']);
+    expect(entries['BUT1-G1.ics']).toContain('BEGIN:VEVENT');
+    expect(entries['BUT1-G2.ics']).toContain('BEGIN:VEVENT');
+  });
+
+  it('ignore les tâches sans ressource du type demandé', async () => {
+    const tasks = [makeTask({ resources: [{ id: 'A101', type: 'room' }] })];
+    const { entries } = await captureDownloadedArchive(tasks, 44, { year: '2026-2027', zone: 'A', periods: [] }, 'teacher');
+    expect(Object.keys(entries)).toEqual([]);
   });
 });

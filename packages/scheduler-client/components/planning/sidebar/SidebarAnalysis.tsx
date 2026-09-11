@@ -5,7 +5,7 @@ import type { NeutralizedTaskInfoJSON, ResourceEntry } from '@edt-ts/scheduler-c
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useNeutralizedDraggable } from '@/hooks/useNeutralizedDraggable';
-import { downloadIcalSolution } from '@/lib/icalExport';
+import { downloadIcalArchive, downloadIcalSolution, ICAL_RESOURCE_TYPE_LABELS, type IcalResourceType } from '@/lib/icalExport';
 import { matchesSearchQuery, formatStartTime } from '@/lib/calendar/calendarUtils';
 import { toTaskSolutionJSON } from '@/lib/calendar/placements';
 import { selectPromotionCandidates } from '@/lib/calendar/promotion';
@@ -25,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import NeutralizedTaskCard from '@/components/planning/courses/NeutralizedTaskCard';
 import ResourceLoadPopover from '@/components/planning/courses/ResourceLoadPopover';
 import { courseToBaseProps, normalizeResourceEntries } from '@/lib/taskCardUtils';
@@ -96,6 +97,10 @@ export function SidebarAnalysis() {
   const weekSaves = useProjectStore((s) => s.weekSaves);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Mode d'export iCal : 'filtered' reprend le comportement historique (respecte la recherche
+  // active) ; les 3 autres éclatent l'export en une archive .zip d'un .ics par ressource, sans
+  // tenir compte du filtre (l'archive porte toujours sur l'ensemble des placements affichés).
+  const [exportMode, setExportMode] = useState<'filtered' | IcalResourceType>('filtered');
   const [checkedPromotionIds, setCheckedPromotionIds] = useState<Set<string>>(new Set());
   const neutralizedContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -177,6 +182,14 @@ export function SidebarAnalysis() {
     returnToPreparation([...checkedPromotionIds]);
   }
 
+  function handleExport() {
+    if (exportMode === 'filtered') {
+      downloadIcalSolution(filteredPlacements, iCalWeek, schoolYearConfig, searchQuery);
+    } else {
+      void downloadIcalArchive(loadReferenceSolution, iCalWeek, schoolYearConfig, exportMode);
+    }
+  }
+
   return (
     <>
       <aside className="w-80 shrink-0 bg-card border-r border-border p-4 overflow-y-auto flex flex-col gap-4">
@@ -191,14 +204,26 @@ export function SidebarAnalysis() {
         {/* Actions */}
         <div className="flex flex-col gap-2">
           {lastRun !== null && (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => downloadIcalSolution(filteredPlacements, iCalWeek, schoolYearConfig, searchQuery)}
-            >
-              {searchQuery.trim() ? 'Exporter (filtré) en iCal' : 'Exporter en iCal'}
-            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" className="flex-1" onClick={handleExport}>
+                {exportMode === 'filtered'
+                  ? searchQuery.trim()
+                    ? 'Exporter (filtré) en iCal'
+                    : 'Exporter en iCal'
+                  : 'Exporter en ZIP'}
+              </Button>
+              <Select value={exportMode} onValueChange={(v) => setExportMode(v as typeof exportMode)}>
+                <SelectTrigger size="sm" className="w-32" aria-label="Mode d'export iCal">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="filtered">Filtré</SelectItem>
+                  <SelectItem value="group">{ICAL_RESOURCE_TYPE_LABELS.group}</SelectItem>
+                  <SelectItem value="teacher">{ICAL_RESOURCE_TYPE_LABELS.teacher}</SelectItem>
+                  <SelectItem value="room">{ICAL_RESOURCE_TYPE_LABELS.room}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           )}
         </div>
 

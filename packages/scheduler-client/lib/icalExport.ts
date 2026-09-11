@@ -1,3 +1,4 @@
+import JSZip from 'jszip';
 import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
 import { getMondayOfISOWeek } from '@/lib/calendar/calendarUtils';
 import { resolveCalendarYear, type SchoolYearConfig } from '@/lib/schoolHolidays';
@@ -159,19 +160,31 @@ function sanitizeFileNamePart(value: string): string {
 }
 
 /**
- * Nom de fichier "{{Filtre}} S{{Week}} {{Year}}.ics" (le préfixe filtre est omis s'il est vide).
- * `Year` reprend le libellé de l'année universitaire tel que sélectionné par l'utilisateur
- * (ex: "2026-2027") ; à défaut de `schoolYearConfig`, il est reconstruit depuis l'année civile
- * effectivement utilisée pour dater les événements (voir `resolveCalendarYear`).
+ * Libellé de l'année universitaire (ex: "2026-2027"), tel que sélectionné par l'utilisateur ;
+ * à défaut de `schoolYearConfig`, reconstruit depuis l'année civile effectivement utilisée pour
+ * dater les événements (voir `resolveCalendarYear`).
  */
-function buildIcalFileName(week: number, monday: Date, schoolYearConfig: SchoolYearConfig | null | undefined, filter: string): string {
-  const universityYear = schoolYearConfig?.year ?? (
+function resolveUniversityYearLabel(week: number, monday: Date, schoolYearConfig: SchoolYearConfig | null | undefined): string {
+  return schoolYearConfig?.year ?? (
     week >= 35
       ? `${monday.getFullYear()}-${monday.getFullYear() + 1}`
       : `${monday.getFullYear() - 1}-${monday.getFullYear()}`
   );
+}
+
+/**
+ * Nom de fichier "{{Filtre}} S{{Week}} {{Year}}.ics" (le préfixe filtre est omis s'il est vide).
+ */
+function buildIcalFileName(week: number, monday: Date, schoolYearConfig: SchoolYearConfig | null | undefined, filter: string): string {
+  const universityYear = resolveUniversityYearLabel(week, monday, schoolYearConfig);
   const filterPart = sanitizeFileNamePart(filter);
   return `${filterPart ? filterPart + ' ' : ''}S${week} ${universityYear}.ics`;
+}
+
+/** Nom d'archive "{{Label}} S{{Week}} {{Year}}.zip" (ex: "Groupes S38 2026-2027.zip"). */
+function buildIcalArchiveFileName(week: number, monday: Date, schoolYearConfig: SchoolYearConfig | null | undefined, label: string): string {
+  const universityYear = resolveUniversityYearLabel(week, monday, schoolYearConfig);
+  return `${sanitizeFileNamePart(label)} S${week} ${universityYear}.zip`;
 }
 
 /**
@@ -196,6 +209,68 @@ export function downloadIcalSolution(
     const a = document.createElement('a');
     a.href = url;
     a.download = buildIcalFileName(week, monday, schoolYearConfig, filter);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** Type de ressource par lequel éclater l'export en une archive multi-ICS. */
+export type IcalResourceType = 'group' | 'teacher' | 'room';
+
+/** Libellés utilisateur des modes d'export par ressource (repris dans le nom de l'archive). */
+export const ICAL_RESOURCE_TYPE_LABELS: Record<IcalResourceType, string> = {
+  group: 'Groupes',
+  teacher: 'Enseignants',
+  room: 'Salles',
+};
+
+/** Répartit les tâches par identifiant de ressource d'un type donné (une tâche multi-ressources
+ *  apparaît dans l'ICS de chacune de ses ressources de ce type). */
+function groupTasksByResource(tasks: TaskSolutionJSON[], resourceType: IcalResourceType): Map<string, TaskSolutionJSON[]> {
+  const groups = new Map<string, TaskSolutionJSON[]>();
+  for (const task of tasks) {
+    for (const resource of task.resources) {
+      if (resource.type !== resourceType) continue;
+      const list = groups.get(resource.id);
+      if (list) list.push(task);
+      else groups.set(resource.id, [task]);
+    }
+  }
+  return groups;
+}
+
+/**
+ * Déclenche le téléchargement d'une archive .zip contenant un .ics par ressource
+ * (`{{id}}.ics`) du type demandé.
+ *
+ * @param tasks             Tâches de la solution active (non filtrées par la recherche)
+ * @param week              Numéro de semaine ISO
+ * @param schoolYearConfig  Année universitaire sélectionnée par l'utilisateur
+ * @param resourceType      Type de ressource par lequel éclater l'export
+ */
+export async function downloadIcalArchive(
+  tasks: TaskSolutionJSON[],
+  week: number,
+  schoolYearConfig: SchoolYearConfig | null | undefined,
+  resourceType: IcalResourceType,
+): Promise<void> {
+  const monday = getMondayOfISOWeek(week, resolveCalendarYear(schoolYearConfig, week));
+  const groups = groupTasksByResource(tasks, resourceType);
+
+  const zip = new JSZip();
+  for (const [id, resourceTasks] of groups) {
+    zip.file(`${sanitizeFileNamePart(id)}.ics`, generateIcalContent(resourceTasks, week, schoolYearConfig));
+  }
+  const blob = await zip.generateAsync({ type: 'blob' });
+
+  const url = URL.createObjectURL(blob);
+  try {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = buildIcalArchiveFileName(week, monday, schoolYearConfig, ICAL_RESOURCE_TYPE_LABELS[resourceType]);
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
