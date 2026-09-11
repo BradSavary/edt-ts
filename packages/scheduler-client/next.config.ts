@@ -6,6 +6,11 @@ const nextConfig: NextConfig = {
   output: 'export',
   basePath: '/edtts',
   trailingSlash: true,
+  // jspdf (export PDF) embarque fflate, dont le build Node fait `new Worker(<chemin dynamique>)` :
+  // le bundler serveur (SSR/prerender) échoue à l'analyser statiquement. Exclu du bundling pour
+  // utiliser le require() natif de Node à la place (jspdf n'est de toute façon exécuté que côté
+  // client, dans un gestionnaire de clic — jamais pendant le rendu serveur).
+  serverExternalPackages: ['jspdf'],
   async rewrites() {
     // Les rewrites ne fonctionnent qu'en dev (next dev).
     // En production (output: 'export'), c'est NEXT_PUBLIC_API_BASE qui prend le relais.

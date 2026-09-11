@@ -6,6 +6,7 @@ import { usePlanningStore } from '@/store/usePlanningStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useNeutralizedDraggable } from '@/hooks/useNeutralizedDraggable';
 import { downloadIcalArchive, downloadIcalSolution, ICAL_RESOURCE_TYPE_LABELS, type IcalResourceType } from '@/lib/icalExport';
+import { downloadPdfArchive, downloadPdfSolution } from '@/lib/pdfExport';
 import { matchesSearchQuery, formatStartTime } from '@/lib/calendar/calendarUtils';
 import { toTaskSolutionJSON } from '@/lib/calendar/placements';
 import { selectPromotionCandidates } from '@/lib/calendar/promotion';
@@ -97,10 +98,13 @@ export function SidebarAnalysis() {
   const weekSaves = useProjectStore((s) => s.weekSaves);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
-  // Mode d'export iCal : 'filtered' reprend le comportement historique (respecte la recherche
-  // active) ; les 3 autres éclatent l'export en une archive .zip d'un .ics par ressource, sans
+  // Mode d'export : 'filtered' reprend le comportement historique (respecte la recherche
+  // active) ; les 3 autres éclatent l'export en une archive .zip d'un fichier par ressource, sans
   // tenir compte du filtre (l'archive porte toujours sur l'ensemble des placements affichés).
   const [exportMode, setExportMode] = useState<'filtered' | IcalResourceType>('filtered');
+  // Format du fichier exporté : iCal (agenda) ou PDF (grille hebdomadaire imprimable) — même
+  // portée (exportMode) pour les deux formats.
+  const [exportFormat, setExportFormat] = useState<'ics' | 'pdf'>('ics');
   const [checkedPromotionIds, setCheckedPromotionIds] = useState<Set<string>>(new Set());
   const neutralizedContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -183,10 +187,18 @@ export function SidebarAnalysis() {
   }
 
   function handleExport() {
-    if (exportMode === 'filtered') {
-      downloadIcalSolution(filteredPlacements, iCalWeek, schoolYearConfig, searchQuery);
+    if (exportFormat === 'ics') {
+      if (exportMode === 'filtered') {
+        downloadIcalSolution(filteredPlacements, iCalWeek, schoolYearConfig, searchQuery);
+      } else {
+        void downloadIcalArchive(loadReferenceSolution, iCalWeek, schoolYearConfig, exportMode);
+      }
     } else {
-      void downloadIcalArchive(loadReferenceSolution, iCalWeek, schoolYearConfig, exportMode);
+      if (exportMode === 'filtered') {
+        downloadPdfSolution(filteredPlacements, iCalWeek, schoolYearConfig, searchQuery);
+      } else {
+        void downloadPdfArchive(loadReferenceSolution, iCalWeek, schoolYearConfig, exportMode);
+      }
     }
   }
 
@@ -208,12 +220,21 @@ export function SidebarAnalysis() {
               <Button type="button" variant="outline" className="flex-1" onClick={handleExport}>
                 {exportMode === 'filtered'
                   ? searchQuery.trim()
-                    ? 'Exporter (filtré) en iCal'
-                    : 'Exporter en iCal'
+                    ? `Exporter (filtré) en ${exportFormat === 'ics' ? 'iCal' : 'PDF'}`
+                    : `Exporter en ${exportFormat === 'ics' ? 'iCal' : 'PDF'}`
                   : 'Exporter en ZIP'}
               </Button>
+              <Select value={exportFormat} onValueChange={(v) => setExportFormat(v as typeof exportFormat)}>
+                <SelectTrigger size="sm" className="w-24" aria-label="Format d'export">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ics">iCal</SelectItem>
+                  <SelectItem value="pdf">PDF</SelectItem>
+                </SelectContent>
+              </Select>
               <Select value={exportMode} onValueChange={(v) => setExportMode(v as typeof exportMode)}>
-                <SelectTrigger size="sm" className="w-32" aria-label="Mode d'export iCal">
+                <SelectTrigger size="sm" className="w-32" aria-label="Portée de l'export">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

@@ -2,6 +2,15 @@ import JSZip from 'jszip';
 import type { TaskSolutionJSON } from '@edt-ts/scheduler-common';
 import { getMondayOfISOWeek } from '@/lib/calendar/calendarUtils';
 import { resolveCalendarYear, type SchoolYearConfig } from '@/lib/schoolHolidays';
+import {
+  sanitizeFileNamePart,
+  groupTasksByResource,
+  triggerBrowserDownload,
+  buildExportBaseName,
+  buildExportArchiveBaseName,
+  EXPORT_RESOURCE_TYPE_LABELS,
+  type ExportResourceType,
+} from '@/lib/exportShared';
 
 /** Formatage iCal YYYYMMDDTHHMMSS (sans Z → heure locale). */
 function formatICalDate(date: Date): string {
@@ -167,37 +176,16 @@ export function generateIcalContent(
   return header + '\r\n' + events + '\r\nEND:VCALENDAR\r\n';
 }
 
-/** Retire les caractères invalides dans un nom de fichier (toutes plateformes). */
-function sanitizeFileNamePart(value: string): string {
-  return value.trim().replace(/[/\\:*?"<>|]/g, '');
-}
-
-/**
- * Libellé de l'année universitaire (ex: "2026-2027"), tel que sélectionné par l'utilisateur ;
- * à défaut de `schoolYearConfig`, reconstruit depuis l'année civile effectivement utilisée pour
- * dater les événements (voir `resolveCalendarYear`).
- */
-function resolveUniversityYearLabel(week: number, monday: Date, schoolYearConfig: SchoolYearConfig | null | undefined): string {
-  return schoolYearConfig?.year ?? (
-    week >= 35
-      ? `${monday.getFullYear()}-${monday.getFullYear() + 1}`
-      : `${monday.getFullYear() - 1}-${monday.getFullYear()}`
-  );
-}
-
 /**
  * Nom de fichier "{{Filtre}} S{{Week}} {{Year}}.ics" (le préfixe filtre est omis s'il est vide).
  */
 function buildIcalFileName(week: number, monday: Date, schoolYearConfig: SchoolYearConfig | null | undefined, filter: string): string {
-  const universityYear = resolveUniversityYearLabel(week, monday, schoolYearConfig);
-  const filterPart = sanitizeFileNamePart(filter);
-  return `${filterPart ? filterPart + ' ' : ''}S${week} ${universityYear}.ics`;
+  return `${buildExportBaseName(week, monday, schoolYearConfig, filter)}.ics`;
 }
 
 /** Nom d'archive "{{Label}} S{{Week}} {{Year}}.zip" (ex: "Groupes S38 2026-2027.zip"). */
 function buildIcalArchiveFileName(week: number, monday: Date, schoolYearConfig: SchoolYearConfig | null | undefined, label: string): string {
-  const universityYear = resolveUniversityYearLabel(week, monday, schoolYearConfig);
-  return `${sanitizeFileNamePart(label)} S${week} ${universityYear}.zip`;
+  return `${buildExportArchiveBaseName(week, monday, schoolYearConfig, label)}.zip`;
 }
 
 /**
@@ -217,43 +205,14 @@ export function downloadIcalSolution(
   const monday = getMondayOfISOWeek(week, resolveCalendarYear(schoolYearConfig, week));
   const content = generateIcalContent(tasks, week, schoolYearConfig);
   const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  try {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = buildIcalFileName(week, monday, schoolYearConfig, filter);
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  triggerBrowserDownload(blob, buildIcalFileName(week, monday, schoolYearConfig, filter));
 }
 
 /** Type de ressource par lequel éclater l'export en une archive multi-ICS. */
-export type IcalResourceType = 'group' | 'teacher' | 'room';
+export type IcalResourceType = ExportResourceType;
 
 /** Libellés utilisateur des modes d'export par ressource (repris dans le nom de l'archive). */
-export const ICAL_RESOURCE_TYPE_LABELS: Record<IcalResourceType, string> = {
-  group: 'Groupes',
-  teacher: 'Enseignants',
-  room: 'Salles',
-};
-
-/** Répartit les tâches par identifiant de ressource d'un type donné (une tâche multi-ressources
- *  apparaît dans l'ICS de chacune de ses ressources de ce type). */
-function groupTasksByResource(tasks: TaskSolutionJSON[], resourceType: IcalResourceType): Map<string, TaskSolutionJSON[]> {
-  const groups = new Map<string, TaskSolutionJSON[]>();
-  for (const task of tasks) {
-    for (const resource of task.resources) {
-      if (resource.type !== resourceType) continue;
-      const list = groups.get(resource.id);
-      if (list) list.push(task);
-      else groups.set(resource.id, [task]);
-    }
-  }
-  return groups;
-}
+export const ICAL_RESOURCE_TYPE_LABELS = EXPORT_RESOURCE_TYPE_LABELS;
 
 /**
  * Déclenche le téléchargement d'une archive .zip contenant un .ics par ressource
@@ -279,15 +238,5 @@ export async function downloadIcalArchive(
   }
   const blob = await zip.generateAsync({ type: 'blob' });
 
-  const url = URL.createObjectURL(blob);
-  try {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = buildIcalArchiveFileName(week, monday, schoolYearConfig, ICAL_RESOURCE_TYPE_LABELS[resourceType]);
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  triggerBrowserDownload(blob, buildIcalArchiveFileName(week, monday, schoolYearConfig, ICAL_RESOURCE_TYPE_LABELS[resourceType]));
 }
