@@ -29,10 +29,9 @@ router.get('/config', defaultConfigHandler);
  *       { type: 'fixed', from: 'HH:MM', to: 'HH:MM' }
  *       { type: 'floating', ... } — non supporté par CP-SAT, provoque une erreur explicite
  *   - ignoreDailyLimits           : boolean — ignore les maxDailyMinutes de toutes les ressources (défaut : false)
- *   - compactTeacherHalfDays      : boolean — préférence douce (défaut : false)
  *   - minimizeTeacherDays         : boolean — préférence douce (défaut : false)
- *   - balanceTeacherDailyLoad     : boolean — préférence douce (défaut : false)
- *   - crossNoonGap                : boolean — préférence douce (défaut : false)
+ *   - reduceTeacherHalfDays       : boolean — préférence douce (défaut : false)
+ *   - compactTeacherDay           : boolean — préférence douce (défaut : false)
  *   - minimizeTeacherRoomChanges  : boolean — préférence douce (défaut : false)
  *
  * Retourne un tableau de ScheduleSolutionJSON.

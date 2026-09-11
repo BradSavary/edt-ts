@@ -22,7 +22,7 @@ export const useAppConfigStore = create<AppConfigStore>()(
     }),
     {
       name: 'edt-app-config',
-      version: 9,
+      version: 12,
       migrate: (persistedState) => {
         const state = persistedState as { schedulerConfig?: Record<string, unknown> };
         if (!state?.schedulerConfig) return state;
@@ -32,10 +32,21 @@ export const useAppConfigStore = create<AppConfigStore>()(
         // jamais souhaitée) est remplacée par deux préférences douces indépendantes.
         delete schedulerConfig.groupTeacherHalfDays;
         if (!('engine' in schedulerConfig)) schedulerConfig.engine = 'core';
-        if (!('compactTeacherHalfDays' in schedulerConfig)) schedulerConfig.compactTeacherHalfDays = false;
         if (!('minimizeTeacherDays' in schedulerConfig)) schedulerConfig.minimizeTeacherDays = false;
-        if (!('balanceTeacherDailyLoad' in schedulerConfig)) schedulerConfig.balanceTeacherDailyLoad = false;
-        if (!('crossNoonGap' in schedulerConfig)) schedulerConfig.crossNoonGap = false;
+        // v12 : balanceTeacherDailyLoad retirée (aucun avantage mesuré, trop coûteuse — décision
+        // Frédéric 2026-09-11). Simple suppression, pas de report vers une autre préférence.
+        delete schedulerConfig.balanceTeacherDailyLoad;
+        // v10 : nouvelle préférence douce, indépendante de l'ex-balanceTeacherDailyLoad.
+        if (!('reduceTeacherHalfDays' in schedulerConfig)) schedulerConfig.reduceTeacherHalfDays = false;
+        // v11 : compactTeacherHalfDays + crossNoonGap fusionnées en une seule préférence, day-wide
+        // plutôt que par demi-journée isolée. Si l'une des deux était active, la nouvelle l'est aussi
+        // (préserve l'intention de l'utilisateur plutôt que de silencieusement tout désactiver).
+        if (!('compactTeacherDay' in schedulerConfig)) {
+          schedulerConfig.compactTeacherDay =
+            Boolean(schedulerConfig.compactTeacherHalfDays) || Boolean(schedulerConfig.crossNoonGap);
+        }
+        delete schedulerConfig.compactTeacherHalfDays;
+        delete schedulerConfig.crossNoonGap;
         if (!('minimizeTeacherRoomChanges' in schedulerConfig)) schedulerConfig.minimizeTeacherRoomChanges = false;
         // v9 : moteur unique CP-SAT — les options du moteur maison n'ont plus de destinataire.
         for (const k of ['engine', 'maxSolutions', 'maxIterations', 'maxEliminations',

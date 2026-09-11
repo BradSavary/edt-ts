@@ -221,36 +221,30 @@ export interface SchedulerConfig {
   /** Si true, ignore les limites maxDailyMinutes de toutes les ressources (défaut : false) */
   ignoreDailyLimits?: boolean;
   /**
-   * Préférence DOUCE : dans chaque demi-journée où un enseignant est présent, coller ses cours
-   * (minimiser les trous À L'INTÉRIEUR d'un bloc matin/après-midi). N'interdit ni ne pénalise
-   * d'être présent matin ET après-midi, ni sur plusieurs jours. Optimisée à nombre de cours
-   * placés CONSTANT (résolution 2 passes) : ne sacrifie jamais un placement ni ne viole une
-   * contrainte dure. Combinable avec `minimizeTeacherDays`. Défaut : false.
-   */
-  compactTeacherHalfDays?: boolean;
-  /**
-   * Préférence DOUCE : concentrer les cours d'un enseignant sur le moins de JOURNÉES distinctes
-   * possible (remplir matin+après-midi d'un jour plutôt qu'étaler). Mêmes garanties que
-   * ci-dessus (à placement constant, 2 passes). Combinable avec `compactTeacherHalfDays`.
-   * Défaut : false.
+   * Préférence DOUCE, PRIORITAIRE sur les autres : concentrer les cours d'un enseignant sur le
+   * moins de JOURNÉES distinctes possible (remplir matin+après-midi d'un jour plutôt qu'étaler).
+   * Optimisée à nombre de cours placés CONSTANT : ne sacrifie jamais un placement ni ne viole une
+   * contrainte dure. Défaut : false.
    */
   minimizeTeacherDays?: boolean;
   /**
-   * Préférence DOUCE : équilibrer la charge quotidienne d'un enseignant entre les jours où il
-   * est présent (minimiser sa charge journalière maximale), pour éviter qu'il soit surchargé un
-   * jour et presque vide un autre. N'AJOUTE jamais de jour de présence : activée, elle minimise
-   * d'abord le nombre de jours (comme `minimizeTeacherDays`) puis équilibre CES jours. Mêmes
-   * garanties que les autres douces (à placement constant, résolution lexicographique) : ne
-   * sacrifie jamais un placement ni ne viole une contrainte dure. Combinable avec
-   * `compactTeacherHalfDays` et `minimizeTeacherDays`. Défaut : false.
+   * Préférence DOUCE : pour chaque demi-journée de présence d'un enseignant dont la charge est
+   * sous-utilisée (≤ 2h — typiquement un unique cours isolé), essaie de la reporter sur une autre
+   * demi-journée pour la vider, sans changer le nombre de jours de présence. Aucun plafond dur sur
+   * la charge quotidienne : le report peut la dégrader autant que la disponibilité et le plafond
+   * quotidien de l'enseignant le permettent. Ne sacrifie jamais un placement ni ne viole une
+   * contrainte dure. Défaut : false.
    */
-  balanceTeacherDailyLoad?: boolean;
+  reduceTeacherHalfDays?: boolean;
   /**
-   * Préférence DOUCE : pénalise le trou de midi d'un enseignant présent matin et après-midi,
-   * au-delà de la pause déjeuner (limite les journées à faible ratio cours/amplitude, ex.
-   * 8h+18h). Ignorée si la pause n'est pas fixe. Défaut : false.
+   * Préférence DOUCE : minimise TOUS les trous entre cours consécutifs d'un enseignant sur une
+   * journée (pas seulement une demi-journée), à l'exception de la pause méridienne elle-même —
+   * seule autorisée à excéder les autres trous. Si l'enseignant a des cours avant ET après la
+   * pause, les resserre autour de celle-ci. Aucun seuil, aucun plafond dur : réduit autant que
+   * possible sans jamais rendre le modèle infaisable. Fusion de deux préférences auparavant
+   * séparées (compacité par demi-journée + trou de midi). Défaut : false.
    */
-  crossNoonGap?: boolean;
+  compactTeacherDay?: boolean;
   /**
    * Préférence DOUCE (grand confort) : pour un enseignant, garder la même salle d'un cours au
    * suivant dans une même demi-journée quand une salle commune existe. Appliquée en dernier, à
@@ -265,9 +259,8 @@ export const DEFAULT_SCHEDULER_CONFIG: Required<SchedulerConfig> = {
   timeoutSeconds: 180,
   lunchBreak: { type: 'none' },
   ignoreDailyLimits: false,
-  compactTeacherHalfDays: false,
   minimizeTeacherDays: false,
-  balanceTeacherDailyLoad: false,
-  crossNoonGap: false,
+  reduceTeacherHalfDays: false,
+  compactTeacherDay: false,
   minimizeTeacherRoomChanges: false,
 };

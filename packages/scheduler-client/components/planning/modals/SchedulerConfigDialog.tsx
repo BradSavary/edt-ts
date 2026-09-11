@@ -41,10 +41,9 @@ interface Draft {
   lunchFixed: LunchFixedDraft;
   lunchFloating: LunchFloatingDraft;
   ignoreDailyLimits: boolean;
-  compactTeacherHalfDays: boolean;
   minimizeTeacherDays: boolean;
-  balanceTeacherDailyLoad: boolean;
-  crossNoonGap: boolean;
+  reduceTeacherHalfDays: boolean;
+  compactTeacherDay: boolean;
   minimizeTeacherRoomChanges: boolean;
 }
 
@@ -75,10 +74,9 @@ function configToDraft(config: SchedulerConfig): Draft {
     lunchFixed,
     lunchFloating,
     ignoreDailyLimits: config.ignoreDailyLimits ?? DEFAULT_SCHEDULER_CONFIG.ignoreDailyLimits,
-    compactTeacherHalfDays: config.compactTeacherHalfDays ?? DEFAULT_SCHEDULER_CONFIG.compactTeacherHalfDays,
     minimizeTeacherDays: config.minimizeTeacherDays ?? DEFAULT_SCHEDULER_CONFIG.minimizeTeacherDays,
-    balanceTeacherDailyLoad: config.balanceTeacherDailyLoad ?? DEFAULT_SCHEDULER_CONFIG.balanceTeacherDailyLoad,
-    crossNoonGap: config.crossNoonGap ?? DEFAULT_SCHEDULER_CONFIG.crossNoonGap,
+    reduceTeacherHalfDays: config.reduceTeacherHalfDays ?? DEFAULT_SCHEDULER_CONFIG.reduceTeacherHalfDays,
+    compactTeacherDay: config.compactTeacherDay ?? DEFAULT_SCHEDULER_CONFIG.compactTeacherDay,
     minimizeTeacherRoomChanges:
       config.minimizeTeacherRoomChanges ?? DEFAULT_SCHEDULER_CONFIG.minimizeTeacherRoomChanges,
   };
@@ -104,10 +102,9 @@ function draftToConfig(draft: Draft): SchedulerConfig {
     timeoutSeconds: Math.max(1, parseInt(draft.timeoutSeconds, 10) || DEFAULT_SCHEDULER_CONFIG.timeoutSeconds),
     lunchBreak,
     ignoreDailyLimits: draft.ignoreDailyLimits,
-    compactTeacherHalfDays: draft.compactTeacherHalfDays,
     minimizeTeacherDays: draft.minimizeTeacherDays,
-    balanceTeacherDailyLoad: draft.balanceTeacherDailyLoad,
-    crossNoonGap: draft.crossNoonGap,
+    reduceTeacherHalfDays: draft.reduceTeacherHalfDays,
+    compactTeacherDay: draft.compactTeacherDay,
     minimizeTeacherRoomChanges: draft.minimizeTeacherRoomChanges,
   };
 }
@@ -189,26 +186,6 @@ export function SchedulerConfigDialog() {
             </p>
             <div className="flex items-start gap-3 pt-1">
               <input
-                id="cfg-compactTeacherHalfDays"
-                type="checkbox"
-                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
-                checked={draft.compactTeacherHalfDays}
-                onChange={(e) => setDraftField('compactTeacherHalfDays', e.target.checked)}
-              />
-              <div className="space-y-0.5">
-                <Label htmlFor="cfg-compactTeacherHalfDays" className="cursor-pointer">
-                  Compacter les cours d&apos;un enseignant par demi-journée
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Colle les cours d&apos;un même enseignant à l&apos;intérieur d&apos;une même
-                  demi-journée (réduit les temps morts entre ses cours d&apos;une matinée ou
-                  d&apos;une après-midi). Être présent matin et après-midi, ou sur plusieurs jours,
-                  n&apos;est pas pénalisé.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 pt-1">
-              <input
                 id="cfg-minimizeTeacherDays"
                 type="checkbox"
                 className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
@@ -228,40 +205,41 @@ export function SchedulerConfigDialog() {
             </div>
             <div className="flex items-start gap-3 pt-1">
               <input
-                id="cfg-balanceTeacherDailyLoad"
+                id="cfg-reduceTeacherHalfDays"
                 type="checkbox"
                 className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
-                checked={draft.balanceTeacherDailyLoad}
-                onChange={(e) => setDraftField('balanceTeacherDailyLoad', e.target.checked)}
+                checked={draft.reduceTeacherHalfDays}
+                onChange={(e) => setDraftField('reduceTeacherHalfDays', e.target.checked)}
               />
               <div className="space-y-0.5">
-                <Label htmlFor="cfg-balanceTeacherDailyLoad" className="cursor-pointer">
-                  Équilibrer la charge quotidienne d&apos;un enseignant
+                <Label htmlFor="cfg-reduceTeacherHalfDays" className="cursor-pointer">
+                  Réduire les demi-journées sous-utilisées d&apos;un enseignant
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Répartit plus équitablement la charge d&apos;un enseignant entre les jours où il
-                  est présent (évite un jour surchargé et un autre presque vide). N&apos;ajoute
-                  jamais de jour : elle regroupe d&apos;abord sur le moins de jours possible, puis
-                  équilibre ces jours.
+                  Quand une demi-journée de présence ne contient qu&apos;un cours isolé (2h ou
+                  moins), essaie de le reporter sur une autre demi-journée pour la vider, sans
+                  changer le nombre de jours de présence. Indépendante de l&apos;équilibrage : peut
+                  dégrader l&apos;équilibre obtenu si cela élimine une demi-journée sous-utilisée.
                 </p>
               </div>
             </div>
             <div className="flex items-start gap-3 pt-1">
               <input
-                id="cfg-crossNoonGap"
+                id="cfg-compactTeacherDay"
                 type="checkbox"
                 className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
-                checked={draft.crossNoonGap}
-                onChange={(e) => setDraftField('crossNoonGap', e.target.checked)}
+                checked={draft.compactTeacherDay}
+                onChange={(e) => setDraftField('compactTeacherDay', e.target.checked)}
               />
               <div className="space-y-0.5">
-                <Label htmlFor="cfg-crossNoonGap" className="cursor-pointer">
-                  Limiter le trou de midi enseignant
+                <Label htmlFor="cfg-compactTeacherDay" className="cursor-pointer">
+                  Compacter la journée d&apos;un enseignant
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Évite qu&apos;un enseignant ait un cours tôt le matin et un autre tard le soir
-                  avec un grand vide au milieu (au-delà de la pause déjeuner). Sans effet si la
-                  pause n&apos;est pas fixe.
+                  Réduit tous les trous entre les cours d&apos;un enseignant sur une journée,
+                  hormis la pause méridienne elle-même. S&apos;il a des cours avant ET après la
+                  pause, les resserre autour de celle-ci. Sans seuil ni plafond : réduit autant
+                  que possible, sans jamais rendre le planning infaisable.
                 </p>
               </div>
             </div>

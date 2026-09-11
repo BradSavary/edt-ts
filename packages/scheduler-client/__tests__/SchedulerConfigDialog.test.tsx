@@ -48,35 +48,31 @@ describe('SchedulerConfigDialog', () => {
     render(<SchedulerConfigDialog />);
     openDialog();
 
-    expect(screen.getByLabelText(/Compacter les cours d.+enseignant/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Minimiser le nombre de jours/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Équilibrer la charge quotidienne/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Limiter le trou de midi/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Réduire les demi-journées sous-utilisées/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Compacter la journée d.+enseignant/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Limiter les changements de salle/i)).toBeInTheDocument();
   });
 
-  it('cocher les cinq préférences douces et valider : les valeurs survivent à une réouverture', () => {
+  it('cocher les quatre préférences douces et valider : les valeurs survivent à une réouverture', () => {
     render(<SchedulerConfigDialog />);
     openDialog();
 
-    fireEvent.click(screen.getByLabelText(/Compacter les cours d.+enseignant/i));
     fireEvent.click(screen.getByLabelText(/Minimiser le nombre de jours/i));
-    fireEvent.click(screen.getByLabelText(/Équilibrer la charge quotidienne/i));
-    fireEvent.click(screen.getByLabelText(/Limiter le trou de midi/i));
+    fireEvent.click(screen.getByLabelText(/Réduire les demi-journées sous-utilisées/i));
+    fireEvent.click(screen.getByLabelText(/Compacter la journée d.+enseignant/i));
     fireEvent.click(screen.getByLabelText(/Limiter les changements de salle/i));
     fireEvent.click(screen.getByRole('button', { name: /Valider/i }));
 
-    expect(useAppConfigStore.getState().schedulerConfig.compactTeacherHalfDays).toBe(true);
     expect(useAppConfigStore.getState().schedulerConfig.minimizeTeacherDays).toBe(true);
-    expect(useAppConfigStore.getState().schedulerConfig.balanceTeacherDailyLoad).toBe(true);
-    expect(useAppConfigStore.getState().schedulerConfig.crossNoonGap).toBe(true);
+    expect(useAppConfigStore.getState().schedulerConfig.reduceTeacherHalfDays).toBe(true);
+    expect(useAppConfigStore.getState().schedulerConfig.compactTeacherDay).toBe(true);
     expect(useAppConfigStore.getState().schedulerConfig.minimizeTeacherRoomChanges).toBe(true);
 
     openDialog();
-    expect(screen.getByLabelText(/Compacter les cours d.+enseignant/i)).toBeChecked();
     expect(screen.getByLabelText(/Minimiser le nombre de jours/i)).toBeChecked();
-    expect(screen.getByLabelText(/Équilibrer la charge quotidienne/i)).toBeChecked();
-    expect(screen.getByLabelText(/Limiter le trou de midi/i)).toBeChecked();
+    expect(screen.getByLabelText(/Réduire les demi-journées sous-utilisées/i)).toBeChecked();
+    expect(screen.getByLabelText(/Compacter la journée d.+enseignant/i)).toBeChecked();
     expect(screen.getByLabelText(/Limiter les changements de salle/i)).toBeChecked();
   });
 
