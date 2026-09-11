@@ -31,6 +31,8 @@ export interface TaskCardProps {
   isNeutralized?: boolean;
   isEnforced?: boolean;
   groupInfo?: { type: 'parallel' | 'sequential' } | null;
+  /** Commentaire libre du cours, affiché en icône avec tooltip. */
+  comment?: string;
   /**
    * Clé de cours pour le drag sidebar préparation.
    * Positionne `data-course-key` sur la carte (sauf si neutralisé/imposé).
@@ -72,6 +74,7 @@ export default function TaskCard({
   isNeutralized = false,
   isEnforced = false,
   groupInfo,
+  comment,
   courseKey,
   taskId,
   onEdit,
@@ -181,6 +184,11 @@ export default function TaskCard({
               >
                 {groupInfo.type === 'parallel' ? '∥' : '→'}
               </Badge>
+            )}
+            {comment && (
+              <span title={comment} className="text-[10px] leading-none">
+                💬
+              </span>
             )}
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
               {duration}min

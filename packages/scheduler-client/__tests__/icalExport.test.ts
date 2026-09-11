@@ -117,6 +117,18 @@ describe('generateIcalContent', () => {
     });
   });
 
+  describe('DESCRIPTION', () => {
+    it('inclut le commentaire du cours quand il est présent', () => {
+      const content = generateIcalContent([makeTask({ comment: 'Prévoir vidéoprojecteur' })], 47);
+      expect(content).toContain('Commentaire: Prévoir vidéoprojecteur');
+    });
+
+    it('ne contient pas la ligne "Commentaire" quand le cours n\'a pas de commentaire', () => {
+      const content = generateIcalContent([makeTask()], 47);
+      expect(content).not.toContain('Commentaire:');
+    });
+  });
+
   describe('ressources', () => {
     it('inclut ORGANIZER avec le nom de l\'enseignant', () => {
       const content = generateIcalContent([makeTask()], 47);

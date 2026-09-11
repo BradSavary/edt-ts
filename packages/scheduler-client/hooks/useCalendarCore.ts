@@ -71,6 +71,7 @@ function buildPlacementEvent(
       taskId: placement.taskId,
       manuallyPlaced,
       constraintViolation: violation,
+      comment: course?.comment,
     },
   };
 }
@@ -193,6 +194,7 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
       durationMin: ext.durationMin ?? 0,
       origin: ext.origin ?? 'auto',
       showDuration: true,
+      comment: ext.comment,
       ...resourceOptions,
     });
   }
@@ -352,6 +354,7 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
           groups: mergeConcreteIntoEntries(course.groups, groups),
           rooms: mergeConcreteIntoEntries(course.rooms ?? [], rooms),
           ...(update.duration !== undefined ? { duration: update.duration } : {}),
+          comment: update.comment,
         };
         if (course.source === 'manual') {
           if (selectedWeek !== null) useProjectStore.getState().updateManualCourse(selectedWeek, course.id, patch);
@@ -372,7 +375,20 @@ export function useCalendarCore(placements: Placement[], parsedCourses: CourseTa
     } else {
       // auto / post-enforced : retouche d'un placement concret (sans alternatives) — teacher/
       // groups/rooms ne sont volontairement PAS recopiés sur le cours-modèle, qui peut en avoir
-      // (cf. mémoire du projet).
+      // (cf. mémoire du projet). Le commentaire, lui, est un attribut du cours-modèle (pas du
+      // placement) : il se synchronise toujours, indépendamment de cette bascule.
+      const course = courseById.get(pendingEdit.taskId);
+      if (course) {
+        const commentPatch = { comment: update.comment };
+        if (course.source === 'manual') {
+          if (selectedWeek !== null) {
+            useProjectStore.getState().updateManualCourse(selectedWeek, course.id, commentPatch);
+          }
+        } else {
+          const { allCourses, setCourses } = useProjectStore.getState();
+          setCourses(allCourses.map((c) => (c.id === course.id ? { ...c, ...commentPatch } : c)));
+        }
+      }
       updatePlacement(pendingEdit.placementId, {
         resources: { teachers: update.teachers.flat(), groups: update.groups.flat(), rooms: update.rooms.flat() },
         ...(update.duration !== undefined ? { duration: update.duration } : {}),

@@ -74,11 +74,11 @@ export interface WeekSavesSlice {
   addManualCourse: (weekNumber: number, schoolYear: string, course: CourseTaskData) => void;
   /** Retire un cours manuel de la semaine par id. No-op si la semaine n'a pas de snapshot. */
   removeManualCourse: (weekNumber: number, courseId: string) => void;
-  /** Modifie les ressources/durée d'un cours manuel existant. No-op si la semaine n'a pas de snapshot. */
+  /** Modifie les ressources/durée/commentaire d'un cours manuel existant. No-op si la semaine n'a pas de snapshot. */
   updateManualCourse: (
     weekNumber: number,
     courseId: string,
-    patch: Partial<Pick<CourseTaskData, 'teacher' | 'groups' | 'rooms' | 'duration'>>,
+    patch: Partial<Pick<CourseTaskData, 'teacher' | 'groups' | 'rooms' | 'duration' | 'comment'>>,
   ) => void;
   /** Enregistre la note de la semaine (crée le snapshot s'il n'existe pas encore). */
   setWeekNote: (weekNumber: number, schoolYear: string, note: string) => void;

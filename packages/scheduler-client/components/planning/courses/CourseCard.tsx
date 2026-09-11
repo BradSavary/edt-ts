@@ -31,6 +31,7 @@ export default function CourseCard({ courseKey, course, enforced, onEdit, onDupl
       teachers={normalizeResourceEntries(course.teacher)}
       groups={normalizeResourceEntries(course.groups)}
       rooms={normalizeResourceEntries(course.rooms ?? [])}
+      comment={course.comment}
       isNeutralized={isNeutralized}
       isEnforced={enforced}
       groupInfo={groupInfo}

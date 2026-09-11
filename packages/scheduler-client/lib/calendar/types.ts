@@ -42,6 +42,8 @@ export interface CalendarEventExtProps {
   manuallyPlaced?: boolean;
   /** Violation de contrainte détectée au moment du placement. */
   constraintViolation?: 'red' | 'orange' | 'none';
+  /** Commentaire libre du cours (repéré à l'écran, jamais transmis au moteur). */
+  comment?: string;
 }
 
 export interface CalendarEventData {
@@ -81,4 +83,5 @@ export interface PendingEditData {
   teacherOptions: string[];
   groupOptions: string[];
   roomOptions: string[];
+  comment?: string;
 }

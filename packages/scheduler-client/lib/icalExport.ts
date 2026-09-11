@@ -98,6 +98,7 @@ function buildVEvent(task: TaskSolutionJSON, monday: Date, dtstamp: string): str
     teachers.length ? `Enseignant(s): ${teachers.join(', ')}` : '',
     rooms.length ? `Salle(s): ${rooms.join(', ')}` : '',
     groups.length ? `Groupe(s): ${groups.join(', ')}` : '',
+    task.comment ? `Commentaire: ${task.comment}` : '',
   ].filter(Boolean);
   const description = descLines.map(escapeText).join('\\n');
 

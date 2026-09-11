@@ -19,6 +19,7 @@ export interface TaskEditUpdate {
   groups: ResourceEntry[];
   rooms: ResourceEntry[];
   duration?: number;
+  comment?: string;
 }
 
 interface Props {
@@ -36,6 +37,7 @@ interface Props {
   isEnforced?: boolean;
   /** Autorise le regroupement en alternative. false pour les placements concrets (calendrier). */
   allowAlternatives?: boolean;
+  comment?: string;
   onRemoveEnforced?: () => void;
   onConfirm: (update: TaskEditUpdate) => void;
   onCancel: () => void;
@@ -54,6 +56,7 @@ export default function TaskEditModal({
   level,
   isEnforced,
   allowAlternatives = true,
+  comment,
   onRemoveEnforced,
   onConfirm,
   onCancel,
@@ -62,6 +65,7 @@ export default function TaskEditModal({
   const [selGroups, setSelGroups] = useState<ResourceEntry[]>(groups);
   const [selRooms, setSelRooms] = useState<ResourceEntry[]>(rooms);
   const [selDuration, setSelDuration] = useState<string>(String(duration ?? 60));
+  const [selComment, setSelComment] = useState(comment ?? '');
 
   function handleConfirm() {
     const parsedDuration = parseInt(selDuration, 10);
@@ -71,6 +75,7 @@ export default function TaskEditModal({
       groups: selGroups,
       rooms: selRooms,
       ...(showDuration ? { duration: finalDuration } : {}),
+      comment: selComment.trim() || undefined,
     });
   }
 
@@ -100,6 +105,17 @@ export default function TaskEditModal({
               />
             </div>
           )}
+          <div>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1.5">
+              Commentaires
+            </Label>
+            <textarea
+              value={selComment}
+              onChange={(e) => setSelComment(e.target.value)}
+              placeholder="Informations libres sur ce cours…"
+              className="w-full min-h-[70px] resize-y rounded-md border border-input bg-transparent p-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+          </div>
           <ResourceSlots
             label="Enseignant(s)"
             values={selTeachers}

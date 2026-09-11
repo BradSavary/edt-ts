@@ -28,6 +28,7 @@ function renderEventContent(info: EventContentArg) {
     blockedZoneLabel?: string;
     manuallyPlaced?: boolean;
     constraintViolation?: 'red' | 'orange' | 'none';
+    comment?: string;
   };
 
   if (props.isBlockedZone) {
@@ -74,6 +75,7 @@ function renderEventContent(info: EventContentArg) {
       )}
       <div className="font-semibold truncate flex items-center gap-1">
         {props.origin === 'pre-enforced' && <span title="Imposé">📌</span>}
+        {props.comment && <span title={props.comment}>💬</span>}
         {info.event.title}
       </div>
       {props.name && <div className="truncate opacity-90">{props.name}</div>}
@@ -200,6 +202,7 @@ export default function ScheduleCalendar({ placements, parsedCourses = [] }: Pro
           allowAlternatives={false}
           duration={pendingEdit.durationMin}
           showDuration={pendingEdit.showDuration}
+          comment={pendingEdit.comment}
           onRemoveEnforced={
             pendingEdit.origin === 'pre-enforced'
               ? () => { removeEnforced(pendingEdit.taskId); setPendingEdit(null); }

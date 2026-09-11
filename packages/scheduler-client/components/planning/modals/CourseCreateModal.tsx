@@ -51,6 +51,7 @@ export default function CourseCreateModal({
   const [teachers, setTeachers] = useState<ResourceEntry[]>(initialCourse?.teacher ?? []);
   const [groups, setGroups] = useState<ResourceEntry[]>(initialCourse?.groups ?? []);
   const [rooms, setRooms] = useState<ResourceEntry[]>(initialCourse?.rooms ?? []);
+  const [comment, setComment] = useState(initialCourse?.comment ?? '');
 
   const canConfirm = code.trim().length > 0 && duration > 0;
 
@@ -67,6 +68,7 @@ export default function CourseCreateModal({
       teacher: teachers,
       groups,
       rooms,
+      comment: comment.trim() || undefined,
     };
     onConfirm(course);
   }
@@ -148,6 +150,19 @@ export default function CourseCreateModal({
               value={duration}
               onChange={(e) => setDuration(Math.max(15, parseInt(e.target.value, 10) || 15))}
               className="h-8 text-sm"
+            />
+          </div>
+
+          {/* Commentaires */}
+          <div>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1.5">
+              Commentaires
+            </Label>
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Informations libres sur ce cours…"
+              className="w-full min-h-[70px] resize-y rounded-md border border-input bg-transparent p-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
 

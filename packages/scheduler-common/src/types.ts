@@ -69,6 +69,8 @@ export interface CourseTaskData {
    * sur l'identifiant positionnel historique.
    */
   id?: string;
+  /** Commentaire libre, purement informatif côté client (jamais transmis au moteur CP-SAT). */
+  comment?: string;
 }
 
 export interface CoursesData {
@@ -121,6 +123,8 @@ export interface TaskSolutionJSON {
   startTime: number;
   resources: { id: string; type: string }[];
   taskGroupId?: string;
+  /** Commentaire libre du cours, reporté depuis CourseTaskData pour l'export ICS. */
+  comment?: string;
 }
 
 

@@ -121,5 +121,6 @@ export function toTaskSolutionJSON(
       ...placement.resources.groups.map((id) => ({ id, type: 'group' })),
       ...placement.resources.rooms.map((id) => ({ id, type: 'room' })),
     ],
+    comment: course?.comment,
   };
 }
