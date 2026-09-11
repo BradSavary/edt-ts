@@ -26,10 +26,10 @@ Fidélité de modélisation (calquée sur scheduler-common / scheduler-core) :
                                 (parallel : départs égaux ; sequential : enchaînement sans gap)
   - maxDailyMinutes           → plafond quotidien par ressource (réification on_day) — hors enforced
   - pause méridienne fixe     → scheduler.ts _applyLunchBreak (retirée des seuls GROUP, lun-ven)
-  - préférences douces prof   → passe 2 (à placement fixé) : compacité par demi-journée
-                                (compactTeacherHalfDays) et/ou moins de jours (minimizeTeacherDays)
-                                et/ou équilibrage de la charge quotidienne (balanceTeacherDailyLoad,
-                                passe 3, min-max des pics à placement ET passe-2 figés)
+  - préférences douces prof   → hiérarchie à placement fixé, dans cet ordre : moins de jours
+                                (minimizeTeacherDays, passe 2) → réduction des demi-journées
+                                sous-utilisées (reduceTeacherHalfDays, passe 3) → compacité par
+                                jour (compactTeacherDay, passe 4)
 
 Assumé / hors périmètre (features core-only, écartées pour ce moteur) :
   - pause FLOTTANTE (modélise mal en CP-SAT figé) — seul 'fixed' est honoré ;
@@ -48,12 +48,6 @@ from ortools.sat.python import cp_model
 
 HORIZON = 7 * 1440  # minutes depuis lundi 00:00, une semaine
 
-# Poids (en « minutes-équivalent ») d'une journée de présence d'un enseignant en trop, pour l'option
-# douce minimizeTeacherDays. Sert uniquement à mettre les deux préférences douces sur une échelle
-# commune quand elles sont combinées avec compactTeacherHalfDays (l'idle est en minutes) : une
-# journée de présence supplémentaire « coûte » autant que 240 min de trous. Réglable.
-DAY_PRESENCE_PENALTY = 240
-
 # Types de ressources — mêmes chaînes que ResourceType (resource.ts).
 TEACHER, ROOM, GROUP = "teacher", "room", "group"
 
@@ -62,13 +56,43 @@ TEACHER, ROOM, GROUP = "teacher", "room", "group"
 # avec 1 s au compteur : elle rendait UNKNOWN et l'option demandée restait sans effet, en silence.
 MIN_PASS_SECONDS = 0.5
 
+# Charge (minutes) en dessous ou égale à laquelle une demi-journée est considérée SOUS-UTILISÉE par
+# `reduceTeacherHalfDays` (passe 3) — cible à reporter ailleurs. Correspond le plus souvent à un
+# unique cours isolé sur la demi-journée. Réglable.
+HALF_DAY_UNDERUSED_THRESHOLD = 120
+
+# Poids de l'idle intra-bloc (compactTeacherDay, Option A) relatif au trou de midi (Option D, poids
+# 1 implicite). DOIT être > 1. Sans ça, rapprocher le PREMIER cours de l'après-midi de la pause de
+# Δ minutes, sans bouger les cours suivants, réduit le trou de midi d'EXACTEMENT Δ (Option D) tout
+# en créant un trou intra-bloc d'EXACTEMENT Δ entre ce cours et le suivant (Option A) — un échange
+# strictement à somme nulle sur `sum(penalty_terms)`. Le solveur est alors indifférent entre
+# resserrer en créant un trou et ne rien faire, et peut arbitrairement choisir la première option
+# (constaté sur le vrai projet, 2026-09-11 : 2 cours d'après-midi, le premier remonté à la pause,
+# le second laissé sur place, trou créé entre eux). Un poids strictement supérieur à 1 sur l'idle
+# intra-bloc rend cet échange perdant : resserrer un SEUL cours en créant un trou coûte alors plus
+# cher que ce qu'il fait gagner, donc n'est plus jamais préféré à ne rien faire. Ne coûte rien à la
+# vraie compaction (déplacer TOUT le bloc ensemble vers la pause reste à idle intra-bloc constant,
+# donc toujours gagnant).
+COMPACT_DAY_IDLE_WEIGHT = 2
+
+# Fraction de `timeoutSeconds` (le TOTAL, pas le restant) réservée PAR PASSE ACTIVE EN AVAL, avant
+# d'allouer le reste à la passe courante. Sans ce plafond, une passe qui ne converge jamais (constaté
+# sur l'ex-passe équilibrage, retirée depuis — cf. mémoire — sur un vrai projet chargé) engloutit
+# tout le timeout quelle que soit sa générosité — constaté : 360 minutes n'ont pas suffi pour libérer
+# la moindre seconde à la passe suivante. Une FRACTION du total (pas une constante absolue en
+# secondes) pour rester cohérent aussi bien avec les timeouts courts des tests (10s) qu'avec des
+# timeouts réels de plusieurs centaines de secondes.
+# Valeur de départ modeste et réglable : garantit que chaque passe active s'exécute au moins une
+# fois (même en dégradé), pas qu'elle converge.
+DOWNSTREAM_RESERVE_FRACTION = 0.05
+
 
 def _remaining(deadline: float) -> float:
     """Secondes restantes avant l'échéance globale de `solve()`."""
     return deadline - time.monotonic()
 
 
-def _pass_budget(deadline: float, label: str) -> float:
+def _pass_budget(deadline: float, label: str, reserve: float = 0.0) -> float:
     """
     Budget allouable à une passe, ou 0.0 (+ diagnostic stderr) s'il ne reste plus rien.
 
@@ -76,12 +100,32 @@ def _pass_budget(deadline: float, label: str) -> float:
     précédent : ce dernier ne connaît que la durée de SA passe, si bien que retrancher sa valeur
     re-crédite le temps consommé par toutes les passes d'avant (jusqu'à ~2x `timeoutSeconds` au
     total, alors que la passerelle Node tue le process à `timeoutSeconds + 5`).
+
+    `reserve` : secondes à NE PAS allouer à cette passe, gardées pour les passes actives en aval
+    (voir `DOWNSTREAM_RESERVE_FRACTION`). La valeur retournée est directement utilisable comme
+    `max_time_in_seconds` du solveur de cette passe — pas besoin de recalculer `_remaining(deadline)`
+    séparément (piège : les deux calculs divergeraient si le budget ci-dessous plafonne à `reserve`
+    près, alors que `_remaining` seul ignorerait la réserve).
     """
-    budget = _remaining(deadline)
+    budget = _remaining(deadline) - reserve
     if budget < MIN_PASS_SECONDS:
-        print(f"[cpsat] {label} : sautée, budget épuisé ({budget:.1f}s restantes).", file=sys.stderr)
+        print(f"[cpsat] {label} : sautée, budget épuisé "
+              f"({budget:.1f}s restantes, {reserve:.1f}s réservées en aval).", file=sys.stderr)
         return 0.0
     return budget
+
+
+def _log_pass_timing(label: str, solver: cp_model.CpSolver, status: int, budget: float) -> None:
+    """
+    Trace, pour une passe qui a tourné, le temps RÉELLEMENT consommé face à son budget alloué —
+    diagnostic dev pour savoir quelles passes convergent (`WallTime` << budget) et lesquelles
+    engloutissent tout leur budget sans jamais prouver l'optimum (`WallTime` ≈ budget, statut
+    FEASIBLE plutôt qu'OPTIMAL). Toujours actif (stderr uniquement, jamais renvoyé au client) —
+    ce projet n'a pas d'environnement de production distinct de `npm run api:dev`.
+    """
+    ratio = (solver.WallTime() / budget * 100) if budget > 0 else 0.0
+    print(f"[cpsat] {label} : {solver.WallTime():.2f}s / {budget:.2f}s budget "
+          f"({ratio:.0f}%) — statut={solver.StatusName(status)}", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
@@ -342,74 +386,71 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                            ATTENTION : transforme un optimum de placement souvent trivial (0 branche,
                            ~1 s) en une vraie optimisation combinatoire (bien plus lente). À n'activer
                            que si un placement déterministe « au plus tôt » est requis.
-      - compactTeacherHalfDays : bool (défaut False) — préférence DOUCE : dans chaque demi-journée
-                           où un enseignant est présent, coller ses cours (minimiser les trous À
-                           L'INTÉRIEUR d'un bloc matin/après-midi). N'interdit ni ne pénalise d'être
-                           présent matin ET après-midi, ni sur plusieurs jours : seuls les temps
-                           morts intra-bloc comptent. Si la pause est fixe et qu'un cours `enforced`
-                           empiète dessus, le bloc n'est plus « matin/après-midi » au sens scalaire
-                           mais délimité par la pause RÉSIDUELLE de ce (prof, jour) — la portion de
-                           pause encore libre après l'enforced (voir `crossNoonGap` ci-dessous pour
-                           le détail) — pour ne pas facturer la pause écourtée comme du temps mort.
-                           Si l'enforced mange la pause en entier, plus de scission : la journée est
-                           un bloc unique et son temps mort réel est facturé intégralement. Trou
-                           connu : un cours à cheval sur la pause dont `groups` est VIDE (ni carvé
-                           par le groupe ni par un enforced) échappe à cette classification — non
-                           modélisé en v1, neutralisé par le `max(0, …)` structurel de `crossNoonGap`
+      - minimizeTeacherDays : bool (défaut False) — préférence DOUCE, PRIORITAIRE sur toutes les
+                           autres : concentrer les cours d'un enseignant sur le moins de JOURNÉES
+                           distinctes possible (remplir matin+après-midi d'un jour plutôt qu'étaler
+                           sur plusieurs). Passe 2, à placement FIXÉ, seule et isolée (plus mêlée à
+                           `compactTeacherDay` comme avant refonte) : minimise Σ jours de
+                           présence, puis VERROUILLE ce total pour toutes les passes suivantes
+                           (`sum(day_used) <= best_days`) — aucune passe en aval ne peut plus ajouter
+                           de jour, quelle que soit l'option cochée. Ne dégrade jamais le placement ni
+                           les contraintes dures. `provenOptimal` reste basé sur la passe 1.
+      - reduceTeacherHalfDays : bool (défaut False) — préférence DOUCE : pour chaque demi-journée de
+                           présence d'un enseignant dont la charge est ≤ `HALF_DAY_UNDERUSED_THRESHOLD`
+                           (120 min — le cas typique est un unique cours isolé), essaie de la reporter
+                           sur une autre demi-journée (à l'intérieur des mêmes jours) pour la vider.
+                           Objectif : minimiser le nombre de ces demi-journées SOUS-utilisées — une
+                           demi-journée déjà bien remplie (> 120 min) n'est jamais une cible à vider,
+                           seulement une destination possible. Passe 3, à placement ET jours (si actif)
+                           FIGÉS. AUCUN plafond dur sur le pic quotidien — seules les contraintes dures
+                           (disponibilité, plafond quotidien) bornent le report ; le pic peut donc se
+                           dégrader librement dans cette seule limite. Ne dégrade jamais placement ni
+                           contraintes dures, ni le nombre de jours. `provenOptimal` reste basé sur la
+                           passe 1.
+      - compactTeacherDay : bool (défaut False) — préférence DOUCE, fusion de deux mécanismes
+                           auparavant séparés (`compactTeacherHalfDays` + `crossNoonGap`) sous UN
+                           seul flag, par jour plutôt que par demi-journée isolée : minimise TOUS
+                           les trous entre cours consécutifs d'un enseignant sur une journée, à
+                           l'exception de la pause méridienne elle-même (seule autorisée à excéder
+                           les autres trous). Aucun seuil, aucun plafond dur : réduit autant que
+                           possible, sans jamais pouvoir rendre le modèle infaisable. Passe 4, à
+                           placement, jours (si actif) ET demi-journées (si actif) FIGÉS.
+                           Techniquement, deux composantes ADDITIVES dans la même passe (implémentées
+                           telles quelles, sans réécriture, pour préserver les cas limites déjà
+                           validés) :
+                             1) trous À L'INTÉRIEUR d'un bloc matin/après-midi (ou de la journée
+                                entière si `lunchBreak.type != 'fixed'` — sans pause à protéger, un
+                                seul bloc couvre toute la journée, aucun découpage arbitraire) ;
+                             2) l'EXCÉDENT du trou de midi au-delà de la pause RÉSIDUELLE réelle de
+                                ce (prof, jour) — la portion de pause encore libre après un éventuel
+                                `enforced` qui empiète dessus (`_residual_break`), jamais la constante
+                                `lunch_len` — pour un enseignant présent matin ET après-midi
+                                uniquement. Ignorée si la pause n'est pas fixe. Si un enforced mange
+                                la pause en entier, plus de scission : la composante 1 facture la
+                                journée entière comme un bloc unique, la composante 2 n'a plus d'objet
+                                et se neutralise d'elle-même. Positivité assurée STRUCTURELLEMENT
+                                (`AddMaxEquality(gap, [raw_gap, 0])`), pas seulement par construction
+                                du domaine — un enforced à cheval peut sinon rendre le trou négatif.
+                           Composante 1 pondérée `COMPACT_DAY_IDLE_WEIGHT` (=2) contre 1 pour la
+                           composante 2 : sans cet écart, rapprocher le PREMIER cours de l'après-midi
+                           de la pause de Δ minutes sans bouger les suivants réduit la composante 2
+                           d'exactement Δ tout en créant un trou intra-bloc d'exactement Δ (composante
+                           1) — échange à somme nulle qui laissait le solveur resserrer au prix d'un
+                           trou ailleurs (repéré sur le vrai projet, 2026-09-11). Le poids >1 rend cet
+                           échange perdant sans pénaliser la vraie compaction (déplacer le bloc entier
+                           vers la pause reste gagnant, à idle intra-bloc constant).
+                           N'interdit ni ne pénalise d'être présent matin ET après-midi, ni sur
+                           plusieurs jours. Trou connu (hors périmètre v1) : un cours à cheval sur la
+                           pause dont `groups` est VIDE (ni carvé par le groupe ni par un enforced)
+                           échappe à cette classification — neutralisé par le `max(0, …)` structurel
                            plutôt que modélisé explicitement.
-      - minimizeTeacherDays : bool (défaut False) — préférence DOUCE : concentrer les cours d'un
-                           enseignant sur le moins de JOURNÉES distinctes possible (remplir
-                           matin+après-midi d'un jour plutôt qu'étaler sur plusieurs).
-                           Les deux options ci-dessus sont indépendantes et combinables.
-                           Résolution en deux passes : passe 1 maximise le nombre de cours placés
-                           (comme sans option) ; passe 2, à ce nombre FIXÉ, minimise la pénalité
-                           douce combinée. Ne dégrade jamais le placement ni les contraintes dures.
-                           `provenOptimal` reste basé sur la passe 1 (l'optimum doux peut ne pas
-                           être prouvé sous le timeout).
-      - balanceTeacherDailyLoad : bool (défaut False) — préférence DOUCE : équilibrer la charge
-                           quotidienne d'un enseignant entre ses jours de présence (min-max de la
-                           charge par jour). N'ajoute jamais de jour : force la présence-jours en
-                           passe 2 (comme minimizeTeacherDays) puis équilibre en passe 3, à
-                           placement ET pénalité passe-2 FIGÉS. Ne dégrade jamais placement ni
-                           contraintes dures. `provenOptimal` reste basé sur la passe 1.
-                           ATTENTION COÛT : la passe 3 est une vraie optimisation combinatoire
-                           min-max (contrairement au placement souvent quasi-trivial des passes 1-2)
-                           — surcoût notable mesuré ~2s→18s sur S48. Utilisable en interactif, mais
-                           bien plus lourde que les autres douces.
-      - crossNoonGap     : bool (défaut False) — préférence DOUCE : pénalise le trou de midi d'un
-                           enseignant présent matin ET après-midi, au-delà de la pause déjeuner
-                           (limite les journées à faible ratio cours/amplitude, ex. 8h+18h). Le
-                           terme est en minutes, dans la même échelle que l'idle de
-                           `compactTeacherHalfDays`, et rejoint la même passe 2 (aucune passe
-                           supplémentaire, aucun surcoût façon `balanceTeacherDailyLoad`). Ignorée
-                           si la pause n'est pas fixe (`lunchBreak.type != 'fixed'`) : sans pause
-                           fixe, la découpe matin/après-midi est arbitraire et la positivité du
-                           trou n'est plus garantie.
-                           Un `enforced` empiétant sur la pause (ex. 13:30 sur 12:00–14:00) est
-                           épinglé sans domaine de disponibilité (fidèle à `bookEnforced()`) : le
-                           trou est calculé contre la pause RÉSIDUELLE de ce (prof, jour) — le plus
-                           grand sous-intervalle de la pause encore libre des enforced de cet
-                           enseignant ce jour-là (`_residual_break`), pas la constante `lunch_len`.
-                           Si la pause est mangée en entier par un ou plusieurs enforced, aucune
-                           scission matin/après-midi : le terme est sauté pour ce (prof, jour), et
-                           `compactTeacherHalfDays` (s'il est actif) facture le temps mort de la
-                           journée entière comme un bloc unique — la notion de « trou de midi » n'a
-                           plus d'objet. Positivité du terme assurée STRUCTURELLEMENT
-                           (`AddMaxEquality(gap, [raw_gap, 0])`), plus seulement par construction du
-                           domaine : un enforced à cheval peut rendre `raw_gap` négatif (le proxy
-                           scalaire d'origine le classait à tort d'un seul côté), et cette préférence
-                           DOUCE ne doit jamais pouvoir rendre le modèle INFEASIBLE. Trou connu (hors
-                           périmètre v1) : un cours à cheval dont `groups` est VIDE n'est carvé ni
-                           par un groupe ni par un enforced et peut se placer en pleine pause avec un
-                           `start` variable — non couvert par la partition ci-dessus, neutralisé par
-                           le `max(0, …)` plutôt que modélisé explicitement.
       - minimizeTeacherRoomChanges : bool (défaut False) — préférence DOUCE de grand confort : pour
                            un enseignant, garder la même salle d'un cours au suivant dans une même
-                           demi-journée quand une salle commune existe. Passe 4, tout en bas de la
+                           demi-journée quand une salle commune existe. Passe 5, tout en bas de la
                            hiérarchie, appliquée à PLACEMENT GELÉ (post-traitement quasi pur) :
                            `scheduled[]`, `start[]` et tous les littéraux non-salle sont figés en dur
                            à la solution des passes précédentes, seul le choix parmi les salles
-                           ALTERNATIVES reste libre. Les 4 autres douces ne dépendent que de
+                           ALTERNATIVES reste libre. Les 3 autres douces ne dépendent que de
                            grandeurs gelées → strictement préservées, aucun verrou dur
                            supplémentaire nécessaire. Fidèle (pénalise les vraies transitions entre
                            cours consécutifs d'une même demi-journée, pas une borne), no-op si aucun
@@ -422,13 +463,14 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     exclude_types = set(config.get("excludeTypes", ["Autonomie"]))
     ignore_daily = bool(config.get("ignoreDailyLimits", False))
     earliest = bool(config.get("earliest", False))
-    compact_half_days = bool(config.get("compactTeacherHalfDays", False))
+    compact_teacher_day = bool(config.get("compactTeacherDay", False))
     minimize_days = bool(config.get("minimizeTeacherDays", False))
-    balance_load = bool(config.get("balanceTeacherDailyLoad", False))
-    cross_noon = bool(config.get("crossNoonGap", False))
+    reduce_half_days = bool(config.get("reduceTeacherHalfDays", False))
     minimize_rooms = bool(config.get("minimizeTeacherRoomChanges", False))
-    # L'équilibrage ancre le nombre de jours : il force la présence-jours dans la passe 2.
-    include_days = minimize_days or balance_load
+    # `day_used_by` est construit dès que l'une des deux options en a besoin : minimize_days pour le
+    # minimiser (passe 2), reduce_half_days pour verrouiller le nombre de jours pendant qu'elle
+    # reporte de la charge entre demi-journées (passe 3).
+    include_days = minimize_days or reduce_half_days
 
     # Métadonnées ressources : type + plafond quotidien.
     rtype_of: dict[str, str] = {}
@@ -538,7 +580,7 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     # Occupation enforced par (enseignant, jour) — sert à calculer la pause méridienne
     # RÉELLEMENT disponible d'un enseignant quand un enforced empiète dessus (pause écourtée,
     # pas supprimée). Portée fonction entière : réutilisé par les préférences douces (Option A/D
-    # ci-dessous) ET par la passe 4 (§1.6, cohérence de la frontière demi-journée). Les `start`
+    # ci-dessous) ET par la passe 5 (§1.6, cohérence de la frontière demi-journée). Les `start`
     # des enforced sont des constantes Python → aucun coût solveur.
     enf_busy: dict[tuple[str, int], list[tuple[int, int]]] = defaultdict(list)
     if lunch is not None:
@@ -683,13 +725,14 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
         model.Add(sum(terms) <= max_daily[rid])
 
     # Préférences DOUCES enseignant (chacune derrière son flag ; indépendantes et combinables).
-    # Toutes deux minimisées en passe 2, à placement FIXÉ. `penalty_terms` agrège des termes déjà
-    # ramenés à une échelle commune « minutes » (l'idle est en minutes ; une journée de présence en
-    # trop vaut DAY_PRESENCE_PENALTY minutes), de sorte qu'une simple somme les concilie sans qu'une
-    # option n'écrase l'autre quand les deux sont actives.
+    # `day_terms` isolé (passe 2, minimize_days uniquement) ; `half_terms` = demi-journées
+    # sous-utilisées (passe 3, reduce_half_days uniquement) ; `penalty_terms` = compacité + trou de
+    # midi, en minutes (passe 4, à passe-3 FIGÉE). Chaque grandeur a son propre niveau
+    # lexicographique.
+    day_terms: list[Any] = []             # Σ jours de présence (passe 2, minimize_days uniquement)
     penalty_terms: list[Any] = []
-    peak_terms: list[Any] = []            # Σ pic quotidien (passe 3, balance_load uniquement)
-    if compact_half_days or minimize_days or balance_load or (cross_noon and lunch is not None):
+    half_terms: list[Any] = []            # Σ demi-journées sous-utilisées (passe 3, reduce_half_days)
+    if compact_teacher_day or minimize_days or reduce_half_days:
         # Littéraux enseignant par cours : (tid, li, lit d'utilisation) — enforced inclus
         # (lit == scheduled[li]), alternatives incluses (lit == bool de l'alternative choisie).
         teacher_lits = defaultdict(list)                      # tid -> [(li, lit)]
@@ -698,21 +741,23 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                 if rtype == TEACHER:
                     teacher_lits[rid].append((li, lit))
 
-        # ── Option A : compacité par demi-journée (minimiser les trous DANS un bloc matin/aprem). ──
+        # ── Option A : compacité par bloc (minimiser les trous DANS un bloc matin/aprem, ou dans la
+        # journée ENTIÈRE si pas de pause fixe à protéger — plus de découpage arbitraire dans ce cas). ──
         # Pour chaque (enseignant, jour, bloc) présent : idle = (fin du dernier cours − début du
         # premier) − somme des durées présentes. Les cours d'un même prof ne se chevauchent pas
         # (NoOverlap sur la ressource) ⇒ idle = temps mort total entre ses cours de ce bloc. Nul si
         # 0/1 cours présent. Être présent matin ET après-midi n'est jamais pénalisé (blocs disjoints).
-        # Le bloc n'est PAS toujours "matin/après-midi" au sens du seuil scalaire `on_half` : quand la
-        # pause est fixe, le partage se fait sur la pause RÉSIDUELLE de ce (prof, jour) — voir
-        # `residual()` — pour ne pas facturer en temps mort la portion de pause qu'un enforced a
-        # mangée (§0.5/§0.6 du plan). `lunch is None` garde `on_half` tel quel (chemin inerte).
-        if compact_half_days:
+        # Le bloc n'est PAS toujours "matin/après-midi" : quand la pause est fixe, le partage se fait
+        # sur la pause RÉSIDUELLE de ce (prof, jour) — voir `residual()` — pour ne pas facturer en
+        # temps mort la portion de pause qu'un enforced a mangée (§0.5/§0.6 du plan).
+        if compact_teacher_day:
             for tid, lst in teacher_lits.items():
                 days = sorted({d for (li, _) in lst for d in possible_days[li]})
                 for d in days:
                     if lunch is None:
-                        blocks = [(h, (lambda li, h=h: on_half(li, d, h))) for h in (0, 1)]
+                        # Aucune pause à protéger : un seul bloc couvre la journée entière (pas de
+                        # scission matin/après-midi arbitraire à 13h00).
+                        blocks = [(0, (lambda li: on_day(li, d)))]
                     else:
                         p0, p1 = residual(tid, d)
                         if p1 > p0:
@@ -744,7 +789,7 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                             busy.append(dur * p)
                         idle = model.NewIntVar(0, 1440, f"idle{tid}_{d}_{bidx}")
                         model.Add(idle == last - first - sum(busy))              # ≥0 ⇒ 0 si <2 présents
-                        penalty_terms.append(idle)            # en minutes
+                        penalty_terms.append(COMPACT_DAY_IDLE_WEIGHT * idle)  # en minutes pondérées
 
         # ── Option D : trou de midi (idle qui traverse la pause déjeuner, au-delà de celle-ci). ──
         # Pour chaque (enseignant, jour) présent matin ET après-midi :
@@ -754,7 +799,7 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
         #   ci-dessous, plus par le seul domaine — un enforced à cheval rend l'ancien argument
         #   « pause carvée ⇒ ≥0 » faux, c'est la cause racine de l'INFEASIBLE corrigé ici.
         # Gate : pause fixe uniquement (sinon un cours peut enjamber midi → identité fausse).
-        if cross_noon and lunch is not None:
+        if compact_teacher_day and lunch is not None:
             for tid, lst in teacher_lits.items():
                 days = sorted({d for (li, _) in lst for d in possible_days[li]})
                 for d in days:
@@ -815,11 +860,10 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                     model.Add(raw_gap == 0).OnlyEnforceIf(both.Not())
                     gap = model.NewIntVar(0, 1440, f"cngap{tid}_{d}")
                     model.AddMaxEquality(gap, [raw_gap, 0])     # ← plus JAMAIS d'infaisabilité par ce terme
-                    penalty_terms.append(gap)     # en minutes → passe 2
+                    penalty_terms.append(gap)     # en minutes, poids 1 → passe 4
 
-        # ── Présence-jours enseignant (partagée : pénalité "moins de jours" + équilibrage). ──
-        # Construite dès qu'une des deux options la requiert (minimize_days OU balance_load).
-        present_q = defaultdict(list)                 # (tid, d) -> [(li, q)] avec q = lit ∧ on_day
+        # ── Présence-jours enseignant : construite dès que minimize_days ou reduce_half_days la
+        # requiert (minimiser Σ jours pour l'une, verrouiller le nombre de jours pour l'autre). ──
         day_used_by = {}                              # (tid, d) -> BoolVar "présent ce jour"
         if include_days:
             for tid, lst in teacher_lits.items():
@@ -833,33 +877,54 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                         model.AddBoolAnd([lit, od]).OnlyEnforceIf(q)
                         model.AddBoolOr([lit.Not(), od.Not()]).OnlyEnforceIf(q.Not())
                         present.append((li, q))
-                        present_q[(tid, d)].append((li, q))
                     if not present:
                         continue
                     day_used = model.NewBoolVar(f"day{tid}_{d}")
                     model.AddMaxEquality(day_used, [q for (_, q) in present])
                     day_used_by[(tid, d)] = day_used
-                    if include_days:                  # jours pénalisés dès que minimize_days OU balance
-                        penalty_terms.append(DAY_PRESENCE_PENALTY * day_used)
+                    if minimize_days:                 # jours pénalisés SEULEMENT si l'option est cochée
+                        day_terms.append(day_used)    # → passe 2, isolée
 
-        # ── Équilibrage : min-max de la charge quotidienne par enseignant (passe 3). ──
-        # `peak_terms` n'entre PAS dans `penalty_terms` (passe 2) : son propre niveau lexicographique
-        # (passe 3). `1440` = borne physique (une journée ≤ 24 h de minutes), sûre même si
-        # `ignoreDailyLimits`. `balance_load ⇒ include_days`, donc `present_q` est toujours peuplé ici.
-        if balance_load:
+        # ── Demi-journées SOUS-UTILISÉES (≤ HALF_DAY_UNDERUSED_THRESHOLD), candidates à vider vers
+        # une autre demi-journée (passe 3, à jours FIGÉS). Même découpage matin/après-midi que
+        # l'Option A (résiduel si pause fixe) : ne PAS ouvrir une deuxième définition de « demi-
+        # journée » dans ce fichier. Contrairement à l'Option A, un bloc à UN SEUL cours compte (c'est
+        # le cas visé : un cours isolé sur une demi-journée) — pas de `if len(members) < 2: continue`.
+        if reduce_half_days:
             for tid, lst in teacher_lits.items():
                 days = sorted({d for (li, _) in lst for d in possible_days[li]})
-                loads = []
                 for d in days:
-                    qs = present_q.get((tid, d), [])
-                    if not qs:
-                        continue
-                    loads.append(sum(courses[li][1]["duration"] * q for (li, q) in qs))
-                if len(loads) < 2:
-                    continue                          # ≤1 jour possible ⇒ rien à équilibrer
-                peak = model.NewIntVar(0, 1440, f"peak{tid}")
-                model.AddMaxEquality(peak, loads)     # peak = charge quotidienne max
-                peak_terms.append(peak)
+                    if lunch is None:
+                        blocks = [(h, (lambda li, h=h: on_half(li, d, h))) for h in (0, 1)]
+                    else:
+                        p0, p1 = residual(tid, d)
+                        if p1 > p0:
+                            blocks = [(h, (lambda li, h=h: on_side(li, d, p0, p1, h))) for h in (0, 1)]
+                        else:
+                            blocks = [(0, (lambda li: on_day(li, d)))]
+                    for bidx, side in blocks:
+                        members = []                          # (li, p) candidats de ce bloc
+                        for (li, lit) in lst:
+                            if d not in possible_days[li]:
+                                continue
+                            p = model.NewBoolVar(f"hu{tid}_{li}_{d}_{bidx}")
+                            oh = side(li)
+                            model.AddBoolAnd([lit, oh]).OnlyEnforceIf(p)
+                            model.AddBoolOr([lit.Not(), oh.Not()]).OnlyEnforceIf(p.Not())
+                            members.append((li, p))
+                        if not members:
+                            continue
+                        load = model.NewIntVar(0, 1440, f"hload{tid}_{d}_{bidx}")
+                        model.Add(load == sum(courses[li][1]["duration"] * p for (li, p) in members))
+                        used = model.NewBoolVar(f"hused{tid}_{d}_{bidx}")
+                        model.AddMaxEquality(used, [p for (_, p) in members])
+                        light = model.NewBoolVar(f"hlight{tid}_{d}_{bidx}")
+                        model.Add(load <= HALF_DAY_UNDERUSED_THRESHOLD).OnlyEnforceIf(light)
+                        model.Add(load > HALF_DAY_UNDERUSED_THRESHOLD).OnlyEnforceIf(light.Not())
+                        underused = model.NewBoolVar(f"hunder{tid}_{d}_{bidx}")
+                        model.AddBoolAnd([used, light]).OnlyEnforceIf(underused)
+                        model.AddBoolOr([used.Not(), light.Not()]).OnlyEnforceIf(underused.Not())
+                        half_terms.append(underused)
 
     # ── Passe 1 : optimum du NOMBRE de cours placés (départage « au plus tôt » si earliest). ──
     total_timeout = float(config.get("timeoutSeconds", 30.0))
@@ -876,11 +941,12 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     # est stable, mais LESQUELS peut varier d'un run à l'autre dès qu'il existe plusieurs optima
     # à égalité (créneaux/ressources substituables) — le thread qui remonte l'incumbent gagnant
     # dépend du timing CPU. Fix possible : num_search_workers=1 + random_seed fixe sur chaque
-    # CpSolver() (ici et aux passes 2/3/4), au prix d'un temps de résolution potentiellement
+    # CpSolver() (ici et aux passes 2/3/4/5), au prix d'un temps de résolution potentiellement
     # plus long avant timeout. Non appliqué pour l'instant (décision Frédéric, 2026-09-10).
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = total_timeout
     status = solver.Solve(model)
+    _log_pass_timing("passe 1 (placement)", solver, status, total_timeout)
 
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         # Aucune solution (rare : instance vide ou incohérente) — tout est neutralisé.
@@ -889,8 +955,21 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     placement_proven = status == cp_model.OPTIMAL
     best_placed = int(round(solver.Value(place_term)))
 
-    # ── Passe 2 : à placement FIXÉ, minimiser la pénalité douce enseignant (compacité / jours). ──
-    budget = _pass_budget(deadline, "passe 2 (préférences douces)") if penalty_terms else 0.0
+    # Passes réellement actives (flag ET grandeur non vide) — sert à réserver du budget aux passes
+    # en aval (voir DOWNSTREAM_RESERVE_FRACTION). `salles` reste sur le seul flag : son no-op éventuel
+    # (`same_vars` vide) ne se sait qu'une fois le placement figé, trop tard pour réserver en amont.
+    # Pas d'entrée pour `jours` (passe 2) : aucune passe antérieure n'a besoin de réserver en
+    # fonction de son activité, elle est la première douce de la séquence.
+    demi_journees_active = reduce_half_days and bool(half_terms)
+    compacite_active = bool(penalty_terms)
+    salles_active = minimize_rooms
+
+    # ── Passe 2 : à placement FIXÉ, minimiser le nombre de jours de présence — isolée, PRIORITAIRE
+    # sur compacité (avant refonte : mêlée à la compacité dans une seule somme). ──
+    reserve2 = total_timeout * DOWNSTREAM_RESERVE_FRACTION * (demi_journees_active
+                                                               + compacite_active + salles_active)
+    budget = (_pass_budget(deadline, "passe 2 (jours)", reserve2)
+              if (minimize_days and day_terms) else 0.0)
     if budget >= MIN_PASS_SECONDS:
         model.Add(place_term >= best_placed)          # verrou : jamais moins de cours placés
         # Amorce (warm start) avec la solution de la passe 1 → convergence plus rapide.
@@ -898,41 +977,64 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
         for li in range(len(courses)):
             model.AddHint(scheduled[li], solver.Value(scheduled[li]))
             model.AddHint(start[li], solver.Value(start[li]))
-        model.Minimize(sum(penalty_terms))
-        solver2 = cp_model.CpSolver()
-        solver2.parameters.max_time_in_seconds = max(MIN_PASS_SECONDS, _remaining(deadline))
-        status2 = solver2.Solve(model)
-        if status2 in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-            solver = solver2                          # extraire la solution optimisée
-        # provenOptimal reste basé sur placement_proven (passe 1) — voir docstring de solve().
-
-    # ── Passe 3 : à placement ET pénalité passe-2 FIGÉS, équilibrer (min Σ pic quotidien). ──
-    budget = (_pass_budget(deadline, "passe 3 (équilibrage de charge)")
-              if (balance_load and peak_terms) else 0.0)
-    if budget >= MIN_PASS_SECONDS:
-        model.Add(place_term >= best_placed)          # placement toujours verrouillé
-        if penalty_terms:
-            best_p2 = int(round(solver.Value(sum(penalty_terms))))
-            model.Add(sum(penalty_terms) <= best_p2)  # fige compacité + jours acquis en passe 2
-        # Verrou DUR du nombre total de jours de présence : empêche la passe 3 d'ajouter un jour
-        # en le "finançant" par une baisse d'idle (échange days↔idle autorisé par le seul lock agrégé
-        # quand compactTeacherHalfDays est co-actif). Rend l'invariant "n'ajoute jamais de jour" étanche.
-        if day_used_by:
+        model.Minimize(sum(day_terms))
+        solver_days = cp_model.CpSolver()
+        solver_days.parameters.max_time_in_seconds = budget
+        status_days = solver_days.Solve(model)
+        _log_pass_timing("passe 2 (jours)", solver_days, status_days, budget)
+        if status_days in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            solver = solver_days                      # extraire la solution à jours minimisés
+            # Verrou DUR du nombre total de jours de présence pour TOUTES les passes suivantes :
+            # aucune ne peut plus jamais ajouter de jour.
             best_days = int(round(sum(solver.Value(v) for v in day_used_by.values())))
             model.Add(sum(day_used_by.values()) <= best_days)
+        # provenOptimal reste basé sur placement_proven (passe 1) — voir docstring de solve().
+
+    # ── Passe 3 : à placement ET jours FIGÉS, réduire le nombre de demi-journées SOUS-UTILISÉES en
+    # reportant leur charge ailleurs. AUCUN plafond dur sur le pic quotidien : seules les contraintes
+    # dures (disponibilité, plafond quotidien) bornent le report. Verrou du nombre de jours conservé
+    # (jamais plus de jours qu'à l'issue de la passe précédente). ──
+    reserve3 = total_timeout * DOWNSTREAM_RESERVE_FRACTION * (compacite_active + salles_active)
+    budget = (_pass_budget(deadline, "passe 3 (demi-journées)", reserve3)
+              if (reduce_half_days and half_terms) else 0.0)
+    if budget >= MIN_PASS_SECONDS:
+        model.Add(place_term >= best_placed)          # verrou : jamais moins de cours placés
+        if day_used_by:
+            best_days_p3 = int(round(sum(solver.Value(v) for v in day_used_by.values())))
+            model.Add(sum(day_used_by.values()) <= best_days_p3)
         model.ClearHints()
         for li in range(len(courses)):
             model.AddHint(scheduled[li], solver.Value(scheduled[li]))
             model.AddHint(start[li], solver.Value(start[li]))
-        model.Minimize(sum(peak_terms))
-        solver3 = cp_model.CpSolver()
-        solver3.parameters.max_time_in_seconds = max(MIN_PASS_SECONDS, _remaining(deadline))
-        status3 = solver3.Solve(model)
-        if status3 in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-            solver = solver3                          # extraire la solution équilibrée
+        model.Minimize(sum(half_terms))
+        solver_half = cp_model.CpSolver()
+        solver_half.parameters.max_time_in_seconds = budget
+        status_half = solver_half.Solve(model)
+        _log_pass_timing("passe 3 (demi-journées)", solver_half, status_half, budget)
+        if status_half in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            solver = solver_half                      # extraire la solution reportée
         # provenOptimal reste basé sur placement_proven (passe 1).
 
-    # ── Passe 4 : à placement ET affectations non-salle FIGÉS, minimiser les changements de salle. ──
+    # ── Passe 4 : à placement ET passe-3 (demi-journées) FIGÉS, minimiser compacité + trou de midi. ──
+    reserve4 = total_timeout * DOWNSTREAM_RESERVE_FRACTION * salles_active
+    budget = _pass_budget(deadline, "passe 4 (compacité)", reserve4) if penalty_terms else 0.0
+    if budget >= MIN_PASS_SECONDS:
+        model.Add(place_term >= best_placed)          # verrou : jamais moins de cours placés
+        # Amorce (warm start) avec la solution de la passe précédente → convergence plus rapide.
+        model.ClearHints()
+        for li in range(len(courses)):
+            model.AddHint(scheduled[li], solver.Value(scheduled[li]))
+            model.AddHint(start[li], solver.Value(start[li]))
+        model.Minimize(sum(penalty_terms))
+        solver4 = cp_model.CpSolver()
+        solver4.parameters.max_time_in_seconds = budget
+        status4 = solver4.Solve(model)
+        _log_pass_timing("passe 4 (compacité)", solver4, status4, budget)
+        if status4 in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            solver = solver4                          # extraire la solution optimisée
+        # provenOptimal reste basé sur placement_proven (passe 1) — voir docstring de solve().
+
+    # ── Passe 5 : à placement ET affectations non-salle FIGÉS, minimiser les changements de salle. ──
     # Post-traitement pur (préférence de grand confort, tout en bas de la hiérarchie). On GÈLE en dur
     # scheduled[], start[] et TOUS les littéraux non-salle aux valeurs de la passe précédente ; seul le
     # choix parmi les salles ALTERNATIVES reste libre. Toutes les douces antérieures ne dépendent que de
@@ -940,7 +1042,7 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     # l'ORDRE des cours de chaque prof est connu : on pénalise les VRAIES transitions entre cours
     # consécutifs d'une même demi-journée (fidèle, pas une borne). No-op si aucun cours n'a de salle
     # alternative influençable. provenOptimal reste basé sur placement_proven (passe 1).
-    budget = _pass_budget(deadline, "passe 4 (changements de salle)") if minimize_rooms else 0.0
+    budget = _pass_budget(deadline, "passe 5 (changements de salle)") if minimize_rooms else 0.0
     if budget >= MIN_PASS_SECONDS:
         def _room_lits(li):                       # {rid: littéral} des salles candidates du cours li
             return {rid: lit for (rid, rtype, lit) in used_literals[li] if rtype == ROOM}
@@ -1007,11 +1109,12 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                     if rtype == ROOM:
                         model.AddHint(lit, solver.Value(lit))
             model.Minimize(len(same_vars) - sum(same_vars))
-            solver4 = cp_model.CpSolver()
-            solver4.parameters.max_time_in_seconds = max(MIN_PASS_SECONDS, _remaining(deadline))
-            status4 = solver4.Solve(model)
-            if status4 in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-                solver = solver4                    # extraire la solution ré-affectée en salle
+            solver5 = cp_model.CpSolver()
+            solver5.parameters.max_time_in_seconds = budget
+            status5 = solver5.Solve(model)
+            _log_pass_timing("passe 5 (changements de salle)", solver5, status5, budget)
+            if status5 in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                solver = solver5                    # extraire la solution ré-affectée en salle
 
     # ---- Extraction de la solution ----
     placed_solutions = []

@@ -146,11 +146,11 @@ DATA_S48 = (Path(__file__).resolve().parents[2] / "data"
 @pytest.mark.skipif(not DATA_S48.exists(), reason=f"données réelles absentes : {DATA_S48}")
 @pytest.mark.parametrize("soft", [
     {},
-    {"compactTeacherHalfDays": True},
+    {"compactTeacherDay": True},
     {"minimizeTeacherDays": True},
-    {"compactTeacherHalfDays": True, "minimizeTeacherDays": True},
-    {"balanceTeacherDailyLoad": True},
-    {"compactTeacherHalfDays": True, "minimizeTeacherDays": True, "balanceTeacherDailyLoad": True},
+    {"compactTeacherDay": True, "minimizeTeacherDays": True},
+    {"reduceTeacherHalfDays": True},
+    {"compactTeacherDay": True, "minimizeTeacherDays": True, "reduceTeacherHalfDays": True},
 ])
 def test_parity_soft_teacher_prefs_s48(soft):
     """

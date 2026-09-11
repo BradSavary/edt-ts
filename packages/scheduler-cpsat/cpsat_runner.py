@@ -30,14 +30,12 @@ def _map_config(config: dict | None) -> dict:
         mapped["ignoreDailyLimits"] = config["ignoreDailyLimits"]
     if "timeoutSeconds" in config:
         mapped["timeoutSeconds"] = config["timeoutSeconds"]
-    if "compactTeacherHalfDays" in config:
-        mapped["compactTeacherHalfDays"] = config["compactTeacherHalfDays"]
+    if "compactTeacherDay" in config:
+        mapped["compactTeacherDay"] = config["compactTeacherDay"]
     if "minimizeTeacherDays" in config:
         mapped["minimizeTeacherDays"] = config["minimizeTeacherDays"]
-    if "balanceTeacherDailyLoad" in config:
-        mapped["balanceTeacherDailyLoad"] = config["balanceTeacherDailyLoad"]
-    if "crossNoonGap" in config:
-        mapped["crossNoonGap"] = config["crossNoonGap"]
+    if "reduceTeacherHalfDays" in config:
+        mapped["reduceTeacherHalfDays"] = config["reduceTeacherHalfDays"]
     if "minimizeTeacherRoomChanges" in config:
         mapped["minimizeTeacherRoomChanges"] = config["minimizeTeacherRoomChanges"]
 

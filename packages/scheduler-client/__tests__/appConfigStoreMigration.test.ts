@@ -101,16 +101,13 @@ describe('useAppConfigStore — migration v9 (moteur unique CP-SAT)', () => {
     expect(cfg.lunchBreak).toEqual({ type: 'fixed', from: '12:00', to: '13:30' });
   });
 
-  it('préserve les cinq préférences douces au passage v9', async () => {
+  it('préserve les préférences douces non fusionnées pré-existantes au passage v9+', async () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       state: {
         schedulerConfig: {
           engine: 'cpsat',
           timeoutSeconds: 180,
-          compactTeacherHalfDays: true,
           minimizeTeacherDays: true,
-          balanceTeacherDailyLoad: true,
-          crossNoonGap: true,
           minimizeTeacherRoomChanges: true,
         },
       },
@@ -119,11 +116,102 @@ describe('useAppConfigStore — migration v9 (moteur unique CP-SAT)', () => {
     const { useAppConfigStore } = await import('@/store/useAppConfigStore');
     await useAppConfigStore.persist.rehydrate();
     const cfg = useAppConfigStore.getState().schedulerConfig;
-    expect(cfg.compactTeacherHalfDays).toBe(true);
     expect(cfg.minimizeTeacherDays).toBe(true);
-    expect(cfg.balanceTeacherDailyLoad).toBe(true);
-    expect(cfg.crossNoonGap).toBe(true);
     expect(cfg.minimizeTeacherRoomChanges).toBe(true);
+  });
+
+  it('v12 : retire balanceTeacherDailyLoad (préférence supprimée, aucun avantage mesuré)', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      state: {
+        schedulerConfig: {
+          engine: 'cpsat',
+          timeoutSeconds: 180,
+          balanceTeacherDailyLoad: true,
+        },
+      },
+      version: 11,
+    }));
+    const { useAppConfigStore } = await import('@/store/useAppConfigStore');
+    await useAppConfigStore.persist.rehydrate();
+    const cfg = useAppConfigStore.getState().schedulerConfig as Record<string, unknown>;
+    expect('balanceTeacherDailyLoad' in cfg).toBe(false);
+  });
+
+  it('v11 : fusionne compactTeacherHalfDays OU crossNoonGap en compactTeacherDay=true', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      state: {
+        schedulerConfig: {
+          engine: 'cpsat',
+          timeoutSeconds: 180,
+          compactTeacherHalfDays: false,
+          crossNoonGap: true,
+        },
+      },
+      version: 10,
+    }));
+    const { useAppConfigStore } = await import('@/store/useAppConfigStore');
+    await useAppConfigStore.persist.rehydrate();
+    const cfg = useAppConfigStore.getState().schedulerConfig as Record<string, unknown>;
+    expect(cfg.compactTeacherDay).toBe(true);
+    expect('compactTeacherHalfDays' in cfg).toBe(false);
+    expect('crossNoonGap' in cfg).toBe(false);
+  });
+
+  it('v11 : compactTeacherDay=false si ni compactTeacherHalfDays ni crossNoonGap n\'étaient actives', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      state: {
+        schedulerConfig: {
+          engine: 'cpsat',
+          timeoutSeconds: 180,
+          compactTeacherHalfDays: false,
+          crossNoonGap: false,
+        },
+      },
+      version: 10,
+    }));
+    const { useAppConfigStore } = await import('@/store/useAppConfigStore');
+    await useAppConfigStore.persist.rehydrate();
+    const cfg = useAppConfigStore.getState().schedulerConfig;
+    expect(cfg.compactTeacherDay).toBe(false);
+  });
+
+  it('v10 : ajoute reduceTeacherHalfDays=false à un état v9 qui ne la connaît pas', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      state: {
+        schedulerConfig: {
+          engine: 'cpsat',
+          timeoutSeconds: 180,
+          compactTeacherHalfDays: true,
+          minimizeTeacherDays: true,
+          crossNoonGap: true,
+          minimizeTeacherRoomChanges: true,
+        },
+      },
+      version: 9,
+    }));
+    const { useAppConfigStore } = await import('@/store/useAppConfigStore');
+    await useAppConfigStore.persist.rehydrate();
+    const cfg = useAppConfigStore.getState().schedulerConfig;
+    expect(cfg.reduceTeacherHalfDays).toBe(false);
+    // Les préférences déjà cochées avant l'ajout de la case ne sont pas affectées.
+    expect(cfg.minimizeTeacherDays).toBe(true);
+  });
+
+  it('v10 : préserve reduceTeacherHalfDays=true déjà persisté', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      state: {
+        schedulerConfig: {
+          engine: 'cpsat',
+          timeoutSeconds: 180,
+          reduceTeacherHalfDays: true,
+        },
+      },
+      version: 9,
+    }));
+    const { useAppConfigStore } = await import('@/store/useAppConfigStore');
+    await useAppConfigStore.persist.rehydrate();
+    const cfg = useAppConfigStore.getState().schedulerConfig;
+    expect(cfg.reduceTeacherHalfDays).toBe(true);
   });
 
   it('pas de config persistée du tout : les valeurs par défaut ne contiennent aucune clé core-only', async () => {
@@ -148,10 +236,12 @@ describe('useAppConfigStore — migration v9 (moteur unique CP-SAT)', () => {
       expect(key in cfg).toBe(false);
     }
     expect('groupTeacherHalfDays' in cfg).toBe(false);
-    expect(cfg.compactTeacherHalfDays).toBe(false);
+    expect('compactTeacherHalfDays' in cfg).toBe(false);
+    expect('crossNoonGap' in cfg).toBe(false);
+    expect('balanceTeacherDailyLoad' in cfg).toBe(false);
     expect(cfg.minimizeTeacherDays).toBe(false);
-    expect(cfg.balanceTeacherDailyLoad).toBe(false);
-    expect(cfg.crossNoonGap).toBe(false);
+    expect(cfg.reduceTeacherHalfDays).toBe(false);
+    expect(cfg.compactTeacherDay).toBe(false);
     expect(cfg.minimizeTeacherRoomChanges).toBe(false);
   });
 });

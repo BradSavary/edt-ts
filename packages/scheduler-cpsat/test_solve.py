@@ -235,7 +235,7 @@ def test_compact_half_days_removes_gap_within_block():
     raw = {"week": 1, "resources": resources, "courses": courses,
            "constraints": {"T1": monday_morning, "G1": monday_morning, "R1": monday_morning}}
 
-    sol = solve(raw, {"timeoutSeconds": 10, "compactTeacherHalfDays": True,
+    sol = solve(raw, {"timeoutSeconds": 10, "compactTeacherDay": True,
                       "lunchBreak": {"type": "fixed", "from": "12:00", "to": "13:30"}})[0]
 
     assert len(sol["solutions"]) == 2
@@ -265,7 +265,7 @@ def test_compact_allows_morning_and_afternoon_same_day():
     raw = {"week": 1, "resources": resources, "courses": courses,
            "constraints": {"T1": monday_all_day, "G1": monday_all_day, "R1": monday_all_day}}
 
-    sol = solve(raw, {"timeoutSeconds": 10, "compactTeacherHalfDays": True,
+    sol = solve(raw, {"timeoutSeconds": 10, "compactTeacherDay": True,
                       "lunchBreak": {"type": "fixed", "from": "12:00", "to": "13:30"}})[0]
     assert len(sol["solutions"]) == 2, "matin + après-midi le même jour doit rester placé"
 
@@ -297,6 +297,34 @@ def test_minimize_days_packs_into_fewer_days():
     assert len(days) == 1, "les 2 cours doivent être concentrés sur une seule journée"
 
 
+def test_minimize_days_respects_structural_lower_bound():
+    """
+    La minimisation du nombre de jours doit être bornée par le plafond quotidien ET la
+    disponibilité, pas les ignorer : cas §7 du bilan préférences douces — maxDailyMinutes=120
+    (2h/jour) et 10h à placer (5 cours de 2h) sur 5 jours dispo imposent structurellement 5
+    journées, quelle que soit l'option. Vérifie que la passe jours ATTEINT ce minimum théorique
+    (ni plus par inefficacité, ni moins par une fuite du plafond) et le prouve rapidement.
+    """
+    all_week = [{"days": "lundi, mardi, mercredi, jeudi, vendredi", "from": "08:00", "to": "18:00"}]
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1", "maxDailyMinutes": 120}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+    ]
+    courses = [
+        {"week": 1, "code": f"C{i}", "type": "CM", "name": f"C{i}", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}
+        for i in range(5)
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses,
+           "constraints": {"T1": all_week, "G1": all_week, "R1": all_week}}
+
+    sol = solve(raw, {"timeoutSeconds": 10, "minimizeTeacherDays": True})[0]
+    assert len(sol["solutions"]) == 5
+    days = {t["startTime"] // 1440 for t in sol["solutions"]}
+    assert len(days) == 5, "le plafond de 2h/jour impose structurellement 5 jours, pas moins"
+
+
 def test_soft_teacher_prefs_never_sacrifice_placement():
     """
     maxDailyMinutes de T1 assez bas pour ne tenir qu'un seul cours par jour, sur son unique jour
@@ -320,7 +348,7 @@ def test_soft_teacher_prefs_never_sacrifice_placement():
 
     without = solve(raw, {"timeoutSeconds": 10})[0]
     with_opt = solve(raw, {"timeoutSeconds": 10,
-                           "compactTeacherHalfDays": True, "minimizeTeacherDays": True})[0]
+                           "compactTeacherDay": True, "minimizeTeacherDays": True})[0]
 
     assert len(without["solutions"]) == 1, "prérequis du test : contention dure sur maxDailyMinutes"
     assert len(with_opt["solutions"]) == len(without["solutions"])
@@ -331,155 +359,39 @@ def test_soft_teacher_prefs_off_is_default_unchanged():
     raw = _toy_raw()
     without_field = solve(raw, {"timeoutSeconds": 10})[0]
     with_false = solve(raw, {"timeoutSeconds": 10,
-                             "compactTeacherHalfDays": False, "minimizeTeacherDays": False})[0]
+                             "compactTeacherDay": False, "minimizeTeacherDays": False})[0]
     assert len(with_false["solutions"]) == len(without_field["solutions"])
     assert with_false["provenOptimal"] == without_field["provenOptimal"]
 
 
 def test_runner_map_config_passes_soft_teacher_flags():
-    mapped = cpsat_runner._map_config({"compactTeacherHalfDays": True, "minimizeTeacherDays": True})
-    assert mapped.get("compactTeacherHalfDays") is True
+    mapped = cpsat_runner._map_config({"compactTeacherDay": True, "minimizeTeacherDays": True})
+    assert mapped.get("compactTeacherDay") is True
     assert mapped.get("minimizeTeacherDays") is True
 
 
-# ── Équilibrage charge quotidienne (balanceTeacherDailyLoad) — passe 3 lexicographique ──────────
+# ── Réduction des demi-journées sous-utilisées (reduceTeacherHalfDays) — passe 3 ────────────────
 
-def test_balance_reduces_peak():
-    """
-    T1 : 5 cours de 2h (10h au total), maxDailyMinutes=480 (8h), dispo lundi+mardi toute la
-    journée → 10h > 8h impose 2 jours. Le pic minimal possible est 6h (6h/4h). Avec l'option,
-    aucun jour ne doit dépasser 360 min.
-    """
-    mon_tue = [{"days": "lundi, mardi", "from": "08:00", "to": "18:00"}]
-    resources = [
-        {"resourceType": "teacher", "resources": [{"id": "T1", "maxDailyMinutes": 480}]},
-        {"resourceType": "room", "resources": [{"id": "R1"}]},
-        {"resourceType": "group", "resources": [{"id": "G1"}]},
-    ]
-    courses = [
-        {"week": 1, "code": f"C{i}", "type": "CM", "name": f"C{i}", "duration": 120,
-         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}
-        for i in range(5)
-    ]
-    raw = {"week": 1, "resources": resources, "courses": courses,
-           "constraints": {"T1": mon_tue, "G1": mon_tue, "R1": mon_tue}}
-
-    sol = solve(raw, {"timeoutSeconds": 10, "balanceTeacherDailyLoad": True})[0]
-    assert len(sol["solutions"]) == 5
-
-    load_by_day: dict[int, int] = {}
+def _underused_half_days(sol, half_cut=780, threshold=120):
+    """Nombre de blocs (jour, demi-journée) avec 0 < charge <= threshold, classés par `start`
+    comme le fait `on_half` dans le moteur (SEUIL scalaire sur le début, pas la fin)."""
+    load: dict[tuple[int, int], int] = defaultdict(int)
     for t in sol["solutions"]:
-        day = t["startTime"] // 1440
-        load_by_day[day] = load_by_day.get(day, 0) + t["duration"]
-    assert max(load_by_day.values()) <= 360, "pic quotidien attendu ≤ 360 min (6h/4h)"
+        d = t["startTime"] // 1440
+        offset = t["startTime"] - d * 1440
+        h = 0 if offset < half_cut else 1
+        load[(d, h)] += t["duration"]
+    return sum(1 for v in load.values() if 0 < v <= threshold)
 
 
-def test_balance_never_adds_day():
+def test_reduce_half_days_eliminates_underused_blocks(monkeypatch):
     """
-    Garde-fou anti-étalement : T1, 3 cours de 2h (6h au total, ≤ 8h de maxDailyMinutes), dispo
-    lundi+mardi+mercredi (3 jours POSSIBLES, 1 seul NÉCESSAIRE). Avec `balanceTeacherDailyLoad`
-    SEUL (sans `minimizeTeacherDays`), l'équilibrage ne doit PAS étaler en 2h/2h/2h sur 3 jours :
-    les 3 cours doivent rester sur un seul jour distinct.
-    """
-    mon_tue_wed = [{"days": "lundi, mardi, mercredi", "from": "08:00", "to": "18:00"}]
-    resources = [
-        {"resourceType": "teacher", "resources": [{"id": "T1", "maxDailyMinutes": 480}]},
-        {"resourceType": "room", "resources": [{"id": "R1"}]},
-        {"resourceType": "group", "resources": [{"id": "G1"}]},
-    ]
-    courses = [
-        {"week": 1, "code": f"C{i}", "type": "CM", "name": f"C{i}", "duration": 120,
-         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}
-        for i in range(3)
-    ]
-    raw = {"week": 1, "resources": resources, "courses": courses,
-           "constraints": {"T1": mon_tue_wed, "G1": mon_tue_wed, "R1": mon_tue_wed}}
-
-    sol = solve(raw, {"timeoutSeconds": 10, "balanceTeacherDailyLoad": True})[0]
-    assert len(sol["solutions"]) == 3
-    days = {t["startTime"] // 1440 for t in sol["solutions"]}
-    assert len(days) == 1, "l'équilibrage seul ne doit jamais ajouter de jour de présence"
-
-
-def test_balance_never_sacrifices_placement():
-    """
-    Instance en tension placement/équilibrage : maxDailyMinutes bas (60) + unique jour dispo →
-    contention dure, un seul des 2 cours peut être placé. `balanceTeacherDailyLoad` ne doit pas
-    faire chuter ce nombre.
-    """
-    monday_only = [{"days": "lundi", "from": "08:00", "to": "18:00"}]
-    resources = [
-        {"resourceType": "teacher", "resources": [{"id": "T1", "maxDailyMinutes": 60}]},
-        {"resourceType": "room", "resources": [{"id": "R1"}]},
-        {"resourceType": "group", "resources": [{"id": "G1"}]},
-    ]
-    courses = [
-        {"week": 1, "code": "C1", "type": "CM", "name": "C1", "duration": 60,
-         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
-        {"week": 1, "code": "C2", "type": "CM", "name": "C2", "duration": 60,
-         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
-    ]
-    raw = {"week": 1, "resources": resources, "courses": courses,
-           "constraints": {"T1": monday_only, "G1": monday_only, "R1": monday_only}}
-
-    without = solve(raw, {"timeoutSeconds": 10})[0]
-    with_opt = solve(raw, {"timeoutSeconds": 10, "balanceTeacherDailyLoad": True})[0]
-
-    assert len(without["solutions"]) == 1, "prérequis du test : contention dure sur maxDailyMinutes"
-    assert len(with_opt["solutions"]) == len(without["solutions"])
-
-
-def test_balance_off_default_unchanged():
-    """Sur _toy_raw(), résultat identique (nb placé, provenOptimal) option absente vs False."""
-    raw = _toy_raw()
-    without_field = solve(raw, {"timeoutSeconds": 10})[0]
-    with_false = solve(raw, {"timeoutSeconds": 10, "balanceTeacherDailyLoad": False})[0]
-    assert len(with_false["solutions"]) == len(without_field["solutions"])
-    assert with_false["provenOptimal"] == without_field["provenOptimal"]
-
-
-def test_balance_combined_all_three():
-    """Les 3 préférences douces combinées ne plantent pas et ne dégradent pas le placement."""
-    raw = _toy_raw()
-    without = solve(raw, {"timeoutSeconds": 10})[0]
-    combined = solve(raw, {
-        "timeoutSeconds": 10,
-        "compactTeacherHalfDays": True,
-        "minimizeTeacherDays": True,
-        "balanceTeacherDailyLoad": True,
-    })[0]
-    assert len(combined["solutions"]) == len(without["solutions"])
-    assert combined["provenOptimal"] == without["provenOptimal"]
-
-
-def test_balance_combined_never_adds_day_vs_minimize_baseline(monkeypatch):
-    """
-    Repro ciblée de la faille « échange days↔idle » : la passe 3 ne verrouillait que l'AGRÉGAT
-    `sum(penalty_terms) <= best_p2` (idle + 240·jours), pas le nombre de jours lui-même. Quand
-    `compactTeacherHalfDays` est co-actif, deux répartitions peuvent être à égalité sur cet agrégat
-    (ex. 240 min d'idle sur 1 jour == 0 idle mais 1 jour de plus à 240 min/jour) ; la passe 3, qui
-    minimise ensuite le pic, pouvait alors préférer la répartition à PLUS de jours (pic plus bas),
-    ajoutant un jour de présence — violant l'invariant "n'ajoute jamais de jour".
-
-    Instance : T1/R1/G1 dispo lun+mar 00:00-08:00 seulement ; un cours enforced bloque R1 sur
-    02:00-06:00 (240 min) CHAQUE jour, laissant 2 fenêtres de 120 min (2 créneaux) par jour. 4 cours
-    de 60 min pour T1 sur R1 :
-      - packés sur 1 seul jour → doivent occuper les 2 fenêtres → idle=240, jours=1 → pénalité 480
-      - répartis 2+2 sur les 2 jours → chaque paire tient dans UNE fenêtre → idle=0, jours=2 → pénalité 480
-    Égalité exacte (480 dans les deux cas) : la passe 3, sans verrou dur sur les jours, peut légitimement
-    choisir la variante à 2 jours car son pic (2×60=120) bat celui à 1 jour (4×60=240).
-
-    Repro confirmée manuellement (session correctif, 5 runs) : sans le verrou dur ajouté en passe 3,
-    sur CETTE instance, `compactTeacherHalfDays+minimizeTeacherDays` seul (baseline, passe 2
-    uniquement) donne 1 jour ({0}, lundi) tandis que le combo à 3 flags (avec balance, donc passe 3
-    exécutée) donnait 2 jours ({0, 1}) à chaque fois — le jour ajouté disparaît une fois le verrou
-    dur en place (8 runs, {0} à chaque fois).
-
-    L'égalité exacte de l'agrégat rend le CHOIX (1 jour vs 2 jours) sensible au tie-breaking interne
-    du solveur CP-SAT, non-déterministe par défaut (portefeuille multi-thread) : la baseline
-    elle-même peut occasionnellement retourner 2 jours sans que ce soit un défaut du correctif. Le
-    solveur est donc forcé mono-thread + graine fixe ICI (test uniquement, ne touche pas
-    `cpsat_engine.solve`) pour un résultat reproductible.
+    T1, 2 jours dispo (lundi, mardi), 2 gros cours (6h) + 2 petits (1h) isolés (14h au total,
+    maxDailyMinutes=480 impose structurellement 2 jours). Sans aucune option, le placement seul
+    laisse au moins 1 bloc sous-utilisé (<=120 min) — la position exacte est un optimum parmi
+    plusieurs à égalité (solveur forcé mono-thread + graine fixe ICI, test uniquement, pour un
+    prérequis reproductible). `reduceTeacherHalfDays` doit les reporter dans le bloc du gros
+    cours voisin, sans changer ni le nombre de cours placés ni le nombre de jours.
     """
     import cpsat_engine as _eng
 
@@ -491,48 +403,93 @@ def test_balance_combined_never_adds_day_vs_minimize_baseline(monkeypatch):
 
     monkeypatch.setattr(_eng.cp_model, "CpSolver", _DeterministicSolver)
 
-    narrow = [{"days": "lundi, mardi", "from": "00:00", "to": "08:00"}]
+    mon_tue = [{"days": "lundi, mardi", "from": "08:00", "to": "20:00"}]
     resources = [
-        {"resourceType": "teacher", "resources": [{"id": "T1"}]},
+        {"resourceType": "teacher", "resources": [{"id": "T1", "maxDailyMinutes": 480}]},
         {"resourceType": "room", "resources": [{"id": "R1"}]},
         {"resourceType": "group", "resources": [{"id": "G1"}]},
     ]
     courses = [
-        {"week": 1, "code": f"C{i}", "type": "CM", "name": f"C{i}", "duration": 60,
-         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}
-        for i in range(4)
+        {"week": 1, "code": "BIG1", "type": "CM", "name": "BIG1", "duration": 360,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "SMALL1", "type": "CM", "name": "SMALL1", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "BIG2", "type": "CM", "name": "BIG2", "duration": 360,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "SMALL2", "type": "CM", "name": "SMALL2", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
     ]
+    raw = {"week": 1, "resources": resources, "courses": courses,
+           "constraints": {"T1": mon_tue, "G1": mon_tue, "R1": mon_tue}}
 
-    def blk(day_offset: int, start_hour: int) -> dict:
-        return {"week": 1, "code": f"BLK{day_offset}", "type": "CM", "name": f"BLK{day_offset}",
-                "duration": 240, "rooms": ["R1"],
-                "enforced": {"startTime": day_offset * 1440 + start_hour * 60,
-                             "teacher": [], "groups": [], "rooms": ["R1"]}}
+    without = solve(raw, {"timeoutSeconds": 10})[0]
+    with_opt = solve(raw, {"timeoutSeconds": 10, "reduceTeacherHalfDays": True})[0]
 
-    raw = {"week": 1, "resources": resources, "courses": [blk(0, 2), blk(1, 2)] + courses,
-           "constraints": {"T1": narrow, "G1": narrow, "R1": narrow}}
+    assert len(without["solutions"]) == 4
+    assert len(with_opt["solutions"]) == 4
+    assert _underused_half_days(without) >= 1, "prérequis du test : au moins 1 bloc sous-utilisé sans l'option"
+    assert _underused_half_days(with_opt) == 0, "l'option doit éliminer les blocs sous-utilisés"
 
-    def teacher_days(sol, tid="T1"):
-        return {t["startTime"] // 1440 for t in sol["solutions"]
-                if any(r["id"] == tid for r in t["resources"])}
-
-    baseline = solve(raw, {"timeoutSeconds": 10,
-                            "compactTeacherHalfDays": True, "minimizeTeacherDays": True})[0]
-    combo = solve(raw, {"timeoutSeconds": 10, "compactTeacherHalfDays": True,
-                         "minimizeTeacherDays": True, "balanceTeacherDailyLoad": True})[0]
-
-    assert len(combo["solutions"]) == len(baseline["solutions"]) == 6
-    assert len(teacher_days(baseline)) == 1, "prérequis du test : la baseline tient sur 1 seul jour"
-    assert len(teacher_days(combo)) <= len(teacher_days(baseline)), \
-        "la passe 3 (balance) ne doit jamais ajouter un jour de présence par rapport à la baseline sans balance"
+    days_without = {t["startTime"] // 1440 for t in without["solutions"]}
+    days_with = {t["startTime"] // 1440 for t in with_opt["solutions"]}
+    assert days_with == days_without, "ne doit ni ajouter ni retirer de jour de présence"
 
 
-def test_runner_map_config_passes_balance_flag():
-    mapped = cpsat_runner._map_config({"balanceTeacherDailyLoad": True})
-    assert mapped.get("balanceTeacherDailyLoad") is True
+def test_reduce_half_days_never_adds_day():
+    """
+    Garde-fou : sur l'instance §7 (2h/jour cap, 10h à placer, 5 jours dispo → 5 jours structurels),
+    `reduceTeacherHalfDays` seul ne doit jamais faire baisser NI monter le nombre de jours (rien à
+    reporter : chaque demi-journée pleine dépasse déjà le seuil).
+    """
+    all_week = [{"days": "lundi, mardi, mercredi, jeudi, vendredi", "from": "08:00", "to": "18:00"}]
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1", "maxDailyMinutes": 120}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+    ]
+    courses = [
+        {"week": 1, "code": f"C{i}", "type": "CM", "name": f"C{i}", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}
+        for i in range(5)
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses,
+           "constraints": {"T1": all_week, "G1": all_week, "R1": all_week}}
+
+    sol = solve(raw, {"timeoutSeconds": 10, "reduceTeacherHalfDays": True})[0]
+    assert len(sol["solutions"]) == 5
+    days = {t["startTime"] // 1440 for t in sol["solutions"]}
+    assert len(days) == 5
 
 
-# ── Trou de midi (crossNoonGap) — passe 2 lexicographique, gate pause fixe ────────────────────────
+def test_reduce_half_days_off_is_noop():
+    """Sur _toy_raw(), résultat identique (nb placé, provenOptimal) option absente vs False."""
+    raw = _toy_raw()
+    without_field = solve(raw, {"timeoutSeconds": 10})[0]
+    with_false = solve(raw, {"timeoutSeconds": 10, "reduceTeacherHalfDays": False})[0]
+    assert len(with_false["solutions"]) == len(without_field["solutions"])
+    assert with_false["provenOptimal"] == without_field["provenOptimal"]
+
+
+def test_runner_map_config_passes_reduce_half_days_flag():
+    mapped = cpsat_runner._map_config({"reduceTeacherHalfDays": True})
+    assert mapped.get("reduceTeacherHalfDays") is True
+
+
+def test_soft_prefs_combined_three():
+    """Les 3 préférences douces restantes combinées ne plantent pas et ne dégradent pas le placement."""
+    raw = _toy_raw()
+    without = solve(raw, {"timeoutSeconds": 10})[0]
+    combined = solve(raw, {
+        "timeoutSeconds": 10,
+        "minimizeTeacherDays": True,
+        "reduceTeacherHalfDays": True,
+        "compactTeacherDay": True,
+    })[0]
+    assert len(combined["solutions"]) == len(without["solutions"])
+    assert combined["provenOptimal"] == without["provenOptimal"]
+
+
+# ── Trou de midi (composante D de compactTeacherDay, ex-crossNoonGap) — gate pause fixe ──────────
 
 def _midday_gaps(sol: dict, tid: str, half_cut: int = 13 * 60 + 30, lunch_len: int = 90) -> dict[int, int]:
     """
@@ -563,7 +520,7 @@ def test_cross_noon_penalizes_split_day():
 
     `earliest:True` rend le PLACEMENT DE RÉFÉRENCE déterministe ET causal : la passe 1 minimise la
     somme des débuts → cours du matin collé à 8h00 (finit à 10h30) → trou de midi = 90 min. Sans
-    `crossNoonGap`, aucune passe 2 ne le déplace → 90. Avec `crossNoonGap`, la passe 2 repousse ce
+    `compactTeacherDay`, aucune passe 2 ne le déplace → 90. Avec `compactTeacherDay`, la passe 2 repousse ce
     cours au plus tard dans sa fenêtre (finit à 12h00 pile) → trou = 0.
 
     IMPORTANT (preuve de causalité, vérifiée par ablation le 2026-07-26) : `earliest` est
@@ -590,7 +547,7 @@ def test_cross_noon_penalizes_split_day():
     lunch = {"type": "fixed", "from": "12:00", "to": "13:30"}
 
     without = solve(raw, {"timeoutSeconds": 10, "earliest": True, "lunchBreak": lunch})[0]
-    with_opt = solve(raw, {"timeoutSeconds": 10, "earliest": True, "crossNoonGap": True, "lunchBreak": lunch})[0]
+    with_opt = solve(raw, {"timeoutSeconds": 10, "earliest": True, "compactTeacherDay": True, "lunchBreak": lunch})[0]
 
     assert len(without["solutions"]) == len(with_opt["solutions"]) == 3
     gap_off = _midday_gaps(without, "T1").get(0)
@@ -623,7 +580,7 @@ def test_cross_noon_lunch_not_counted():
            "constraints": {"T1": slots, "G1": wide, "R1": wide}}
     lunch = {"type": "fixed", "from": "12:00", "to": "13:30"}
 
-    sol = solve(raw, {"timeoutSeconds": 10, "crossNoonGap": True, "lunchBreak": lunch})[0]
+    sol = solve(raw, {"timeoutSeconds": 10, "compactTeacherDay": True, "lunchBreak": lunch})[0]
     assert len(sol["solutions"]) == 2
     assert _midday_gaps(sol, "T1") == {0: 0}, "la pause ne doit pas être comptée comme trou de midi"
 
@@ -646,7 +603,7 @@ def test_cross_noon_only_afternoon_no_penalty():
            "constraints": {"T1": afternoon_only, "G1": afternoon_only, "R1": afternoon_only}}
     lunch = {"type": "fixed", "from": "12:00", "to": "13:30"}
 
-    sol = solve(raw, {"timeoutSeconds": 10, "crossNoonGap": True, "lunchBreak": lunch})[0]
+    sol = solve(raw, {"timeoutSeconds": 10, "compactTeacherDay": True, "lunchBreak": lunch})[0]
     assert len(sol["solutions"]) == 2
     assert _midday_gaps(sol, "T1") == {}, "garde-fou OnlyEnforceIf(both) : pas de trou sans présence des 2 côtés"
 
@@ -670,7 +627,7 @@ def test_cross_noon_off_is_noop():
     lunch = {"type": "fixed", "from": "12:00", "to": "13:30"}
 
     without_field = solve(raw, {"timeoutSeconds": 10, "lunchBreak": lunch})[0]
-    with_false = solve(raw, {"timeoutSeconds": 10, "crossNoonGap": False, "lunchBreak": lunch})[0]
+    with_false = solve(raw, {"timeoutSeconds": 10, "compactTeacherDay": False, "lunchBreak": lunch})[0]
     assert len(with_false["solutions"]) == len(without_field["solutions"])
     assert with_false["provenOptimal"] == without_field["provenOptimal"]
 
@@ -679,7 +636,7 @@ def test_cross_noon_lunch_none_is_noop():
     """Flag activé mais lunchBreak:{type:'none'} : le gate `lunch is not None` neutralise l'option."""
     raw = _toy_raw()
     without = solve(raw, {"timeoutSeconds": 10, "lunchBreak": {"type": "none"}})[0]
-    with_flag_no_lunch = solve(raw, {"timeoutSeconds": 10, "crossNoonGap": True,
+    with_flag_no_lunch = solve(raw, {"timeoutSeconds": 10, "compactTeacherDay": True,
                                      "lunchBreak": {"type": "none"}})[0]
     assert len(with_flag_no_lunch["solutions"]) == len(without["solutions"])
     assert with_flag_no_lunch["provenOptimal"] == without["provenOptimal"]
@@ -687,10 +644,10 @@ def test_cross_noon_lunch_none_is_noop():
 
 def test_cross_noon_combined_with_compact():
     """
-    Intégration : `crossNoonGap` + `compactTeacherHalfDays` actifs simultanément (4 cours de 60 min,
-    dispo large 8h-19h) : les deux compacités (intra-bloc ET trou de midi) doivent pouvoir être
-    recherchées sans conflit. Pas de valeur exacte figée : on vérifie juste que le solve reste
-    FEASIBLE et que le placement n'est pas dégradé.
+    Intégration : les deux composantes de `compactTeacherDay` (intra-bloc ET trou de midi) actives
+    simultanément (4 cours de 60 min, dispo large 8h-19h) doivent pouvoir être recherchées sans
+    conflit. Pas de valeur exacte figée : on vérifie juste que le solve reste FEASIBLE et que le
+    placement n'est pas dégradé.
     """
     monday_wide = [{"days": "lundi", "from": "08:00", "to": "19:00"}]
     resources = [
@@ -708,17 +665,62 @@ def test_cross_noon_combined_with_compact():
     lunch = {"type": "fixed", "from": "12:00", "to": "13:30"}
 
     without = solve(raw, {"timeoutSeconds": 10, "lunchBreak": lunch})[0]
-    combined = solve(raw, {"timeoutSeconds": 10, "crossNoonGap": True,
-                           "compactTeacherHalfDays": True, "lunchBreak": lunch})[0]
+    combined = solve(raw, {"timeoutSeconds": 10, "compactTeacherDay": True, "lunchBreak": lunch})[0]
     assert len(combined["solutions"]) == len(without["solutions"]) == 4
 
 
+def test_compact_day_noon_resserrement_never_creates_a_gap():
+    """
+    Repro exacte du bug remonté par Frédéric (vrai projet, 2026-09-11) : un enseignant a 2 cours
+    l'après-midi ; le premier (flexible) était remonté contre la pause méridienne alors que le
+    second (ici enforced, immobile) restait en place, créant un trou ENTRE les deux qui n'existait
+    pas avant. Cause : sans pondération, rapprocher le 1er cours de la pause de Δ minutes réduit le
+    trou de midi (composante D) d'exactement Δ tout en créant un trou intra-bloc (composante A)
+    d'exactement Δ — échange à somme nulle sur `sum(penalty_terms)`, le solveur pouvait choisir
+    arbitrairement de créer le trou. `COMPACT_DAY_IDLE_WEIGHT` (poids 2 sur l'intra-bloc contre 1
+    sur le trou de midi) rend cet échange perdant.
+
+    Instance : M1 (matin, forcé 11h-12h, se termine pile à midi) ; A1 (après-midi, flexible,
+    dispo 13h30-19h) ; A2 (après-midi, enforced à 16h). Sans pondération correcte, A1 serait remonté
+    à 13h30 (trou de midi fermé, mais trou de 150 min créé avant A2). Avec la pondération, A1 doit
+    se coller à A2 (aucun trou intra-bloc), quitte à laisser le trou de midi ouvert.
+    """
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1"}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}]},
+        {"resourceType": "group", "resources": [{"id": "Gm"}, {"id": "Ga"}]},
+    ]
+    courses = [
+        {"week": 1, "code": "M1", "type": "CM", "name": "M1", "duration": 60,
+         "teacher": ["T1"], "groups": ["Gm"], "rooms": ["R1"]},
+        {"week": 1, "code": "A1", "type": "CM", "name": "A1", "duration": 60,
+         "teacher": ["T1"], "groups": ["Ga"], "rooms": ["R1"]},
+        {"week": 1, "code": "A2", "type": "CM", "name": "A2", "duration": 60,
+         "teacher": ["T1"], "groups": ["Ga"], "rooms": ["R1"],
+         "enforced": {"startTime": 16 * 60, "teacher": ["T1"], "groups": ["Ga"], "rooms": ["R1"]}},
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses,
+           "constraints": {
+               "T1": [{"days": "lundi", "from": "11:00", "to": "19:00"}],
+               "Gm": [{"days": "lundi", "from": "11:00", "to": "12:00"}],
+               "Ga": [{"days": "lundi", "from": "13:30", "to": "19:00"}],
+               "R1": [{"days": "lundi", "from": "11:00", "to": "19:00"}],
+           }}
+    lunch = {"type": "fixed", "from": "12:00", "to": "13:30"}
+
+    sol = solve(raw, {"timeoutSeconds": 10, "compactTeacherDay": True, "lunchBreak": lunch})[0]
+    assert len(sol["solutions"]) == 3
+    by_code = {t["code"]: t["startTime"] for t in sol["solutions"]}
+    gap = by_code["A2"] - (by_code["A1"] + 60)
+    assert gap == 0, "A1 doit se coller à A2 (aucun trou intra-bloc), pas remonter seul vers la pause"
+
+
 def test_runner_map_config_passes_cross_noon_flag():
-    mapped = cpsat_runner._map_config({"crossNoonGap": True})
-    assert mapped.get("crossNoonGap") is True
+    mapped = cpsat_runner._map_config({"compactTeacherDay": True})
+    assert mapped.get("compactTeacherDay") is True
 
 
-# ── Minimisation des changements de salle enseignant (minimizeTeacherRoomChanges) — passe 4 ─────
+# ── Minimisation des changements de salle enseignant (minimizeTeacherRoomChanges) — passe 5 ─────
 
 def _count_room_changes(sol: dict, half_cut: int = 13 * 60) -> int:
     """
@@ -767,7 +769,7 @@ def _room_change_raw(n: int = 5) -> dict:
     Les décoys sont nécessaires pour la preuve « casse-si-retiré » (§5.1 du plan) : avec seulement
     2 alternatives par cours (`[R1_i,R2_i]` / `[R2_i,R3_i]`), l'ablation de `model.Minimize` de la
     passe 4 (vérifiée en revue le 2026-07-26) retombe QUAND MÊME sur 0 changement par effet de bord
-    du solveur (même artefact que documenté pour `crossNoonGap`) — faux positif. Avec les décoys,
+    du solveur (même artefact que documenté pour `compactTeacherDay`) — faux positif. Avec les décoys,
     l'ablation retombe sur les décoys (Rd1_i pour A, Rd3_i pour B, JAMAIS R2_i) → 5/5 changements,
     et seul le vrai objectif de la passe 4 fait converger vers R2_i partagé (mesuré : 0/5).
     """
@@ -931,6 +933,29 @@ def test_runner_map_config_passes_room_change_flag():
     assert mapped.get("minimizeTeacherRoomChanges") is True
 
 
+def test_room_change_still_works_with_all_upstream_passes_active():
+    """
+    Vérification post-refonte : minimizeTeacherRoomChanges est maintenant la passe 5, précédée de
+    2 passes qui n'existaient pas quand cette préférence a été validée (jours, demi-journées) plus
+    la fusion compactTeacherDay. Le gel (scheduled[]/start[]/littéraux non-salle) porte sur `solver`
+    tel qu'il est APRÈS la dernière passe exécutée, quelle qu'elle soit : ce mécanisme est générique
+    et ne devrait pas se soucier de ce qui a tourné avant. Instance `_room_change_raw` (5 profs
+    indépendants, fenêtre 120 min pile, back-to-back forcé, seule salle commune R2_i) : les 3
+    autres préférences n'ont structurellement rien à faire dessus (1 seul jour possible, cours déjà
+    collés), donc aucune ne doit perturber le résultat déjà connu (0 changement).
+    """
+    raw = _room_change_raw(5)
+    sol = solve(raw, {
+        "timeoutSeconds": 10,
+        "minimizeTeacherDays": True,
+        "reduceTeacherHalfDays": True,
+        "compactTeacherDay": True,
+        "minimizeTeacherRoomChanges": True,
+    })[0]
+    assert len(sol["solutions"]) == 10
+    assert _count_room_changes(sol) == 0
+
+
 # ── §4.1 : `_residual_break` (fonction pure) — plus grand sous-intervalle libre de [l0,l1] ───────
 
 def test_residual_break_empty_window_when_fully_occupied():
@@ -974,7 +999,7 @@ def test_residual_break_clips_overflow_left_and_right():
 # ── Cours `enforced` à cheval sur la pause méridienne (correctif enforced-lunch-straddle) ────────
 # Contexte : `on_half`/`lunch_len` classaient un cours sur le seul scalaire `start`, exact pour tout
 # cours normal (carvage garantit fin ≤ pause si start < fin de pause) mais faux pour un `enforced`
-# empiétant sur la pause (start imposé, aucun carvage). `crossNoonGap` en tirait une assertion DURE
+# empiétant sur la pause (start imposé, aucun carvage). `compactTeacherDay` en tirait une assertion DURE
 # (`gap >= 0`) → un enforced à cheval rendait le modèle INFEASIBLE, effondrant toute la semaine.
 # Correctif : classification par pause RÉSIDUELLE (`on_side`/`residual()`, cf. `_residual_break`
 # ci-dessus) + positivité structurelle (`AddMaxEquality`). Voir docs/PlanFixEnforcedLunchStraddle.md.
@@ -1011,7 +1036,7 @@ def test_cross_noon_enforced_straddling_lunch_no_collapse():
     """
     Le bug de Frédéric : 2 enforced (13:30 à cheval sur 12:00-14:00, et 16:00) + 2 cours normaux.
     Avant le correctif (vérifié par ablation contre master) : score=0, INFEASIBLE. Le score DOIT
-    rester identique avec et sans `crossNoonGap` (aucune éviction, aucun effondrement).
+    rester identique avec et sans `compactTeacherDay` (aucune éviction, aucun effondrement).
     """
     courses = [
         {"week": 1, "code": "E1", "type": "CM", "name": "", "duration": 90,
@@ -1028,10 +1053,10 @@ def test_cross_noon_enforced_straddling_lunch_no_collapse():
     raw = _straddle_base(courses, MONDAY_ALL_DAY)
 
     without = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH})[0]
-    with_opt = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH, "crossNoonGap": True})[0]
+    with_opt = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH, "compactTeacherDay": True})[0]
 
     assert without["score"] == 4, "prérequis : sans l'option, les 4 tâches tiennent"
-    assert with_opt["score"] == without["score"], "crossNoonGap ne doit JAMAIS faire chuter le score"
+    assert with_opt["score"] == without["score"], "compactTeacherDay (composante trou de midi) ne doit JAMAIS faire chuter le score"
     assert with_opt["isComplete"] is True, "pas d'INFEASIBLE, pas de neutralisation"
 
 
@@ -1057,7 +1082,7 @@ def test_cross_noon_enforced_straddling_lunch_symmetric():
     raw = _straddle_base(courses, MONDAY_ALL_DAY)
 
     without = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH})[0]
-    with_opt = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH, "crossNoonGap": True})[0]
+    with_opt = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH, "compactTeacherDay": True})[0]
 
     assert without["score"] == 4
     assert with_opt["score"] == without["score"]
@@ -1079,7 +1104,7 @@ def test_cross_noon_enforced_straddler_with_task_group():
     raw = _straddle_base(courses, MONDAY_ALL_DAY, groups=[{"id": "TG1", "type": "sequential"}])
 
     without = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH})[0]
-    with_opt = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH, "crossNoonGap": True})[0]
+    with_opt = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH, "compactTeacherDay": True})[0]
 
     assert without["score"] == 2
     assert with_opt["score"] == without["score"], "le groupe séquentiel ne doit pas effondrer la semaine"
@@ -1106,10 +1131,10 @@ def test_cross_noon_enforced_straddler_no_eviction():
     raw = _straddle_base(courses, win)
 
     without = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH})[0]
-    with_opt = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH, "crossNoonGap": True})[0]
+    with_opt = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH, "compactTeacherDay": True})[0]
 
     assert without["score"] == 6, "prérequis : sans l'option, les 6 tâches tiennent"
-    assert with_opt["score"] == without["score"], "crossNoonGap ne doit évincer aucun cours normal"
+    assert with_opt["score"] == without["score"], "compactTeacherDay (composante trou de midi) ne doit évincer aucun cours normal"
 
 
 # ── Groupe B — fidélité de la pause résiduelle (pas une désactivation déguisée) ───────────────────
@@ -1138,7 +1163,7 @@ def test_cross_noon_shortened_break_not_charged():
     ]
     raw = _straddle_base(courses, win)
     sol = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH,
-                      "crossNoonGap": True, "earliest": True})[0]
+                      "compactTeacherDay": True, "earliest": True})[0]
     assert sol["score"] == 2
     m = next(t for t in sol["solutions"] if t["code"] == "M")
     assert m["startTime"] == 10 * 60, "la pause résiduelle (90 min) doit être reconnue suffisante → M collé à 12:00"
@@ -1164,7 +1189,7 @@ def test_cross_noon_real_gap_still_charged():
     ]
     raw = _straddle_base(courses, win)
     sol = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH,
-                      "crossNoonGap": True, "earliest": True})[0]
+                      "compactTeacherDay": True, "earliest": True})[0]
     assert sol["score"] == 2
     m = next(t for t in sol["solutions"] if t["code"] == "M")
     assert m["startTime"] // 1440 == 1, "le vrai trou de 120 min doit peser assez pour repousser M à mardi"
@@ -1200,7 +1225,7 @@ def test_cross_noon_uses_residual_length_not_lunch_length():
     ]
     raw = _straddle_base(courses, win)
     sol = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH,
-                      "crossNoonGap": True, "earliest": True})[0]
+                      "compactTeacherDay": True, "earliest": True})[0]
     assert sol["score"] == 2
     m = next(t for t in sol["solutions"] if t["code"] == "M")
     assert m["startTime"] == 10 * 60, (
@@ -1211,7 +1236,7 @@ def test_cross_noon_uses_residual_length_not_lunch_length():
 def test_cross_noon_enforced_covers_whole_lunch():
     """
     Enforced 11:00-15:00 : couvre la pause 12:00-14:00 en entier → pause résiduelle vide (P1==P0).
-    Ni `crossNoonGap` (aucun terme, `continue`) ni le partage matin/après-midi de `compact` (bloc
+    Ni `compactTeacherDay` (aucun terme, `continue`) ni le partage matin/après-midi de `compact` (bloc
     journée unique) ne doivent s'appliquer. Assert principal : pas d'effondrement.
     """
     courses = [
@@ -1226,22 +1251,30 @@ def test_cross_noon_enforced_covers_whole_lunch():
     raw = _straddle_base(courses, MONDAY_ALL_DAY)
     without = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH})[0]
     with_opt = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH,
-                           "crossNoonGap": True, "compactTeacherHalfDays": True})[0]
+                           "compactTeacherDay": True, "compactTeacherDay": True})[0]
     assert without["score"] == 3
     assert with_opt["score"] == without["score"]
     assert with_opt["isComplete"] is True
 
 
-# ── Groupe C — `compactTeacherHalfDays` (sur-/sous-facturation du §0.5) ───────────────────────────
+# ── Groupe C — `compactTeacherDay` (sur-/sous-facturation du §0.5) ───────────────────────────
 
 def test_compact_straddler_no_phantom_penalty():
     """
     M1+M2 (90 min chacun = 180 min < 240 min dispo) confinés à 08:00-12:00, laissant 60 min de marge
-    intra-bloc + enforced 13:30-15:00. Avant le correctif (vérifié par ablation), le straddler était
-    compté « matin » avec les 2 M → trou fantôme (90 min) que `compact` tentait de réduire en
-    repoussant M1/M2 en fin de créneau (mesuré : 09:00/10:30 au lieu de 08:00/09:30). Avec le
-    correctif, le straddler est exclu du bloc matin (résiduel) → M1/M2 n'ont aucune raison de bouger,
-    `earliest` les laisse au plus tôt, collés (idle intra-bloc déjà nul).
+    intra-bloc + enforced 13:30-15:00. Avant le correctif historique (vérifié par ablation), le
+    straddler était compté « matin » avec les 2 M → trou FANTÔME que la compacité intra-bloc (seule,
+    à l'époque) tentait de réduire en repoussant M1/M2 en fin de créneau. Vérifié séparément (voir
+    `verify_option_a` ad hoc) : SANS E1 (aucune présence après-midi), M1/M2 restent au plus tôt,
+    collés (08:00/09:30) — la composante intra-bloc n'a bien aucune pression fantôme intrinsèque.
+
+    Avec E1 présent (depuis la fusion compactTeacherDay), M1/M2 sont maintenant repoussés à
+    09:00/10:30 — mais pour une raison DIFFÉRENTE et LÉGITIME cette fois : la composante trou-de-midi
+    (ex-`crossNoonGap`, fusionnée dans la même passe) détecte un vrai trou évitable de 60 min entre
+    la fin de M2 (11:00 si packé tôt) et E1 (13:30, fixe) au-delà du résiduel réel de pause (90 min,
+    12:00-13:30 — E1 mange 13:30-14:00 du créneau nominal 12:00-14:00) et pousse légitimement M1/M2
+    à se coller à la pause. Résultat : trou total nul sur toute la journée (intra-bloc ET
+    inter-pause), pas juste intra-bloc comme avant la fusion.
     """
     win = [{"days": "lundi", "from": "08:00", "to": "12:00"}]
     courses = [
@@ -1255,10 +1288,13 @@ def test_compact_straddler_no_phantom_penalty():
     ]
     raw = _straddle_base(courses, win)
     sol = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH,
-                      "compactTeacherHalfDays": True, "earliest": True})[0]
+                      "compactTeacherDay": True, "earliest": True})[0]
     assert sol["score"] == 3
     starts = sorted(t["startTime"] for t in sol["solutions"] if t["code"] in ("M1", "M2"))
-    assert starts == [8 * 60, 9 * 60 + 30], "aucune pression de compaction fantôme : M1/M2 restent au plus tôt, collés"
+    assert starts[1] - starts[0] == 90, "M1/M2 doivent rester collés entre eux (idle intra-bloc nul)"
+    last_m_end = starts[1] + 90
+    assert last_m_end == 12 * 60, \
+        "M2 doit se coller exactement à la pause résiduelle (fin à 12:00) : trou de midi fermé"
 
 
 def test_compact_straddler_afternoon_gap_charged():
@@ -1281,7 +1317,7 @@ def test_compact_straddler_afternoon_gap_charged():
     ]
     raw = _straddle_base(courses, win)
     sol = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH,
-                      "compactTeacherHalfDays": True, "earliest": True})[0]
+                      "compactTeacherDay": True, "earliest": True})[0]
     assert sol["score"] == 2
     n = next(t for t in sol["solutions"] if t["code"] == "N")
     assert n["startTime"] // 1440 == 1, "le vrai trou de 120 min doit peser assez pour repousser N à mardi"
@@ -1299,7 +1335,7 @@ def test_lunch_none_unchanged():
          "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
     ]
     raw = _straddle_base(courses, win)
-    sol = solve(raw, {"timeoutSeconds": 10, "compactTeacherHalfDays": True,
+    sol = solve(raw, {"timeoutSeconds": 10, "compactTeacherDay": True,
                       "lunchBreak": {"type": "none"}})[0]
     assert sol["score"] == 2
     starts = sorted(t["startTime"] for t in sol["solutions"])
@@ -1308,7 +1344,7 @@ def test_lunch_none_unchanged():
 
 def test_no_enforced_unchanged():
     """
-    Instance SANS enforced, `crossNoonGap` + `compactTeacherHalfDays` : le résiduel dégénère en la
+    Instance SANS enforced, `compactTeacherDay` + `compactTeacherDay` : le résiduel dégénère en la
     pause fixe entière (aucun `enf_busy`) → strictement équivalent à l'ancien `on_half`/`lunch_len`.
     Le vrai filet est la suite existante (36 tests, tous verts sans modification) ; ce test ajoute une
     comparaison directe explicite.
@@ -1319,8 +1355,8 @@ def test_no_enforced_unchanged():
         for i in range(4)
     ]
     raw = _straddle_base(courses, MONDAY_ALL_DAY)
-    sol = solve(raw, {"timeoutSeconds": 10, "crossNoonGap": True,
-                      "compactTeacherHalfDays": True, "lunchBreak": STRADDLE_LUNCH})[0]
+    sol = solve(raw, {"timeoutSeconds": 10, "compactTeacherDay": True,
+                      "compactTeacherDay": True, "lunchBreak": STRADDLE_LUNCH})[0]
     assert sol["score"] == 4
     assert sol["isComplete"] is True
 
@@ -1346,7 +1382,7 @@ def test_groupless_course_cannot_collapse():
     raw = {"week": 1, "resources": resources, "courses": courses,
            "constraints": {"T1": noon_only, "R1": MONDAY_ALL_DAY}}
     sol = solve(raw, {"timeoutSeconds": 10, "lunchBreak": STRADDLE_LUNCH,
-                      "crossNoonGap": True, "compactTeacherHalfDays": True})[0]
+                      "compactTeacherDay": True, "compactTeacherDay": True})[0]
     assert sol["score"] == 2, "jamais INFEASIBLE malgré le cours sans groupe en pleine pause"
     g0 = next(t for t in sol["solutions"] if t["code"] == "G0")
     assert g0["startTime"] == 12 * 60, "forcé en pleine pause par sa seule fenêtre disponible"

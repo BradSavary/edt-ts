@@ -97,6 +97,12 @@ export function runCpsat(raw: RawScheduleData, config?: SchedulerConfig): Promis
         reject(new Error(`Moteur CP-SAT : échec (code ${code}) — ${stderr.trim() || '(pas de message)'}`));
         return;
       }
+      // Tracé même en succès (code 0) : une passe peut être sautée faute de budget restant
+      // (`[cpsat] passe N (...) : sautée, budget épuisé`) sans que ça n'affecte le code de sortie —
+      // sans ce log, ce diagnostic existait dans le moteur mais n'était jamais visible nulle part.
+      if (stderr.trim()) {
+        console.error(`[cpsatGateway] stderr moteur :\n${stderr.trim()}`);
+      }
       try {
         resolve(JSON.parse(stdout) as ScheduleSolutionJSON[]);
       } catch (parseErr) {
