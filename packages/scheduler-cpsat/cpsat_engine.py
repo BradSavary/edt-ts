@@ -380,6 +380,11 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
       - lunchBreak       : { type:'fixed', from:'12:00', to:'13:30' } | { type:'none' }
                            (le type 'floating' n'est PAS supporté par ce moteur → ignoré)
       - ignoreDailyLimits: bool (défaut False)
+      - respectCmTdTpOrder: bool (défaut True) — calcule et impose les dépendances de précédence
+                           CM→TD→TP entre cours d'un même ensemble (même code RX.XX ou SAE.XXX,
+                           groupes compatibles). Si False, `_determine_dependencies` n'est pas
+                           consultée : aucune contrainte de précédence n'est posée, le moteur a
+                           toute liberté de placement entre CM/TD/TP.
       - timeoutSeconds   : float (défaut 30)
       - excludeTypes     : list[str] (défaut ['Autonomie']) — exclus et rapportés neutralisés
       - earliest         : bool (défaut False) — départage les optima en plaçant au plus tôt.
@@ -462,6 +467,7 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     constraints = raw.get("constraints") or {}
     exclude_types = set(config.get("excludeTypes", ["Autonomie"]))
     ignore_daily = bool(config.get("ignoreDailyLimits", False))
+    respect_cm_td_tp_order = bool(config.get("respectCmTdTpOrder", True))
     earliest = bool(config.get("earliest", False))
     compact_teacher_day = bool(config.get("compactTeacherDay", False))
     minimize_days = bool(config.get("minimizeTeacherDays", False))
@@ -606,18 +612,21 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
 
     # Dépendances CM→TD→TP : précédence temporelle (conditionnée) + intégrité de chaîne.
     # _determine_dependencies raisonne sur la liste `courses` compacte → indices locaux directs.
-    for dep, pre in _determine_dependencies([c for _, c in courses]):
-        # Un dépendant ENFORCED est épinglé par l'utilisateur : son placement est autoritaire et
-        # échappe à la chaîne auto-dérivée (fidèle à scheduler-core, où les enforced sont exclus de
-        # la vérification de dépendance — _collectDependents / _backtrack). Sans cette exclusion, un
-        # cours épinglé ayant un frère de type antérieur (même code/groupes) forcerait ce prérequis
-        # avant l'heure figée — souvent impossible → modèle INFEASIBLE, toute la semaine s'effondre.
-        # (Un prérequis enforced, lui, reste une contrainte amont valide pour un dépendant normal.)
-        if courses[dep][1].get("enforced"):
-            continue
-        model.Add(start[dep] >= start[pre] + courses[pre][1]["duration"]) \
-             .OnlyEnforceIf([scheduled[dep], scheduled[pre]])
-        model.AddImplication(scheduled[dep], scheduled[pre])
+    # Désactivable globalement via respectCmTdTpOrder=False : le moteur retrouve alors toute
+    # liberté de placement entre CM/TD/TP d'un même ensemble.
+    if respect_cm_td_tp_order:
+        for dep, pre in _determine_dependencies([c for _, c in courses]):
+            # Un dépendant ENFORCED est épinglé par l'utilisateur : son placement est autoritaire et
+            # échappe à la chaîne auto-dérivée (fidèle à scheduler-core, où les enforced sont exclus de
+            # la vérification de dépendance — _collectDependents / _backtrack). Sans cette exclusion, un
+            # cours épinglé ayant un frère de type antérieur (même code/groupes) forcerait ce prérequis
+            # avant l'heure figée — souvent impossible → modèle INFEASIBLE, toute la semaine s'effondre.
+            # (Un prérequis enforced, lui, reste une contrainte amont valide pour un dépendant normal.)
+            if courses[dep][1].get("enforced"):
+                continue
+            model.Add(start[dep] >= start[pre] + courses[pre][1]["duration"]) \
+                 .OnlyEnforceIf([scheduled[dep], scheduled[pre]])
+            model.AddImplication(scheduled[dep], scheduled[pre])
 
     # taskGroups (RawScheduleData.groups + CourseTaskData.taskGroupId) : tout-ou-rien.
     gtype_of = {g["id"]: g["type"] for g in raw.get("groups", [])}

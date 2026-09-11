@@ -28,6 +28,8 @@ def _map_config(config: dict | None) -> dict:
 
     if "ignoreDailyLimits" in config:
         mapped["ignoreDailyLimits"] = config["ignoreDailyLimits"]
+    if "respectCmTdTpOrder" in config:
+        mapped["respectCmTdTpOrder"] = config["respectCmTdTpOrder"]
     if "timeoutSeconds" in config:
         mapped["timeoutSeconds"] = config["timeoutSeconds"]
     if "compactTeacherDay" in config:

@@ -85,6 +85,45 @@ def test_chain_integrity_dependent_never_placed_without_prerequisite():
         assert td["startTime"] >= cm["startTime"] + cm["duration"]
 
 
+def test_respect_cm_td_tp_order_false_allows_td_before_cm():
+    """
+    respectCmTdTpOrder=False : la précédence CM→TD n'est plus imposée. Rooms dédiées et disjointes
+    (CM uniquement mardi, TD uniquement lundi) : avec la précédence imposée (défaut), les deux ne
+    peuvent pas tenir ensemble (TD chronologiquement avant CM violerait l'ordre) ; sans elle, les
+    deux tiennent, TD avant CM.
+    """
+    raw = {
+        "week": 38,
+        "resources": [
+            {"resourceType": "teacher", "resources": [{"id": "T1"}]},
+            {"resourceType": "room", "resources": [{"id": "R_CM"}, {"id": "R_TD"}]},
+            {"resourceType": "group", "resources": [{"id": "G1"}]},
+        ],
+        "courses": [
+            {"week": 38, "semester": 1, "level": 1, "code": "C1", "type": "CM",
+             "teacher": ["T1"], "groups": ["G1"], "name": "C1 CM", "rooms": ["R_CM"], "duration": 60},
+            {"week": 38, "semester": 1, "level": 1, "code": "C1", "type": "TD",
+             "teacher": ["T1"], "groups": ["G1"], "name": "C1 TD", "rooms": ["R_TD"], "duration": 60},
+        ],
+        "constraints": {
+            "Default": ALL_DAY,
+            "R_CM": [{"days": "mardi", "from": "08:00", "to": "09:00"}],
+            "R_TD": [{"days": "lundi", "from": "08:00", "to": "09:00"}],
+        },
+    }
+
+    sol_ordered = solve(raw, {"timeoutSeconds": 10})[0]
+    placed_ordered = {t["type"] for t in sol_ordered["solutions"]}
+    assert placed_ordered != {"CM", "TD"}, \
+        "avec la précédence imposée, CM et TD ne peuvent pas tenir tous les deux (rooms disjointes, TD avant CM)"
+
+    sol_free = solve(raw, {"timeoutSeconds": 10, "respectCmTdTpOrder": False})[0]
+    by_type = {t["type"]: t for t in sol_free["solutions"]}
+    assert set(by_type) == {"CM", "TD"}, "sans la précédence, les deux doivent tenir (chacun dans sa room dédiée)"
+    assert by_type["TD"]["startTime"] < by_type["CM"]["startTime"], \
+        "TD (lundi) doit être placé avant CM (mardi) une fois la précédence désactivée"
+
+
 # ── Tâches enforced ──────────────────────────────────────────────────────────
 
 def _enforced_resources() -> list[dict]:

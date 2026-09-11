@@ -214,6 +214,39 @@ describe('useAppConfigStore — migration v9 (moteur unique CP-SAT)', () => {
     expect(cfg.reduceTeacherHalfDays).toBe(true);
   });
 
+  it('v13 : ajoute respectCmTdTpOrder=true à un état v12 qui ne la connaît pas', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      state: {
+        schedulerConfig: {
+          engine: 'cpsat',
+          timeoutSeconds: 180,
+        },
+      },
+      version: 12,
+    }));
+    const { useAppConfigStore } = await import('@/store/useAppConfigStore');
+    await useAppConfigStore.persist.rehydrate();
+    const cfg = useAppConfigStore.getState().schedulerConfig;
+    expect(cfg.respectCmTdTpOrder).toBe(true);
+  });
+
+  it('v13 : préserve respectCmTdTpOrder=false déjà persisté', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      state: {
+        schedulerConfig: {
+          engine: 'cpsat',
+          timeoutSeconds: 180,
+          respectCmTdTpOrder: false,
+        },
+      },
+      version: 12,
+    }));
+    const { useAppConfigStore } = await import('@/store/useAppConfigStore');
+    await useAppConfigStore.persist.rehydrate();
+    const cfg = useAppConfigStore.getState().schedulerConfig;
+    expect(cfg.respectCmTdTpOrder).toBe(false);
+  });
+
   it('pas de config persistée du tout : les valeurs par défaut ne contiennent aucune clé core-only', async () => {
     const { useAppConfigStore } = await import('@/store/useAppConfigStore');
     await useAppConfigStore.persist.rehydrate();
@@ -243,5 +276,6 @@ describe('useAppConfigStore — migration v9 (moteur unique CP-SAT)', () => {
     expect(cfg.reduceTeacherHalfDays).toBe(false);
     expect(cfg.compactTeacherDay).toBe(false);
     expect(cfg.minimizeTeacherRoomChanges).toBe(false);
+    expect(cfg.respectCmTdTpOrder).toBe(true);
   });
 });

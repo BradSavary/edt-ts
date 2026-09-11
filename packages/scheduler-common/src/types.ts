@@ -225,6 +225,13 @@ export interface SchedulerConfig {
   /** Si true, ignore les limites maxDailyMinutes de toutes les ressources (défaut : false) */
   ignoreDailyLimits?: boolean;
   /**
+   * Si true (défaut), calcule automatiquement les dépendances de précédence CM → TD → TP entre
+   * cours d'un même ensemble (même code RX.XX ou SAE.XXX) : un TD ne peut démarrer avant son CM,
+   * un TP avant son TD (ou son CM à défaut de TD). Si false, ces dépendances ne sont pas calculées
+   * et le moteur a toute liberté de placement entre CM/TD/TP d'un même ensemble.
+   */
+  respectCmTdTpOrder?: boolean;
+  /**
    * Préférence DOUCE, PRIORITAIRE sur les autres : concentrer les cours d'un enseignant sur le
    * moins de JOURNÉES distinctes possible (remplir matin+après-midi d'un jour plutôt qu'étaler).
    * Optimisée à nombre de cours placés CONSTANT : ne sacrifie jamais un placement ni ne viole une
@@ -263,6 +270,7 @@ export const DEFAULT_SCHEDULER_CONFIG: Required<SchedulerConfig> = {
   timeoutSeconds: 180,
   lunchBreak: { type: 'none' },
   ignoreDailyLimits: false,
+  respectCmTdTpOrder: true,
   minimizeTeacherDays: false,
   reduceTeacherHalfDays: false,
   compactTeacherDay: false,

@@ -41,6 +41,7 @@ interface Draft {
   lunchFixed: LunchFixedDraft;
   lunchFloating: LunchFloatingDraft;
   ignoreDailyLimits: boolean;
+  respectCmTdTpOrder: boolean;
   minimizeTeacherDays: boolean;
   reduceTeacherHalfDays: boolean;
   compactTeacherDay: boolean;
@@ -74,6 +75,7 @@ function configToDraft(config: SchedulerConfig): Draft {
     lunchFixed,
     lunchFloating,
     ignoreDailyLimits: config.ignoreDailyLimits ?? DEFAULT_SCHEDULER_CONFIG.ignoreDailyLimits,
+    respectCmTdTpOrder: config.respectCmTdTpOrder ?? DEFAULT_SCHEDULER_CONFIG.respectCmTdTpOrder,
     minimizeTeacherDays: config.minimizeTeacherDays ?? DEFAULT_SCHEDULER_CONFIG.minimizeTeacherDays,
     reduceTeacherHalfDays: config.reduceTeacherHalfDays ?? DEFAULT_SCHEDULER_CONFIG.reduceTeacherHalfDays,
     compactTeacherDay: config.compactTeacherDay ?? DEFAULT_SCHEDULER_CONFIG.compactTeacherDay,
@@ -102,6 +104,7 @@ function draftToConfig(draft: Draft): SchedulerConfig {
     timeoutSeconds: Math.max(1, parseInt(draft.timeoutSeconds, 10) || DEFAULT_SCHEDULER_CONFIG.timeoutSeconds),
     lunchBreak,
     ignoreDailyLimits: draft.ignoreDailyLimits,
+    respectCmTdTpOrder: draft.respectCmTdTpOrder,
     minimizeTeacherDays: draft.minimizeTeacherDays,
     reduceTeacherHalfDays: draft.reduceTeacherHalfDays,
     compactTeacherDay: draft.compactTeacherDay,
@@ -305,6 +308,26 @@ export function SchedulerConfigDialog() {
                 </Label>
                 <p className="text-xs text-muted-foreground">
                   Si coché, les limites journalières définies dans les contraintes de toutes les ressources sont ignorées.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 pt-1">
+              <input
+                id="cfg-respectCmTdTpOrder"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+                checked={draft.respectCmTdTpOrder}
+                onChange={(e) => setDraftField('respectCmTdTpOrder', e.target.checked)}
+              />
+              <div className="space-y-0.5">
+                <Label htmlFor="cfg-respectCmTdTpOrder" className="cursor-pointer">
+                  Respecter l&apos;enchaînement CM puis TD puis TP
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Si coché (défaut), un TD ne peut être placé avant son CM, ni un TP avant son TD, pour
+                  les cours d&apos;un même ensemble. Si décoché, ces dépendances ne sont pas calculées
+                  et le moteur a plus de liberté de placement.
                 </p>
               </div>
             </div>

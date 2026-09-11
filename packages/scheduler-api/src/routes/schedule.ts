@@ -29,6 +29,7 @@ router.get('/config', defaultConfigHandler);
  *       { type: 'fixed', from: 'HH:MM', to: 'HH:MM' }
  *       { type: 'floating', ... } — non supporté par CP-SAT, provoque une erreur explicite
  *   - ignoreDailyLimits           : boolean — ignore les maxDailyMinutes de toutes les ressources (défaut : false)
+ *   - respectCmTdTpOrder          : boolean — calcule les dépendances de précédence CM→TD→TP (défaut : true)
  *   - minimizeTeacherDays         : boolean — préférence douce (défaut : false)
  *   - reduceTeacherHalfDays       : boolean — préférence douce (défaut : false)
  *   - compactTeacherDay           : boolean — préférence douce (défaut : false)

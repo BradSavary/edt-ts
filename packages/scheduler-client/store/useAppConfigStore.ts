@@ -22,7 +22,7 @@ export const useAppConfigStore = create<AppConfigStore>()(
     }),
     {
       name: 'edt-app-config',
-      version: 12,
+      version: 13,
       migrate: (persistedState) => {
         const state = persistedState as { schedulerConfig?: Record<string, unknown> };
         if (!state?.schedulerConfig) return state;
@@ -48,6 +48,9 @@ export const useAppConfigStore = create<AppConfigStore>()(
         delete schedulerConfig.compactTeacherHalfDays;
         delete schedulerConfig.crossNoonGap;
         if (!('minimizeTeacherRoomChanges' in schedulerConfig)) schedulerConfig.minimizeTeacherRoomChanges = false;
+        // v13 : nouvelle option — respecter (ou non) l'enchaînement CM→TD→TP. Comportement par
+        // défaut inchangé pour les configs existantes : la précédence était déjà toujours calculée.
+        if (!('respectCmTdTpOrder' in schedulerConfig)) schedulerConfig.respectCmTdTpOrder = true;
         // v9 : moteur unique CP-SAT — les options du moteur maison n'ont plus de destinataire.
         for (const k of ['engine', 'maxSolutions', 'maxIterations', 'maxEliminations',
                          'conflictOrderingSearch', 'conflictSetExact', 'comboBranching',

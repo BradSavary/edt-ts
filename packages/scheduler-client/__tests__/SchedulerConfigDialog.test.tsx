@@ -76,6 +76,22 @@ describe('SchedulerConfigDialog', () => {
     expect(screen.getByLabelText(/Limiter les changements de salle/i)).toBeChecked();
   });
 
+  it('l\'enchaînement CM→TD→TP est coché par défaut et se décoche/persiste', () => {
+    render(<SchedulerConfigDialog />);
+    openDialog();
+
+    const checkbox = screen.getByLabelText(/Respecter l.enchaînement CM puis TD puis TP/i);
+    expect(checkbox).toBeChecked();
+
+    fireEvent.click(checkbox);
+    fireEvent.click(screen.getByRole('button', { name: /Valider/i }));
+
+    expect(useAppConfigStore.getState().schedulerConfig.respectCmTdTpOrder).toBe(false);
+
+    openDialog();
+    expect(screen.getByLabelText(/Respecter l.enchaînement CM puis TD puis TP/i)).not.toBeChecked();
+  });
+
   it('rouvrir le dialog recharge le draft depuis le store', () => {
     useAppConfigStore.setState({
       schedulerConfig: { ...DEFAULT_SCHEDULER_CONFIG, minimizeTeacherDays: true },
