@@ -30,6 +30,11 @@ export interface TaskCardProps {
   rooms: string[];
   isNeutralized?: boolean;
   isEnforced?: boolean;
+  /**
+   * Messages détaillant pourquoi le cours ne pourra jamais être placé (ressource sans
+   * disponibilité ou disponibilité trop courte pour la durée du cours). Non vide → badge danger.
+   */
+  unschedulableReasons?: string[];
   groupInfo?: { type: 'parallel' | 'sequential' } | null;
   /** Commentaire libre du cours, affiché en icône avec tooltip. */
   comment?: string;
@@ -73,6 +78,7 @@ export default function TaskCard({
   rooms,
   isNeutralized = false,
   isEnforced = false,
+  unschedulableReasons = [],
   groupInfo,
   comment,
   courseKey,
@@ -125,7 +131,9 @@ export default function TaskCard({
       ? 'opacity-50 border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-950 cursor-default'
       : isEnforced
         ? 'opacity-70 cursor-default border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950'
-        : groupInfo
+        : unschedulableReasons.length > 0
+          ? 'border-red-400 dark:border-red-700 bg-red-50 dark:bg-red-950'
+          : groupInfo
           ? 'cursor-grab active:cursor-grabbing border-violet-300 dark:border-violet-700 hover:border-violet-400 hover:shadow-sm'
           : draggableTaskId
             ? 'cursor-grab active:cursor-grabbing hover:border-primary/50 hover:shadow-sm'
@@ -233,6 +241,14 @@ export default function TaskCard({
         )}
         {isEnforced && (
           <div className="mt-1 text-green-600 dark:text-green-400 font-medium">📌 Imposé</div>
+        )}
+        {unschedulableReasons.length > 0 && (
+          <div
+            title={unschedulableReasons.join('\n')}
+            className="mt-1 text-red-600 dark:text-red-400 font-medium cursor-help"
+          >
+            🚫 Impossible à placer
+          </div>
         )}
         {isNeutralized && (
           <div className="mt-1 text-orange-500 dark:text-orange-400 font-medium text-[10px]">
