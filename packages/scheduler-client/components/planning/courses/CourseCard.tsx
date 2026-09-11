@@ -1,10 +1,13 @@
 'use client';
 
+import { useMemo } from 'react';
 import type { CourseTaskData } from '@edt-ts/scheduler-common';
 import { usePlanningStore } from '@/store/usePlanningStore';
+import { useProjectStore } from '@/store/useProjectStore';
 import { getCourseGroupInfo } from '@/lib/taskGroupUtils';
 import TaskCard from '@/components/planning/courses/TaskCard';
 import { normalizeResourceEntries } from '@/lib/taskCardUtils';
+import { getCourseUnschedulableReasons } from '@/lib/courseFeasibilityAnalysis';
 
 interface Props {
   courseKey: string;
@@ -19,8 +22,19 @@ export default function CourseCard({ courseKey, course, enforced, onEdit, onDupl
   const taskGroups = usePlanningStore((s) => s.taskGroups);
   const unplaced = usePlanningStore((s) => s.unplaced);
   const togglePreNeutralized = usePlanningStore((s) => s.togglePreNeutralized);
+  const availabilityManager = useProjectStore((s) => s.availabilityManager);
+  const selectedWeek = usePlanningStore((s) => s.selectedWeek);
   const groupInfo = getCourseGroupInfo(taskGroups, courseKey);
   const isNeutralized = unplaced.some((u) => u.taskId === courseKey && u.origin === 'user-pre');
+
+  // Un cours imposé ignore les disponibilités des ressources : jamais signalé.
+  const unschedulableReasons = useMemo(
+    () =>
+      enforced || !availabilityManager || selectedWeek === null
+        ? []
+        : getCourseUnschedulableReasons(course, availabilityManager, selectedWeek).map((r) => r.message),
+    [course, availabilityManager, selectedWeek, enforced],
+  );
 
   return (
     <TaskCard
@@ -34,6 +48,7 @@ export default function CourseCard({ courseKey, course, enforced, onEdit, onDupl
       comment={course.comment}
       isNeutralized={isNeutralized}
       isEnforced={enforced}
+      unschedulableReasons={unschedulableReasons}
       groupInfo={groupInfo}
       courseKey={courseKey}
       onEdit={onEdit}

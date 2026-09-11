@@ -23,15 +23,19 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { StatisticsDialog } from '@/components/planning/modals/StatisticsDialog';
+import { UnschedulableCoursesDialog } from '@/components/planning/modals/UnschedulableCoursesDialog';
+import { getCourseUnschedulableReasons } from '@/lib/courseFeasibilityAnalysis';
 
 export default function PlanningPage() {
   // ── Stores ──────────────────────────────────────────────────────────────
   const allCourses = useProjectStore((s) => s.allCourses);
   const weekSaves = useProjectStore((s) => s.weekSaves);
   const resources = useProjectStore((s) => s.resources);
+  const availabilityManager = useProjectStore((s) => s.availabilityManager);
 
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
   const setSelectedWeek = usePlanningStore((s) => s.setSelectedWeek);
+  const enforcedMap = usePlanningStore((s) => s.enforcedMap);
   // `lastRun` (persisté) plutôt que `scheduleResult` (session uniquement) : la présence des
   // actions solution ("↺ Réinitialiser", Statistiques) doit survivre au rechargement (§4.6).
   const lastRun = usePlanningStore((s) => s.lastRun);
@@ -54,6 +58,7 @@ export default function PlanningPage() {
   // ── État local ──────────────────────────────────────────────────────────
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [statsDialogOpen, setStatsDialogOpen] = useState(false);
+  const [unschedulableDialogOpen, setUnschedulableDialogOpen] = useState(false);
   // Déménagé tel quel depuis SidebarPreparation (§3.1 du plan) : la barre d'outils permanente
   // remplace la sidebar comme seul point d'entrée du sélecteur de semaine.
   const [weekInput, setWeekInput] = useState<string>(selectedWeek !== null ? String(selectedWeek) : '');
@@ -84,6 +89,27 @@ export default function PlanningPage() {
     () => new Map(parsedCourses.map((c) => [c.id, c])),
     [parsedCourses],
   );
+
+  // ── Cours structurellement impossibles à placer (ressource sans disponibilité suffisante) ───
+  // Un cours imposé ignore les disponibilités : exclu via `enforcedMap`.
+  const unschedulableCourses = useMemo(() => {
+    if (!availabilityManager || selectedWeek === null) return [];
+    return parsedCourses
+      .filter((c) => enforcedMap[c.id] === undefined)
+      .map((course) => ({ course, reasons: getCourseUnschedulableReasons(course, availabilityManager, selectedWeek) }))
+      .filter((entry) => entry.reasons.length > 0);
+  }, [parsedCourses, availabilityManager, selectedWeek, enforcedMap]);
+
+  // ── Popup d'alerte à chaque changement de semaine tant qu'un problème subsiste sur celle-ci ──
+  // Dépendance volontairement limitée à `selectedWeek` : `unschedulableCourses` dépend lui aussi
+  // de `selectedWeek` (via `parsedCourses`), donc il est déjà à jour au moment du render — l'effet
+  // ne doit se déclencher qu'au changement de semaine, jamais après une simple édition de cours.
+  useEffect(() => {
+    if (selectedWeek !== null && unschedulableCourses.length > 0) {
+      setUnschedulableDialogOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWeek]);
 
   // ── Placements filtrés (recherche) ───────────────────────────────────────
   const filteredPlacements = useMemo(
@@ -207,6 +233,12 @@ export default function PlanningPage() {
         onOpenChange={setStatsDialogOpen}
         activeSolution={statisticsSolution}
         resources={resources}
+      />
+      {/* Popup d'alerte : cours de la semaine impossibles à placer */}
+      <UnschedulableCoursesDialog
+        open={unschedulableDialogOpen}
+        onOpenChange={setUnschedulableDialogOpen}
+        items={unschedulableCourses}
       />
       {/* Dialog de réinitialisation de la solution */}
       <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
