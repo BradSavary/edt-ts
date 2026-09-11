@@ -128,6 +128,23 @@ describe('generateIcalContent', () => {
       const content = generateIcalContent([makeTask()], 47);
       expect(content).not.toContain('Commentaire:');
     });
+
+    it(
+      'un caractère accentué à la frontière de repli à 75/74 octets n\'est jamais corrompu ' +
+        '(pas de U+FFFD), quelle que soit la longueur du commentaire',
+      () => {
+        // Balaie l'alignement du caractère accentué par rapport à la frontière de repli : sur
+        // cette plage, au moins une longueur fait tomber la coupe DANS le caractère multi-octets
+        // « é » (2 octets) — avant le correctif, chaque moitié se décodait en U+FFFD.
+        for (let len = 0; len < 40; len++) {
+          const comment = 'é'.repeat(len) + 'x'.repeat(200) + 'é'.repeat(len);
+          const content = generateIcalContent([makeTask({ comment })], 47);
+          // Déplie les lignes de continuation RFC 5545 (repli \r\n + espace) avant de vérifier.
+          const unfolded = content.replace(/\r\n /g, '');
+          expect(unfolded).not.toContain('�');
+        }
+      },
+    );
   });
 
   describe('ressources', () => {

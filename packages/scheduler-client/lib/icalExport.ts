@@ -45,6 +45,17 @@ function escapeText(value: string): string {
 }
 
 /**
+ * Recule `index` jusqu'au dernier octet qui n'est pas une continuation UTF-8 (`10xxxxxx`),
+ * pour ne jamais couper un caractère multi-octets en deux — sinon chaque moitié se décode en
+ * `�` (U+FFFD), perte définitive du caractère (ex. un « é » en fin de tranche pliée).
+ */
+function utf8SafeCutIndex(bytes: Uint8Array, index: number): number {
+  let i = index;
+  while (i > 0 && (bytes[i] & 0xc0) === 0x80) i--;
+  return i;
+}
+
+/**
  * Replie les lignes à 75 octets (RFC 5545 §3.1).
  * Les lignes de continuation débutent par un espace.
  */
@@ -58,14 +69,16 @@ function foldLine(line: string): string {
   const chunks: string[] = [];
   let cursor = 0;
 
-  // Première tranche : 75 octets
-  chunks.push(decoder.decode(bytes.slice(0, 75)));
-  cursor = 75;
+  // Première tranche : jusqu'à 75 octets, sans trancher un caractère
+  let cut = utf8SafeCutIndex(bytes, 75);
+  chunks.push(decoder.decode(bytes.slice(0, cut)));
+  cursor = cut;
 
-  // Tranches suivantes : 74 octets (1 octet réservé pour l'espace de continuation)
+  // Tranches suivantes : jusqu'à 74 octets (1 réservé pour l'espace de continuation)
   while (cursor < bytes.length) {
-    chunks.push('\r\n ' + decoder.decode(bytes.slice(cursor, cursor + 74)));
-    cursor += 74;
+    cut = utf8SafeCutIndex(bytes, Math.min(cursor + 74, bytes.length));
+    chunks.push('\r\n ' + decoder.decode(bytes.slice(cursor, cut)));
+    cursor = cut;
   }
 
   return chunks.join('');

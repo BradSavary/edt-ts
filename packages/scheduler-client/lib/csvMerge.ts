@@ -89,6 +89,10 @@ export function diffCsvCourses(
   const added: CourseTaskDataWithId[] = [];
   const removed: CourseTaskDataWithId[] = [];
   const finalIdByNewCourse = new Map<CourseTaskData, string>();
+  // Le commentaire est une métadonnée purement client (jamais dans le CSV) : un cours apparié
+  // doit la conserver depuis l'ancien cours, comme son id — sinon un simple réimport du même
+  // CSV efface silencieusement tous les commentaires (cf. weeklyMaxDailyMinutes côté ressources).
+  const commentByNewCourse = new Map<CourseTaskData, string | undefined>();
 
   const allKeys = new Set<string>([...oldByKey.keys(), ...newByKey.keys()]);
 
@@ -100,9 +104,10 @@ export function diffCsvCourses(
     for (let i = 0; i < pairCount; i++) {
       const oldCourse = oldList[i];
       const newCourse = newList[i];
-      const mergedCourse: CourseTaskDataWithId = { ...newCourse, id: oldCourse.id, source: 'csv' };
+      const mergedCourse: CourseTaskDataWithId = { ...newCourse, id: oldCourse.id, source: 'csv', comment: oldCourse.comment };
       kept.push(mergedCourse);
       finalIdByNewCourse.set(newCourse, oldCourse.id);
+      commentByNewCourse.set(newCourse, oldCourse.comment);
     }
 
     if (newList.length > pairCount) {
@@ -132,6 +137,7 @@ export function diffCsvCourses(
       ...c,
       id: finalIdByNewCourse.get(c)!,
       source: 'csv' as const,
+      comment: commentByNewCourse.get(c),
     })),
   ];
 

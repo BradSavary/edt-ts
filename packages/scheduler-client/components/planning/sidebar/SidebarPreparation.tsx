@@ -80,6 +80,7 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
       groups: update.groups,
       rooms: update.rooms,
       ...(update.duration !== undefined ? { duration: update.duration } : {}),
+      comment: update.comment,
     };
     if (courseRef.source === 'manual') {
       if (selectedWeek !== null) updateManualCourse(selectedWeek, courseRef.id, patch);
@@ -281,6 +282,7 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
           teacherOptions={teacherOptions}
           groupOptions={groupOptions}
           roomOptions={roomOptions}
+          comment={editingCourse.course.comment}
           onConfirm={handleEditConfirm}
           onCancel={() => setEditingCourse(null)}
         />

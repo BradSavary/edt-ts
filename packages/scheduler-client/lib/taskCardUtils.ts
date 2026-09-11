@@ -3,7 +3,7 @@ import type { TaskCardProps } from '@/components/planning/courses/TaskCard';
 
 export type TaskCardBaseProps = Pick<
   TaskCardProps,
-  'code' | 'type' | 'name' | 'duration' | 'teachers' | 'groups' | 'rooms'
+  'code' | 'type' | 'name' | 'duration' | 'teachers' | 'groups' | 'rooms' | 'comment'
 >;
 
 /** Convertit un ResourceEntry[] (string | string[]) en string[] lisible. */
@@ -20,6 +20,7 @@ export function courseToBaseProps(course: CourseTaskData): TaskCardBaseProps {
     teachers: normalizeResourceEntries(course.teacher),
     groups: normalizeResourceEntries(course.groups),
     rooms: normalizeResourceEntries(course.rooms ?? []),
+    comment: course.comment,
   };
 }
 

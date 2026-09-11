@@ -141,6 +141,21 @@ describe('diffCsvCourses', () => {
     expect(diff.merged.map((c) => c.code)).toEqual(['R202', 'R101']);
   });
 
+  it('commentaire préservé sur un cours apparié (métadonnée absente du CSV)', () => {
+    const old = [makeOldCourse({ rooms: ['A101'], comment: 'Salle à confirmer' })];
+    const next = [makeCourse({ rooms: ['B202'] })];
+    const diff = diffCsvCourses(old, next);
+    expect(diff.kept[0].comment).toBe('Salle à confirmer');
+    expect(diff.merged[0].comment).toBe('Salle à confirmer');
+  });
+
+  it('cours ajouté (pas de correspondance ancienne) : pas de commentaire hérité', () => {
+    const old: CourseTaskDataWithId[] = [];
+    const next = [makeCourse({ code: 'R999' })];
+    const diff = diffCsvCourses(old, next);
+    expect(diff.added[0].comment).toBeUndefined();
+  });
+
   it('déterminisme : deux appels identiques produisent les mêmes ids', () => {
     const old = [makeOldCourse({ code: 'R101' })];
     const next = [makeCourse({ code: 'R101', rooms: ['B1'] })];
