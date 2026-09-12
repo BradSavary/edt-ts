@@ -514,6 +514,68 @@ def test_runner_map_config_passes_reduce_half_days_flag():
     assert mapped.get("reduceTeacherHalfDays") is True
 
 
+def test_compact_pass_does_not_undo_half_days(monkeypatch):
+    """
+    La passe 4 (compacité) ne doit JAMAIS recréer une demi-journée sous-utilisée éliminée par la
+    passe 3 — c'est ce que son en-tête annonce (« passe-3 FIGÉS »), et ce que seul le verrou
+    `sum(half_terms) <= best_half` garantit réellement.
+
+    Instance où la dégradation est FORCÉE, pas seulement permise (la rendre obligatoire est ce qui
+    rend le test déterministe ; une simple égalité de pénalités dépendrait de l'ordre d'exploration,
+    cf. le faux positif documenté dans docs/PlanCrossNoonGap.md §8) :
+
+    T1 dispo lundi 08:00-09:00, 10:00-12:00, 13:30-14:30 ; pause fixe 12:00-13:30.
+      A = 120 min -> ne tient QUE dans 10:00-12:00.
+      B =  60 min -> soit 08:00-09:00, soit 13:30-14:30.
+
+      Option P (B le matin) : un seul bloc de 180 min (> seuil) => 0 sous-utilisée,
+                              mais idle matin = (12:00-08:00) - 180 = 60 -> penalite 60*2 = 120.
+      Option Q (B l'aprem)  : matin 120 + aprem 60, tous deux <= seuil => 2 sous-utilisées,
+                              idle 0 partout et trou de midi 810-720-90 = 0 -> penalite 0.
+
+    La passe 3 choisit P (0 < 2) ; la passe 4 préfère STRICTEMENT Q (0 < 120). Sans le verrou elle
+    bascule donc sur Q et dégrade — vérifié sur le moteur d'avant le verrou : A@10h00 + B@13h30,
+    2 sous-utilisées. Avec le verrou : A@10h00 + B@08h00, 0 sous-utilisée.
+    """
+    import cpsat_engine as _eng
+
+    class _DeterministicSolver(cp_model.CpSolver):
+        def __init__(self):
+            super().__init__()
+            self.parameters.num_search_workers = 1
+            self.parameters.random_seed = 0
+
+    monkeypatch.setattr(_eng.cp_model, "CpSolver", _DeterministicSolver)
+
+    resources = [
+        {"resourceType": "teacher", "resources": [{"id": "T1"}]},
+        {"resourceType": "room", "resources": [{"id": "R1"}]},
+        {"resourceType": "group", "resources": [{"id": "G1"}]},
+    ]
+    courses = [
+        {"week": 1, "code": "A", "type": "CM", "name": "A", "duration": 120,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+        {"week": 1, "code": "B", "type": "CM", "name": "B", "duration": 60,
+         "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]},
+    ]
+    raw = {"week": 1, "resources": resources, "courses": courses,
+           "constraints": {
+               "T1": [{"days": "lundi", "from": "08:00", "to": "09:00"},
+                      {"days": "lundi", "from": "10:00", "to": "12:00"},
+                      {"days": "lundi", "from": "13:30", "to": "14:30"}],
+               "G1": [{"days": "lundi", "from": "08:00", "to": "18:00"}],
+               "R1": [{"days": "lundi", "from": "08:00", "to": "18:00"}]}}
+
+    sol = solve(raw, {"timeoutSeconds": 10,
+                      "lunchBreak": {"type": "fixed", "from": "12:00", "to": "13:30"},
+                      "reduceTeacherHalfDays": True, "compactTeacherDay": True})[0]
+
+    assert len(sol["solutions"]) == 2, "les deux cours restent plaçables"
+    assert _underused_half_days(sol) == 0, (
+        "la passe 4 a recréé une demi-journée sous-utilisée que la passe 3 avait éliminée "
+        "(verrou sum(half_terms) <= best_half absent ou inopérant)")
+
+
 def test_soft_prefs_combined_three():
     """Les 3 préférences douces restantes combinées ne plantent pas et ne dégradent pas le placement."""
     raw = _toy_raw()

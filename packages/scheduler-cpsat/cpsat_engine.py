@@ -1029,6 +1029,19 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     budget = _pass_budget(deadline, "passe 4 (compacité)", reserve4) if penalty_terms else 0.0
     if budget >= MIN_PASS_SECONDS:
         model.Add(place_term >= best_placed)          # verrou : jamais moins de cours placés
+        # Verrou des DEMI-JOURNÉES : l'en-tête ci-dessus annonce « passe-3 FIGÉS », mais rien ne
+        # l'imposait — seul `place_term` était verrouillé, si bien que la compacité pouvait recréer
+        # des demi-journées sous-utilisées que la passe 3 venait d'éliminer. MESURÉ sur le vrai
+        # projet (2026-09-12) : 2 runs sur 4 dégradent, jusqu'à +5 demi-journées (S48 : 28 → 33).
+        # Pourquoi c'est possible : pour un enseignant avec un cours A 8h-10h et un cours B plaçable
+        # soit à 11h-12h (un seul bloc, idle intra 60 min × COMPACT_DAY_IDLE_WEIGHT=2 → 120), soit à
+        # 13h30 (deux blocs, trou de midi 810−600−90 = 120 × 1 → 120), les deux pénalités sont
+        # EXACTEMENT égales : le solveur est indifférent et peut choisir d'ajouter une demi-journée.
+        # Posé même si la passe 3 a été sautée faute de budget : il signifie alors « ne pas empirer »,
+        # ce que l'option cochée laisse légitimement attendre.
+        if reduce_half_days and half_terms:
+            best_half = int(round(sum(solver.Value(v) for v in half_terms)))
+            model.Add(sum(half_terms) <= best_half)
         # Amorce (warm start) avec la solution de la passe précédente → convergence plus rapide.
         model.ClearHints()
         for li in range(len(courses)):
