@@ -216,16 +216,14 @@ export function SidebarAnalysis() {
         {/* Actions */}
         <div className="flex flex-col gap-2">
           {lastRun !== null && (
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" className="flex-1" onClick={handleExport}>
-                {exportMode === 'filtered'
-                  ? searchQuery.trim()
-                    ? `Exporter (filtré) en ${exportFormat === 'ics' ? 'iCal' : 'PDF'}`
-                    : `Exporter en ${exportFormat === 'ics' ? 'iCal' : 'PDF'}`
-                  : 'Exporter en ZIP'}
-              </Button>
+            <div className="flex gap-1.5">
+              <div className="flex-1 min-w-0">
+                <Button type="button" variant="outline" className="w-full px-2" onClick={handleExport}>
+                  Exporter
+                </Button>
+              </div>
               <Select value={exportFormat} onValueChange={(v) => setExportFormat(v as typeof exportFormat)}>
-                <SelectTrigger size="sm" className="w-24" aria-label="Format d'export">
+                <SelectTrigger size="sm" className="w-[4.5rem] shrink-0 px-2" aria-label="Format d'export">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -234,7 +232,7 @@ export function SidebarAnalysis() {
                 </SelectContent>
               </Select>
               <Select value={exportMode} onValueChange={(v) => setExportMode(v as typeof exportMode)}>
-                <SelectTrigger size="sm" className="w-32" aria-label="Portée de l'export">
+                <SelectTrigger size="sm" className="w-32 shrink-0 px-2" aria-label="Portée de l'export">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
