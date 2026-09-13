@@ -26,6 +26,7 @@ Fidélité de modélisation (calquée sur scheduler-common / scheduler-core) :
                                 (parallel : départs égaux ; sequential : enchaînement sans gap)
   - maxDailyMinutes           → plafond quotidien par ressource (réification on_day) — hors enforced
   - pause méridienne fixe     → scheduler.ts _applyLunchBreak (retirée des seuls GROUP, lun-ven)
+  - grille horaire            → début sur un multiple de GRID_MINUTES (30) — cours imposés exemptés
   - préférences douces prof   → hiérarchie à placement fixé, dans cet ordre : moins de jours
                                 (minimizeTeacherDays, passe 2) → réduction des demi-journées
                                 sous-utilisées (reduceTeacherHalfDays, passe 3) → compacité par
@@ -47,6 +48,14 @@ from typing import Any
 from ortools.sat.python import cp_model
 
 HORIZON = 7 * 1440  # minutes depuis lundi 00:00, une semaine
+
+# Pas de la grille horaire : un cours ne peut commencer que sur un multiple de cette valeur.
+# Sans grille, `start` est un entier libre à la minute et le moteur produit occasionnellement des
+# créneaux inexploitables (13h31, 15h01, 17h01 — constaté sur le vrai projet le 2026-09-12, de 1 à
+# 5 cours par semaine), simplement parce qu'il est indifférent et choisit une valeur arbitraire.
+# En dur plutôt que configurable : la seule granularité utile constatée est la demi-heure, et c'est
+# déjà celle du calendrier (slotDuration) comme du sélecteur d'horaires des contraintes.
+GRID_MINUTES = 30
 
 # Types de ressources — mêmes chaînes que ResourceType (resource.ts).
 TEACHER, ROOM, GROUP = "teacher", "room", "group"
@@ -544,6 +553,20 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
                     intervals_by_res[rid].append(
                         model.NewOptionalFixedSizeIntervalVar(start[li], dur, scheduled[li], f"iv{li}_{rid}"))
             continue
+
+        # ── GRILLE HORAIRE : début sur un multiple de GRID_MINUTES.
+        # Formulée via une variable de décision `k` à domaine CONTIGU, et NON en énumérant les débuts
+        # permis (`Domain.FromValues`) : à ensemble de solutions identique, l'énumération troue le
+        # domaine de `start` et coûte cher en propagation (passe 1 mesurée à 16,3 s contre 1,8 s sur
+        # S39). Sous cette forme le surcoût est nul (écarts dans le bruit sur 4 semaines).
+        # Les cours IMPOSÉS sont déjà sortis par le `continue` ci-dessus, et ce n'est pas un détail :
+        # leur start est posé en dur (`start == startTime` avec `scheduled == 1`), donc y ajouter la
+        # grille créerait une contradiction arithmétique dès qu'une imposition ne tombe pas sur la
+        # grille — et comme le solveur n'a pas le droit de renoncer à ce cours, c'est le modèle
+        # ENTIER qui deviendrait INFEASIBLE (aucun cours placé de la semaine). Même raison que pour
+        # `maxDailyMinutes`, dont les enforced sont déjà exclus juste au-dessus.
+        kgrid = model.NewIntVar(0, HORIZON // GRID_MINUTES, f"kg{li}")
+        model.Add(start[li] == GRID_MINUTES * kgrid)
 
         # Tâche normale : chaque entrée est une ressource fixe (str) ou des alternatives (list).
         cats = ((c.get("teacher", []), TEACHER), (c.get("groups", []), GROUP), (c.get("rooms", []), ROOM))

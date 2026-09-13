@@ -576,6 +576,60 @@ def test_compact_pass_does_not_undo_half_days(monkeypatch):
         "(verrou sum(half_terms) <= best_half absent ou inopérant)")
 
 
+# ── Grille horaire (GRID_MINUTES) ───────────────────────────────────────────────────────────────
+
+def _grid_raw(slots, courses):
+    return {"week": 1,
+            "resources": [{"resourceType": "teacher", "resources": [{"id": "T1"}]},
+                          {"resourceType": "room", "resources": [{"id": "R1"}]},
+                          {"resourceType": "group", "resources": [{"id": "G1"}]}],
+            "courses": courses,
+            "constraints": {"T1": slots, "G1": slots, "R1": slots}}
+
+
+def _grid_course(code, dur, **extra):
+    return {"week": 1, "code": code, "type": "CM", "name": code, "duration": dur,
+            "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"], **extra}
+
+
+def test_grid_aligns_all_starts():
+    """Tout debut de cours tombe sur la demi-heure."""
+    raw = _grid_raw([{"days": "lundi, mardi", "from": "08:00", "to": "18:00"}],
+                    [_grid_course(f"C{i}", 90) for i in range(5)])
+    sol = solve(raw, {"timeoutSeconds": 10})[0]
+    assert len(sol["solutions"]) == 5
+    assert all(t["startTime"] % 30 == 0 for t in sol["solutions"])
+
+
+def test_grid_does_not_constrain_enforced():
+    """
+    Un cours IMPOSE a une heure hors grille reste place a cette heure exacte. Son start est pose en
+    dur avec `scheduled == 1` : lui appliquer la grille creerait une contradiction arithmetique que
+    le solveur ne peut pas resoudre en renoncant au cours, donc le modele ENTIER deviendrait
+    INFEASIBLE — aucun cours place de la semaine.
+    """
+    enforced = {"startTime": 8 * 60 + 15, "teacher": ["T1"], "groups": ["G1"], "rooms": ["R1"]}
+    raw = _grid_raw([{"days": "lundi", "from": "08:00", "to": "18:00"}],
+                    [_grid_course("PIN", 60, enforced=enforced), _grid_course("LIBRE", 60)])
+    sol = solve(raw, {"timeoutSeconds": 10})[0]
+    placed = {t["code"]: t["startTime"] for t in sol["solutions"]}
+    assert len(placed) == 2, "le modele reste faisable malgre l'imposition hors grille"
+    assert placed["PIN"] == 8 * 60 + 15, "l'imposition hors grille est respectee telle quelle"
+    assert placed["LIBRE"] % 30 == 0, "le cours non impose, lui, reste sur la grille"
+
+
+def test_grid_makes_offset_window_unusable():
+    """
+    Effet de bord assume, documente ici pour qu'il ne surprenne pas : une fenetre de disponibilite
+    qui ne tombe pas sur la grille retrecit. 08:07-09:07 n'offre aucun debut multiple de 30, donc un
+    cours d'une heure qui n'a que cette fenetre devient NON PLACABLE (et non pas place a 8h07).
+    """
+    raw = _grid_raw([{"days": "lundi", "from": "08:07", "to": "09:07"}], [_grid_course("C", 60)])
+    sol = solve(raw, {"timeoutSeconds": 10})[0]
+    assert len(sol["solutions"]) == 0
+    assert len(sol.get("neutralizedTasks") or []) == 1
+
+
 def test_soft_prefs_combined_three():
     """Les 3 préférences douces restantes combinées ne plantent pas et ne dégradent pas le placement."""
     raw = _toy_raw()
