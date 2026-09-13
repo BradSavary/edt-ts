@@ -93,7 +93,20 @@ COMPACT_DAY_IDLE_WEIGHT = 2
 # timeouts réels de plusieurs centaines de secondes.
 # Valeur de départ modeste et réglable : garantit que chaque passe active s'exécute au moins une
 # fois (même en dégradé), pas qu'elle converge.
-DOWNSTREAM_RESERVE_FRACTION = 0.05
+#
+# Portée à 0.10 le 2026-09-13 : la passe 4 n'obtenait que 9 s sur un timeout de 180 s, alors que son
+# profil mesuré la voit converger vers 10-20 s (objectif 43538 -> 30 entre 2 s et 10 s sur S39, et
+# OPTIMAL dès 20 s). S'applique aux réserves faites pour les passes 3 et 4 ; la passe 5 a son
+# propre forfait (voir PASS5_RESERVE_SECONDS).
+DOWNSTREAM_RESERVE_FRACTION = 0.10
+
+# Réserve FORFAITAIRE (secondes) pour la passe 5, au lieu d'une fraction du timeout.
+# La passe 5 travaille à placement GELÉ : il ne lui reste qu'un problème d'affectation de salles,
+# polynomial, mesuré à 0,05-0,07 s sur le vrai projet quelle que soit la taille de la semaine. Lui
+# réserver un pourcentage du timeout revenait à immobiliser 9 s sur 180 pour un besoin ~100x moindre,
+# au détriment de la passe 4. Son budget est aussi PLAFONNÉ à cette valeur : contrairement aux autres
+# passes, elle n'a aucun usage d'un reliquat, et le lui laisser ne ferait que retarder la réponse.
+PASS5_RESERVE_SECONDS = 3.0
 
 
 def _remaining(deadline: float) -> float:
@@ -998,8 +1011,8 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
 
     # ── Passe 2 : à placement FIXÉ, minimiser le nombre de jours de présence — isolée, PRIORITAIRE
     # sur compacité (avant refonte : mêlée à la compacité dans une seule somme). ──
-    reserve2 = total_timeout * DOWNSTREAM_RESERVE_FRACTION * (demi_journees_active
-                                                               + compacite_active + salles_active)
+    reserve2 = (total_timeout * DOWNSTREAM_RESERVE_FRACTION * (demi_journees_active + compacite_active)
+                + PASS5_RESERVE_SECONDS * salles_active)
     budget = (_pass_budget(deadline, "passe 2 (jours)", reserve2)
               if (minimize_days and day_terms) else 0.0)
     if budget >= MIN_PASS_SECONDS:
@@ -1026,7 +1039,8 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     # reportant leur charge ailleurs. AUCUN plafond dur sur le pic quotidien : seules les contraintes
     # dures (disponibilité, plafond quotidien) bornent le report. Verrou du nombre de jours conservé
     # (jamais plus de jours qu'à l'issue de la passe précédente). ──
-    reserve3 = total_timeout * DOWNSTREAM_RESERVE_FRACTION * (compacite_active + salles_active)
+    reserve3 = (total_timeout * DOWNSTREAM_RESERVE_FRACTION * compacite_active
+                + PASS5_RESERVE_SECONDS * salles_active)
     budget = (_pass_budget(deadline, "passe 3 (demi-journées)", reserve3)
               if (reduce_half_days and half_terms) else 0.0)
     if budget >= MIN_PASS_SECONDS:
@@ -1048,7 +1062,7 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
         # provenOptimal reste basé sur placement_proven (passe 1).
 
     # ── Passe 4 : à placement ET passe-3 (demi-journées) FIGÉS, minimiser compacité + trou de midi. ──
-    reserve4 = total_timeout * DOWNSTREAM_RESERVE_FRACTION * salles_active
+    reserve4 = PASS5_RESERVE_SECONDS * salles_active
     budget = _pass_budget(deadline, "passe 4 (compacité)", reserve4) if penalty_terms else 0.0
     if budget >= MIN_PASS_SECONDS:
         model.Add(place_term >= best_placed)          # verrou : jamais moins de cours placés
@@ -1087,7 +1101,9 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     # l'ORDRE des cours de chaque prof est connu : on pénalise les VRAIES transitions entre cours
     # consécutifs d'une même demi-journée (fidèle, pas une borne). No-op si aucun cours n'a de salle
     # alternative influençable. provenOptimal reste basé sur placement_proven (passe 1).
-    budget = _pass_budget(deadline, "passe 5 (changements de salle)") if minimize_rooms else 0.0
+    # Plafonnée à son forfait : polynomiale, elle n'a aucun usage du reliquat des passes amont.
+    budget = (min(_pass_budget(deadline, "passe 5 (changements de salle)"), PASS5_RESERVE_SECONDS)
+              if minimize_rooms else 0.0)
     if budget >= MIN_PASS_SECONDS:
         def _room_lits(li):                       # {rid: littéral} des salles candidates du cours li
             return {rid: lit for (rid, rtype, lit) in used_literals[li] if rtype == ROOM}
