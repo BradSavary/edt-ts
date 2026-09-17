@@ -8,6 +8,7 @@ import {
   normalizeTimeForInput,
   slotsToDayMap,
   dayMapToSlots,
+  filterResourceIds,
 } from '../lib/constraintsUtils';
 import type { ResourceConstraints, TimeSlot } from '@edt-ts/scheduler-common';
 
@@ -196,5 +197,49 @@ describe('dayMapToSlots', () => {
       { days: 'mardi', from: '09:00', to: '17:00' },
     ];
     expect(dayMapToSlots(slotsToDayMap(original))).toEqual(original);
+  });
+});
+
+describe('filterResourceIds', () => {
+  const resourceWeeks: Record<string, number[]> = {
+    'DUPONT Jean': [36, 47],
+    'MARTIN Paul': [36],
+    'BUT1-G1': [],
+  };
+  const ids = ['DUPONT Jean', 'MARTIN Paul', 'BUT1-G1', 'Sans Semaine'];
+
+  it('sans filtre (week: null, search: "") retourne la liste inchangée', () => {
+    expect(filterResourceIds(ids, { search: '', week: null }, resourceWeeks)).toEqual(ids);
+  });
+
+  it('filtre semaine seul : ne garde que les ids dont resourceWeeks contient la semaine', () => {
+    expect(filterResourceIds(ids, { search: '', week: 36 }, resourceWeeks)).toEqual([
+      'DUPONT Jean',
+      'MARTIN Paul',
+    ]);
+  });
+
+  it('ressource absente de resourceWeeks : exclue si une semaine est demandée, incluse sinon', () => {
+    expect(filterResourceIds(['Sans Semaine'], { search: '', week: 36 }, resourceWeeks)).toEqual(
+      [],
+    );
+    expect(filterResourceIds(['Sans Semaine'], { search: '', week: null }, resourceWeeks)).toEqual(
+      ['Sans Semaine'],
+    );
+  });
+
+  it('combinaison texte + semaine : ET logique', () => {
+    expect(filterResourceIds(ids, { search: 'martin', week: 36 }, resourceWeeks)).toEqual([
+      'MARTIN Paul',
+    ]);
+    expect(filterResourceIds(ids, { search: 'dupont', week: 47 }, resourceWeeks)).toEqual([
+      'DUPONT Jean',
+    ]);
+  });
+
+  it('la casse du texte est ignorée', () => {
+    expect(filterResourceIds(ids, { search: 'dup', week: null }, resourceWeeks)).toEqual([
+      'DUPONT Jean',
+    ]);
   });
 });

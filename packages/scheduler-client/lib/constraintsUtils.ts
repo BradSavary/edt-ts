@@ -185,4 +185,23 @@ export function exportAsJSON(data: ConstraintsData): string {
   return JSON.stringify(data, null, 2);
 }
 
+/**
+ * Filtre une liste d'ids de ressources par texte libre et/ou par semaine d'utilisation.
+ * `week === null` ⇒ pas de filtre semaine. Une ressource sans semaine connue (ajoutée à la main,
+ * ou absente du dernier CSV) est exclue dès qu'une semaine est demandée — sémantique A : « utilisée
+ * par un cours de cette semaine ».
+ */
+export function filterResourceIds(
+  ids: string[],
+  opts: { search: string; week: number | null },
+  resourceWeeks: Record<string, number[]>,
+): string[] {
+  const q = opts.search.trim().toLowerCase();
+  return ids.filter((id) => {
+    if (q && !id.toLowerCase().includes(q)) return false;
+    if (opts.week !== null && !(resourceWeeks[id]?.includes(opts.week) ?? false)) return false;
+    return true;
+  });
+}
+
 

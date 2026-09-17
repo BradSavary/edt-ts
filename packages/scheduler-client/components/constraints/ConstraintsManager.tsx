@@ -1,15 +1,17 @@
 'use client';
 
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useCallback } from 'react';
 import type { ResourceConstraints } from '@edt-ts/scheduler-common';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import {
   detectResourceType,
   normalizeToRC,
+  filterResourceIds,
   type ResourceCatalogType,
   type ResourceTypeUI,
   RESOURCE_TYPE_LABELS,
@@ -73,6 +75,7 @@ export function ConstraintsManager() {
 
   // --- État local UI éphémère ---
   const [search, setSearch]           = useState('');
+  const [weekFilter, setWeekFilter]   = useState<number | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [importError, setImportError] = useState('');
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -94,14 +97,14 @@ export function ConstraintsManager() {
 
   // Lookup exact depuis les ressources chargées (plus fiable que les regex heuristiques).
   // Fallback sur detectResourceType pour les ressources ajoutées manuellement hors CSV.
-  function getResourceType(id: string): ResourceTypeUI {
+  const getResourceType = useCallback((id: string): ResourceTypeUI => {
     for (const group of storeResources) {
       if (group.resources.some((r) => r.id === id)) {
         return group.resourceType as ResourceTypeUI;
       }
     }
     return detectResourceType(id);
-  }
+  }, [storeResources]);
 
   function handleResourceChange(id: string, newValue: ResourceConstraints | null) {
     setConstraint(id, newValue);
@@ -118,6 +121,9 @@ export function ConstraintsManager() {
     addResource(id, type);
     setSelectedId(id);
     setActiveTab(type);
+    // Une ressource fraîchement créée n'a encore aucune semaine : sous filtre actif elle serait
+    // invisible dans la liste alors qu'elle vient d'être sélectionnée.
+    setWeekFilter(null);
   }
 
   function handleDefaultChange(newValue: ResourceConstraints | null) {
@@ -157,18 +163,23 @@ export function ConstraintsManager() {
     return [...ids];
   }, [constraints, storeResources]);
 
-  const byType: Record<ResourceTypeUI, string[]> = {
-    teacher: [],
-    room: [],
-    group: [],
-    other: [],
-  };
-  for (const id of allIds) {
-    byType[getResourceType(id)].push(id);
-  }
-  for (const t of Object.keys(byType) as ResourceTypeUI[]) {
-    byType[t].sort((a, b) => a.localeCompare(b, 'fr'));
-  }
+  // Mémoïsé : `visibleByType` en dépend, et un objet recréé à chaque rendu rendrait sa
+  // mémoïsation inopérante (react-hooks/exhaustive-deps le signale).
+  const byType = useMemo(() => {
+    const out: Record<ResourceTypeUI, string[]> = {
+      teacher: [],
+      room: [],
+      group: [],
+      other: [],
+    };
+    for (const id of allIds) {
+      out[getResourceType(id)].push(id);
+    }
+    for (const t of Object.keys(out) as ResourceTypeUI[]) {
+      out[t].sort((a, b) => a.localeCompare(b, 'fr'));
+    }
+    return out;
+  }, [allIds, getResourceType]);
 
   const defaultRC = normalizeToRC(constraints.Default ?? []);
 
@@ -180,11 +191,23 @@ export function ConstraintsManager() {
     return [...weeks].sort((a, b) => a - b);
   }, [resourceWeeks]);
 
-  function filteredIds(ids: string[]): string[] {
-    const q = search.trim().toLowerCase();
-    if (!q) return ids;
-    return ids.filter((id) => id.toLowerCase().includes(q));
-  }
+  // Un changement de projet / réimport CSV peut faire disparaître la semaine filtrée : on retombe
+  // alors sur « Toutes » par dérivation plutôt que par effet de bord, pour ne jamais afficher une
+  // liste vide inexplicable.
+  const effectiveWeek = weekFilter !== null && allCsvWeeks.includes(weekFilter) ? weekFilter : null;
+
+  const visibleByType = useMemo(() => {
+    const out = {} as Record<ResourceTypeUI, string[]>;
+    for (const t of Object.keys(byType) as ResourceTypeUI[]) {
+      out[t] = filterResourceIds(byType[t], { search, week: effectiveWeek }, resourceWeeks);
+    }
+    return out;
+  }, [byType, search, effectiveWeek, resourceWeeks]);
+
+  const visibleCount = useMemo(
+    () => Object.values(visibleByType).reduce((n, ids) => n + ids.length, 0),
+    [visibleByType],
+  );
 
   function getStatusBadge(id: string) {
     const count = resourceWeeks[id]?.length ?? 0;
@@ -257,15 +280,31 @@ export function ConstraintsManager() {
       <div className="flex flex-1 overflow-hidden">
         {/* Left sidebar — resource navigator */}
         <aside className="w-80 shrink-0 border-r border-border flex flex-col overflow-hidden bg-card">
-          {/* Search */}
-          <div className="p-3 border-b border-border">
+          {/* Search + week filter */}
+          <div className="p-3 border-b border-border flex items-center gap-2">
             <Input
               type="search"
               placeholder="Rechercher…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-8 text-sm"
+              className="h-8 text-sm flex-1 min-w-0"
             />
+            {allCsvWeeks.length > 0 && (
+              <Select
+                value={effectiveWeek === null ? 'all' : String(effectiveWeek)}
+                onValueChange={(v) => setWeekFilter(v === 'all' ? null : Number(v))}
+              >
+                <SelectTrigger size="sm" className="w-24 shrink-0 px-2" aria-label="Filtrer par semaine">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes</SelectItem>
+                  {allCsvWeeks.map((w) => (
+                    <SelectItem key={w} value={String(w)}>S{w}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {/* Default entry */}
@@ -297,13 +336,13 @@ export function ConstraintsManager() {
                   className="text-[11px] px-2 h-7 rounded data-[state=active]:bg-background data-[state=active]:shadow-sm"
                 >
                   {label.slice(0, 4)}
-                  <span className="ml-0.5 opacity-60">({filteredIds(byType[value]).length})</span>
+                  <span className="ml-0.5 opacity-60">({visibleByType[value].length})</span>
                 </TabsTrigger>
               ))}
             </TabsList>
 
             {RESOURCE_TABS.map(({ value: type }) => {
-              const ids = filteredIds(byType[type]);
+              const ids = visibleByType[type];
               return (
                 <TabsContent
                   key={type}
@@ -312,9 +351,13 @@ export function ConstraintsManager() {
                 >
                   {ids.length === 0 ? (
                     <p className="text-xs text-muted-foreground text-center py-8 px-4">
-                      {search
-                        ? `Aucun résultat pour « ${search} »`
-                        : `Aucune ressource de type ${RESOURCE_TYPE_LABELS[type].toLowerCase()}.`}
+                      {search && effectiveWeek !== null
+                        ? `Aucun résultat pour « ${search} » en semaine ${effectiveWeek}`
+                        : effectiveWeek !== null
+                          ? `Aucune ressource utilisée en semaine ${effectiveWeek}.`
+                          : search
+                            ? `Aucun résultat pour « ${search} »`
+                            : `Aucune ressource de type ${RESOURCE_TYPE_LABELS[type].toLowerCase()}.`}
                     </p>
                   ) : (
                     <ul>
@@ -356,7 +399,9 @@ export function ConstraintsManager() {
 
           {/* Footer stats */}
           <div className="shrink-0 border-t border-border px-4 py-2 text-xs text-muted-foreground">
-            {allIds.length} ressource{allIds.length !== 1 ? 's' : ''}
+            {visibleCount === allIds.length
+              ? `${allIds.length} ressource${allIds.length !== 1 ? 's' : ''}`
+              : `${visibleCount} / ${allIds.length} ressources`}
           </div>
         </aside>
 
