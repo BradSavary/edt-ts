@@ -115,14 +115,6 @@ export default function CourseConstraintList({
                   </TooltipContent>
                 )}
               </Tooltip>
-              {/* Un cours infaisable porte la seule ligne réellement actionnable de l'écran : elle
-                  doit se lire sans survoler. Les niveaux de tension restent en tooltip — ce sont
-                  des pourcentages, pas des consignes. */}
-              {level === 'impossible' && reasons.length > 0 && (
-                <p className="text-[11px] text-red-700 dark:text-red-300 px-2 pb-1 leading-snug">
-                  {reasons.join(' ')}
-                </p>
-              )}
               {loadAnalysisContext && (
                 <div className="absolute top-1 right-1">
                   <ResourceLoadPopover
