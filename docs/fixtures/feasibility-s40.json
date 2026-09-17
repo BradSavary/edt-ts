@@ -1,0 +1,4162 @@
+{
+ "_readme": "Fixture partagée TS/Python — §3.3 de docs/PlanDiagnosticEchec.md. Extraite de GEA 87 semaine 40. Consommée par un test de chaque côté : si les deux implémentations du calcul de faisabilité divergent, l'un des deux casse. Ne pas régénérer sans reporter le changement des deux côtés.",
+ "week": 40,
+ "lunch": {
+  "from": "12:30",
+  "to": "13:30"
+ },
+ "groupIds": [
+  "GCCF1-TP1",
+  "GCCF1-TP2",
+  "GCCF2-TP1",
+  "GCCF2-TP2",
+  "GCFF4-TP1",
+  "GEMA1-TP1",
+  "GEMA1-TP2",
+  "GEMA2-TP1",
+  "GEMA2-TP2",
+  "GPRH-TP1",
+  "GPRH-TP2",
+  "GRP MARDI"
+ ],
+ "constraints": {
+  "Default": [
+   {
+    "days": "lundi",
+    "from": "08:30",
+    "to": "12:30"
+   },
+   {
+    "days": "lundi",
+    "from": "13:30",
+    "to": "19:30"
+   },
+   {
+    "days": "mardi",
+    "from": "08:30",
+    "to": "12:30"
+   },
+   {
+    "days": "mardi",
+    "from": "13:30",
+    "to": "19:30"
+   },
+   {
+    "days": "mercredi",
+    "from": "08:30",
+    "to": "12:30"
+   },
+   {
+    "days": "mercredi",
+    "from": "13:30",
+    "to": "19:30"
+   },
+   {
+    "days": "jeudi",
+    "from": "08:30",
+    "to": "12:30"
+   },
+   {
+    "days": "jeudi",
+    "from": "13:30",
+    "to": "19:30"
+   },
+   {
+    "days": "vendredi",
+    "from": "08:30",
+    "to": "12:30"
+   },
+   {
+    "days": "vendredi",
+    "from": "13:30",
+    "to": "17:30"
+   }
+  ],
+  "GRASSET Véronique": {
+   "default": [
+    {
+     "days": "lundi",
+     "from": "08:30",
+     "to": "12:30"
+    },
+    {
+     "days": "lundi",
+     "from": "13:30",
+     "to": "19:30"
+    },
+    {
+     "days": "mardi",
+     "from": "08:30",
+     "to": "12:30"
+    },
+    {
+     "days": "mardi",
+     "from": "13:30",
+     "to": "15:30"
+    },
+    {
+     "days": "jeudi",
+     "from": "08:30",
+     "to": "12:30"
+    },
+    {
+     "days": "jeudi",
+     "from": "13:30",
+     "to": "19:30"
+    },
+    {
+     "days": "vendredi",
+     "from": "08:30",
+     "to": "12:30"
+    },
+    {
+     "days": "vendredi",
+     "from": "13:30",
+     "to": "17:30"
+    }
+   ]
+  },
+  "VIRONDEAU François": {
+   "default": [
+    {
+     "days": "lundi",
+     "from": "08:30",
+     "to": "12:30"
+    },
+    {
+     "days": "lundi",
+     "from": "13:30",
+     "to": "17:30"
+    },
+    {
+     "days": "mardi",
+     "from": "08:30",
+     "to": "12:30"
+    },
+    {
+     "days": "mardi",
+     "from": "13:30",
+     "to": "17:30"
+    },
+    {
+     "days": "mercredi",
+     "from": "08:30",
+     "to": "12:30"
+    },
+    {
+     "days": "mercredi",
+     "from": "13:30",
+     "to": "17:30"
+    },
+    {
+     "days": "jeudi",
+     "from": "08:30",
+     "to": "12:30"
+    },
+    {
+     "days": "jeudi",
+     "from": "13:30",
+     "to": "17:30"
+    },
+    {
+     "days": "vendredi",
+     "from": "08:30",
+     "to": "12:30"
+    },
+    {
+     "days": "vendredi",
+     "from": "13:30",
+     "to": "17:30"
+    }
+   ]
+  },
+  "PROF LUNDI": {
+   "default": [
+    {
+     "days": "lundi",
+     "from": "08:00",
+     "to": "12:00"
+    }
+   ]
+  },
+  "GRP MARDI": {
+   "default": [
+    {
+     "days": "mardi",
+     "from": "08:00",
+     "to": "12:00"
+    }
+   ]
+  },
+  "SALLE MERCREDI": {
+   "default": [
+    {
+     "days": "mercredi",
+     "from": "08:00",
+     "to": "12:00"
+    }
+   ]
+  }
+ },
+ "courses": [
+  {
+   "id": "ov18p9",
+   "code": "R1.03",
+   "name": "Ressources humaines",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "GUYOT Fanny"
+   ],
+   "groups": [
+    "G3-TP1",
+    "G3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 4830,
+    "teacher": [
+     "GUYOT Fanny"
+    ],
+    "groups": [
+     "G3-TP1",
+     "G3-TP2"
+    ],
+    "rooms": [
+     "107"
+    ]
+   }
+  },
+  {
+   "id": "vs0565",
+   "code": "R1.03",
+   "name": "Ressources humaines",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "GUYOT Fanny"
+   ],
+   "groups": [
+    "G4-TP1",
+    "G4-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 4950,
+    "teacher": [
+     "GUYOT Fanny"
+    ],
+    "groups": [
+     "G4-TP1",
+     "G4-TP2"
+    ],
+    "rooms": [
+     "107"
+    ]
+   }
+  },
+  {
+   "id": "xu85hc",
+   "code": "R1.06",
+   "name": "Fiscalité",
+   "type": "Tous1",
+   "duration": 60,
+   "teacher": [
+    "PARLEBAS Nicolas"
+   ],
+   "groups": [
+    "G1-TP1",
+    "G1-TP2",
+    "G2-TP1",
+    "G2-TP2",
+    "G3-TP1",
+    "G3-TP2",
+    "G4-TP1",
+    "G4-TP2",
+    "G5-TP1",
+    "G5-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3690,
+    "teacher": [
+     "PARLEBAS Nicolas"
+    ],
+    "groups": [
+     "G1-TP1",
+     "G1-TP2",
+     "G2-TP1",
+     "G2-TP2",
+     "G3-TP1",
+     "G3-TP2",
+     "G4-TP1",
+     "G4-TP2",
+     "G5-TP1",
+     "G5-TP2"
+    ],
+    "rooms": [
+     "AMPHI B"
+    ]
+   }
+  },
+  {
+   "id": "1ftdeya",
+   "code": "R1.06",
+   "name": "Fiscalité",
+   "type": "TD",
+   "duration": 90,
+   "teacher": [
+    "JOURNAUD Nathalie"
+   ],
+   "groups": [
+    "G1-TP1",
+    "G1-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 1080,
+    "teacher": [
+     "JOURNAUD Nathalie"
+    ],
+    "groups": [
+     "G1-TP1",
+     "G1-TP2"
+    ],
+    "rooms": [
+     "R04"
+    ]
+   }
+  },
+  {
+   "id": "16quq6r",
+   "code": "R1.06",
+   "name": "Fiscalité",
+   "type": "TD",
+   "duration": 90,
+   "teacher": [
+    "PARLEBAS Nicolas"
+   ],
+   "groups": [
+    "G3-TP1",
+    "G3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3750,
+    "teacher": [
+     "PARLEBAS Nicolas"
+    ],
+    "groups": [
+     "G3-TP1",
+     "G3-TP2"
+    ],
+    "rooms": [
+     "102"
+    ]
+   }
+  },
+  {
+   "id": "33flua",
+   "code": "R1.06",
+   "name": "Fiscalité",
+   "type": "TD",
+   "duration": 90,
+   "teacher": [
+    "JOURNAUD Nathalie"
+   ],
+   "groups": [
+    "G4-TP1",
+    "G4-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 990,
+    "teacher": [
+     "JOURNAUD Nathalie"
+    ],
+    "groups": [
+     "G4-TP1",
+     "G4-TP2"
+    ],
+    "rooms": [
+     "R04"
+    ]
+   }
+  },
+  {
+   "id": "q1cdsn",
+   "code": "R1.06",
+   "name": "Fiscalité",
+   "type": "TP",
+   "duration": 90,
+   "teacher": [
+    "DEVALOIS Nicolas"
+   ],
+   "groups": [
+    "G5-TP1"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3960,
+    "teacher": [
+     "DEVALOIS Nicolas"
+    ],
+    "groups": [
+     "G5-TP1"
+    ],
+    "rooms": [
+     "207"
+    ]
+   }
+  },
+  {
+   "id": "q1cdsk",
+   "code": "R1.06",
+   "name": "Fiscalité",
+   "type": "TP",
+   "duration": 90,
+   "teacher": [
+    "DEVALOIS Nicolas"
+   ],
+   "groups": [
+    "G5-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3870,
+    "teacher": [
+     "DEVALOIS Nicolas"
+    ],
+    "groups": [
+     "G5-TP2"
+    ],
+    "rooms": [
+     "207"
+    ]
+   }
+  },
+  {
+   "id": "3nltsg",
+   "code": "R1.08",
+   "name": "Outils mathématiques de gestion",
+   "type": "TP",
+   "duration": 120,
+   "teacher": [
+    "FAYE Laurent"
+   ],
+   "groups": [
+    "G2-TP1"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 2370,
+    "teacher": [
+     "FAYE Laurent"
+    ],
+    "groups": [
+     "G2-TP1"
+    ],
+    "rooms": [
+     "104"
+    ]
+   }
+  },
+  {
+   "id": "3nltsj",
+   "code": "R1.08",
+   "name": "Outils mathématiques de gestion",
+   "type": "TP",
+   "duration": 120,
+   "teacher": [
+    "FAYE Laurent"
+   ],
+   "groups": [
+    "G2-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3510,
+    "teacher": [
+     "FAYE Laurent"
+    ],
+    "groups": [
+     "G2-TP2"
+    ],
+    "rooms": [
+     "104"
+    ]
+   }
+  },
+  {
+   "id": "3rogba",
+   "code": "R1.08",
+   "name": "Outils mathématiques de gestion",
+   "type": "TP",
+   "duration": 120,
+   "teacher": [
+    "FAYE Laurent"
+   ],
+   "groups": [
+    "G4-TP1"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3750,
+    "teacher": [
+     "FAYE Laurent"
+    ],
+    "groups": [
+     "G4-TP1"
+    ],
+    "rooms": [
+     "106"
+    ]
+   }
+  },
+  {
+   "id": "3rogb9",
+   "code": "R1.08",
+   "name": "Outils mathématiques de gestion",
+   "type": "TP",
+   "duration": 120,
+   "teacher": [
+    "FAYE Laurent"
+   ],
+   "groups": [
+    "G4-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3870,
+    "teacher": [
+     "FAYE Laurent"
+    ],
+    "groups": [
+     "G4-TP2"
+    ],
+    "rooms": [
+     "106"
+    ]
+   }
+  },
+  {
+   "id": "33c64o",
+   "code": "R3.04",
+   "name": "Fiscalité",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "JOURNAUD Nathalie"
+   ],
+   "groups": [
+    "GPRH-TP1",
+    "GPRH-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3870,
+    "teacher": [
+     "JOURNAUD Nathalie"
+    ],
+    "groups": [
+     "GPRH-TP1",
+     "GPRH-TP2"
+    ],
+    "rooms": [
+     "105"
+    ]
+   }
+  },
+  {
+   "id": "1ifq1xo",
+   "code": "R3.04",
+   "name": "Fiscalité",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "DEVAUD Jérôme"
+   ],
+   "groups": [
+    "GEMA1-TP1",
+    "GEMA1-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 2460,
+    "teacher": [
+     "DEVAUD Jérôme"
+    ],
+    "groups": [
+     "GEMA1-TP1",
+     "GEMA1-TP2"
+    ],
+    "rooms": [
+     "R03"
+    ]
+   }
+  },
+  {
+   "id": "uowclo",
+   "code": "R3.04",
+   "name": "Fiscalité",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "DEVAUD Jérôme"
+   ],
+   "groups": [
+    "GEMA2-TP1",
+    "GEMA2-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 1020,
+    "teacher": [
+     "DEVAUD Jérôme"
+    ],
+    "groups": [
+     "GEMA2-TP1",
+     "GEMA2-TP2"
+    ],
+    "rooms": [
+     "208"
+    ]
+   }
+  },
+  {
+   "id": "12euu9o",
+   "code": "R3.04",
+   "name": "Fiscalité",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "DEVALOIS Nicolas"
+   ],
+   "groups": [
+    "GCCF1-TP1",
+    "GCCF1-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 5310,
+    "teacher": [
+     "DEVALOIS Nicolas"
+    ],
+    "groups": [
+     "GCCF1-TP1",
+     "GCCF1-TP2"
+    ],
+    "rooms": [
+     "R01"
+    ]
+   }
+  },
+  {
+   "id": "aeu35p",
+   "code": "R3.05",
+   "name": "Traitement numérique des données",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "BREDACHE Jean-François"
+   ],
+   "groups": [
+    "GPRH-TP1",
+    "GPRH-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3390,
+    "teacher": [
+     "BREDACHE Jean-François"
+    ],
+    "groups": [
+     "GPRH-TP1",
+     "GPRH-TP2"
+    ],
+    "rooms": [
+     "206"
+    ]
+   }
+  },
+  {
+   "id": "hl3g9p",
+   "code": "R3.05",
+   "name": "Traitement numérique des données",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "BREDACHE Jean-François"
+   ],
+   "groups": [
+    "GEMA2-TP1",
+    "GEMA2-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3510,
+    "teacher": [
+     "BREDACHE Jean-François"
+    ],
+    "groups": [
+     "GEMA2-TP1",
+     "GEMA2-TP2"
+    ],
+    "rooms": [
+     "206"
+    ]
+   }
+  },
+  {
+   "id": "9spqsd",
+   "code": "R3.05",
+   "name": "Traitement numérique des données",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "BREDACHE Jean-François"
+   ],
+   "groups": [
+    "GCCF1-TP1",
+    "GCCF1-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3810,
+    "teacher": [
+     "BREDACHE Jean-François"
+    ],
+    "groups": [
+     "GCCF1-TP1",
+     "GCCF1-TP2"
+    ],
+    "rooms": [
+     "206"
+    ]
+   }
+  },
+  {
+   "id": "1r35b4t",
+   "code": "R3.05",
+   "name": "Traitement numérique des données",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "BREDACHE Jean-François"
+   ],
+   "groups": [
+    "GCCF2-TP1",
+    "GCCF2-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3690,
+    "teacher": [
+     "BREDACHE Jean-François"
+    ],
+    "groups": [
+     "GCCF2-TP1",
+     "GCCF2-TP2"
+    ],
+    "rooms": [
+     "206"
+    ]
+   }
+  },
+  {
+   "id": "mwl0j8",
+   "code": "R3.08",
+   "name": "Expression, communication et culture générale dans Culture communicationnelle et informationnelle",
+   "type": "TP",
+   "duration": 60,
+   "teacher": [
+    "PATEAU BOUCHER Laurent"
+   ],
+   "groups": [
+    "GPRH-TP1"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 870,
+    "teacher": [
+     "PATEAU BOUCHER Laurent"
+    ],
+    "groups": [
+     "GPRH-TP1"
+    ],
+    "rooms": [
+     "101"
+    ]
+   }
+  },
+  {
+   "id": "16tiv2e",
+   "code": "R3.08",
+   "name": "Expression, communication et culture générale dans Culture communicationnelle et informationnelle",
+   "type": "TP",
+   "duration": 60,
+   "teacher": [
+    "PATEAU BOUCHER Laurent"
+   ],
+   "groups": [
+    "GEMA1-TP1"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 2250,
+    "teacher": [
+     "PATEAU BOUCHER Laurent"
+    ],
+    "groups": [
+     "GEMA1-TP1"
+    ],
+    "rooms": [
+     "101"
+    ]
+   }
+  },
+  {
+   "id": "16tiv2d",
+   "code": "R3.08",
+   "name": "Expression, communication et culture générale dans Culture communicationnelle et informationnelle",
+   "type": "TP",
+   "duration": 60,
+   "teacher": [
+    "PATEAU BOUCHER Laurent"
+   ],
+   "groups": [
+    "GEMA1-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 2310,
+    "teacher": [
+     "PATEAU BOUCHER Laurent"
+    ],
+    "groups": [
+     "GEMA1-TP2"
+    ],
+    "rooms": [
+     "101"
+    ]
+   }
+  },
+  {
+   "id": "16u2ax1",
+   "code": "R3.08",
+   "name": "Expression, communication et culture générale dans Culture communicationnelle et informationnelle",
+   "type": "TP",
+   "duration": 60,
+   "teacher": [
+    "PATEAU BOUCHER Laurent"
+   ],
+   "groups": [
+    "GEMA2-TP1"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 2370,
+    "teacher": [
+     "PATEAU BOUCHER Laurent"
+    ],
+    "groups": [
+     "GEMA2-TP1"
+    ],
+    "rooms": [
+     "101"
+    ]
+   }
+  },
+  {
+   "id": "1g6jvw",
+   "code": "R3.08",
+   "name": "Expression, communication et culture générale dans Culture communicationnelle et informationnelle",
+   "type": "TP",
+   "duration": 60,
+   "teacher": [
+    "PATEAU BOUCHER Laurent"
+   ],
+   "groups": [
+    "GCFF1-TP1"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 690,
+    "teacher": [
+     "PATEAU BOUCHER Laurent"
+    ],
+    "groups": [
+     "GCFF1-TP1"
+    ],
+    "rooms": [
+     "101"
+    ]
+   }
+  },
+  {
+   "id": "1g6jvz",
+   "code": "R3.08",
+   "name": "Expression, communication et culture générale dans Culture communicationnelle et informationnelle",
+   "type": "TP",
+   "duration": 60,
+   "teacher": [
+    "PATEAU BOUCHER Laurent"
+   ],
+   "groups": [
+    "GCFF1-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 990,
+    "teacher": [
+     "PATEAU BOUCHER Laurent"
+    ],
+    "groups": [
+     "GCFF1-TP2"
+    ],
+    "rooms": [
+     "101"
+    ]
+   }
+  },
+  {
+   "id": "1gyyi7",
+   "code": "R3.08",
+   "name": "Expression, communication et culture générale dans Culture communicationnelle et informationnelle",
+   "type": "TP",
+   "duration": 60,
+   "teacher": [
+    "PATEAU BOUCHER Laurent"
+   ],
+   "groups": [
+    "GCFF2-TP1"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 810,
+    "teacher": [
+     "PATEAU BOUCHER Laurent"
+    ],
+    "groups": [
+     "GCFF2-TP1"
+    ],
+    "rooms": [
+     "101"
+    ]
+   }
+  },
+  {
+   "id": "1gyyi4",
+   "code": "R3.08",
+   "name": "Expression, communication et culture générale dans Culture communicationnelle et informationnelle",
+   "type": "TP",
+   "duration": 60,
+   "teacher": [
+    "PATEAU BOUCHER Laurent"
+   ],
+   "groups": [
+    "GCFF2-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 930,
+    "teacher": [
+     "PATEAU BOUCHER Laurent"
+    ],
+    "groups": [
+     "GCFF2-TP2"
+    ],
+    "rooms": [
+     "101"
+    ]
+   }
+  },
+  {
+   "id": "7vovbx",
+   "code": "R3.GPRH.13",
+   "name": "Environnement juridique : droit de la Fonction publique",
+   "type": "TD",
+   "duration": 240,
+   "teacher": [
+    "FOURGEAUD Guillaume"
+   ],
+   "groups": [
+    "GPRH-TP1",
+    "GPRH-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 930,
+    "teacher": [
+     "FOURGEAUD Guillaume"
+    ],
+    "groups": [
+     "GPRH-TP1",
+     "GPRH-TP2"
+    ],
+    "rooms": [
+     "102"
+    ]
+   }
+  },
+  {
+   "id": "1glz6gz",
+   "code": "R3.GPRH.14",
+   "name": "Ressources humaines : gestion des emplois et des parcours professionnels",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "ESSAFI Alexandre"
+   ],
+   "groups": [
+    "GPRH-TP1",
+    "GPRH-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 5130,
+    "teacher": [
+     "ESSAFI Alexandre"
+    ],
+    "groups": [
+     "GPRH-TP1",
+     "GPRH-TP2"
+    ],
+    "rooms": [
+     "106"
+    ]
+   }
+  },
+  {
+   "id": "1glz6gz_2",
+   "code": "R3.GPRH.14",
+   "name": "Ressources humaines : gestion des emplois et des parcours professionnels",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "ESSAFI Alexandre"
+   ],
+   "groups": [
+    "GPRH-TP1",
+    "GPRH-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 6390,
+    "teacher": [
+     "ESSAFI Alexandre"
+    ],
+    "groups": [
+     "GPRH-TP1",
+     "GPRH-TP2"
+    ],
+    "rooms": [
+     "102"
+    ]
+   }
+  },
+  {
+   "id": "pfcigt",
+   "code": "R3.GPRH.17",
+   "name": "Approfondissement droit administratif",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "GRASSET Marc Olivier"
+   ],
+   "groups": [
+    "GPRH-TP1",
+    "GPRH-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 6570,
+    "teacher": [
+     "GRASSET Marc Olivier"
+    ],
+    "groups": [
+     "GPRH-TP1",
+     "GPRH-TP2"
+    ],
+    "rooms": [
+     "R01"
+    ]
+   }
+  },
+  {
+   "id": "1f1b5d2",
+   "code": "R3.GEMA.12",
+   "name": "R3.12 Outils et pilotage de l’organisation : Financement des activités",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "COLIN Aurelie"
+   ],
+   "groups": [
+    "GEMA1-TP1",
+    "GEMA1-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 2070,
+    "teacher": [
+     "COLIN Aurelie"
+    ],
+    "groups": [
+     "GEMA1-TP1",
+     "GEMA1-TP2"
+    ],
+    "rooms": [
+     "107"
+    ]
+   }
+  },
+  {
+   "id": "1c5f8x2",
+   "code": "R3.GEMA.12",
+   "name": "R3.12 Outils et pilotage de l’organisation : Financement des activités",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "COLIN Aurelie"
+   ],
+   "groups": [
+    "GEMA2-TP1",
+    "GEMA2-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 1950,
+    "teacher": [
+     "COLIN Aurelie"
+    ],
+    "groups": [
+     "GEMA2-TP1",
+     "GEMA2-TP2"
+    ],
+    "rooms": [
+     "107"
+    ]
+   }
+  },
+  {
+   "id": "1kqu7wk",
+   "code": "R3.GEMA.13",
+   "name": "R3.13 Management d’activités : Management opérationnel",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "BELMOKHTAR Jilani"
+   ],
+   "groups": [
+    "GEMA1-TP1",
+    "GEMA1-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 6570,
+    "teacher": [
+     "BELMOKHTAR Jilani"
+    ],
+    "groups": [
+     "GEMA1-TP1",
+     "GEMA1-TP2"
+    ],
+    "rooms": [
+     "107"
+    ]
+   }
+  },
+  {
+   "id": "153qnt0",
+   "code": "R3.GEMA.13",
+   "name": "R3.13 Management d’activités : Management opérationnel",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "BELMOKHTAR Jilani"
+   ],
+   "groups": [
+    "GEMA2-TP1",
+    "GEMA2-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 6690,
+    "teacher": [
+     "BELMOKHTAR Jilani"
+    ],
+    "groups": [
+     "GEMA2-TP1",
+     "GEMA2-TP2"
+    ],
+    "rooms": [
+     "107"
+    ]
+   }
+  },
+  {
+   "id": "ycjvrd",
+   "code": "R3.GEMA.14",
+   "name": "R3.14 Management d’activités : Business Model",
+   "type": "CM",
+   "duration": 120,
+   "teacher": [
+    "BOICHARD Jean-Christophe"
+   ],
+   "groups": [
+    "GEMA1",
+    "GEMA2"
+   ],
+   "rooms": [
+    "AMPHI B"
+   ],
+   "enforced": {
+    "startTime": 3390,
+    "teacher": [
+     "BOICHARD Jean-Christophe"
+    ],
+    "groups": [
+     "GEMA1",
+     "GEMA2"
+    ],
+    "rooms": [
+     "AMPHI B"
+    ]
+   }
+  },
+  {
+   "id": "ycjvrd_2",
+   "code": "R3.GEMA.14",
+   "name": "R3.14 Management d’activités : Business Model",
+   "type": "CM",
+   "duration": 120,
+   "teacher": [
+    "BOICHARD Jean-Christophe"
+   ],
+   "groups": [
+    "GEMA1",
+    "GEMA2"
+   ],
+   "rooms": [
+    "AMPHI B"
+   ],
+   "enforced": {
+    "startTime": 4830,
+    "teacher": [
+     "BOICHARD Jean-Christophe"
+    ],
+    "groups": [
+     "GEMA1",
+     "GEMA2"
+    ],
+    "rooms": [
+     "AMPHI B"
+    ]
+   }
+  },
+  {
+   "id": "1ngq2kr",
+   "code": "R3.GEMA.14",
+   "name": "R3.14 Management d’activités : Business Model",
+   "type": "TP",
+   "duration": 120,
+   "teacher": [
+    "BOICHARD Jean-Christophe"
+   ],
+   "groups": [
+    "GEMA1-TP1"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 6270,
+    "teacher": [
+     "BOICHARD Jean-Christophe"
+    ],
+    "groups": [
+     "GEMA1-TP1"
+    ],
+    "rooms": [
+     "104"
+    ]
+   }
+  },
+  {
+   "id": "1ngq2ko",
+   "code": "R3.GEMA.14",
+   "name": "R3.14 Management d’activités : Business Model",
+   "type": "TP",
+   "duration": 120,
+   "teacher": [
+    "BOICHARD Jean-Christophe"
+   ],
+   "groups": [
+    "GEMA1-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 6390,
+    "teacher": [
+     "BOICHARD Jean-Christophe"
+    ],
+    "groups": [
+     "GEMA1-TP2"
+    ],
+    "rooms": [
+     "104"
+    ]
+   }
+  },
+  {
+   "id": "1nd6zd4",
+   "code": "R3.GEMA.14",
+   "name": "R3.14 Management d’activités : Business Model",
+   "type": "TP",
+   "duration": 120,
+   "teacher": [
+    "BOICHARD Jean-Christophe"
+   ],
+   "groups": [
+    "GEMA2-TP1"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 6570,
+    "teacher": [
+     "BOICHARD Jean-Christophe"
+    ],
+    "groups": [
+     "GEMA2-TP1"
+    ],
+    "rooms": [
+     "104"
+    ]
+   }
+  },
+  {
+   "id": "t068hn",
+   "code": "R3.GCFF.11",
+   "name": "R3.11 Fiscalité : Imposition du résultat des entreprises relevant de l’IR dans la catégorie des BIC",
+   "type": "CM",
+   "duration": 120,
+   "teacher": [
+    "JOURNAUD Nathalie"
+   ],
+   "groups": [
+    "GCFF1-TP1",
+    "GCFF1-TP2",
+    "GCFF2-TP1",
+    "GCFF2-TP2"
+   ],
+   "rooms": [
+    "AMPHI B"
+   ],
+   "enforced": {
+    "startTime": 2430,
+    "teacher": [
+     "JOURNAUD Nathalie"
+    ],
+    "groups": [
+     "GCFF1-TP1",
+     "GCFF1-TP2",
+     "GCFF2-TP1",
+     "GCFF2-TP2"
+    ],
+    "rooms": [
+     "AMPHI B"
+    ]
+   }
+  },
+  {
+   "id": "1ib016l",
+   "code": "R3.GCFF.11",
+   "name": "R3.11 Fiscalité : Imposition du résultat des entreprises relevant de l’IR dans la catégorie des BIC",
+   "type": "TD",
+   "duration": 90,
+   "teacher": [
+    "PARLEBAS Nicolas"
+   ],
+   "groups": [
+    "GCCF1-TP1",
+    "GCCF1-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 1080,
+    "teacher": [
+     "PARLEBAS Nicolas"
+    ],
+    "groups": [
+     "GCCF1-TP1",
+     "GCCF1-TP2"
+    ],
+    "rooms": [
+     "107"
+    ]
+   }
+  },
+  {
+   "id": "oop1dp",
+   "code": "R3.GCFF.11",
+   "name": "R3.11 Fiscalité : Imposition du résultat des entreprises relevant de l’IR dans la catégorie des BIC",
+   "type": "TD",
+   "duration": 90,
+   "teacher": [
+    "PARLEBAS Nicolas"
+   ],
+   "groups": [
+    "GCCF2-TP1",
+    "GCCF2-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 990,
+    "teacher": [
+     "PARLEBAS Nicolas"
+    ],
+    "groups": [
+     "GCCF2-TP1",
+     "GCCF2-TP2"
+    ],
+    "rooms": [
+     "107"
+    ]
+   }
+  },
+  {
+   "id": "1ib016l_2",
+   "code": "R3.GCFF.11",
+   "name": "R3.11 Fiscalité : Imposition du résultat des entreprises relevant de l’IR dans la catégorie des BIC",
+   "type": "TD",
+   "duration": 90,
+   "teacher": [
+    "PARLEBAS Nicolas"
+   ],
+   "groups": [
+    "GCCF1-TP1",
+    "GCCF1-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3960,
+    "teacher": [
+     "PARLEBAS Nicolas"
+    ],
+    "groups": [
+     "GCCF1-TP1",
+     "GCCF1-TP2"
+    ],
+    "rooms": [
+     "102"
+    ]
+   }
+  },
+  {
+   "id": "oop1dp_2",
+   "code": "R3.GCFF.11",
+   "name": "R3.11 Fiscalité : Imposition du résultat des entreprises relevant de l’IR dans la catégorie des BIC",
+   "type": "TD",
+   "duration": 90,
+   "teacher": [
+    "PARLEBAS Nicolas"
+   ],
+   "groups": [
+    "GCCF2-TP1",
+    "GCCF2-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3870,
+    "teacher": [
+     "PARLEBAS Nicolas"
+    ],
+    "groups": [
+     "GCCF2-TP1",
+     "GCCF2-TP2"
+    ],
+    "rooms": [
+     "102"
+    ]
+   }
+  },
+  {
+   "id": "1shqzim",
+   "code": "R3.GCFF.12",
+   "name": "R3.12 Comptabilité : Techniques de base de comptabilité approfondie et de révision comptable",
+   "type": "TD",
+   "duration": 180,
+   "teacher": [
+    "TUAILLON Fabien"
+   ],
+   "groups": [
+    "GCCF1-TP1",
+    "GCCF1-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 810,
+    "teacher": [
+     "TUAILLON Fabien"
+    ],
+    "groups": [
+     "GCCF1-TP1",
+     "GCCF1-TP2"
+    ],
+    "rooms": [
+     "R01"
+    ]
+   }
+  },
+  {
+   "id": "1spgb66",
+   "code": "R3.GCFF.12",
+   "name": "R3.12 Comptabilité : Techniques de base de comptabilité approfondie et de révision comptable",
+   "type": "TD",
+   "duration": 180,
+   "teacher": [
+    "TUAILLON Fabien"
+   ],
+   "groups": [
+    "GCCF2-TP1",
+    "GCCF2-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 570,
+    "teacher": [
+     "TUAILLON Fabien"
+    ],
+    "groups": [
+     "GCCF2-TP1",
+     "GCCF2-TP2"
+    ],
+    "rooms": [
+     "R01"
+    ]
+   }
+  },
+  {
+   "id": "1mkcz9h",
+   "code": "R5.02",
+   "name": "R5.02 | Environnement juridique",
+   "type": "CM",
+   "duration": 90,
+   "teacher": [
+    "SOKOLOWSKI Lilian"
+   ],
+   "groups": [
+    "GCFF3-TP1",
+    "GCFF3-TP2",
+    "GCFF4-TP1",
+    "GCFF4-TP2",
+    "GEMA3-TP1",
+    "GEMA3-TP2",
+    "GEMA4",
+    "GPRH3-TP1",
+    "GPRH3-TP2"
+   ],
+   "rooms": [
+    "AMPHI B"
+   ],
+   "enforced": {
+    "startTime": 6810,
+    "teacher": [
+     "SOKOLOWSKI Lilian"
+    ],
+    "groups": [
+     "GCFF3-TP1",
+     "GCFF3-TP2",
+     "GCFF4-TP1",
+     "GCFF4-TP2",
+     "GEMA3-TP1",
+     "GEMA3-TP2",
+     "GEMA4",
+     "GPRH3-TP1",
+     "GPRH3-TP2"
+    ],
+    "rooms": [
+     "AMPHI B"
+    ]
+   }
+  },
+  {
+   "id": "1tctyxp",
+   "code": "R5.02",
+   "name": "R5.02 | Environnement juridique",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "FOURGEAUD Guillaume"
+   ],
+   "groups": [
+    "GEMA3-TP1",
+    "GEMA3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3690,
+    "teacher": [
+     "FOURGEAUD Guillaume"
+    ],
+    "groups": [
+     "GEMA3-TP1",
+     "GEMA3-TP2"
+    ],
+    "rooms": [
+     "R03"
+    ]
+   }
+  },
+  {
+   "id": "u6tlel",
+   "code": "R5.02",
+   "name": "R5.02 | Environnement juridique",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "FOURGEAUD Guillaume"
+   ],
+   "groups": [
+    "GEMA4-TP1",
+    "GEMA4-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3810,
+    "teacher": [
+     "FOURGEAUD Guillaume"
+    ],
+    "groups": [
+     "GEMA4-TP1",
+     "GEMA4-TP2"
+    ],
+    "rooms": [
+     "R03"
+    ]
+   }
+  },
+  {
+   "id": "1sij2kx",
+   "code": "R5.03",
+   "name": "R5.03 | Management d'activités",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "ROY Carine"
+   ],
+   "groups": [
+    "GCFF3-TP1",
+    "GCFF3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 4830,
+    "teacher": [
+     "ROY Carine"
+    ],
+    "groups": [
+     "GCFF3-TP1",
+     "GCFF3-TP2"
+    ],
+    "rooms": [
+     "R01"
+    ]
+   }
+  },
+  {
+   "id": "1t5kh3l",
+   "code": "R5.03",
+   "name": "R5.03 | Management d'activités",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "ROY Carine"
+   ],
+   "groups": [
+    "GCFF4-TP1",
+    "GCFF4-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 4950,
+    "teacher": [
+     "ROY Carine"
+    ],
+    "groups": [
+     "GCFF4-TP1",
+     "GCFF4-TP2"
+    ],
+    "rooms": [
+     "R01"
+    ]
+   }
+  },
+  {
+   "id": "fj4hxt",
+   "code": "R5.03",
+   "name": "R5.03 | Management d'activités",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "ROY Carine"
+   ],
+   "groups": [
+    "GEMA3-TP1",
+    "GEMA3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 630,
+    "teacher": [
+     "ROY Carine"
+    ],
+    "groups": [
+     "GEMA3-TP1",
+     "GEMA3-TP2"
+    ],
+    "rooms": [
+     "107"
+    ]
+   }
+  },
+  {
+   "id": "j1y2xd",
+   "code": "R5.03",
+   "name": "R5.03 | Management d'activités",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "ROY Carine"
+   ],
+   "groups": [
+    "GEMA4-TP1",
+    "GEMA4-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 510,
+    "teacher": [
+     "ROY Carine"
+    ],
+    "groups": [
+     "GEMA4-TP1",
+     "GEMA4-TP2"
+    ],
+    "rooms": [
+     "107"
+    ]
+   }
+  },
+  {
+   "id": "dpt4iv",
+   "code": "R5.04",
+   "name": "R5.04 | Traitement numérique des données",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "RISACHER Téo"
+   ],
+   "groups": [
+    "GCFF3-TP1",
+    "GCFF3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 930,
+    "teacher": [
+     "RISACHER Téo"
+    ],
+    "groups": [
+     "GCFF3-TP1",
+     "GCFF3-TP2"
+    ],
+    "rooms": [
+     "207"
+    ]
+   }
+  },
+  {
+   "id": "4stzqf",
+   "code": "R5.04",
+   "name": "R5.04 | Traitement numérique des données",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "RISACHER Téo"
+   ],
+   "groups": [
+    "GEMA3-TP1",
+    "GEMA3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 510,
+    "teacher": [
+     "RISACHER Téo"
+    ],
+    "groups": [
+     "GEMA3-TP1",
+     "GEMA3-TP2"
+    ],
+    "rooms": [
+     "207"
+    ]
+   }
+  },
+  {
+   "id": "y5lsfb",
+   "code": "R5.04",
+   "name": "R5.04 | Traitement numérique des données",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "RISACHER Téo"
+   ],
+   "groups": [
+    "GEMA4-TP1",
+    "GEMA4-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 630,
+    "teacher": [
+     "RISACHER Téo"
+    ],
+    "groups": [
+     "GEMA4-TP1",
+     "GEMA4-TP2"
+    ],
+    "rooms": [
+     "207"
+    ]
+   }
+  },
+  {
+   "id": "1u1ex7r",
+   "code": "R5.04",
+   "name": "R5.04 | Traitement numérique des données",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "RISACHER Téo"
+   ],
+   "groups": [
+    "GPRH3-TP1",
+    "GPRH3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 810,
+    "teacher": [
+     "RISACHER Téo"
+    ],
+    "groups": [
+     "GPRH3-TP1",
+     "GPRH3-TP2"
+    ],
+    "rooms": [
+     "207"
+    ]
+   }
+  },
+  {
+   "id": "1s4a802",
+   "code": "R5.04",
+   "name": "R5.04 | Traitement numérique des données",
+   "type": "TP",
+   "duration": 120,
+   "teacher": [
+    "CHARLIER Gérald"
+   ],
+   "groups": [
+    "GEMA3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 6570,
+    "teacher": [
+     "CHARLIER Gérald"
+    ],
+    "groups": [
+     "GEMA3-TP2"
+    ],
+    "rooms": [
+     "R02"
+    ]
+   }
+  },
+  {
+   "id": "1gtzbya",
+   "code": "R5.04",
+   "name": "R5.04 | Traitement numérique des données",
+   "type": "TP",
+   "duration": 120,
+   "teacher": [
+    "CHARLIER Gérald"
+   ],
+   "groups": [
+    "GPRH3-TP1"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 6690,
+    "teacher": [
+     "CHARLIER Gérald"
+    ],
+    "groups": [
+     "GPRH3-TP1"
+    ],
+    "rooms": [
+     "R02"
+    ]
+   }
+  },
+  {
+   "id": "21ep6d",
+   "code": "R5.06",
+   "name": "R5.06 | Expression/communication et culture générale dans Culture communicationnelle et informationnelle",
+   "type": "TP",
+   "duration": 120,
+   "teacher": [
+    "ROLLINAT Constance"
+   ],
+   "groups": [
+    "GCFF3-TP1"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 4950,
+    "teacher": [
+     "ROLLINAT Constance"
+    ],
+    "groups": [
+     "GCFF3-TP1"
+    ],
+    "rooms": [
+     "104"
+    ]
+   }
+  },
+  {
+   "id": "20y8s2",
+   "code": "R5.06",
+   "name": "R5.06 | Expression/communication et culture générale dans Culture communicationnelle et informationnelle",
+   "type": "TP",
+   "duration": 120,
+   "teacher": [
+    "ROLLINAT Constance"
+   ],
+   "groups": [
+    "GCFF4-TP1"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 4830,
+    "teacher": [
+     "ROLLINAT Constance"
+    ],
+    "groups": [
+     "GCFF4-TP1"
+    ],
+    "rooms": [
+     "104"
+    ]
+   }
+  },
+  {
+   "id": "20y8s1",
+   "code": "R5.06",
+   "name": "R5.06 | Expression/communication et culture générale dans Culture communicationnelle et informationnelle",
+   "type": "TP",
+   "duration": 120,
+   "teacher": [
+    "ROLLINAT Constance"
+   ],
+   "groups": [
+    "GCFF4-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 5130,
+    "teacher": [
+     "ROLLINAT Constance"
+    ],
+    "groups": [
+     "GCFF4-TP2"
+    ],
+    "rooms": [
+     "104"
+    ]
+   }
+  },
+  {
+   "id": "1p47hen",
+   "code": "R5.06",
+   "name": "R5.06 | Expression/communication et culture générale dans Culture communicationnelle et informationnelle",
+   "type": "TP",
+   "duration": 120,
+   "teacher": [
+    "ROLLINAT Constance"
+   ],
+   "groups": [
+    "GEMA3-TP1"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 5250,
+    "teacher": [
+     "ROLLINAT Constance"
+    ],
+    "groups": [
+     "GEMA3-TP1"
+    ],
+    "rooms": [
+     "104"
+    ]
+   }
+  },
+  {
+   "id": "fbymsp",
+   "code": "R5.GPRH.09",
+   "name": "R5.GPRH.09 | Ressources humaines : Gestion administrative collective",
+   "type": "TD",
+   "duration": 60,
+   "teacher": [
+    "JEANJON Elvina"
+   ],
+   "groups": [
+    "GPRH3-TP1",
+    "GPRH3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3870,
+    "teacher": [
+     "JEANJON Elvina"
+    ],
+    "groups": [
+     "GPRH3-TP1",
+     "GPRH3-TP2"
+    ],
+    "rooms": [
+     "R01"
+    ]
+   }
+  },
+  {
+   "id": "1kv3j9e",
+   "code": "R5.GPRH.09",
+   "name": "R5.GPRH.09 | Ressources humaines : Gestion administrative collective",
+   "type": "TP",
+   "duration": 120,
+   "teacher": [
+    "JEANJON Elvina"
+   ],
+   "groups": [
+    "GPRH3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3930,
+    "teacher": [
+     "JEANJON Elvina"
+    ],
+    "groups": [
+     "GPRH3-TP2"
+    ],
+    "rooms": [
+     "R01"
+    ]
+   }
+  },
+  {
+   "id": "md18qz",
+   "code": "R5.GPRH.12",
+   "name": "R5.GPRH.12 | Environnement juridique : Droit du travail approfondi - relations collectives",
+   "type": "TD",
+   "duration": 180,
+   "teacher": [
+    "BOURRA Jean-Philippe"
+   ],
+   "groups": [
+    "GPRH3-TP1",
+    "GPRH3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 6330,
+    "teacher": [
+     "BOURRA Jean-Philippe"
+    ],
+    "groups": [
+     "GPRH3-TP1",
+     "GPRH3-TP2"
+    ],
+    "rooms": [
+     "R03"
+    ]
+   }
+  },
+  {
+   "id": "1nzqn69",
+   "code": "R5.GPRH.14",
+   "name": "R5.GPRH.14 | Ressources humaines : Gestion des compétences approfondie et des talents",
+   "type": "TP",
+   "duration": 120,
+   "teacher": [
+    "GUYOT Fanny"
+   ],
+   "groups": [
+    "GPRH3-TP1"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 5130,
+    "teacher": [
+     "GUYOT Fanny"
+    ],
+    "groups": [
+     "GPRH3-TP1"
+    ],
+    "rooms": [
+     "R03"
+    ]
+   }
+  },
+  {
+   "id": "1nzqn6a",
+   "code": "R5.GPRH.14",
+   "name": "R5.GPRH.14 | Ressources humaines : Gestion des compétences approfondie et des talents",
+   "type": "TP",
+   "duration": 120,
+   "teacher": [
+    "GUYOT Fanny"
+   ],
+   "groups": [
+    "GPRH3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 5250,
+    "teacher": [
+     "GUYOT Fanny"
+    ],
+    "groups": [
+     "GPRH3-TP2"
+    ],
+    "rooms": [
+     "R03"
+    ]
+   }
+  },
+  {
+   "id": "3blkam",
+   "code": "R5.GPRH.18",
+   "name": "R5.GPRH.18 AL | Développement durable - RSE",
+   "type": "TD",
+   "duration": 60,
+   "teacher": [
+    "ARCHAMBAULT Emmanuelle"
+   ],
+   "groups": [
+    "GPRH3-TP1",
+    "GPRH3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 6270,
+    "teacher": [
+     "ARCHAMBAULT Emmanuelle"
+    ],
+    "groups": [
+     "GPRH3-TP1",
+     "GPRH3-TP2"
+    ],
+    "rooms": [
+     "103"
+    ]
+   }
+  },
+  {
+   "id": "9fn1b6",
+   "code": "R5.GEMA.18",
+   "name": "R5.18 AL | Développement durable",
+   "type": "TD",
+   "duration": 180,
+   "teacher": [
+    "ARCHAMBAULT Emmanuelle"
+   ],
+   "groups": [
+    "GEMA3-TP1",
+    "GEMA3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 6330,
+    "teacher": [
+     "ARCHAMBAULT Emmanuelle"
+    ],
+    "groups": [
+     "GEMA3-TP1",
+     "GEMA3-TP2"
+    ],
+    "rooms": [
+     "103"
+    ]
+   }
+  },
+  {
+   "id": "7ir8i",
+   "code": "R5.GEMA.18",
+   "name": "R5.18 AL | Développement durable",
+   "type": "TD",
+   "duration": 180,
+   "teacher": [
+    "ARCHAMBAULT Emmanuelle"
+   ],
+   "groups": [
+    "GEMA4-TP1",
+    "GEMA4-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 6570,
+    "teacher": [
+     "ARCHAMBAULT Emmanuelle"
+    ],
+    "groups": [
+     "GEMA4-TP1",
+     "GEMA4-TP2"
+    ],
+    "rooms": [
+     "103"
+    ]
+   }
+  },
+  {
+   "id": "1ecawfk",
+   "code": "R5.GCFF.09",
+   "name": "R5.GCFF.09 | Fiscalité : Approfondissements TVA et IR",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "LARIGAUDERIE Vincent"
+   ],
+   "groups": [
+    "GCFF3-TP1",
+    "GCFF3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 1050,
+    "teacher": [
+     "LARIGAUDERIE Vincent"
+    ],
+    "groups": [
+     "GCFF3-TP1",
+     "GCFF3-TP2"
+    ],
+    "rooms": [
+     "104"
+    ]
+   }
+  },
+  {
+   "id": "1vwahyo",
+   "code": "R5.GCFF.09",
+   "name": "R5.GCFF.09 | Fiscalité : Approfondissements TVA et IR",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "LARIGAUDERIE Vincent"
+   ],
+   "groups": [
+    "GCFF4-TP1",
+    "GCFF4-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3930,
+    "teacher": [
+     "LARIGAUDERIE Vincent"
+    ],
+    "groups": [
+     "GCFF4-TP1",
+     "GCFF4-TP2"
+    ],
+    "rooms": [
+     "107"
+    ]
+   }
+  },
+  {
+   "id": "81x93t",
+   "code": "R5.GCFF.10",
+   "name": "R5.GC2F.10 | Comptabilité : Techniques particulières de comptabilité approfondie et de révision comptable",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "CABRAL Mathieu"
+   ],
+   "groups": [
+    "GCFF3-TP1",
+    "GCFF3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 6270,
+    "teacher": [
+     "CABRAL Mathieu"
+    ],
+    "groups": [
+     "GCFF3-TP1",
+     "GCFF3-TP2"
+    ],
+    "rooms": [
+     "106"
+    ]
+   }
+  },
+  {
+   "id": "8oynmh",
+   "code": "R5.GCFF.10",
+   "name": "R5.GC2F.10 | Comptabilité : Techniques particulières de comptabilité approfondie et de révision comptable",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "CABRAL Mathieu"
+   ],
+   "groups": [
+    "GCFF4-TP1",
+    "GCFF4-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 6390,
+    "teacher": [
+     "CABRAL Mathieu"
+    ],
+    "groups": [
+     "GCFF4-TP1",
+     "GCFF4-TP2"
+    ],
+    "rooms": [
+     "106"
+    ]
+   }
+  },
+  {
+   "id": "81x93t_2",
+   "code": "R5.GCFF.10",
+   "name": "R5.GC2F.10 | Comptabilité : Techniques particulières de comptabilité approfondie et de révision comptable",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "CABRAL Mathieu"
+   ],
+   "groups": [
+    "GCFF3-TP1",
+    "GCFF3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 6570,
+    "teacher": [
+     "CABRAL Mathieu"
+    ],
+    "groups": [
+     "GCFF3-TP1",
+     "GCFF3-TP2"
+    ],
+    "rooms": [
+     "106"
+    ]
+   }
+  },
+  {
+   "id": "8oynmh_2",
+   "code": "R5.GCFF.10",
+   "name": "R5.GC2F.10 | Comptabilité : Techniques particulières de comptabilité approfondie et de révision comptable",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "CABRAL Mathieu"
+   ],
+   "groups": [
+    "GCFF4-TP1",
+    "GCFF4-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 6690,
+    "teacher": [
+     "CABRAL Mathieu"
+    ],
+    "groups": [
+     "GCFF4-TP1",
+     "GCFF4-TP2"
+    ],
+    "rooms": [
+     "106"
+    ]
+   }
+  },
+  {
+   "id": "6jian1",
+   "code": "R5.GCFF.11",
+   "name": "R5.GC2F.11 | Contrôle de gestion : Evaluation des résultats et des performances",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "MONTINTIN José"
+   ],
+   "groups": [
+    "GCFF3-TP1",
+    "GCFF3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 2070,
+    "teacher": [
+     "MONTINTIN José"
+    ],
+    "groups": [
+     "GCFF3-TP1",
+     "GCFF3-TP2"
+    ],
+    "rooms": [
+     "102"
+    ]
+   }
+  },
+  {
+   "id": "r1tg65",
+   "code": "R5.GCFF.11",
+   "name": "R5.GC2F.11 | Contrôle de gestion : Evaluation des résultats et des performances",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "MONTINTIN José"
+   ],
+   "groups": [
+    "GCFF4-TP1",
+    "GCFF4-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 1950,
+    "teacher": [
+     "MONTINTIN José"
+    ],
+    "groups": [
+     "GCFF4-TP1",
+     "GCFF4-TP2"
+    ],
+    "rooms": [
+     "102"
+    ]
+   }
+  },
+  {
+   "id": "x5kxbn",
+   "code": "R5.GCFF.13",
+   "name": "R5.GC2F.13 AL | Comptabilité approfondie",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "CHNANI Karim"
+   ],
+   "groups": [
+    "GCFF3-TP1",
+    "GCFF3-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3810,
+    "teacher": [
+     "CHNANI Karim"
+    ],
+    "groups": [
+     "GCFF3-TP1",
+     "GCFF3-TP2"
+    ],
+    "rooms": [
+     "R02"
+    ]
+   }
+  },
+  {
+   "id": "3u1jhv",
+   "code": "R5.GCFF.13",
+   "name": "R5.GC2F.13 AL | Comptabilité approfondie",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "CHNANI Karim"
+   ],
+   "groups": [
+    "GCFF4-TP1",
+    "GCFF4-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 3690,
+    "teacher": [
+     "CHNANI Karim"
+    ],
+    "groups": [
+     "GCFF4-TP1",
+     "GCFF4-TP2"
+    ],
+    "rooms": [
+     "R02"
+    ]
+   }
+  },
+  {
+   "id": "19h9w6f",
+   "code": "R5.GCFF.16",
+   "name": "R5.GC2F.16 AL | Fiscalité",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "JOURNAUD Nathalie"
+   ],
+   "groups": [
+    "GCFF4-TP1",
+    "GCFF4-TP2"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 5310,
+    "teacher": [
+     "JOURNAUD Nathalie"
+    ],
+    "groups": [
+     "GCFF4-TP1",
+     "GCFF4-TP2"
+    ],
+    "rooms": [
+     "107"
+    ]
+   }
+  },
+  {
+   "id": "17ap7z8",
+   "code": "R5.GCFF.17",
+   "name": "R5.GC2F 17.AL | Dossiers comptables, fiscaux et sociaux",
+   "type": "TD",
+   "duration": 120,
+   "teacher": [
+    "GRAND Pierre-Olivier"
+   ],
+   "groups": [
+    "GCFF3",
+    "GCFF4"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "enforced": {
+    "startTime": 2490,
+    "teacher": [
+     "GRAND Pierre-Olivier"
+    ],
+    "groups": [
+     "GCFF3",
+     "GCFF4"
+    ],
+    "rooms": [
+     "107"
+    ]
+   }
+  },
+  {
+   "week": 40,
+   "semester": 3,
+   "level": 1,
+   "code": "R3.01",
+   "name": "Environnement économique",
+   "type": "CM",
+   "teacher": [
+    "GRASSET Véronique"
+   ],
+   "groups": [
+    "GPRH-TP1",
+    "GPRH-TP2",
+    "GEMA1-TP1",
+    "GEMA1-TP2",
+    "GEMA2-TP1",
+    "GEMA2-TP2",
+    "GCCF1-TP1",
+    "GCCF1-TP2",
+    "GCCF2-TP1",
+    "GCCF2-TP2"
+   ],
+   "rooms": [
+    "AMPHI B"
+   ],
+   "duration": 240,
+   "id": "19zf4jd",
+   "source": "csv"
+  },
+  {
+   "week": 40,
+   "semester": 5,
+   "level": 2,
+   "code": "R5.GCFF.10",
+   "name": "R5.GC2F.10 | Comptabilité : Techniques particulières de comptabilité approfondie et de révision comptable",
+   "type": "TP",
+   "teacher": [
+    "VIRONDEAU François"
+   ],
+   "groups": [
+    "GCFF4-TP1"
+   ],
+   "rooms": [
+    [
+     "R01",
+     "R02",
+     "R03",
+     "R04",
+     "101",
+     "102",
+     "103",
+     "104",
+     "105",
+     "106",
+     "107",
+     "200",
+     "201",
+     "205",
+     "206",
+     "207",
+     "208"
+    ]
+   ],
+   "duration": 120,
+   "id": "u66ifg",
+   "source": "csv"
+  },
+  {
+   "id": "synth-no-lever",
+   "code": "SYNTH",
+   "name": "Aucun levier",
+   "type": "CM",
+   "duration": 120,
+   "teacher": [
+    "PROF LUNDI"
+   ],
+   "groups": [
+    "GRP MARDI"
+   ],
+   "rooms": [
+    "SALLE MERCREDI"
+   ]
+  }
+ ],
+ "cases": [
+  {
+   "courseId": "19zf4jd",
+   "label": "infaisable, un seul levier (AMPHI B)",
+   "expected": {
+    "feasible": false,
+    "slotCount": 0,
+    "levers": [
+     {
+      "kind": "room",
+      "ids": [
+       "AMPHI B"
+      ],
+      "inheritsDefault": true,
+      "slots": [
+       4830
+      ],
+      "blockedBy": [
+       {
+        "code": "R3.GEMA.14",
+        "type": "CM",
+        "start": 4830,
+        "end": 4950
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "courseId": "u66ifg",
+   "label": "faisable",
+   "expected": {
+    "feasible": true,
+    "slotCount": 27,
+    "levers": []
+   }
+  },
+  {
+   "courseId": "synth-no-lever",
+   "label": "infaisable, AUCUN levier — ne désigner personne",
+   "expected": {
+    "feasible": false,
+    "slotCount": 0,
+    "levers": []
+   }
+  }
+ ]
+}

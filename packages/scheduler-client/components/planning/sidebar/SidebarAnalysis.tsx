@@ -10,7 +10,7 @@ import { downloadPdfArchive, downloadPdfSolution } from '@/lib/pdfExport';
 import { matchesSearchQuery, formatStartTime } from '@/lib/calendar/calendarUtils';
 import { toTaskSolutionJSON } from '@/lib/calendar/placements';
 import { selectPromotionCandidates } from '@/lib/calendar/promotion';
-import { selectPiocheEntries } from '@/lib/calendar/unplaced';
+import { selectPiocheEntries, isUserChoice } from '@/lib/calendar/unplaced';
 import { getCoursesForWeek } from '@/lib/weekCourses';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
 import type { Unplaced } from '@/store/types';
@@ -166,6 +166,75 @@ export function SidebarAnalysis() {
     ),
   );
 
+  // Deux sections, une seule règle : ce que l'utilisateur a écarté n'est pas un échec du moteur
+  // (§6.1 du plan). Cette frontière n'est pas inventée pour l'affichage — `runSchedule` l'applique
+  // déjà, en excluant `user-pre`/`user-post` du prochain envoi et en réexpédiant les `engine`.
+  const neutralisedEntries = filteredPiocheEntries.filter(({ entry }) => isUserChoice(entry));
+  const engineEntries = filteredPiocheEntries.filter(({ entry }) => !isUserChoice(entry));
+
+  /**
+   * Rendu d'une carte de la pioche — identique dans les deux sections : seul le rangement change,
+   * pas le geste. Le libellé du tooltip, lui, dépend de l'origine.
+   */
+  function renderPiocheEntry({ entry, course, remaining }: (typeof filteredPiocheEntries)[number]) {
+    const tooltipContent =
+      entry.origin === 'user-pre'
+        ? 'Neutralisée manuellement avant planification'
+        : entry.origin === 'user-post'
+          ? 'Retirée manuellement du calendrier'
+          : (entry.diagnostics?.reason ?? '');
+    const baseProps = courseToBaseProps(course);
+    // Une tâche déjà partiellement placée reste dans la pioche avec sa durée
+    // résiduelle — même état pilote le libellé du bouton (§4.5 du plan).
+    //
+    // Ce résidu est redéposable pour la seule Autonomie : c'est le cas d'usage réel
+    // (retoucher une répartition automatique, puis reposer à la main ce qu'on a
+    // libéré), et c'est le seul type dont la fragmentation ait un sens métier. Pour un
+    // cours ordinaire dont on a réduit la durée d'un placement, le résidu reste
+    // affiché mais non déposable : éclater un TD en deux créneaux serait un accident,
+    // pas une intention.
+    const hasPlacements = placements.some((p) => p.taskId === entry.taskId);
+    const isAutonomie = course.type === 'Autonomie';
+    return (
+      <div key={entry.taskId} className="relative">
+        <NeutralizedTaskCard
+          {...baseProps}
+          duration={remaining}
+          taskId={entry.taskId}
+          tooltipContent={tooltipContent}
+          dragEnabled={isAutonomie || !hasPlacements}
+          onDistribute={
+            isAutonomie
+              ? () => (hasPlacements ? cancelAutonomyDistribution(entry.taskId) : distributeAutonomy(entry.taskId))
+              : undefined
+          }
+          distributeLabel={hasPlacements ? 'Annuler la répartition' : 'Répartir'}
+        />
+        {/* Toutes les origines, pas seulement `engine` : la question « où reste-t-il du
+            mou pour cette tâche ? » se pose à l'identique pour un cours remis dans la
+            pioche à la main. L'ancienne restriction à `engine` n'était que le report
+            du test de préfixe historique (PlanUnifiedUnplaced §5). */}
+        {availabilityManager && selectedWeek !== null && (
+          <div className="absolute top-1 right-1">
+            <ResourceLoadPopover
+              mode="analysis"
+              taskDurationMin={remaining}
+              rows={buildAnalysisLoadRows(
+                toNeutralizedInfo(entry, course, remaining),
+                loadReferenceSolution,
+                availabilityManager,
+                selectedWeek,
+                resources,
+                blockedZones,
+                schoolYearConfig,
+              )}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function openReturnDialog() {
     setCheckedPromotionIds(new Set());
     setConfirmOpen(true);
@@ -246,80 +315,43 @@ export function SidebarAnalysis() {
           )}
         </div>
 
-        {/* Pioche — tâches neutralisées et tâches retirées du calendrier */}
-        {piocheEntries.length > 0 && (
-          <>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Non placés
-              </p>
-              <Badge variant="secondary">{filteredPiocheEntries.length}</Badge>
-            </div>
-            <p className="text-xs text-muted-foreground italic">
-              Glissez un cours sur le calendrier pour le placer.
-            </p>
-            <div ref={neutralizedContainerRef} className="flex flex-col gap-2">
-              {filteredPiocheEntries.map(({ entry, course, remaining }) => {
-                const tooltipContent =
-                  entry.origin === 'engine'
-                    ? (entry.diagnostics?.reason ?? '')
-                    : entry.origin === 'user-pre'
-                      ? 'Neutralisée manuellement avant planification'
-                      : 'Retirée manuellement du calendrier';
-                const baseProps = courseToBaseProps(course);
-                // Une tâche déjà partiellement placée reste dans la pioche avec sa durée
-                // résiduelle — même état pilote le libellé du bouton (§4.5 du plan).
-                //
-                // Ce résidu est redéposable pour la seule Autonomie : c'est le cas d'usage réel
-                // (retoucher une répartition automatique, puis reposer à la main ce qu'on a
-                // libéré), et c'est le seul type dont la fragmentation ait un sens métier. Pour un
-                // cours ordinaire dont on a réduit la durée d'un placement, le résidu reste
-                // affiché mais non déposable : éclater un TD en deux créneaux serait un accident,
-                // pas une intention.
-                const hasPlacements = placements.some((p) => p.taskId === entry.taskId);
-                const isAutonomie = course.type === 'Autonomie';
-                return (
-                  <div key={entry.taskId} className="relative">
-                    <NeutralizedTaskCard
-                      {...baseProps}
-                      duration={remaining}
-                      taskId={entry.taskId}
-                      tooltipContent={tooltipContent}
-                      dragEnabled={isAutonomie || !hasPlacements}
-                      onDistribute={
-                        isAutonomie
-                          ? () => (hasPlacements ? cancelAutonomyDistribution(entry.taskId) : distributeAutonomy(entry.taskId))
-                          : undefined
-                      }
-                      distributeLabel={hasPlacements ? 'Annuler la répartition' : 'Répartir'}
-                    />
-                    {/* Toutes les origines, pas seulement `engine` : la question « où reste-t-il du
-                        mou pour cette tâche ? » se pose à l'identique pour un cours remis dans la
-                        pioche à la main. L'ancienne restriction à `engine` n'était que le report
-                        du test de préfixe historique (PlanUnifiedUnplaced §5). */}
-                    {availabilityManager && selectedWeek !== null && (
-                      <div className="absolute top-1 right-1">
-                        <ResourceLoadPopover
-                          mode="analysis"
-                          taskDurationMin={remaining}
-                          rows={buildAnalysisLoadRows(
-                            toNeutralizedInfo(entry, course, remaining),
-                            loadReferenceSolution,
-                            availabilityManager,
-                            selectedWeek,
-                            resources,
-                            blockedZones,
-                            schoolYearConfig,
-                          )}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </>
+        {/* Pioche, en DEUX sections (§6.1 du plan) : ce que l'utilisateur a écarté d'un côté,
+            ce que le moteur n'a pas su placer de l'autre. Un seul conteneur porte le ref du
+            Draggable — il cible `[data-task-id]`, donc les deux sections restent déposables. */}
+        {filteredPiocheEntries.length > 0 && (
+          <div ref={neutralizedContainerRef} className="flex flex-col gap-2">
+            {neutralisedEntries.length > 0 && (
+              <>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                    Neutralisés
+                  </p>
+                  <Badge variant="secondary">{neutralisedEntries.length}</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground italic">
+                  Écartés par vous — le moteur ne les a jamais reçus.
+                </p>
+                <div className="flex flex-col gap-2">{neutralisedEntries.map(renderPiocheEntry)}</div>
+              </>
+            )}
+
+            {engineEntries.length > 0 && (
+              <>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                    Non placés
+                  </p>
+                  <Badge variant="secondary">{engineEntries.length}</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground italic">
+                  Le moteur n'a pas pu les placer. Glissez un cours sur le calendrier pour le placer.
+                </p>
+                <div className="flex flex-col gap-2">{engineEntries.map(renderPiocheEntry)}</div>
+              </>
+            )}
+          </div>
         )}
       </aside>
 

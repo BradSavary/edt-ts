@@ -2,8 +2,37 @@
 
 ## STATUT
 
-Rédigé par Opus le 2026-09-17. **Non implémenté.** Origine : GEA 87 semaine 40, où 5 cours
-ressortent non placés avec un message identique et sans information exploitable.
+Rédigé par Opus le 2026-09-17. Origine : GEA 87 semaine 40, où 5 cours ressortent non placés avec
+un message identique et sans information exploitable.
+
+**§3 à §6 implémentés et §8.1–§8.4 exécutés, Opus, 2026-09-17.** §5.4 non implémenté — sans cible
+atteignable, analyse consignée au §5.4. §8.5 (passe manuelle) réservé à Frédéric, non fait.
+
+### Faits de validation (§8)
+
+- **§8.1** — client : 10 échecs, exactement les mêmes que `master` vérifié par worktree
+  (7 `SchedulerConfigDialog` + 3 `icalExport`), 581 passés contre 559 sur master.
+  `pytest` : 73 passés, 14 ignorés. `npm run typecheck --workspaces` propre.
+- **§8.3** — invariant de placement sur la S40 réelle : 190 placés / 5 non placés, **mêmes cinq
+  identifiants** (`103ds82, 175t5tu, 19zf4jd, m7ojoi, u66ifj`) avant et après, sur 3 runs de chaque
+  côté. En revanche l'« empreinte avant/après » que demandait ce paragraphe **n'est pas un critère
+  utilisable** : le hash du placement exact (créneaux + ressources) change à CHAQUE run, y compris
+  entre deux runs de `master` — c'est le non-déterminisme multi-thread connu du moteur. L'invariant
+  vérifiable est le nombre et l'identité des cours, pas leurs créneaux.
+- **§8.4** — `analyzeConstraints` sur les 195 cours de la S40 : 18,9 ms → 30,0 ms par recalcul,
+  soit **+11 ms** pour le niveau `impossible`. Mesuré dans Node/jsdom, **pas** dans un navigateur
+  avec re-render React.
+- **§4.6** — le `console.warn` d'héritage `Default` était émis **4732 fois par recalcul**. Dédupliqué
+  par instance dans `AvailabilityManager` comme ce paragraphe le prévoyait : 0 par recalcul, le
+  signal subsistant une fois par ressource.
+
+### Corrections faites pendant la validation
+
+- `unplacedFromEngine` posait `slug: undefined` quand le moteur n'en émet pas, ce qui ajoutait une
+  clé vide à un objet persisté par semaine. Clé désormais omise — c'est le test existant
+  « ne recopie que `reason` » qui l'a révélé, et son intention restait juste.
+- `test_solve.py::test_toy_cm_td_tp_contention_and_proven_optimal` assertait le texte du motif.
+  Assertion reportée sur `reasonSlug` (stable) plutôt que sur la phrase (de l'affichage).
 
 Branche dédiée : `feature/diagnostic-echec`. Jamais sur `master`.
 
@@ -255,6 +284,28 @@ Contrainte technique : impose `num_search_workers=1` sur cette passe. Acceptable
 qu'en cas d'échec, jamais sur le chemin nominal.
 
 **Découpable.** Si le chantier déborde, §5.4 saute sans rien casser du reste.
+
+#### NON IMPLÉMENTÉ — pas de cible atteignable en l'état (constat 2026-09-17)
+
+À l'implémentation, le §5.4 s'est révélé sans objet tel qu'il est spécifié :
+
+1. Seuls deux mécanismes forcent une tâche dans le modèle : `scheduled == 1` pour un imposé
+   (`cpsat_engine.py:717`) et le tout-ou-rien de groupe `scheduled[m] == scheduled[m0]`
+   (`cpsat_engine.py:842`). Tout le reste peut être abandonné par le solveur.
+2. Un MUS restreint aux **imposés seuls** serait toujours SAT : `_validate_enforced` lève déjà une
+   `EnforcedConflictError` — avec un message précis — sur toute paire d'imposés qui se chevauchent
+   en partageant une ressource. Le sous-modèle correspondant n'est jamais infaisable.
+3. La seule voie restante est donc le **groupe de tâches** : un membre imposé force à 1 tous les
+   autres membres, y compris des cours ordinaires, qui peuvent alors n'avoir aucun placement
+   valide. Couvrir ce cas suppose de reconstruire le modèle **entier** sous hypothèses — or
+   `solve()` le construit en ligne, sans fonction réutilisable : c'est un refactor du moteur, pas
+   un ajout de passe.
+
+Implémenter (2) seul produirait du code mort. La décision est donc de **ne pas** le faire, et de
+garder le §5.3 — qui, lui, rend déjà le cas `INFEASIBLE` lisible et actionnable.
+
+Rouvrir ce point le jour où un `INFEASIBLE` réel sera observé : il faudra alors commencer par
+extraire la construction du modèle de `solve()`.
 
 ### 5.5 Le niveau « contention » détaillé — hors périmètre initial
 

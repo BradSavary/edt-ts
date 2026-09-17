@@ -7,6 +7,7 @@ import {
   unplacedFromPreNeutralized,
   remainingDuration,
   selectPiocheEntries,
+  isUserChoice,
 } from '@/lib/calendar/unplaced';
 
 function neutralized(taskId: string, overrides: Partial<NeutralizedTaskInfoJSON> = {}): NeutralizedTaskInfoJSON {
@@ -150,5 +151,49 @@ describe('selectPiocheEntries', () => {
     );
     expect(result).toHaveLength(1);
     expect(result[0].entry.taskId).toBe('abc123');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §6 de docs/PlanDiagnosticEchec.md — la frontière entre les deux sections de la sidebar.
+//
+// Règle unique : ce que l'utilisateur a écarté n'est jamais un échec du moteur. Elle décide du
+// rangement ici, du compteur du message de statut et de `isComplete` — si ces trois endroits
+// divergent, l'incohérence se déplace au lieu de disparaître.
+// ---------------------------------------------------------------------------
+describe('isUserChoice — NEUTRALISÉS vs NON PLACÉS', () => {
+  it('user-pre : écarté avant le run', () => {
+    expect(isUserChoice({ taskId: 'a', origin: 'user-pre' })).toBe(true);
+  });
+
+  it('user-post : retiré du calendrier après un run', () => {
+    expect(isUserChoice({ taskId: 'a', origin: 'user-post' })).toBe(true);
+  });
+
+  it("engine : le moteur l'a reçu et n'a pas su le placer", () => {
+    expect(isUserChoice({
+      taskId: 'a', origin: 'engine',
+      diagnostics: { reason: 'évincé', slug: 'contention' },
+    })).toBe(false);
+  });
+
+  it('no-slot reste un échec du moteur : il a bien été soumis', () => {
+    expect(isUserChoice({
+      taskId: 'a', origin: 'engine',
+      diagnostics: { reason: 'aucun créneau', slug: 'no-slot' },
+    })).toBe(false);
+  });
+
+  // Le piège du §6.2 : une Autonomie revient avec `origin: 'engine'` alors qu'elle n'a JAMAIS été
+  // soumise. La ranger parmi les non placés déplacerait le mélange au lieu de le supprimer.
+  it("excluded-type : type hors périmètre, jamais soumis — donc un choix, malgré origin 'engine'", () => {
+    expect(isUserChoice({
+      taskId: 'a', origin: 'engine',
+      diagnostics: { reason: 'Type « Autonomie » exclu', slug: 'excluded-type' },
+    })).toBe(true);
+  });
+
+  it("un moteur antérieur n'émet pas de slug : reste un échec moteur", () => {
+    expect(isUserChoice({ taskId: 'a', origin: 'engine', diagnostics: { reason: 'évincé' } })).toBe(false);
   });
 });

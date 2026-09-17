@@ -63,7 +63,11 @@ def test_toy_cm_td_tp_contention_and_proven_optimal():
 
     neutralized = sol.get("neutralizedTasks", [])
     assert len(neutralized) == 1
-    assert neutralized[0]["reason"].startswith("Non plaçable")
+    # Assertion portée sur le slug — stable et destiné aux machines — plutôt que sur la phrase,
+    # qui est de l'affichage et a vocation à évoluer. Ici la tâche est bien plaçable en soi, seule
+    # la concurrence sur l'unique créneau de T2 l'évince : c'est `contention`, pas `no-slot`.
+    assert neutralized[0]["reasonSlug"] == "contention"
+    assert "Plaçable en soi" in neutralized[0]["reason"]
 
     # C1 (CM+TD) tient entièrement dans la dispo de T1 ; exactement l'un de C2/C3 est
     # évincé par contention sur l'unique créneau de T2.

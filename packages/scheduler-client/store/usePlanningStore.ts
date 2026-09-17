@@ -170,6 +170,14 @@ export interface PlanningStore extends BlockedZonesSlice, TaskGroupsSlice {
   groupDrawerOpen: boolean;
   toggleGroupDrawer: () => void;
 
+  /**
+   * Onglet actif de la sidebar de préparation. Dans le store plutôt qu'en état local parce que la
+   * popup d'alerte doit pouvoir y renvoyer (bouton « Voir dans Attention », §4.5 du plan) — sans
+   * ça, la popup devrait dupliquer le diagnostic qu'elle est justement censée déléguer.
+   */
+  preparationTab: 'code' | 'teacher' | 'constraint';
+  setPreparationTab: (tab: 'code' | 'teacher' | 'constraint') => void;
+
   // ── Actions ──────────────────────────────────────────────────────────────
 
   // Planification asynchrone
@@ -491,6 +499,9 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
   groupDrawerOpen: false,
   toggleGroupDrawer: () => set((s) => ({ groupDrawerOpen: !s.groupDrawerOpen })),
 
+  preparationTab: 'code',
+  setPreparationTab: (preparationTab) => set({ preparationTab }),
+
   runSchedule: async () => {
     // Nettoyage préventif : couper le polling et annuler tout job en cours (repris ou en attente).
     // Cela évite que "session expirée" n'apparaisse lors du premier poll après une reprise zombie.
@@ -652,12 +663,14 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
 
      // Si le moteur n'a placé aucune tâche, on reste en mode préparation
     if (!best || best.tasks.length === 0) {
-      const neutralizedCount = (best?.neutralizedTasks?.length ?? 0) + userPre.length;
-      const neutralizedMsg = neutralizedCount ? ` — ${neutralizedCount} cours neutralisé(s)` : '';
+      // Message construit par `buildScheduleStatus` — et non recompté ici — pour que les deux
+      // chemins disent la même chose (§6.3 du plan). L'ancien calcul local additionnait `userPre`
+      // aux échecs moteur, exactement le mélange que ce chantier supprime ailleurs.
+      const { message } = buildScheduleStatus({ solution: best ?? { isComplete: false, tasks: [] }, week });
       set({
         selectedWeek: week,
         isLoading: false,
-        status: { message: `❌ Aucune solution trouvée${neutralizedMsg}`, kind: 'err' },
+        status: { message, kind: 'err' },
         currentJobId: null,
         currentJobStatus: null,
         pendingJobResult: null,
@@ -961,6 +974,7 @@ function _normalizeJobResult(jobStatus: JobStatusResponse): { week: number; resu
           tasks: first.solutions,
           neutralizedTasks: first.neutralizedTasks,
           provenOptimal: first.provenOptimal,
+          noSolutionStatus: first.noSolutionStatus,
         }
       : { isComplete: false, tasks: [], neutralizedTasks: [] },
     week: jobStatus.week,

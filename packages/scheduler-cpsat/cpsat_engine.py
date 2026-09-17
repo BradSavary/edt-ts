@@ -390,6 +390,167 @@ def _candidate_resources(course: dict, rtype_of: dict[str, str]) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Diagnostic de faisabilité — §3 de docs/PlanDiagnosticEchec.md.
+#
+# Jumeau Python de `diagnoseCourseSlots` (scheduler-client/lib/courseFeasibilityAnalysis.ts).
+# Les deux implémentations sont verrouillées par la fixture docs/fixtures/feasibility-s40.json :
+# si elles divergent, un des deux tests casse. Toute modification ici doit être reportée là-bas.
+#
+# N'intervient JAMAIS dans la construction du modèle — uniquement dans la phase de rapport.
+# ---------------------------------------------------------------------------
+def _starts_of(windows, duration: int) -> set[int]:
+    """Débuts sur la grille de 30 min tels que [t, t+duration] tienne dans une fenêtre libre."""
+    out = set()
+    for s, e in windows:
+        t = -(-s // GRID_MINUTES) * GRID_MINUTES        # ceil vers le multiple supérieur
+        while t + duration <= e:
+            out.add(t)
+            t += GRID_MINUTES
+    return out
+
+
+def _subtract(windows, occupied):
+    """`windows` privé des intervalles `occupied` (liste de (start, end, ...))."""
+    out = []
+    for a, b in windows:
+        cur = a
+        for occ in sorted(o for o in occupied if o[0] < b and o[1] > a):
+            s, e = occ[0], occ[1]
+            if s > cur:
+                out.append((cur, min(s, b)))
+            cur = max(cur, e)
+        if cur < b:
+            out.append((cur, b))
+    return [(a, b) for a, b in out if b > a]
+
+
+def _enforced_occupancy(courses) -> dict:
+    """Occupation de chaque ressource par les cours IMPOSÉS : rid -> [(start, end, code, type)]."""
+    occ = defaultdict(list)
+    for c in courses:
+        e = c.get("enforced")
+        if not e:
+            continue
+        s, end = e["startTime"], e["startTime"] + c["duration"]
+        for rid in list(e["teacher"]) + list(e["groups"]) + list(e["rooms"]):
+            occ[rid].append((s, end, c.get("code", ""), c.get("type", "")))
+    return occ
+
+
+_DAY_NAMES = ("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche")
+
+
+def _fmt_slot(start: int, duration: int) -> str:
+    """« jeudi 08h30–12h30 » — minutes depuis lundi 00:00."""
+    day, off = start // 1440, start % 1440
+    end = off + duration
+    name = _DAY_NAMES[day] if day < len(_DAY_NAMES) else f"jour {day}"
+    return f"{name} {off // 60:02d}h{off % 60:02d}–{end // 60:02d}h{end % 60:02d}"
+
+
+def _explain_no_slot(diag: dict, duration: int) -> str:
+    """
+    Message d'un cours sans aucun créneau possible.
+
+    Trois formes, selon ce que la méthode des retraits individuels (§3.2) a pu établir — et la
+    troisième est la plus importante : quand aucune ressource ne suffit seule, on ne désigne
+    personne. Accuser la dernière ressource rencontrée serait une affirmation fausse.
+    """
+    if not diag["levers"]:
+        tight = sorted(diag["entries"], key=lambda e: e["slotCount"])[:3]
+        detail = ", ".join(f'{"|".join(e["ids"])} ({e["slotCount"]} créneau(x))' for e in tight)
+        return ("Aucun créneau possible dans l'état actuel, et aucune ressource ne suffit seule à "
+                f"débloquer le cours — les contraintes se cumulent. Les plus serrées : {detail}.")
+
+    parts = []
+    for lever in diag["levers"]:
+        ids = "|".join(lever["entry"]["ids"])
+        slots = ", ".join(_fmt_slot(t, duration) for t in lever["slots"][:3])
+        more = "…" if len(lever["slots"]) > 3 else ""
+        blockers = ", ".join(sorted({f'{b["code"]} {b["type"]} ({_fmt_slot(b["start"], b["end"] - b["start"])})'
+                                     for b in lever["blockedBy"]}))
+        piece = f"sans {ids}, le cours tiendrait : {slots}{more}"
+        if blockers:
+            piece += f" — mais {ids} y est occupé par le cours imposé {blockers}"
+        # §3.3.1 : sans cette mention, l'utilisateur va chercher une contrainte qui n'existe pas.
+        # La ressource est NOMMÉE dans la parenthèse : placée juste après le cours imposé, une
+        # mention anonyme se rattache visuellement à lui plutôt qu'à la ressource (remarque Frédéric).
+        if lever["entry"]["inheritsDefault"]:
+            piece += f" ({ids} n'a pas de contrainte spécifique, hérite des contraintes par Défaut)"
+        parts.append(piece)
+
+    # Majuscule sur la première partie : elle ouvre une phrase, après un point.
+    joined = " ; ".join(parts)
+    head = "Aucun créneau possible dans l'état actuel du calendrier. "
+    return head + joined[0].upper() + joined[1:] + "."
+
+
+def _diagnose_slots(course: dict, rwin, occupancy: dict, constrained_ids: set) -> dict:
+    """
+    Le cours tient-il quelque part, dans l'état courant du calendrier ?
+
+    Quand la réponse est non, la ressource « coupable » n'est PAS celle qui vide l'ensemble au fil
+    de l'intersection (résultat dépendant de l'ordre de parcours, donc arbitraire) : on refait le
+    calcul en retirant chaque entrée une par une, et on ne retient que celles dont le retrait rend
+    le cours plaçable (§3.2 du plan). Vérifié sur GEA 87 S40 : sur les 12 entrées du CM R3.01, une
+    seule ressort — AMPHI B — et c'est bien celle dont le déblocage fait remonter le résultat.
+
+    `rwin` porte déjà le carving de la pause méridienne sur les seuls GROUPES : ne pas le refaire
+    ici, et ne surtout pas l'étendre aux enseignants ou aux salles.
+    """
+    dur = course["duration"]
+    raw = []
+    for entries, kind in ((course.get("teacher", []), TEACHER),
+                          (course.get("groups", []), GROUP),
+                          (course.get("rooms", []), ROOM)):
+        for entry in entries:
+            raw.append((kind, list(entry) if isinstance(entry, list) else [entry]))
+
+    start_sets = []
+    for _kind, ids in raw:
+        s = set()
+        for rid in ids:
+            s |= _starts_of(_subtract(rwin(rid), occupancy.get(rid, [])), dur)
+        start_sets.append(s)
+
+    entries_json = [
+        {"kind": kind, "ids": ids,
+         "inheritsDefault": all(rid not in constrained_ids for rid in ids),
+         "slotCount": len(start_sets[i])}
+        for i, (kind, ids) in enumerate(raw)
+    ]
+
+    def inter(skip=None):
+        acc = None
+        for i, s in enumerate(start_sets):
+            if i == skip:
+                continue
+            acc = set(s) if acc is None else (acc & s)
+            if not acc:
+                break
+        return acc or set()
+
+    feasible = inter()
+    if feasible:
+        return {"feasible": True, "slotCount": len(feasible), "entries": entries_json, "levers": []}
+
+    levers = []
+    for skip in range(len(raw)):
+        without = inter(skip)
+        if not without:
+            continue
+        slots = sorted(without)
+        blocked = []
+        for rid in raw[skip][1]:
+            for s, e, code, typ in occupancy.get(rid, []):
+                if any(s < t + dur and e > t for t in slots):
+                    blocked.append({"resourceId": rid, "start": s, "end": e, "code": code, "type": typ})
+        levers.append({"entry": entries_json[skip], "slots": slots, "blockedBy": blocked})
+
+    return {"feasible": False, "slotCount": 0, "entries": entries_json, "levers": levers}
+
+
+# ---------------------------------------------------------------------------
 # Moteur.
 # ---------------------------------------------------------------------------
 def solve(raw: dict, config: dict | None = None) -> list[dict]:
@@ -650,8 +811,11 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
     # _determine_dependencies raisonne sur la liste `courses` compacte → indices locaux directs.
     # Désactivable globalement via respectCmTdTpOrder=False : le moteur retrouve alors toute
     # liberté de placement entre CM/TD/TP d'un même ensemble.
+    # Conservé au-delà de la construction du modèle : la phase de rapport s'en sert pour dire
+    # « ce cours tombe parce que son prérequis n'est pas placé » au lieu d'un motif générique.
+    dependency_pairs = _determine_dependencies([c for _, c in courses]) if respect_cm_td_tp_order else []
     if respect_cm_td_tp_order:
-        for dep, pre in _determine_dependencies([c for _, c in courses]):
+        for dep, pre in dependency_pairs:
             # Un dépendant ENFORCED est épinglé par l'utilisateur : son placement est autoritaire et
             # échappe à la chaîne auto-dérivée (fidèle à scheduler-core, où les enforced sont exclus de
             # la vérification de dépendance — _collectDependents / _backtrack). Sans cette exclusion, un
@@ -1189,17 +1353,53 @@ def solve(raw: dict, config: dict | None = None) -> list[dict]:
         else:
             dropped.append((gi, c))
 
+    # ── Qualification des non-placés (§5.1 du plan). Trois situations, trois gestes différents ;
+    #    l'ancien motif unique « contention/dépendance » ne tranchait même pas entre les deux.
+    #    Ne tourne que sur les cours non placés — 5 sur 195 dans le cas qui a motivé ce chantier.
+    occupancy = _enforced_occupancy(all_courses)
+    constrained_ids = {k for k in (constraints or {}) if k != "Default"}
+    dropped_local = {local[gi] for gi, _ in dropped}
+    prereqs_of = defaultdict(list)
+    for dep, pre in dependency_pairs:
+        prereqs_of[dep].append(pre)
+
     neutralized = []
     for gi, c in dropped:
-        neutralized.append(_neutralized(c, counters[gi], week, rtype_of, "cpsat-dropped",
-                                        "Non plaçable : évincée par contention/dépendance (optimum CP-SAT)."))
+        li = local[gi]
+
+        # 1. Infaisable en soi : aucun créneau ne convient, même sans concurrence des autres cours.
+        diag = _diagnose_slots(c, rwin, occupancy, constrained_ids)
+        if not diag["feasible"]:
+            neutralized.append(_neutralized(c, counters[gi], week, rtype_of, "no-slot",
+                                            _explain_no_slot(diag, c["duration"])))
+            continue
+
+        # 2. Entraîné : un prérequis CM→TD→TP est lui-même non placé. Le solveur n'avait pas le
+        #    droit de placer celui-ci sans l'autre (AddImplication), donc la cause est en amont.
+        blocking = [p for p in prereqs_of.get(li, []) if p in dropped_local]
+        if blocking:
+            pre = courses[blocking[0]][1]
+            neutralized.append(_neutralized(
+                c, counters[gi], week, rtype_of, "dependency",
+                f'Non placé parce que son prérequis {pre.get("code")} {pre.get("type")} ne l\'est pas.'))
+            continue
+
+        # 3. Reste la vraie éviction. On annonce le nombre de créneaux candidats — un fait mesuré —
+        #    sans prétendre dire lesquels : cela demanderait de rejouer un solve (§5.5, hors périmètre).
+        neutralized.append(_neutralized(
+            c, counters[gi], week, rtype_of, "contention",
+            f'Plaçable en soi ({diag["slotCount"]} créneau(x) candidat(s)), mais le placer en '
+            f'coûterait un autre : le moteur a préféré l\'inverse.'))
+
     for gi, c in excluded:
         neutralized.append(_neutralized(c, counters[gi], week, rtype_of, "excluded-type",
                                         f"Type « {c.get('type')} » exclu du moteur CP-SAT (pré-neutralisé)."))
 
     result = {
         "solutions": placed_solutions,
-        "isComplete": len(dropped) == 0 and len(excluded) == 0,
+        # Complet AU REGARD DES DONNÉES SOUMISES (décision Frédéric, §6.4) : un type exclu du
+        # moteur n'a jamais été soumis, il ne peut donc pas rendre le résultat incomplet.
+        "isComplete": len(dropped) == 0,
         "score": len(placed_solutions),
         "provenOptimal": placement_proven,
     }
@@ -1213,14 +1413,35 @@ def _neutralized(course, counter, week, rtype_of, reason_slug, reason):
         "task": _task_json(course, _task_id(course, counter), week, -1,
                            _candidate_resources(course, rtype_of)),
         "reason": reason,
+        # Le slug était calculé puis jeté : le client en a besoin pour décider du rangement entre
+        # NEUTRALISÉS et NON PLACÉS sans analyser une phrase (§5.2 de PlanDiagnosticEchec.md).
+        "reasonSlug": reason_slug,
     }
 
 
 def _empty_solution(all_courses, week, exclude_types, rtype_of, counters, status):
+    """
+    Aucune solution rendue. Deux situations OPPOSÉES que l'ancien message confondait (§5.3) :
+
+    - `INFEASIBLE` : contradiction PROUVÉE. Allonger le délai n'y changera rien — il faut relâcher
+      quelque chose. Seuls les cours imposés peuvent en être la cause : tous les autres portent un
+      `scheduled` librement à 0, le solveur peut donc toujours renoncer à les placer.
+    - `UNKNOWN` (ou toute autre issue) : budget épuisé avant d'avoir trouvé quoi que ce soit. Là,
+      un délai plus long peut suffire.
+    """
+    infeasible = status == cp_model.INFEASIBLE
+    if infeasible:
+        reason = ("Aucune solution : les contraintes sont contradictoires (prouvé). Seuls les cours "
+                  "imposés peuvent produire ce blocage — vérifiez leurs créneaux et leurs ressources.")
+    else:
+        reason = (f"Aucune solution trouvée dans le temps imparti "
+                  f"({cp_model.CpSolver().StatusName(status)}) : le moteur n'a pas prouvé qu'il n'y "
+                  f"en avait pas. Réessayez avec un délai plus long.")
     neutralized = [
-        _neutralized(c, counters[i], week, rtype_of, "no-solution",
-                     f"Aucune solution CP-SAT ({cp_model.CpSolver().StatusName(status)}).")
+        _neutralized(c, counters[i], week, rtype_of, "no-solution", reason)
         for i, c in enumerate(all_courses)
     ]
     return {"solutions": [], "isComplete": False, "score": 0,
-            "provenOptimal": False, "neutralizedTasks": neutralized}
+            "provenOptimal": False,
+            "noSolutionStatus": "infeasible" if infeasible else "unknown",
+            "neutralizedTasks": neutralized}

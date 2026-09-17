@@ -1,3 +1,5 @@
+import type { NeutralizedReasonSlug } from '@edt-ts/scheduler-common';
+
 // ── Types de session planning (non persistés) ──────────────────────────────
 
 /** Origine d'un placement — d'où vient la décision de poser cette tâche là. */
@@ -29,6 +31,15 @@ export interface Placement {
   derived?: true;
 }
 
+/**
+ * Un cours écarté du calendrier, avec la trace de QUI l'a écarté.
+ *
+ * Règle unique derrière tout le §6 du plan : **ce que l'utilisateur a écarté — avant le run,
+ * après le run, ou par type exclu du moteur — n'est jamais un échec du moteur.** Elle vaut pour
+ * les sections de la sidebar, le compteur du message de statut et `isComplete`. Si ces trois
+ * endroits divergent, l'incohérence se déplace au lieu de disparaître.
+ */
+
 /** Origine d'un non-placement — qui a décidé, et à quel moment. */
 export type UnplacedOrigin =
   | 'user-pre'   // exclue par l'utilisateur AVANT planification : jamais envoyée au moteur
@@ -41,9 +52,10 @@ export interface Unplaced {
   origin: UnplacedOrigin;
   /**
    * Diagnostics du moteur. Présents si et seulement si `origin === 'engine'`.
-   * Limités à ce que l'API produit réellement : CP-SAT n'émet que `reason`.
+   * `slug` qualifie le motif sans analyser la phrase — il décide notamment du rangement entre
+   * NEUTRALISÉS et NON PLACÉS (§6.2 de docs/PlanDiagnosticEchec.md). Absent d'un moteur ancien.
    */
-  diagnostics?: { reason: string };
+  diagnostics?: { reason: string; slug?: NeutralizedReasonSlug };
 }
 
 // ── Persistance de semaine (localStorage) ──────────────────────────────────

@@ -132,10 +132,31 @@ export interface TaskSolutionJSON {
  * Tâche que le moteur n'a pas pu placer. `reason` est le seul diagnostic produit : les compteurs
  * d'élimination et d'échec du moteur maison ont disparu avec lui (voir `docs/archive/`).
  */
+/**
+ * Motif machine du non-placement. Le texte de `reason` reste la source d'affichage ; ce slug
+ * existe pour les décisions que le client doit prendre sans analyser une phrase :
+ *
+ * - `excluded-type` : type hors périmètre du moteur (ex. `Autonomie`). La tâche n'a JAMAIS été
+ *   soumise — elle relève des NEUTRALISÉS, pas des non placés, et ne compte ni dans
+ *   `isComplete` ni dans le compteur du message de statut (§6 de docs/PlanDiagnosticEchec.md).
+ * - `no-slot` : aucun créneau ne convient, même sans concurrence des autres cours à placer.
+ * - `dependency` : un prérequis CM→TD→TP n'est pas placé, ce cours tombe avec lui.
+ * - `contention` : plaçable en soi, mais évincé par l'optimisation.
+ * - `no-solution` : le solveur n'a rendu aucune solution (voir `NoSolutionStatus`).
+ */
+export type NeutralizedReasonSlug =
+  | 'excluded-type'
+  | 'no-slot'
+  | 'dependency'
+  | 'contention'
+  | 'no-solution';
+
 export interface NeutralizedTaskInfoJSON {
   task: TaskSolutionJSON;
   reason: string;
   taskGroupId?: string;
+  /** Optionnel : un moteur plus ancien n'en émet pas. Absent ⇒ traiter comme `contention`. */
+  reasonSlug?: NeutralizedReasonSlug;
 }
 
 export interface ScheduleSolutionJSON {
@@ -148,7 +169,16 @@ export interface ScheduleSolutionJSON {
    * épuisé sous les limites, aucune solution plaçant plus de tâches n'est atteignable).
    */
   provenOptimal?: boolean;
+  /**
+   * Renseigné uniquement quand `solutions` est vide. Distingue deux situations opposées que
+   * l'ancien message confondait (§5.3 du plan) : `infeasible` = contradiction PROUVÉE, augmenter
+   * le budget n'y changera rien ; `unknown` = budget épuisé avant d'avoir trouvé quoi que ce soit,
+   * là un délai plus long peut suffire.
+   */
+  noSolutionStatus?: NoSolutionStatus;
 }
+
+export type NoSolutionStatus = 'infeasible' | 'unknown';
 
 // --------------------------------------------------------------------------
 // Types pour le système de jobs asynchrones

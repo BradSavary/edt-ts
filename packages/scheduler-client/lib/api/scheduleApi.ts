@@ -1,4 +1,4 @@
-import type { RawScheduleData, TaskSolutionJSON, NeutralizedTaskInfoJSON, EnforcedData, ConstraintsData, SchedulerConfig, TaskGroupDeclaration, JobSubmitResponse, JobStatusResponse } from '@edt-ts/scheduler-common';
+import type { RawScheduleData, TaskSolutionJSON, NeutralizedTaskInfoJSON, NoSolutionStatus, EnforcedData, ConstraintsData, SchedulerConfig, TaskGroupDeclaration, JobSubmitResponse, JobStatusResponse } from '@edt-ts/scheduler-common';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
 import type { ResourceGroupDataWithStatus } from '@/lib/csvMerge';
 import { resolveMaxDailyMinutes } from '@/lib/maxDailyResolution';
@@ -15,6 +15,8 @@ export interface NormalizedSolution {
   neutralizedTasks?: NeutralizedTaskInfoJSON[];
   /** `true` si CP-SAT a prouvé l'optimum du nombre de cours placés (voir ScheduleSolutionJSON.provenOptimal). */
   provenOptimal?: boolean;
+  /** Renseigné uniquement quand aucune tâche n'est placée — voir `ScheduleSolutionJSON`. */
+  noSolutionStatus?: NoSolutionStatus;
 }
 
 export interface ScheduleResult {
@@ -94,16 +96,30 @@ export interface ScheduleStatus {
  */
 export function buildScheduleStatus(result: ScheduleResult): ScheduleStatus {
   const best = result.solution;
+
+  // Les types hors périmètre du moteur (`Autonomie`) reviennent dans `neutralizedTasks` alors
+  // qu'ils n'ont jamais été soumis : ils ne sont pas un échec du moteur et ne doivent donc pas
+  // être comptés ici. Sans ce filtre, `isComplete` passé à `true` au §6.4 produirait la phrase
+  // contradictoire « ✅ Planification complète — 3 cours non placé(s) ».
+  const engineFailures = (best?.neutralizedTasks ?? []).filter((n) => n.reasonSlug !== 'excluded-type');
+
    if (!best || best.tasks.length === 0) {
-    const neutralized = best?.neutralizedTasks?.length ?? 0;
-    const neutralizedMsg = neutralized ? ` — ${neutralized} cours neutralisé(s)` : '';
+    const neutralizedMsg = engineFailures.length ? ` — ${engineFailures.length} cours neutralisé(s)` : '';
+    // Deux situations opposées que l'ancien texte confondait (§5.3) : une contradiction prouvée
+    // ne se résout pas en attendant plus longtemps, un budget épuisé peut-être si.
+    const causeMsg =
+      best?.noSolutionStatus === 'infeasible'
+        ? ' — contraintes contradictoires : aucun emploi du temps ne peut les satisfaire'
+        : best?.noSolutionStatus === 'unknown'
+          ? ' — temps de calcul épuisé avant la première solution : réessayez avec un délai plus long'
+          : '';
     return {
-      message: `❌ Aucune solution trouvée${neutralizedMsg}`,
+      message: `❌ Aucune solution trouvée${neutralizedMsg}${causeMsg}`,
       kind: 'err',
     };
   }
-  const neutralizedMsg = best.neutralizedTasks?.length
-    ? ` — ${best.neutralizedTasks.length} cours non placé(s)` : '';
+  const neutralizedMsg = engineFailures.length
+    ? ` — ${engineFailures.length} cours non placé(s)` : '';
   const provenMsg = !best.isComplete && best.provenOptimal
     ? ' — optimum prouvé : le moteur ne placera pas plus sans relâchement de contraintes'
     : '';

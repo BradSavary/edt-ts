@@ -9,6 +9,8 @@ import { useSidebarCourseDrag } from '@/hooks/useSidebarCourseDrag';
 import CourseGroupList, { type GroupBy } from '@/components/planning/courses/CourseGroupList';
 import CourseConstraintList from '@/components/planning/courses/CourseConstraintList';
 import { analyzeConstraints } from '@/lib/taskConstraintAnalysis';
+import { buildEnforcedOccupancy, lunchFromConfig, type FeasibilityContext } from '@/lib/courseFeasibilityAnalysis';
+import { useAppConfigStore } from '@/store/useAppConfigStore';
 import { SchedulerConfigDialog } from '@/components/planning/modals/SchedulerConfigDialog';
 import { WeekNoteDialog } from '@/components/planning/modals/WeekNoteDialog';
 import TaskEditModal, { type TaskEditUpdate } from '@/components/planning/modals/TaskEditModal';
@@ -50,14 +52,41 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
   const tightThreshold = useProjectStore((s) => s.tightThreshold);
   const criticalThreshold = useProjectStore((s) => s.criticalThreshold);
   const schoolYearConfig = useProjectStore((s) => s.schoolYearConfig);
+  const constraints = useProjectStore((s) => s.constraints);
+  const schedulerConfig = useAppConfigStore((s) => s.schedulerConfig);
 
   type SidebarTab = GroupBy | 'constraint';
-  const [groupBy, setGroupBy] = useState<SidebarTab>('code');
+  // Onglet dans le store : la popup d'alerte doit pouvoir l'ouvrir (§4.5 du plan).
+  const groupBy = usePlanningStore((s) => s.preparationTab) as SidebarTab;
+  const setGroupBy = usePlanningStore((s) => s.setPreparationTab);
+
+  /**
+   * Contexte du niveau `impossible`. Il dépend de `enforcedMap` : contrairement au `fillRatio`,
+   * le verdict change à chaque glisser-déposer d'une imposition — c'est voulu (§4.6 du plan).
+   */
+  const feasibilityContext = useMemo<FeasibilityContext | undefined>(() => {
+    if (!availabilityManager || selectedWeek === null) return undefined;
+    const courseById = new Map(parsedCourses.map((c) => [c.id, c]));
+    return {
+      am: availabilityManager,
+      weekNumber: selectedWeek,
+      groupIds: new Set(
+        resources.filter((g) => g.resourceType === 'group').flatMap((g) => g.resources.map((r) => r.id)),
+      ),
+      lunch: lunchFromConfig(schedulerConfig.lunchBreak),
+      occupancy: buildEnforcedOccupancy(enforcedMap, courseById),
+      constrainedIds: new Set(Object.keys(constraints ?? {}).filter((k) => k !== 'Default')),
+    };
+  }, [availabilityManager, selectedWeek, parsedCourses, resources, schedulerConfig.lunchBreak, enforcedMap, constraints]);
 
   const constraintAnalysis = useMemo(() => {
     if (!availabilityManager || selectedWeek === null || parsedCourses.length === 0) return null;
-    return analyzeConstraints(parsedCourses, availabilityManager, selectedWeek, blockedZones, schoolYearConfig, tightThreshold, criticalThreshold);
-  }, [parsedCourses, availabilityManager, selectedWeek, blockedZones, schoolYearConfig, tightThreshold, criticalThreshold]);
+    return analyzeConstraints(
+      parsedCourses, availabilityManager, selectedWeek, blockedZones, schoolYearConfig,
+      tightThreshold, criticalThreshold,
+      feasibilityContext, new Set(Object.keys(enforcedMap)),
+    );
+  }, [parsedCourses, availabilityManager, selectedWeek, blockedZones, schoolYearConfig, tightThreshold, criticalThreshold, feasibilityContext, enforcedMap]);
   const [cardContainer, setCardContainer] = useState<HTMLDivElement | null>(null);
   const cardContainerRef = useCallback((node: HTMLDivElement | null) => setCardContainer(node), []);
 
@@ -216,8 +245,12 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
               <TabsTrigger value="code" className="flex-1 text-[11px]">Par code</TabsTrigger>
               <TabsTrigger value="teacher" className="flex-1 text-[11px]">Par enseignant</TabsTrigger>
               <TabsTrigger value="constraint" className="flex-1 text-[11px] relative">
-                Contraintes
-                {(constraintAnalysis?.hasOverload || constraintAnalysis?.taskInfos.some(t => t.level === 'critical')) && (
+                Attention
+                {/* ⛔ prime sur ⚠ : le badge de tension était DÉJÀ allumé sur les semaines chargées,
+                    il n'aurait donc rien signalé de neuf pour un blocage certain (§4.4 du plan). */}
+                {constraintAnalysis?.hasImpossible ? (
+                  <span className="absolute -top-1 -right-0.5 text-[9px] text-red-600 font-bold" title="Un ou plusieurs cours ne peuvent être placés nulle part">⛔</span>
+                ) : (constraintAnalysis?.hasOverload || constraintAnalysis?.taskInfos.some(t => t.level === 'critical')) && (
                   <span className="absolute -top-1 -right-0.5 text-[9px] text-orange-500 font-bold" title="Une ou plusieurs tâches sont très contraintes">⚠</span>
                 )}
               </TabsTrigger>
@@ -227,7 +260,6 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
             {groupBy === 'constraint' ? (
               constraintAnalysis ? (
                 <>
-                  <p className="text-[10px] text-muted-foreground italic px-1 pb-1">Seulement basée sur les disponibilités des enseignants</p>
                   <CourseConstraintList
                     taskInfos={constraintAnalysis.taskInfos}
                     enforcedMap={enforcedMap}

@@ -2,16 +2,35 @@ import type { CourseTaskData, ResourceEntry } from '@edt-ts/scheduler-common';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
 import { Availability, AvailabilityManager } from '@edt-ts/scheduler-common';
 import type { BlockedZone } from '@/lib/calendar/blockedZones';
+import {
+  diagnoseCourseSlots,
+  explainNoSlot,
+  type CourseSlotDiagnosis,
+  type FeasibilityContext,
+} from '@/lib/courseFeasibilityAnalysis';
 import { getMondayOfISOWeek } from '@/lib/calendar/calendarUtils';
 import { resolveCalendarYear, type SchoolYearConfig } from '@/lib/schoolHolidays';
 
-export type ConstraintLevel = 'critical' | 'tight' | 'ok';
+/**
+ * Niveaux de l'onglet « Attention », du plus grave au plus bénin.
+ *
+ * `impossible` ne se mesure PAS sur la même échelle que les trois autres : `critical`/`tight`/`ok`
+ * viennent d'un ratio de volume déclaratif (demande de l'enseignant / dispo conjointe), alors que
+ * `impossible` est un verdict exact sur les créneaux réellement libres, imposés déduits. Un cours
+ * peut donc être `impossible` **et** faiblement chargé — c'est même le cas courant, puisque
+ * l'infaisabilité vient d'un croisement que le ratio ne regarde pas. Sur GEA 87 S40, le seul cours
+ * infaisable de la semaine ressortait `tight` à 65 %, au milieu de 79 autres.
+ * `impossible` prime donc toujours : le cours n'apparaît qu'une fois, en tête.
+ */
+export type ConstraintLevel = 'impossible' | 'critical' | 'tight' | 'ok';
 
 export interface TaskConstraintInfo {
   courseKey: string;
   course: CourseTaskDataWithId;
   level: ConstraintLevel;
   reasons: string[];
+  /** Détail du verdict `impossible` — absent pour les autres niveaux. */
+  slotDiagnosis?: CourseSlotDiagnosis;
   /** Maximum fill ratio across all teacher entries of this task (demande / dispo conjointe) */
   fillRatio: number;
 }
@@ -26,6 +45,11 @@ export interface ConstraintAnalysisResult {
   taskInfos: TaskConstraintInfo[];
   overloadedResources: ResourceOverload[];
   hasOverload: boolean;
+  /**
+   * Au moins un cours infaisable. Distinct de `hasOverload` à dessein : le badge de l'onglet était
+   * DÉJÀ allumé sur GEA 87 S40 par 79 cours « tendu », il n'aurait donc rien signalé de neuf.
+   */
+  hasImpossible: boolean;
 }
 
 function formatMinutes(minutes: number): string {
@@ -61,6 +85,16 @@ export function analyzeConstraints(
   schoolYearConfig: SchoolYearConfig | null = null,
   tightThreshold = 0.5,
   criticalThreshold = 1.0,
+  /**
+   * Contexte du niveau `impossible` (§4.1 du plan). Absent ⇒ analyse de tension seule, exactement
+   * comme avant ce chantier — l'appelant qui n'a pas de semaine sélectionnée reste servi.
+   */
+  feasibility?: FeasibilityContext,
+  /**
+   * Cours imposés, exclus du verdict `impossible` : un imposé ignore disponibilités et plafonds,
+   * il est sous la responsabilité de l'utilisateur. Même exclusion que la popup existante.
+   */
+  enforcedIds?: Set<string>,
 ): ConstraintAnalysisResult {
 
   const mondayMs = blockedZones.length > 0
@@ -177,6 +211,20 @@ export function analyzeConstraints(
       }
     }
 
+    // `impossible` est évalué en dernier mais prime sur tout : un verdict exact l'emporte sur une
+    // estimation de volume. Les `reasons` de tension sont remplacées, pas complétées — les afficher
+    // ensemble noierait la seule ligne actionnable sous des pourcentages sans rapport.
+    if (feasibility && enforcedIds?.has(courseKey) !== true) {
+      const slotDiagnosis = diagnoseCourseSlots(course, feasibility);
+      if (!slotDiagnosis.feasible) {
+        return {
+          courseKey, course, level: 'impossible' as ConstraintLevel,
+          reasons: [explainNoSlot(slotDiagnosis, course.duration)],
+          fillRatio: maxFillRatio, slotDiagnosis,
+        };
+      }
+    }
+
     return { courseKey, course, level, reasons, fillRatio: maxFillRatio };
   });
 
@@ -185,6 +233,7 @@ export function analyzeConstraints(
     taskInfos,
     overloadedResources,
     hasOverload: overloadedResources.length > 0 || taskInfos.some(t => t.level === 'critical'),
+    hasImpossible: taskInfos.some(t => t.level === 'impossible'),
   };
 }
 

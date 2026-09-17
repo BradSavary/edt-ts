@@ -10,8 +10,24 @@ export function unplacedFromEngine(neutralized: NeutralizedTaskInfoJSON[]): Unpl
   return neutralized.map((n) => ({
     taskId: n.task.taskId,
     origin: 'engine',
-    diagnostics: { reason: n.reason },
+    // `slug` omis plutôt que posé à `undefined` : `Unplaced` est persisté par semaine, et une
+    // clé vide y resterait indéfiniment. Un moteur antérieur à ce chantier n'en émet pas.
+    diagnostics: { reason: n.reason, ...(n.reasonSlug ? { slug: n.reasonSlug } : {}) },
   }));
+}
+
+/**
+ * Ce non-placement relève-t-il d'un choix de l'utilisateur plutôt que d'un échec du moteur ?
+ *
+ * Règle unique du §6 de docs/PlanDiagnosticEchec.md, appliquée partout où la distinction compte
+ * (sections de la sidebar, compteur du message de statut, `isComplete`). Trois cas la satisfont :
+ * l'exclusion avant le run, le retrait après le run, et **le type hors périmètre du moteur** —
+ * une `Autonomie` revient dans `neutralizedTasks` avec `origin: 'engine'` alors qu'elle n'a jamais
+ * été soumise. La ranger parmi les non placés déplacerait le mélange au lieu de le supprimer.
+ */
+export function isUserChoice(entry: Unplaced): boolean {
+  if (entry.origin === 'user-pre' || entry.origin === 'user-post') return true;
+  return entry.diagnostics?.slug === 'excluded-type';
 }
 
 /** Cours exclus par l'utilisateur avant planification — jamais envoyés au moteur. */

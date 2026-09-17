@@ -26,5 +26,5 @@ export { SolutionAnalysis } from './solutionAnalysis.ts';
 export type { DispersionStats } from './solutionAnalysis.ts';
 
 // --- Types de données ---
-export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, ResourceEntry, ResourceData, ResourceGroupData, RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON, NeutralizedTaskInfoJSON, EnforcedData, SchedulerConfig, LunchBreakConfig, LunchBreakNone, LunchBreakFixed, LunchBreakFloating, TaskGroupDeclaration, JobStatus, JobSubmitResponse, JobStatusResponse } from './types.ts';
+export type { TimeSlot, ResourceConstraints, ConstraintsData, CourseTaskData, CoursesData, ResourceEntry, ResourceData, ResourceGroupData, RawScheduleData, TaskSolutionJSON, ScheduleSolutionJSON, NeutralizedTaskInfoJSON, NeutralizedReasonSlug, NoSolutionStatus, EnforcedData, SchedulerConfig, LunchBreakConfig, LunchBreakNone, LunchBreakFixed, LunchBreakFloating, TaskGroupDeclaration, JobStatus, JobSubmitResponse, JobStatusResponse } from './types.ts';
 export { DEFAULT_SCHEDULER_CONFIG } from './types.ts';

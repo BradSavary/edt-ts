@@ -39,6 +39,61 @@ describe('buildScheduleStatus', () => {
     expect(status.message).not.toMatch(/\d+ solution\(s\)/);
   });
 
+  // §6.4 — un type exclu du moteur n'a jamais été soumis : il ne rend pas le résultat incomplet
+  // et ne se compte pas. Les deux assertions vont ensemble : `isComplete` seul produirait la
+  // phrase contradictoire « ✅ Planification complète — 1 cours non placé(s) ».
+  it("type exclu du moteur : résultat complet ET compteur muet", () => {
+    const status = buildScheduleStatus(makeResult({
+      isComplete: true,
+      tasks: [{ taskId: 't1', code: 'R101', name: 'Cours', type: 'CM', week: 44, duration: 60, startTime: 0, resources: [] }],
+      neutralizedTasks: [
+        {
+          task: { taskId: 't2', code: 'A1', name: 'Autonomie', type: 'Autonomie', week: 44, duration: 60, startTime: -1, resources: [] },
+          reason: 'Type « Autonomie » exclu du moteur CP-SAT (pré-neutralisé).',
+          reasonSlug: 'excluded-type',
+        },
+      ],
+    }));
+    expect(status.kind).toBe('ok');
+    expect(status.message).toContain('Planification complète');
+    expect(status.message).not.toContain('cours non placé(s)');
+  });
+
+  it('un type exclu ne masque pas un vrai échec moteur présent à côté', () => {
+    const status = buildScheduleStatus(makeResult({
+      isComplete: false,
+      tasks: [{ taskId: 't1', code: 'R101', name: 'Cours', type: 'CM', week: 44, duration: 60, startTime: 0, resources: [] }],
+      neutralizedTasks: [
+        {
+          task: { taskId: 't2', code: 'A1', name: 'Autonomie', type: 'Autonomie', week: 44, duration: 60, startTime: -1, resources: [] },
+          reason: 'exclu', reasonSlug: 'excluded-type',
+        },
+        {
+          task: { taskId: 't3', code: 'R103', name: 'Cours 3', type: 'TD', week: 44, duration: 60, startTime: -1, resources: [] },
+          reason: 'évincé', reasonSlug: 'contention',
+        },
+      ],
+    }));
+    expect(status.message).toContain('1 cours non placé(s)');
+  });
+
+  // §5.3 — deux situations opposées, longtemps confondues dans un même texte.
+  it('INFEASIBLE : dit que les contraintes se contredisent, sans suggérer d\'attendre', () => {
+    const status = buildScheduleStatus(makeResult({
+      isComplete: false, tasks: [], noSolutionStatus: 'infeasible',
+    }));
+    expect(status.message).toContain('contradictoires');
+    expect(status.message).not.toContain('délai plus long');
+  });
+
+  it("UNKNOWN : dit que le budget est épuisé et qu'un délai plus long peut suffire", () => {
+    const status = buildScheduleStatus(makeResult({
+      isComplete: false, tasks: [], noSolutionStatus: 'unknown',
+    }));
+    expect(status.message).toContain('délai plus long');
+    expect(status.message).not.toContain('contradictoires');
+  });
+
   it('tasks: [] → branche "Aucune solution trouvée"', () => {
     const status = buildScheduleStatus(makeResult({ isComplete: false, tasks: [] }));
     expect(status.kind).toBe('err');

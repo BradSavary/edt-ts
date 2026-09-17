@@ -12,6 +12,8 @@ export class AvailabilityManager {
   private readonly constraintsData: ConstraintsData;
   private readonly availabilities = new Map<string, Availability>();
   private readonly weeklyOverrides = new Map<string, Map<number, Availability>>();
+  /** Ressources déjà signalées comme absentes des contraintes — voir `getAvailability`. */
+  private readonly warnedMissing = new Set<string>();
 
   constructor(data: ConstraintsData) {
     this.constraintsData = data;
@@ -152,7 +154,13 @@ export class AvailabilityManager {
       return specific;
     }
 
-    console.warn(`⚠️  Ressource '${resourceId}' non trouvée dans les contraintes - utilisation des contraintes Default`);
+    // Dédupliqué par instance : `getAvailability` est appelé en boucle par les analyses du client
+    // (4732 fois par recalcul sur GEA 87 S40, mesuré), et un avertissement par appel rendait la
+    // console inutilisable. Le signal reste — une fois par ressource, ce qui suffit à alerter.
+    if (!this.warnedMissing.has(resourceId)) {
+      this.warnedMissing.add(resourceId);
+      console.warn(`⚠️  Ressource '${resourceId}' non trouvée dans les contraintes - utilisation des contraintes Default`);
+    }
     
     const defaultSlots = this.constraintsData.Default || [];
     return this._createFromSlots(defaultSlots);

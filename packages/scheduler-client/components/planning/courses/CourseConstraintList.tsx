@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 import type { CourseTaskData, EnforcedData, ResourceGroupData } from '@edt-ts/scheduler-common';
 import { AvailabilityManager } from '@edt-ts/scheduler-common';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
@@ -12,10 +14,24 @@ import { buildPreparationLoadRows } from '@/lib/resourceLoadAnalysis';
 import type { TaskConstraintInfo, ConstraintLevel } from '@/lib/taskConstraintAnalysis';
 
 const LEVEL_CONFIG: Record<ConstraintLevel, { label: string; className: string }> = {
+  impossible: { label: '⛔ Impossible', className: 'text-red-700 dark:text-red-300 font-bold' },
   critical: { label: '🔴 Critique', className: 'text-red-600 dark:text-red-400' },
   tight: { label: '🟠 Tendu', className: 'text-orange-500 dark:text-orange-400' },
   ok: { label: '🟢 OK', className: 'text-green-600 dark:text-green-400' },
 };
+
+/**
+ * Légende par niveau : les deux échelles cohabitant dans la liste ne mesurent pas la même chose,
+ * une phrase globale mentirait sur la moitié des cours (§4.3 du plan).
+ */
+const LEVEL_HINT: Partial<Record<ConstraintLevel, string>> = {
+  impossible: 'Aucun créneau ne convient, imposés déjà posés déduits. Verdict exact — et contextuel : il change si vous déplacez une imposition.',
+  critical: 'Estimation de volume, basée sur les seules disponibilités des enseignants.',
+  tight: 'Estimation de volume, basée sur les seules disponibilités des enseignants.',
+};
+
+/** Seule la section `ok` est repliée par défaut — sinon « Attention » coifferait surtout des cours sans problème. */
+const COLLAPSED_BY_DEFAULT: ConstraintLevel[] = ['ok'];
 
 interface Props {
   taskInfos: TaskConstraintInfo[];
@@ -41,7 +57,8 @@ export default function CourseConstraintList({
   onDeleteCourse,
   loadAnalysisContext,
 }: Props) {
-  const levels: ConstraintLevel[] = ['critical', 'tight', 'ok'];
+  const levels: ConstraintLevel[] = ['impossible', 'critical', 'tight', 'ok'];
+  const [collapsed, setCollapsed] = useState<Set<ConstraintLevel>>(new Set(COLLAPSED_BY_DEFAULT));
   const groups = levels
     .map(level => ({
       level,
@@ -58,10 +75,22 @@ export default function CourseConstraintList({
     <div className="flex flex-col gap-1">
       {groups.map(({ level, items }) => (
         <div key={level} className="flex flex-col gap-1">
-          <p className={`text-xs font-semibold px-1 mt-1 ${LEVEL_CONFIG[level].className}`}>
+          <button
+            type="button"
+            onClick={() => setCollapsed((prev) => {
+              const next = new Set(prev);
+              if (next.has(level)) next.delete(level); else next.add(level);
+              return next;
+            })}
+            className={`text-xs font-semibold px-1 mt-1 text-left flex items-center gap-1 ${LEVEL_CONFIG[level].className}`}
+          >
+            <span className="inline-block w-2 text-muted-foreground">{collapsed.has(level) ? '▸' : '▾'}</span>
             {LEVEL_CONFIG[level].label} ({items.length})
-          </p>
-          {items.map(({ courseKey, course, reasons }) => (
+          </button>
+          {!collapsed.has(level) && LEVEL_HINT[level] && (
+            <p className="text-[10px] text-muted-foreground italic px-1">{LEVEL_HINT[level]}</p>
+          )}
+          {!collapsed.has(level) && items.map(({ courseKey, course, reasons }) => (
             <div key={courseKey} className="relative">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -86,6 +115,14 @@ export default function CourseConstraintList({
                   </TooltipContent>
                 )}
               </Tooltip>
+              {/* Un cours infaisable porte la seule ligne réellement actionnable de l'écran : elle
+                  doit se lire sans survoler. Les niveaux de tension restent en tooltip — ce sont
+                  des pourcentages, pas des consignes. */}
+              {level === 'impossible' && reasons.length > 0 && (
+                <p className="text-[11px] text-red-700 dark:text-red-300 px-2 pb-1 leading-snug">
+                  {reasons.join(' ')}
+                </p>
+              )}
               {loadAnalysisContext && (
                 <div className="absolute top-1 right-1">
                   <ResourceLoadPopover
