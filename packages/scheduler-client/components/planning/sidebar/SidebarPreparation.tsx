@@ -244,7 +244,17 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
             <TabsList className="w-full">
               <TabsTrigger value="code" className="flex-1 text-[11px]">Par code</TabsTrigger>
               <TabsTrigger value="teacher" className="flex-1 text-[11px]">Par enseignant</TabsTrigger>
-              <TabsTrigger value="constraint" className="flex-1 text-[11px] relative">
+              <TabsTrigger value="constraint" className="flex-1 text-[11px] relative overflow-hidden">
+                {/* Lavis rouge qui s'estompe : remplace l'ancien popup bloquant au changement de
+                    semaine par un signal discret. `key` sur la semaine pour relancer le fondu à
+                    chaque changement, y compris d'une semaine à l'autre déjà en alerte. */}
+                {constraintAnalysis?.hasImpossible && (
+                  <span
+                    key={`attention-flash-${selectedWeek}`}
+                    className="absolute inset-0 -z-10 animate-attention-fade rounded-sm"
+                    aria-hidden="true"
+                  />
+                )}
                 Attention
                 {/* ⛔ prime sur ⚠ : le badge de tension était DÉJÀ allumé sur les semaines chargées,
                     il n'aurait donc rien signalé de neuf pour un blocage certain (§4.4 du plan). */}

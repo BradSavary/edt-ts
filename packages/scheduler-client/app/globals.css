@@ -132,3 +132,13 @@ body {
   }
 
 }
+
+/* Attention (onglet préparation) : lavis rouge qui s'estompe au changement de semaine, pour
+   remplacer le popup bloquant par un signal discret — jamais gênant si l'on change vite de semaine. */
+@keyframes attention-fade {
+  from { background-color: rgba(220, 38, 38, 0.45); }
+  to { background-color: transparent; }
+}
+.animate-attention-fade {
+  animation: attention-fade 2.5s ease-out forwards;
+}

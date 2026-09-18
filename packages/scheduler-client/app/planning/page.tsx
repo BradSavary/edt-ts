@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect } from 'react';
 import type { CourseTaskDataWithId } from '@/lib/courseId';
 import { getCoursesForWeek } from '@/lib/weekCourses';
 import { useProjectStore } from '@/store/useProjectStore';
-import { useAppConfigStore } from '@/store/useAppConfigStore';
 import { usePlanningStore } from '@/store/usePlanningStore';
 import { SidebarLeft } from '@/components/planning/sidebar/SidebarLeft';
 import { GroupDrawer } from '@/components/planning/courses/GroupDrawer';
@@ -24,29 +23,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { StatisticsDialog } from '@/components/planning/modals/StatisticsDialog';
-import { UnschedulableCoursesDialog } from '@/components/planning/modals/UnschedulableCoursesDialog';
-import {
-  getCourseUnschedulableReasons,
-  diagnoseCourseSlots,
-  explainNoSlot,
-  buildEnforcedOccupancy,
-  lunchFromConfig,
-  type FeasibilityContext,
-} from '@/lib/courseFeasibilityAnalysis';
 
 export default function PlanningPage() {
   // ── Stores ──────────────────────────────────────────────────────────────
   const allCourses = useProjectStore((s) => s.allCourses);
   const weekSaves = useProjectStore((s) => s.weekSaves);
   const resources = useProjectStore((s) => s.resources);
-  const constraints = useProjectStore((s) => s.constraints);
-  const schedulerConfig = useAppConfigStore((s) => s.schedulerConfig);
-  const availabilityManager = useProjectStore((s) => s.availabilityManager);
 
   const selectedWeek = usePlanningStore((s) => s.selectedWeek);
   const setSelectedWeek = usePlanningStore((s) => s.setSelectedWeek);
-  const enforcedMap = usePlanningStore((s) => s.enforcedMap);
-  const setPreparationTab = usePlanningStore((s) => s.setPreparationTab);
   // `lastRun` (persisté) plutôt que `scheduleResult` (session uniquement) : la présence des
   // actions solution ("↺ Réinitialiser", Statistiques) doit survivre au rechargement (§4.6).
   const lastRun = usePlanningStore((s) => s.lastRun);
@@ -69,7 +54,6 @@ export default function PlanningPage() {
   // ── État local ──────────────────────────────────────────────────────────
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [statsDialogOpen, setStatsDialogOpen] = useState(false);
-  const [unschedulableDialogOpen, setUnschedulableDialogOpen] = useState(false);
   // Déménagé tel quel depuis SidebarPreparation (§3.1 du plan) : la barre d'outils permanente
   // remplace la sidebar comme seul point d'entrée du sélecteur de semaine.
   const [weekInput, setWeekInput] = useState<string>(selectedWeek !== null ? String(selectedWeek) : '');
@@ -100,55 +84,6 @@ export default function PlanningPage() {
     () => new Map(parsedCourses.map((c) => [c.id, c])),
     [parsedCourses],
   );
-
-  // ── Cours structurellement impossibles à placer (ressource sans disponibilité suffisante) ───
-  // Un cours imposé ignore les disponibilités : exclu via `enforcedMap`.
-  const unschedulableCourses = useMemo(() => {
-    if (!availabilityManager || selectedWeek === null) return [];
-
-    // Niveau 2 (§3 du plan) : le croisement de TOUTES les ressources, imposés déduits. C'est lui
-    // qui capte les cours que le niveau 1 laisse passer — chaque ressource prise isolément a bien
-    // la place, c'est leur intersection qui est vide.
-    const courseById = new Map(parsedCourses.map((c) => [c.id, c]));
-    const feasibility: FeasibilityContext = {
-      am: availabilityManager,
-      weekNumber: selectedWeek,
-      groupIds: new Set(
-        resources.filter((g) => g.resourceType === 'group').flatMap((g) => g.resources.map((r) => r.id)),
-      ),
-      lunch: lunchFromConfig(schedulerConfig.lunchBreak),
-      occupancy: buildEnforcedOccupancy(enforcedMap, courseById),
-      constrainedIds: new Set(Object.keys(constraints ?? {}).filter((k) => k !== 'Default')),
-    };
-
-    return parsedCourses
-      .filter((c) => enforcedMap[c.id] === undefined)
-      .map((course) => {
-        const reasons = getCourseUnschedulableReasons(course, availabilityManager, selectedWeek);
-        const diagnosis = diagnoseCourseSlots(course, feasibility);
-        if (!diagnosis.feasible) {
-          reasons.push({
-            resourceKind: 'room',
-            resourceIds: diagnosis.levers.flatMap((l) => l.entry.ids),
-            kind: 'no-slot',
-            message: explainNoSlot(diagnosis, course.duration),
-          });
-        }
-        return { course, reasons };
-      })
-      .filter((entry) => entry.reasons.length > 0);
-  }, [parsedCourses, availabilityManager, selectedWeek, enforcedMap, resources, constraints, schedulerConfig.lunchBreak]);
-
-  // ── Popup d'alerte à chaque changement de semaine tant qu'un problème subsiste sur celle-ci ──
-  // Dépendance volontairement limitée à `selectedWeek` : `unschedulableCourses` dépend lui aussi
-  // de `selectedWeek` (via `parsedCourses`), donc il est déjà à jour au moment du render — l'effet
-  // ne doit se déclencher qu'au changement de semaine, jamais après une simple édition de cours.
-  useEffect(() => {
-    if (selectedWeek !== null && unschedulableCourses.length > 0) {
-      setUnschedulableDialogOpen(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWeek]);
 
   // ── Placements filtrés (recherche) ───────────────────────────────────────
   const filteredPlacements = useMemo(
@@ -272,13 +207,6 @@ export default function PlanningPage() {
         onOpenChange={setStatsDialogOpen}
         activeSolution={statisticsSolution}
         resources={resources}
-      />
-      {/* Popup d'alerte : cours de la semaine impossibles à placer */}
-      <UnschedulableCoursesDialog
-        open={unschedulableDialogOpen}
-        onOpenChange={setUnschedulableDialogOpen}
-        items={unschedulableCourses}
-        onOpenAttention={() => setPreparationTab('constraint')}
       />
       {/* Dialog de réinitialisation de la solution */}
       <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
