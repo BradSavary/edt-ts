@@ -32,10 +32,15 @@ let usePlanningStore: typeof import('../store/usePlanningStore').usePlanningStor
 let useProjectStore: typeof import('../store/useProjectStore').useProjectStore;
 
 /** Cours Autonomie requérant `groups`, `duration` minutes, semaine 1. */
-function autonomyCourse(id: string, duration: number, groups: string[] = ['G1']): CourseTaskDataWithId {
+function autonomyCourse(
+  id: string,
+  duration: number,
+  groups: string[] = ['G1'],
+  rooms: CourseTaskDataWithId['rooms'] = [],
+): CourseTaskDataWithId {
   return {
     id, source: 'csv', week: 1, semester: 1, level: 1, code: 'R1.01', name: 'Autonomie', type: 'Autonomie',
-    teacher: [], groups, rooms: [], duration,
+    teacher: [], groups, rooms, duration,
   };
 }
 
@@ -51,12 +56,18 @@ function placedTask(placementId: string, overrides: Partial<Placement> = {}): Pl
   };
 }
 
-/** Semaine 1 : G1/G2 disponibles lundi 08:00-12:00 (240 min), rien d'autre. */
-function seedPlanning(courses: CourseTaskDataWithId[], unplaced: Unplaced[], placed: Placement[] = []): void {
+/** Semaine 1 : G1/G2 (et, si fournies, des salles) disponibles lundi 08:00-12:00 (240 min). */
+function seedPlanning(
+  courses: CourseTaskDataWithId[],
+  unplaced: Unplaced[],
+  placed: Placement[] = [],
+  roomAvailability: Record<string, { days: string; from: string; to: string }[]> = {},
+): void {
   const availabilityManager = new AvailabilityManager({
     Default: [],
     G1: [{ days: 'lundi', from: '08:00', to: '12:00' }],
     G2: [{ days: 'lundi', from: '08:00', to: '12:00' }],
+    ...roomAvailability,
   });
   useProjectStore.setState({ availabilityManager, schoolYearConfig: null, allCourses: courses, weekSaves: {} });
   usePlanningStore.setState({
@@ -139,6 +150,41 @@ describe('distributeAutonomy (câblage store)', () => {
     expect(p2.startTime).toBe(10 * 60);
     // Aucun recouvrement
     expect(p2.startTime).toBeGreaterThanOrEqual(p1.startTime + (p1.duration ?? 0));
+  });
+
+  it('salles proposées : évite la première si déjà occupée par un placement existant, retient une alternative libre', () => {
+    seedPlanning(
+      [autonomyCourse('auto-1', 120, ['G1'], [['A101', 'A102']])],
+      [{ taskId: 'auto-1', origin: 'engine' }],
+      // A101 déjà occupée 08:00-12:00 par un autre placement (aucun rapport avec G1).
+      [placedTask('occ-A101', { startTime: 8 * 60, duration: 240, resources: { teachers: [], groups: [], rooms: ['A101'] } })],
+      {
+        A101: [{ days: 'lundi', from: '08:00', to: '12:00' }],
+        A102: [{ days: 'lundi', from: '08:00', to: '12:00' }],
+      },
+    );
+
+    usePlanningStore.getState().distributeAutonomy('auto-1');
+
+    const piece = usePlanningStore.getState().placements.find((p) => p.taskId === 'auto-1')!;
+    // Avant le correctif, la salle retenue était systématiquement la première alternative
+    // (A101) sans vérifier ni sa disponibilité, ni les placements déjà présents.
+    expect(piece.resources.rooms).toEqual(['A102']);
+    expect(piece.startTime).toBe(8 * 60);
+    expect(piece.duration).toBe(120);
+  });
+
+  it('salles proposées : aucune libre au créneau étudiant → rien n\'est placé (pas de salle forcée)', () => {
+    seedPlanning(
+      [autonomyCourse('auto-1', 120, ['G1'], [['A101']])],
+      [{ taskId: 'auto-1', origin: 'engine' }],
+      [placedTask('occ-A101', { startTime: 8 * 60, duration: 240, resources: { teachers: [], groups: [], rooms: ['A101'] } })],
+      { A101: [{ days: 'lundi', from: '08:00', to: '12:00' }] },
+    );
+
+    usePlanningStore.getState().distributeAutonomy('auto-1');
+
+    expect(usePlanningStore.getState().placements.some((p) => p.taskId === 'auto-1')).toBe(false);
   });
 
   it('ne fait rien si le cours introuvable ou pas de type Autonomie', () => {

@@ -76,6 +76,7 @@ describe('computeAutonomyDistribution', () => {
     });
     const result = computeAutonomyDistribution({
       groupIds: ['G1'],
+      roomIds: [],
       week: 1,
       availabilityManager: manager,
       blockedZonesMinutes: [],
@@ -103,6 +104,7 @@ describe('computeAutonomyDistribution', () => {
     });
     const result = computeAutonomyDistribution({
       groupIds: ['G1', 'G2'],
+      roomIds: [],
       week: 1,
       availabilityManager: manager,
       blockedZonesMinutes: [],
@@ -125,6 +127,7 @@ describe('computeAutonomyDistribution', () => {
     expect(AUTONOMY_MIN_SLOT_MINUTES).toBe(60);
     const result = computeAutonomyDistribution({
       groupIds: ['G1'],
+      roomIds: [],
       week: 1,
       availabilityManager: manager,
       blockedZonesMinutes: [],
@@ -141,10 +144,11 @@ describe('computeAutonomyDistribution', () => {
     });
     const result = computeAutonomyDistribution({
       groupIds: ['G1'],
+      roomIds: [],
       week: 1,
       availabilityManager: manager,
       blockedZonesMinutes: [],
-      occupancy: [{ startTime: 8 * 60, duration: 60, groups: ['G1'] }], // 08:00-09:00 occupé
+      occupancy: [{ startTime: 8 * 60, duration: 60, groups: ['G1'], rooms: [] }], // 08:00-09:00 occupé
       totalDuration: 1000,
     });
     // Reste seulement 09:00-12:00 (180min)
@@ -161,6 +165,7 @@ describe('computeAutonomyDistribution', () => {
     });
     const result = computeAutonomyDistribution({
       groupIds: ['G1'],
+      roomIds: [],
       week: 1,
       availabilityManager: manager,
       // Bloque toute la journée de mardi
@@ -176,6 +181,7 @@ describe('computeAutonomyDistribution', () => {
     const manager = makeManager({ Default: [] });
     const result = computeAutonomyDistribution({
       groupIds: [],
+      roomIds: [],
       week: 1,
       availabilityManager: manager,
       blockedZonesMinutes: [],
@@ -192,12 +198,138 @@ describe('computeAutonomyDistribution', () => {
     });
     const result = computeAutonomyDistribution({
       groupIds: ['G1'],
+      roomIds: [],
       week: 1,
       availabilityManager: manager,
       blockedZonesMinutes: [],
-      occupancy: [{ startTime: 8 * 60, duration: 60, groups: ['G2'] }], // sans rapport
+      occupancy: [{ startTime: 8 * 60, duration: 60, groups: ['G2'], rooms: [] }], // sans rapport
       totalDuration: 1000,
     });
     expect(result.pieces).toEqual([{ startTime: 8 * 60, duration: 240 }]);
+  });
+
+  describe('salles proposées', () => {
+    it('aucune salle proposée → les conflits de salle sont ignorés (comportement d\'origine)', () => {
+      const manager = makeManager({
+        Default: [],
+        G1: [{ days: 'lundi', from: '08:00', to: '12:00' }],
+      });
+      const result = computeAutonomyDistribution({
+        groupIds: ['G1'],
+        roomIds: [],
+        week: 1,
+        availabilityManager: manager,
+        blockedZonesMinutes: [],
+        // Occupe TOUTE la plage en salle, mais roomIds=[] doit rendre ceci sans effet.
+        occupancy: [{ startTime: 8 * 60, duration: 240, groups: [], rooms: ['A101'] }],
+        totalDuration: 240,
+      });
+      expect(result.pieces).toEqual([{ startTime: 8 * 60, duration: 240 }]);
+      expect(result.remainingDuration).toBe(0);
+    });
+
+    it('une salle proposée occupée exclut le créneau : rien à placer', () => {
+      const manager = makeManager({
+        Default: [],
+        G1: [{ days: 'lundi', from: '08:00', to: '12:00' }],
+        A101: [{ days: 'lundi', from: '08:00', to: '12:00' }],
+      });
+      const result = computeAutonomyDistribution({
+        groupIds: ['G1'],
+        roomIds: ['A101'],
+        week: 1,
+        availabilityManager: manager,
+        blockedZonesMinutes: [],
+        occupancy: [{ startTime: 8 * 60, duration: 240, groups: [], rooms: ['A101'] }],
+        totalDuration: 240,
+      });
+      expect(result.pieces).toEqual([]);
+      expect(result.remainingDuration).toBe(240);
+    });
+
+    it('salle indisponible dans le référentiel de disponibilité (jamais déclarée) → aucun créneau', () => {
+      const manager = makeManager({
+        Default: [],
+        G1: [{ days: 'lundi', from: '08:00', to: '12:00' }],
+        // A101 n'a AUCUNE plage déclarée nulle part (ni Default ni override) → indisponible.
+      });
+      const result = computeAutonomyDistribution({
+        groupIds: ['G1'],
+        roomIds: ['A101'],
+        week: 1,
+        availabilityManager: manager,
+        blockedZonesMinutes: [],
+        occupancy: [],
+        totalDuration: 240,
+      });
+      expect(result.pieces).toEqual([]);
+      expect(result.remainingDuration).toBe(240);
+    });
+
+    it('première salle occupée mais une alternative libre au même moment → l\'alternative est retenue', () => {
+      const manager = makeManager({
+        Default: [],
+        G1: [{ days: 'lundi', from: '08:00', to: '12:00' }],
+        A101: [{ days: 'lundi', from: '08:00', to: '12:00' }],
+        A102: [{ days: 'lundi', from: '08:00', to: '12:00' }],
+      });
+      const result = computeAutonomyDistribution({
+        groupIds: ['G1'],
+        roomIds: ['A101', 'A102'], // A101 = 1ère alternative, occupée ; A102 libre
+        week: 1,
+        availabilityManager: manager,
+        blockedZonesMinutes: [],
+        occupancy: [{ startTime: 8 * 60, duration: 240, groups: [], rooms: ['A101'] }],
+        totalDuration: 240,
+      });
+      expect(result.pieces).toEqual([{ startTime: 8 * 60, duration: 240, roomId: 'A102' }]);
+      expect(result.remainingDuration).toBe(0);
+    });
+
+    it('les créneaux de deux salles ne se chevauchent jamais dans le résultat (découpe, pas de double comptage)', () => {
+      const manager = makeManager({
+        Default: [],
+        G1: [{ days: 'lundi', from: '08:00', to: '12:00' }],
+        A101: [{ days: 'lundi', from: '08:00', to: '12:00' }], // libre toute la matinée
+        A102: [{ days: 'lundi', from: '08:00', to: '12:00' }], // libre toute la matinée aussi
+      });
+      const result = computeAutonomyDistribution({
+        groupIds: ['G1'],
+        roomIds: ['A101', 'A102'],
+        week: 1,
+        availabilityManager: manager,
+        blockedZonesMinutes: [],
+        occupancy: [],
+        totalDuration: 240,
+      });
+      // Une seule pièce de 240min (pas 480 : les deux salles libres au même moment ne doublent
+      // pas la capacité disponible), rattachée à la première salle candidate.
+      expect(result.pieces).toEqual([{ startTime: 8 * 60, duration: 240, roomId: 'A101' }]);
+      expect(result.remainingDuration).toBe(0);
+    });
+
+    it('salles avec fenêtres asymétriques : bascule de salle en cours de semaine sans perte ni double comptage', () => {
+      const manager = makeManager({
+        Default: [],
+        G1: [{ days: 'lundi', from: '08:00', to: '12:00' }],
+        A101: [{ days: 'lundi', from: '08:00', to: '09:00' }], // libre seulement 1h
+        A102: [{ days: 'lundi', from: '08:00', to: '12:00' }], // libre toute la matinée
+      });
+      const result = computeAutonomyDistribution({
+        groupIds: ['G1'],
+        roomIds: ['A101', 'A102'],
+        week: 1,
+        availabilityManager: manager,
+        blockedZonesMinutes: [],
+        occupancy: [],
+        totalDuration: 240,
+      });
+      // 08:00-09:00 (A101) + 09:00-12:00 (A102) = 240min au total, sans recouvrement.
+      expect(result.pieces).toEqual([
+        { startTime: 8 * 60, duration: 60, roomId: 'A101' },
+        { startTime: 9 * 60, duration: 180, roomId: 'A102' },
+      ]);
+      expect(result.remainingDuration).toBe(0);
+    });
   });
 });

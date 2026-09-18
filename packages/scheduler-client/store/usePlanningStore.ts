@@ -817,7 +817,10 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
     // placement : pas d'alternatives à résoudre, premier alternatif = seul possible.
     const teachers = course.teacher.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e]));
     const groups = course.groups.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e]));
-    const rooms = course.rooms.flatMap((e) => (Array.isArray(e) ? [e[0]] : [e]));
+    // Les salles, elles, ont de vraies alternatives en pratique (c'est le sujet de la
+    // fonctionnalité « salles proposées ») : on les passe TOUTES à computeAutonomyDistribution,
+    // qui choisit — pour chaque morceau — celle qui est réellement libre (voir son commentaire).
+    const roomIds = [...new Set(course.rooms.flatMap((e) => (Array.isArray(e) ? e : [e])))];
 
     const monday = getMondayOfISOWeek(selectedWeek, resolveCalendarYear(schoolYearConfig, selectedWeek));
 
@@ -829,6 +832,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       startTime: p.startTime,
       duration: p.duration ?? courseById.get(p.taskId)?.duration ?? 0,
       groups: p.resources.groups,
+      rooms: p.resources.rooms,
     }));
 
     const blockedZonesMinutes = blockedZones
@@ -837,6 +841,7 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
 
     const result = computeAutonomyDistribution({
       groupIds: groups,
+      roomIds,
       week: selectedWeek,
       availabilityManager,
       blockedZonesMinutes,
@@ -854,7 +859,9 @@ export const usePlanningStore = create<PlanningStore>()((...a) => {
       taskId,
       startTime: p.startTime,
       duration: p.duration,
-      resources: { teachers, groups, rooms },
+      // `p.roomId` : salle réellement libre retenue pour CE morceau (absente si aucune salle
+      // n'était proposée pour l'Autonomie — cf. computeAutonomyDistribution).
+      resources: { teachers, groups, rooms: p.roomId ? [p.roomId] : [] },
       origin: 'post-enforced',
     }));
 
