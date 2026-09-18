@@ -108,8 +108,8 @@ function buildVEvent(task: TaskSolutionJSON, monday: Date, dtstamp: string): str
   const rooms = task.resources.filter((r) => r.type === 'room').map((r) => r.id);
   const groups = task.resources.filter((r) => r.type === 'group').map((r) => r.id);
 
-  // SUMMARY : "R1.01 TD Dupont, BUT1-G1.BUT1-G2"
-  const summaryParts: string[] = [task.code, task.type];
+  // SUMMARY : "R1.01 Algorithmique TD Dupont, BUT1-G1.BUT1-G2"
+  const summaryParts: string[] = [task.code, task.name, task.type];
   if (teachers.length) summaryParts.push(teachers[0] + (groups.length ? ',' : ''));
   if (groups.length) summaryParts.push(groups.join('.'));
   const summary = summaryParts.join(' ');
@@ -117,6 +117,7 @@ function buildVEvent(task: TaskSolutionJSON, monday: Date, dtstamp: string): str
   // DESCRIPTION : texte multi-lignes escapé
   const descLines: string[] = [
     `Code: ${task.code}`,
+    `Nom: ${task.name}`,
     `Durée: ${task.duration} minutes`,
     teachers.length ? `Enseignant(s): ${teachers.join(', ')}` : '',
     rooms.length ? `Salle(s): ${rooms.join(', ')}` : '',

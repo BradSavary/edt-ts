@@ -40,6 +40,11 @@ describe('generateWeeklyGridPdf', () => {
     expect(doc.output()).toContain('R101 CM');
   });
 
+  it('inclut le nom du cours', () => {
+    const doc = generateWeeklyGridPdf([makeTask()], 'titre');
+    expect(doc.output()).toContain('Algorithmique');
+  });
+
   it("inclut le nom de l'enseignant", () => {
     const doc = generateWeeklyGridPdf([makeTask()], 'titre');
     expect(doc.output()).toContain('DUPONT Jean');

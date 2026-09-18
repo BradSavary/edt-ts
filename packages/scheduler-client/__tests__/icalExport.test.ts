@@ -54,9 +54,9 @@ describe('generateIcalContent', () => {
       expect(veventCount).toBe(2);
     });
 
-    it('le SUMMARY contient le code et le type du cours', () => {
+    it('le SUMMARY contient le code, le nom et le type du cours', () => {
       const content = generateIcalContent([makeTask()], 47);
-      expect(content).toContain('SUMMARY:R101 CM');
+      expect(content).toContain('SUMMARY:R101 Algorithmique CM');
     });
 
     it('le DTSTART correspond à lundi 08:00 de la semaine 47 2025', () => {
@@ -119,9 +119,17 @@ describe('generateIcalContent', () => {
   });
 
   describe('DESCRIPTION', () => {
+    it('inclut le nom du cours', () => {
+      const content = generateIcalContent([makeTask()], 47);
+      expect(content).toContain('Nom: Algorithmique');
+    });
+
     it('inclut le commentaire du cours quand il est présent', () => {
       const content = generateIcalContent([makeTask({ comment: 'Prévoir vidéoprojecteur' })], 47);
-      expect(content).toContain('Commentaire: Prévoir vidéoprojecteur');
+      // Déplie les lignes de continuation RFC 5545 : la ligne DESCRIPTION peut être repliée
+      // en plein milieu du commentaire selon la longueur des champs qui la précèdent.
+      const unfolded = content.replace(/\r\n /g, '');
+      expect(unfolded).toContain('Commentaire: Prévoir vidéoprojecteur');
     });
 
     it('ne contient pas la ligne "Commentaire" quand le cours n\'a pas de commentaire', () => {

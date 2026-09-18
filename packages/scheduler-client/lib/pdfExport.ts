@@ -106,6 +106,7 @@ export function generateWeeklyGridPdf(tasks: TaskSolutionJSON[], title: string):
     const groups = task.resources.filter((r) => r.type === 'group').map((r) => r.id);
     const lines = [
       `${task.code} ${task.type}`,
+      task.name,
       teachers.join(', '),
       rooms.join(', '),
       groups.join(', '),
