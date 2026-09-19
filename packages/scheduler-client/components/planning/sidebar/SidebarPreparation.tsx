@@ -244,14 +244,17 @@ export function SidebarPreparation({ parsedCourses }: SidebarPreparationProps) {
             <TabsList className="w-full">
               <TabsTrigger value="code" className="flex-1 text-[11px]">Par code</TabsTrigger>
               <TabsTrigger value="teacher" className="flex-1 text-[11px]">Par enseignant</TabsTrigger>
-              <TabsTrigger value="constraint" className="flex-1 text-[11px] relative overflow-hidden">
+              <TabsTrigger value="constraint" className="flex-1 text-[11px] relative">
                 {/* Lavis rouge qui s'estompe : remplace l'ancien popup bloquant au changement de
                     semaine par un signal discret. `key` sur la semaine pour relancer le fondu à
-                    chaque changement, y compris d'une semaine à l'autre déjà en alerte. */}
+                    chaque changement, y compris d'une semaine à l'autre déjà en alerte.
+                    `rounded-[inherit]` (pas `overflow-hidden` sur le trigger) : ça épouse le
+                    coin arrondi du bouton sans rogner le badge ⛔/⚠, volontairement à cheval
+                    sur le coin (-top-1 -right-0.5). */}
                 {constraintAnalysis?.hasImpossible && (
                   <span
                     key={`attention-flash-${selectedWeek}`}
-                    className="absolute inset-0 -z-10 animate-attention-fade rounded-sm"
+                    className="absolute inset-0 -z-10 animate-attention-fade rounded-[inherit]"
                     aria-hidden="true"
                   />
                 )}
