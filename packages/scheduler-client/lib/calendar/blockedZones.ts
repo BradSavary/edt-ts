@@ -239,9 +239,16 @@ export function computeConstraintUnavailableZones(
     for (const resourceId of resourceIds) {
       const avail = availabilityManager.getAvailability(resourceId, weekNumber);
 
-      // Si aucun créneau n'est défini pour cette ressource (contrainte absente ou Default non défini),
+      // Si aucune contrainte n'est définie pour cette ressource (repli sur Default),
       // on considère qu'elle est entièrement disponible → aucune indisponibilité à afficher.
-      if (!avail || avail.getAvailableIntervals().length === 0) continue;
+      if (!avail) continue;
+
+      // Une Availability présente mais vide (ex: override hebdomadaire sans aucun créneau)
+      // signifie que la ressource est indisponible sur toute la journée, pas l'inverse.
+      if (avail.getAvailableIntervals().length === 0) {
+        allUnavailable.push({ from: DAY_START_MIN, to: DAY_END_MIN });
+        continue;
+      }
 
       // Plages disponibles ce jour, clampées à [DAY_START_MIN, DAY_END_MIN] (relatif au jour)
       const available: { from: number; to: number }[] = [];
