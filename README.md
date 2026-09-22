@@ -1,3 +1,7 @@
+Ce Projet est une version public d'une application de création d'emploi du temps réalisée dans le cadre d'un stage à l'IUT du Limousin.
+
+---
+
 # EDT-TS Monorepo
 
 Monorepo TypeScript pour la planification d'emploi du temps.
